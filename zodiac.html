@@ -27,14 +27,14 @@
     <style>
         .container {
             display: flex; 
-            gap: 0.25rem; 
+            gap: 0.5rem; 
             padding: 0.5rem;
         }
 
         .sidebar {
             display: flex; 
             flex-direction: column; 
-            gap: 0.25rem;
+            gap: 0.5rem;
         }
 
         h3, ol {
@@ -55,12 +55,7 @@
             border-radius: 0.125rem;
         }
 
-        .textarea-field {
-            margin-top: 0.125rem;
-        }
-
         .generate-button {
-            margin-top: 0.125rem; 
             background-color: #3b82f6; 
             color: white; 
             padding: 0.125rem; 
@@ -73,9 +68,51 @@
             margin-right:auto; 
             width: 32rem;
         }
+        
         @media (max-width: 768px) {
             .container {
                 flex-direction: column;
+            }
+        }
+        /* Light theme styles */
+        @media (prefers-color-scheme: light) {
+            body {
+                background-color: #ffffff;
+                color: #0a0a0a;
+            }
+
+            .link {
+                color: #3b82f6;
+            }
+
+            .generate-button {
+                background-color: #3b82f6; 
+                color: white;
+            }
+
+            .input-field, .textarea-field {
+                border: 1px solid #000000;
+            }
+        }
+
+        /* Dark theme styles */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #000000;
+                color: #e4e4e4;
+            }
+
+            .link {
+                color: #3b82f6;
+            }
+
+            .generate-button {
+                background-color: #3b82f6; 
+                color: white;
+            }
+
+            .input-field, .textarea-field {
+                border: 1px solid #ffffff;
             }
         }
     </style>
