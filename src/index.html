@@ -4,26 +4,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../dist/output.css">
+    <link rel="stylesheet" href="style.css">
     <title>Document</title>
 </head>
 
 <body>
-    <div class="flex gap-2">
-        <div class="flex flex-col gap-2">
-            <h3 class="m-0">How to use:</h3>
-            <ol class="m-0">
-                <li>Get an API key here: <a href="https://makersuite.google.com/app/apikey">Google AI Suite</a> </li>
+    <div style="display: flex; gap: 0.25rem; padding: 0.5rem;">
+        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+            <h3 style="margin: 0;">How to use:</h3>
+            <ol style="margin-top:0">
+                <li>Get an API key here: <a href="https://makersuite.google.com/app/apikey" style="color: #3b82f6;">Google AI Suite</a> </li>
                 <li>Paste it below</li>
-                <li>Input a prompt in the <b>textarea</b></li>
-                <li>Click on <b>generate</b></li>
+                <li>Input a prompt in the <b style="font-weight: bold;">textarea</b></li>
+                <li>Click on <b style="font-weight: bold;">generate</b></li>
             </ol>
-            <input type="text" placeholder="Paste API key here" id="apiKeyInput"></input>
-            <textarea placeholder="Prompt goes here" id="inputText" class="mt-2"></textarea>
-            <button id="generate" class="mt-2">Generate</button>
+            <input type="text" placeholder="Paste API key here" id="apiKeyInput" style="border: 1px solid; padding: 0.125rem; border-radius: 0.125rem;"></input>
+            <textarea placeholder="Prompt goes here" id="inputText" style="margin-top: 0.125rem; padding: 0.125rem; border: 1px solid; border-radius: 0.125rem;"></textarea>
+            <button id="generate" style="margin-top: 0.125rem; background-color: #3b82f6; color: white; padding: 0.125rem; border-radius: 0.125rem;">Generate</button>
         </div>
-        <div id="resultText" class="whitespace-pre-line mx-auto w-80">Result will be here</div>
+        <div id="resultText" style="white-space: pre-line; margin-left: auto; margin-right:auto; width: 32rem; ">Result will be here</div>
     </div>
+
 
     <script type="importmap">
       {
