@@ -102,7 +102,6 @@
 
         .result-text {
             padding: 2rem;
-            white-space: pre-line;
             margin-left: auto;
             margin-right: auto;
             width: 32rem;
@@ -194,6 +193,7 @@
     </script>
 
     <script type="module">
+        import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
         import { GoogleGenerativeAI } from "@google/generative-ai";
         import { HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 
@@ -242,6 +242,8 @@
                 const chunkText = chunk.text();
                 resultText.innerHTML += chunkText;
             }
+            
+            resultText.innerHTML = marked.parse(resultText.innerHTML);
         }
 
         // Call the run function when the generate button is clicked
