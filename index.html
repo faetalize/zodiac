@@ -1,0 +1,93 @@
+<html>
+
+<body>
+    <div style="display: flex; gap: 0.5rem;">
+        <div style="display: flex; flex-direction:  column; gap: 0.5rem;"> 
+            <h3 style="margin: 0;">How to use:</h3>
+            <ol style="margin: 0;">
+                <li>Get an API key here: <a href="https://makersuite.google.com/app/apikey">Google AI Suite</a> </li> 
+                <li>Paste it below</li>
+                <li>Input a prompt in the <b>textarea</b></li>
+                <li>Click on <b>generate</b></li>
+            </ol>
+            <input type="text" placeholder="Paste API key here" id="apiKeyInput"></input>
+            <textarea placeholder="Prompt goes here"id="inputText"></textarea>
+            <button id="generate">Generate</button>
+        </div>
+        <div id="resultText" style="white-space: pre-line; margin-left:auto; margin-right: auto; width: 32rem;">Result will be here</div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run/@google/generative-ai"
+        }
+      }
+    </script>
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+        import { HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
+
+       
+
+        // ...
+        const inputText = document.querySelector("#inputText");
+        const resultText = document.querySelector("#resultText");
+
+        const safetySettings = [
+
+            {
+                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                threshold: HarmBlockThreshold.BLOCK_NONE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold: HarmBlockThreshold.BLOCK_NONE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                threshold: HarmBlockThreshold.BLOCK_NONE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold: HarmBlockThreshold.BLOCK_NONE,
+            }
+        ];
+        const generationConfig = {
+            maxOutputTokens: 16000,
+            temperature: 0.9
+        };
+
+
+
+        async function run() {
+
+            resultText.innerHTML = '';
+
+             // Access your API key (see "Set up your API key" above)
+             
+            const API_KEY = document.querySelector("#apiKeyInput");
+            const genAI = new GoogleGenerativeAI(API_KEY.value);
+
+            // For text-only input, use the gemini-pro model
+            const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig, safetySettings });
+
+            const prompt = inputText.value;
+
+            const result = await model.generateContentStream(prompt);
+
+            for await (const chunk of result.stream) {
+                const chunkText = chunk.text();
+                resultText.innerHTML += chunkText;
+            }
+        }
+
+        // Call the run function when the generate button is clicked
+        const generateButton = document.querySelector("#generate");
+        generateButton.addEventListener("click", run);
+
+        // ...
+    </script>
+</body>
+
+</html>
