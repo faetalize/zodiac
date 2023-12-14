@@ -8,23 +8,77 @@
 </head>
 
 <body>
-    <div style="display: flex; gap: 0.25rem; padding: 0.5rem;">
-        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-            <h3 style="margin: 0;">How to use:</h3>
-            <ol style="margin-top:0">
-                <li>Get an API key here: <a href="https://makersuite.google.com/app/apikey" style="color: #3b82f6;">Google AI Suite</a> </li>
+    <div class="container">
+        <div class="sidebar">
+            <h3>How to use:</h3>
+            <ol>
+                <li>Get an API key here: <a href="https://makersuite.google.com/app/apikey" class="link">Google AI Suite</a> </li>
                 <li>Paste it below</li>
-                <li>Input a prompt in the <b style="font-weight: bold;">textarea</b></li>
-                <li>Click on <b style="font-weight: bold;">generate</b></li>
+                <li>Input a prompt in the <b class="bold-text">textarea</b></li>
+                <li>Click on <b class="bold-text">generate</b></li>
             </ol>
-            <input type="text" placeholder="Paste API key here" id="apiKeyInput" style="border: 1px solid; padding: 0.125rem; border-radius: 0.125rem;"></input>
-            <textarea placeholder="Prompt goes here" id="inputText" style="margin-top: 0.125rem; padding: 0.125rem; border: 1px solid; border-radius: 0.125rem;"></textarea>
-            <button id="generate" style="margin-top: 0.125rem; background-color: #3b82f6; color: white; padding: 0.125rem; border-radius: 0.125rem;">Generate</button>
+            <input type="text" placeholder="Paste API key here" id="apiKeyInput" class="input-field"></input>
+            <textarea placeholder="Prompt goes here" id="inputText" class="textarea-field"></textarea>
+            <button id="generate" class="generate-button">Generate</button>
         </div>
-        <div id="resultText" style="white-space: pre-line; margin-left: auto; margin-right:auto; width: 32rem; ">Result will be here</div>
+        <div id="resultText" class="result-text">Result will be here</div>
     </div>
 
+    <style>
+        .container {
+            display: flex; 
+            gap: 0.25rem; 
+            padding: 0.5rem;
+        }
 
+        .sidebar {
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.25rem;
+        }
+
+        h3, ol {
+            margin: 0;
+        }
+
+        .link {
+            color: #3b82f6;
+        }
+
+        .bold-text {
+            font-weight: bold;
+        }
+
+        .input-field, .textarea-field {
+            border: 1px solid; 
+            padding: 0.125rem; 
+            border-radius: 0.125rem;
+        }
+
+        .textarea-field {
+            margin-top: 0.125rem;
+        }
+
+        .generate-button {
+            margin-top: 0.125rem; 
+            background-color: #3b82f6; 
+            color: white; 
+            padding: 0.125rem; 
+            border-radius: 0.125rem;
+        }
+
+        .result-text {
+            white-space: pre-line; 
+            margin-left: auto; 
+            margin-right:auto; 
+            width: 32rem;
+        }
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+        }
+    </style>
     <script type="importmap">
       {
         "imports": {
