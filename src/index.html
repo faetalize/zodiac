@@ -1,20 +1,28 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../dist/output.css">
+    <title>Document</title>
+</head>
 
 <body>
-    <div style="display: flex; gap: 0.5rem;">
-        <div style="display: flex; flex-direction:  column; gap: 0.5rem;"> 
-            <h3 style="margin: 0;">How to use:</h3>
-            <ol style="margin: 0;">
-                <li>Get an API key here: <a href="https://makersuite.google.com/app/apikey">Google AI Suite</a> </li> 
+    <div class="flex gap-2">
+        <div class="flex flex-col gap-2">
+            <h3 class="m-0">How to use:</h3>
+            <ol class="m-0">
+                <li>Get an API key here: <a href="https://makersuite.google.com/app/apikey">Google AI Suite</a> </li>
                 <li>Paste it below</li>
                 <li>Input a prompt in the <b>textarea</b></li>
                 <li>Click on <b>generate</b></li>
             </ol>
             <input type="text" placeholder="Paste API key here" id="apiKeyInput"></input>
-            <textarea placeholder="Prompt goes here"id="inputText"></textarea>
-            <button id="generate">Generate</button>
+            <textarea placeholder="Prompt goes here" id="inputText" class="mt-2"></textarea>
+            <button id="generate" class="mt-2">Generate</button>
         </div>
-        <div id="resultText" style="white-space: pre-line; margin-left:auto; margin-right: auto; width: 32rem;">Result will be here</div>
+        <div id="resultText" class="whitespace-pre-line mx-auto w-80">Result will be here</div>
     </div>
 
     <script type="importmap">
@@ -28,7 +36,7 @@
         import { GoogleGenerativeAI } from "@google/generative-ai";
         import { HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 
-       
+
 
         // ...
         const inputText = document.querySelector("#inputText");
@@ -64,8 +72,8 @@
 
             resultText.innerHTML = '';
 
-             // Access your API key (see "Set up your API key" above)
-             
+            // Access your API key (see "Set up your API key" above)
+
             const API_KEY = document.querySelector("#apiKeyInput");
             const genAI = new GoogleGenerativeAI(API_KEY.value);
 
