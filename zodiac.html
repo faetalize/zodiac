@@ -33,6 +33,10 @@
             <input type="text" placeholder="Paste API key here" id="apiKeyInput" class="input-field"></input>
             <textarea placeholder="Prompt goes here" id="inputText" class="textarea-field"></textarea>
             <button id="generate" class="generate-button">Generate</button>
+            <div class="credits-div">
+                <p>Made by faetalize</p>
+                <a href="https://github.com/faetalize/zodiac">source code: github</a>
+            </div>
         </div>
         <div id="resultText" class="result-text">Result will be here</div>
     </div>
@@ -45,8 +49,14 @@
             font-size: 1rem;
         }
 
-        h3,
-        ol {
+        p {
+            margin: 0;
+            padding: 0;
+        }
+
+        h1,h2, h3,
+        ol,
+        ul {
             margin: 0;
         }
 
@@ -77,6 +87,13 @@
             padding: 1rem;
             border-radius: 1rem;
             height: calc(100vh - 4rem);
+        }
+
+        .credits-div {
+            margin-top: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .generation-settings {
@@ -155,7 +172,7 @@
                 color: #3bd1f6;
             }
 
-            h3{
+            h3 {
                 color: #5485d3;
             }
 
@@ -234,7 +251,7 @@
 
             const genAI = new GoogleGenerativeAI(API_KEY.value);
             const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig, safetySettings });
-            const prompt = inputText.value;
+            const prompt = inputText.value  + " and respond using markdown.";
 
             const result = await model.generateContentStream(prompt);
 
@@ -242,7 +259,7 @@
                 const chunkText = chunk.text();
                 resultText.innerHTML += chunkText;
             }
-            
+
             resultText.innerHTML = marked.parse(resultText.innerHTML);
         }
 
