@@ -30,6 +30,9 @@
     ul {
         margin: 0;
     }
+    h1{
+        font-size: min(6vw, 2rem);
+    }
 
     a {
         color: #3b82f6;
@@ -125,15 +128,14 @@
     @media (max-width: 768px) {
         .container {
             flex-direction: column;
+            width: auto;
         }
 
         .sidebar {
             height: auto;
             margin: 0;
-
+            min-width: auto;
             position: initial;
-
-            width: auto;
         }
     }
 
