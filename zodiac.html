@@ -10,16 +10,13 @@
 <body>
     <div class="container">
         <div class="sidebar">
-            <h3>How to use:</h3>
-            <ol>
-                <li>Get an API key here: <a href="https://makersuite.google.com/app/apikey">Google AI
-                        Suite</a> </li>
-                <li>Paste it below</li>
-                <li>Input a prompt in the <b class="bold-text">textarea</b></li>
-                <li>Click on <b class="bold-text">generate</b></li>
-            </ol>
-            <h3>Generation Settings:</h3>
+            <p>Get your API key: <a href="https://makersuite.google.com/app/apikey">Google AI Suite</a></p>
+            <input type="text" placeholder="Paste API key here" id="apiKeyInput" class="input-field"></input>
+            <textarea id="inputText" placeholder="Prompt goes here" class="prompt-field"></textarea>
+            <button id="generate" class="generate-button">Generate</button>
+
             <div class="generation-settings">
+                <h3>Generation Settings:</h3>
                 <label for="maxTokens">Max Output Tokens:</label>
                 <input type="number" id="maxTokens" class="input-field" min="1" max="100" value="50"></input>
                 <label for="safetySettings">Safety Settings:</label>
@@ -29,10 +26,6 @@
                     <option value="risky">Risky</option>
                 </select>
             </div>
-
-            <input type="text" placeholder="Paste API key here" id="apiKeyInput" class="input-field"></input>
-            <textarea placeholder="Prompt goes here" id="inputText" class="textarea-field"></textarea>
-            <button id="generate" class="generate-button">Generate</button>
             <div class="credits-div">
                 <p>Made by faetalize</p>
                 <a href="https://github.com/faetalize/zodiac">source code: github</a>
@@ -54,7 +47,9 @@
             padding: 0;
         }
 
-        h1,h2, h3,
+        h1,
+        h2,
+        h3,
         ol,
         ul {
             margin: 0;
@@ -64,12 +59,24 @@
             color: #3b82f6;
         }
 
-        ol {
-            padding-left: 1rem;
-        }
-
         a {
             color: #3b82f6;
+        }
+
+        input,
+        textarea,
+        select {
+            border: 1px solid;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+        }
+
+        textarea {
+            resize:vertical;
+        }
+
+        .prompt-field {
+            height: 15rem;
         }
 
         .container {
@@ -85,6 +92,7 @@
             flex-direction: column;
             gap: 0.5rem;
             padding: 1rem;
+            width: 25rem;
             border-radius: 1rem;
             height: calc(100vh - 4rem);
         }
@@ -102,12 +110,7 @@
             gap: 0.5rem;
         }
 
-        .input-field,
-        .textarea-field {
-            border: 1px solid;
-            padding: 0.5rem;
-            border-radius: 0.5rem;
-        }
+
 
         .generate-button {
             border: none;
@@ -131,6 +134,11 @@
 
             .sidebar {
                 height: auto;
+                margin: 0;
+                
+                position:initial;
+
+                width: auto;
             }
         }
 
@@ -147,7 +155,6 @@
 
             .sidebar {
                 background-color: #abb9cc;
-
             }
 
             .generate-button {
@@ -155,8 +162,9 @@
                 color: white;
             }
 
-            .input-field,
-            .textarea-field {
+            input,
+            textarea,
+            select {
                 border: 1px solid #000000;
             }
         }
@@ -169,11 +177,11 @@
             }
 
             a {
-                color: #3bd1f6;
+                color: #92d9eb;
             }
 
             h3 {
-                color: #5485d3;
+                color: #7ea6e6;
             }
 
             .sidebar {
@@ -192,8 +200,9 @@
                 color: white;
             }
 
-            .input-field,
-            .textarea-field {
+            input,
+            textarea,
+            select {
                 background-color: #2b3945;
                 color: #e4e4e4;
                 border: 1px solid #ffffff6b;
@@ -251,7 +260,7 @@
 
             const genAI = new GoogleGenerativeAI(API_KEY.value);
             const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig, safetySettings });
-            const prompt = inputText.value  + " and respond using markdown.";
+            const prompt = inputText.value + " and respond using markdown.";
 
             const result = await model.generateContentStream(prompt);
 
