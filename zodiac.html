@@ -18,7 +18,7 @@
             <div class="generation-settings">
                 <h3>Generation Settings:</h3>
                 <label for="maxTokens">Max Output Tokens:</label>
-                <input type="number" id="maxTokens" class="input-field" min="1" max="100" value="50"></input>
+                <input type="number" id="maxTokens" class="input-field" min="1" max="4000" value="1000"></input>
                 <label for="safetySettings">Safety Settings:</label>
                 <select id="safetySettings" class="input-field">
                     <option value="safe">Safe</option>
@@ -92,7 +92,7 @@
             flex-direction: column;
             gap: 0.5rem;
             padding: 1rem;
-            width: 25rem;
+            min-width: 25rem;
             border-radius: 1rem;
             height: calc(100vh - 4rem);
         }
@@ -124,7 +124,7 @@
             padding: 2rem;
             margin-left: auto;
             margin-right: auto;
-            width: 32rem;
+            max-width: 32rem;
         }
 
         @media (max-width: 768px) {
@@ -145,27 +145,32 @@
         /* Light theme styles */
         @media (prefers-color-scheme: light) {
             body {
-                background-color: #c7d4dc;
+                background-color: #dae4f3;
                 color: #0a0a0a;
             }
 
             a {
-                color: #5231a5;
+                color: #6e44d6;
             }
 
             .sidebar {
-                background-color: #abb9cc;
+                background-color: #aabfdb;
             }
 
             .generate-button {
-                background-color: #3b82f6;
+                background-color: #0c94e3;
                 color: white;
             }
 
             input,
             textarea,
             select {
-                border: 1px solid #000000;
+                background-color: #cddaed;
+                border: none;
+            }
+            input::placeholder,
+            textarea::placeholder {
+                color: #7c8a9c; /* Replace with your desired color */
             }
         }
 
@@ -189,10 +194,10 @@
             }
 
             .generate-button {
-                background-color: #16445f;
+                background-color: #3f648b;
                 color: #e4e4e4;
 
-                border: 1px solid #ffffff6b;
+                border: none;
             }
 
             .generate-button:hover {
@@ -203,9 +208,14 @@
             input,
             textarea,
             select {
-                background-color: #2b3945;
+                /* placeholder color */
+                background-color: #384959;
                 color: #e4e4e4;
-                border: 1px solid #ffffff6b;
+                border: none;
+            }
+            input::placeholder,
+            textarea::placeholder {
+                color: #849caf; /* Replace with your desired color */
             }
         }
     </style>
