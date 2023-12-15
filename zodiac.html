@@ -20,8 +20,8 @@
                 <input type="text" placeholder="Paste API key here" id="apiKeyInput" class="input-field"></input>
                 <textarea id="inputText" placeholder="Prompt goes here" class="prompt-field"></textarea>
                 <button id="generate" class="generate-button">Generate</button>
-            </div>           
-            
+            </div>
+
             <div class="sidebar-section">
                 <h3>Generation Settings:</h3>
                 <label for="maxTokens">Max Output Tokens:</label>
@@ -82,7 +82,7 @@
             resize: vertical;
             min-height: 15rem;
         }
-        
+
 
         .prompt-field {
             height: 15rem;
@@ -104,7 +104,7 @@
             min-width: 25rem;
             border-radius: 1rem;
             scrollbar-width: thin;
-            min-height: calc(100vh - 4rem);
+            height: calc(100vh - 4rem);
         }
 
         .sidebar-title {
@@ -136,7 +136,7 @@
 
             font-size: 0.75rem;
             color: #7c8a9c;
-            
+
             justify-content: space-between;
             align-items: center;
         }
@@ -286,7 +286,7 @@
             const resultText = document.querySelector("#resultText");
             const maxTokens = document.querySelector("#maxTokens");
             const API_KEY = document.querySelector("#apiKeyInput");
-            
+
             const generationConfig = {
                 maxOutputTokens: maxTokens.value,
                 temperature: 0.9
