@@ -286,26 +286,24 @@
             const resultText = document.querySelector("#resultText");
             const maxTokens = document.querySelector("#maxTokens");
             const API_KEY = document.querySelector("#apiKeyInput");
-
+            
             const generationConfig = {
                 maxOutputTokens: maxTokens.value,
                 temperature: 0.9
             };
-
-            resultText.innerHTML = '';
-
             const genAI = new GoogleGenerativeAI(API_KEY.value);
             const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig, safetySettings });
             const prompt = inputText.value + " and format your response in markdown";
-
             const result = await model.generateContentStream(prompt);
+
+            resultText.innerHTML = '';
+            let rawText = "";
 
             for await (const chunk of result.stream) {
                 const chunkText = chunk.text();
-                resultText.innerHTML += chunkText;
+                rawText += chunkText;
+                resultText.innerHTML = marked.parse(rawText);
             }
-
-            resultText.innerHTML = marked.parse(resultText.innerHTML);
         }
 
         // Call the run function when the generate button is clicked
