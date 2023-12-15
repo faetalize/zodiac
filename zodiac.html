@@ -10,11 +10,16 @@
 <body>
     <div class="container">
         <div class="sidebar">
+            <div class="title">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/f/f0/Google_Bard_logo.svg" id="gemin-pro-logo">
+                <h1>zodiac for </h1>
+                <h1 id="gemini-pro-branding">Gemini Pro</h1>
+            </div>
             <p>Get your API key: <a href="https://makersuite.google.com/app/apikey">Google AI Suite</a></p>
             <input type="text" placeholder="Paste API key here" id="apiKeyInput" class="input-field"></input>
             <textarea id="inputText" placeholder="Prompt goes here" class="prompt-field"></textarea>
             <button id="generate" class="generate-button">Generate</button>
-
+            
             <div class="generation-settings">
                 <h3>Generation Settings:</h3>
                 <label for="maxTokens">Max Output Tokens:</label>
@@ -37,6 +42,9 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,200;0,400;0,800;1,200;1,400;1,800&display=swap');
 
+        @import url('https://fonts.googleapis.com/css2?family=Product+Sans&family=Google+Sans+Display:ital@0;1&family=Google+Sans:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Google+Sans+Text:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Material+Symbols+Outlined&family=Space+Mono&display=swap');
+
+
         body {
             font-family: 'Noto Sans', sans-serif;
             font-size: 1rem;
@@ -55,10 +63,6 @@
             margin: 0;
         }
 
-        h3 {
-            color: #3b82f6;
-        }
-
         a {
             color: #3b82f6;
         }
@@ -72,8 +76,10 @@
         }
 
         textarea {
-            resize:vertical;
+            resize: vertical;
+            min-height: 15rem;
         }
+        
 
         .prompt-field {
             height: 15rem;
@@ -90,11 +96,28 @@
             top: 1rem;
             display: flex;
             flex-direction: column;
+            overflow-y: scroll;
             gap: 0.5rem;
             padding: 1rem;
             min-width: 25rem;
             border-radius: 1rem;
+            scrollbar-width: thin;
             height: calc(100vh - 4rem);
+        }
+
+        .sidebar>.title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        #gemini-pro-branding {
+            font-family: Google Sans Display, sans-serif;
+        }
+
+        #gemin-pro-logo {
+            width: 2rem;
+            height: 2rem;
         }
 
         .credits-div {
@@ -135,8 +158,8 @@
             .sidebar {
                 height: auto;
                 margin: 0;
-                
-                position:initial;
+
+                position: initial;
 
                 width: auto;
             }
@@ -168,9 +191,10 @@
                 background-color: #cddaed;
                 border: none;
             }
+
             input::placeholder,
             textarea::placeholder {
-                color: #7c8a9c; /* Replace with your desired color */
+                color: #7c8a9c;
             }
         }
 
@@ -183,10 +207,6 @@
 
             a {
                 color: #92d9eb;
-            }
-
-            h3 {
-                color: #7ea6e6;
             }
 
             .sidebar {
@@ -208,14 +228,14 @@
             input,
             textarea,
             select {
-                /* placeholder color */
                 background-color: #384959;
                 color: #e4e4e4;
                 border: none;
             }
+
             input::placeholder,
             textarea::placeholder {
-                color: #849caf; /* Replace with your desired color */
+                color: #849caf;
             }
         }
     </style>
