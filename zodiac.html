@@ -260,7 +260,7 @@
 
             const genAI = new GoogleGenerativeAI(API_KEY.value);
             const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig, safetySettings });
-            const prompt = inputText.value + " and respond using markdown.";
+            const prompt = inputText.value + " and format your response in markdown";
 
             const result = await model.generateContentStream(prompt);
 
