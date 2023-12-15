@@ -7,6 +7,215 @@
     <title>zodiac, by faetalize</title>
 </head>
 
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,200;0,400;0,800;1,200;1,400;1,800&display=swap');
+
+    @import url('https://fonts.googleapis.com/css2?family=Product+Sans&family=Google+Sans+Display:ital@0;1&family=Google+Sans:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Google+Sans+Text:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Material+Symbols+Outlined&family=Space+Mono&display=swap');
+
+
+    body {
+        font-family: 'Noto Sans', sans-serif;
+        font-size: 1rem;
+    }
+
+    p {
+        margin: 0;
+        padding: 0;
+    }
+
+    h1,
+    h2,
+    h3,
+    ol,
+    ul {
+        margin: 0;
+    }
+
+    a {
+        color: #3b82f6;
+    }
+
+    input,
+    textarea,
+    select {
+        border: 1px solid;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+    }
+
+    textarea {
+        resize: vertical;
+        min-height: 15rem;
+    }
+
+
+    .prompt-field {
+        height: 15rem;
+    }
+
+    .container {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.5rem;
+    }
+
+    .sidebar {
+        position: sticky;
+        top: 1rem;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        gap: 0.5rem;
+        padding: 1rem;
+        min-width: 25rem;
+        border-radius: 1rem;
+        scrollbar-width: thin;
+        height: calc(100vh - 4rem);
+    }
+
+    .sidebar-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .sidebar-section {
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    #gemini-pro-branding {
+        font-family: Google Sans Display, sans-serif;
+    }
+
+    #gemin-pro-logo {
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .credits-div {
+        margin-top: auto;
+        display: flex;
+        padding: 0rem 1rem 0 1rem;
+
+        font-size: 0.75rem;
+        color: #7c8a9c;
+
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .generate-button {
+        border: none;
+        background-color: #3b82f6;
+        color: white;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+    }
+
+    .result-text {
+        padding: 2rem;
+        margin-left: auto;
+        margin-right: auto;
+        max-width: 32rem;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+        }
+
+        .sidebar {
+            height: auto;
+            margin: 0;
+
+            position: initial;
+
+            width: auto;
+        }
+    }
+
+    /* Light theme styles */
+    @media (prefers-color-scheme: light) {
+        body {
+            background-color: #dae4f3;
+            color: #0a0a0a;
+        }
+
+        a {
+            color: #6e44d6;
+        }
+
+        .sidebar {
+            background-color: #aabfdb;
+        }
+
+        .generate-button {
+            background-color: #0c94e3;
+            color: white;
+        }
+
+        input,
+        textarea,
+        select {
+            background-color: #cddaed;
+            border: none;
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: #7c8a9c;
+        }
+    }
+
+    /* Dark theme styles */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            color-scheme: dark;
+        }
+
+        body {
+            background-color: #202e36;
+            color: #e4e4e4;
+        }
+
+        a {
+            color: #92d9eb;
+        }
+
+        .sidebar {
+            background-color: #2b3945;
+        }
+
+        .generate-button {
+            background-color: #3f648b;
+            color: #e4e4e4;
+
+            border: none;
+        }
+
+        .generate-button:hover {
+            background-color: #224c8f;
+            color: white;
+        }
+
+        input,
+        textarea,
+        select {
+            background-color: #384959;
+            color: #e4e4e4;
+            border: none;
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: #849caf;
+        }
+    }
+</style>
+
 <body>
     <div class="container">
         <div class="sidebar">
@@ -41,210 +250,6 @@
         </div>
         <div id="resultText" class="result-text">Result will be here</div>
     </div>
-
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,200;0,400;0,800;1,200;1,400;1,800&display=swap');
-
-        @import url('https://fonts.googleapis.com/css2?family=Product+Sans&family=Google+Sans+Display:ital@0;1&family=Google+Sans:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Google+Sans+Text:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Material+Symbols+Outlined&family=Space+Mono&display=swap');
-
-
-        body {
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 1rem;
-        }
-
-        p {
-            margin: 0;
-            padding: 0;
-        }
-
-        h1,
-        h2,
-        h3,
-        ol,
-        ul {
-            margin: 0;
-        }
-
-        a {
-            color: #3b82f6;
-        }
-
-        input,
-        textarea,
-        select {
-            border: 1px solid;
-            padding: 0.5rem;
-            border-radius: 0.5rem;
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 15rem;
-        }
-
-
-        .prompt-field {
-            height: 15rem;
-        }
-
-        .container {
-            display: flex;
-            gap: 0.5rem;
-            padding: 0.5rem;
-        }
-
-        .sidebar {
-            position: sticky;
-            top: 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            padding: 1rem;
-            min-width: 25rem;
-            border-radius: 1rem;
-            scrollbar-width: thin;
-            height: calc(100vh - 4rem);
-        }
-
-        .sidebar-title {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .sidebar-section {
-            margin-bottom: 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        #gemini-pro-branding {
-            font-family: Google Sans Display, sans-serif;
-        }
-
-        #gemin-pro-logo {
-            width: 2rem;
-            height: 2rem;
-        }
-
-        .credits-div {
-            margin-top: auto;
-            display: flex;
-            padding: 0rem 1rem 0 1rem;
-
-            font-size: 0.75rem;
-            color: #7c8a9c;
-
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .generate-button {
-            border: none;
-            background-color: #3b82f6;
-            color: white;
-            padding: 0.5rem;
-            border-radius: 0.5rem;
-        }
-
-        .result-text {
-            padding: 2rem;
-            margin-left: auto;
-            margin-right: auto;
-            max-width: 32rem;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
-            }
-
-            .sidebar {
-                height: auto;
-                margin: 0;
-
-                position: initial;
-
-                width: auto;
-            }
-        }
-
-        /* Light theme styles */
-        @media (prefers-color-scheme: light) {
-            body {
-                background-color: #dae4f3;
-                color: #0a0a0a;
-            }
-
-            a {
-                color: #6e44d6;
-            }
-
-            .sidebar {
-                background-color: #aabfdb;
-            }
-
-            .generate-button {
-                background-color: #0c94e3;
-                color: white;
-            }
-
-            input,
-            textarea,
-            select {
-                background-color: #cddaed;
-                border: none;
-            }
-
-            input::placeholder,
-            textarea::placeholder {
-                color: #7c8a9c;
-            }
-        }
-
-        /* Dark theme styles */
-        @media (prefers-color-scheme: dark) {
-            body {
-                background-color: #202e36;
-                color: #e4e4e4;
-            }
-
-            a {
-                color: #92d9eb;
-            }
-
-            .sidebar {
-                background-color: #2b3945;
-            }
-
-            .generate-button {
-                background-color: #3f648b;
-                color: #e4e4e4;
-
-                border: none;
-            }
-
-            .generate-button:hover {
-                background-color: #224c8f;
-                color: white;
-            }
-
-            input,
-            textarea,
-            select {
-                background-color: #384959;
-                color: #e4e4e4;
-                border: none;
-            }
-
-            input::placeholder,
-            textarea::placeholder {
-                color: #849caf;
-            }
-        }
-    </style>
 
     <script type="importmap">
       {
