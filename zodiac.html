@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>zodiac, by faetalize</title>
+    <link rel="shortcut icon" href="https://upload.wikimedia.org/wikipedia/commons/f/f0/Google_Bard_logo.svg"
+        type="image/x-icon">
+
     <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.css">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
@@ -23,6 +26,7 @@
 
     p {
         margin: 0;
+        margin-bottom: 0.5rem;
         padding: 0;
     }
 
@@ -35,7 +39,7 @@
     }
 
     h1 {
-        font-size: min(6vw, 2rem);
+        margin-bottom: 0.5rem;
     }
 
     a {
@@ -48,6 +52,7 @@
         border: 1px solid;
         padding: 0.5rem;
         border-radius: 0.5rem;
+        font-family: noto sans, sans-serif;
     }
 
     textarea {
@@ -79,11 +84,14 @@
         height: calc(100vh - 4rem);
     }
 
-    .sidebar-title {
+    .header {
         display: flex;
         align-items: center;
+        font-size: 2rem;
+        font-weight: 800;
         gap: 0.5rem;
     }
+
 
     .sidebar-section {
         margin-bottom: 1rem;
@@ -94,6 +102,9 @@
 
     #gemini-pro-branding {
         font-family: Google Sans Display, sans-serif;
+        color: #7c8a9c;
+        font-size: 1rem;
+        font-weight: 400;
     }
 
     #gemin-pro-logo {
@@ -101,7 +112,7 @@
         height: 2rem;
     }
 
-    .credits-div {
+    .credits {
         margin-top: auto;
         display: flex;
         padding: 0rem 1rem 0 1rem;
@@ -126,6 +137,7 @@
         margin-left: auto;
         margin-right: auto;
         max-width: 32rem;
+        text-align: justify;
     }
 
     @media (max-width: 768px) {
@@ -151,13 +163,17 @@
 
     /* Light theme styles */
     @media (prefers-color-scheme: light) {
+        :focus {
+            outline: 1px solid #8f9eb3;
+        }
+
         body {
             background-color: #dae4f3;
             color: #0a0a0a;
         }
 
         a {
-            color: #6e44d6;
+            color: #444ed6;
         }
 
         .sidebar {
@@ -165,7 +181,12 @@
         }
 
         .generate-button {
-            background-color: #0c94e3;
+            background-color: #6da2f1;
+            color: white;
+        }
+
+        .generate-button:hover {
+            background-color: #0b7bc1;
             color: white;
         }
 
@@ -188,8 +209,14 @@
             color-scheme: dark;
         }
 
+        :focus {
+            outline: 1px solid #73859e;
+        }
+
+
+
         body {
-            background-color: #202e36;
+            background-color: #151e24;
             color: #e4e4e4;
         }
 
@@ -198,11 +225,11 @@
         }
 
         .sidebar {
-            background-color: #2b3945;
+            background-color: #1e2730;
         }
 
         .generate-button {
-            background-color: #3f648b;
+            background-color: #2e4a68;
             color: #e4e4e4;
 
             border: none;
@@ -216,7 +243,7 @@
         input,
         textarea,
         select {
-            background-color: #384959;
+            background-color: #28343f;
             color: #e4e4e4;
             border: none;
         }
@@ -231,10 +258,15 @@
 <body>
     <div class="container">
         <div class="sidebar">
-            <div class="sidebar-title">
+            <div class="header">
                 <img src="https://upload.wikimedia.org/wikipedia/commons/f/f0/Google_Bard_logo.svg" id="gemin-pro-logo">
-                <h1>zodiac for </h1>
-                <h1 id="gemini-pro-branding">Gemini Pro</h1>
+                <div id="title-div">
+                    <div id="zodiac-branding">zodiac </div>
+                    <div id="gemini-pro-branding">powered by Gemini Pro</div>
+                </div>
+            </div>
+            <div class="sidebar-section navbar">
+                
             </div>
             <div class="sidebar-section">
                 <p>Get your API key: <a href="https://makersuite.google.com/app/apikey">Google AI Suite</a></p>
@@ -242,6 +274,7 @@
                 <textarea id="inputText" placeholder="Prompt goes here" class="prompt-field"></textarea>
                 <button id="generate" class="generate-button">Generate</button>
             </div>
+
 
             <div class="sidebar-section">
                 <h3>Generation Settings:</h3>
@@ -255,12 +288,12 @@
                 </select>
             </div>
 
-            <div class="credits-div">
+            <div class="credits">
                 <p>Made by fætalize</p>
                 <a href="https://github.com/faetalize/zodiac">Source Code</a>
             </div>
         </div>
-        <div id="resultText" class="result-text">Result will be here</div>
+        <div id="resultText" class="result-text"></div>
     </div>
 
     <script type="importmap">
@@ -311,7 +344,7 @@
             };
             const genAI = new GoogleGenerativeAI(API_KEY.value);
             const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig, safetySettings });
-            const prompt = inputText.value + " and format your response in markdown";
+            const prompt = inputText.value + " and format your answer using markdown when and only when it's necessary, as in if your answer is complex enough that it would benefit from being organized.";
             const result = await model.generateContentStream(prompt);
 
             resultText.innerHTML = '';
