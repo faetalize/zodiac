@@ -84,6 +84,13 @@
         height: calc(100vh - 4rem);
     }
 
+    .sidebar-section {
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
     .header {
         display: flex;
         align-items: center;
@@ -92,12 +99,29 @@
         gap: 0.5rem;
     }
 
-
-    .sidebar-section {
-        margin-bottom: 1rem;
+    .navbar {
         display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
+        flex-direction: row;
+        border-radius: 1rem;
+        justify-content: space-evenly;
+        z-index: 0;
+    }
+
+    .navbar-tab {
+        padding: 1rem;
+        width: 100%;
+        text-align: center;
+        cursor: pointer;
+        z-index: 2;
+    }
+
+    .navbar-tab-highlight {
+        padding: 0;
+        margin: 0;
+        position: absolute;
+        border-radius: 1rem;
+        transition: all 0.2s;
+        z-index: 1;
     }
 
     #gemini-pro-branding {
@@ -151,6 +175,10 @@
             margin: 0;
             min-width: auto;
             position: initial;
+        }
+
+        .navbar {
+            position: relative;
         }
 
         .result-text {
@@ -228,8 +256,22 @@
             background-color: #1e2730;
         }
 
+        .navbar {
+            background-color: #00000036;
+        }
+
+        .navbar-tab {
+            color: #e4e4e4;
+            border-radius: 1rem;
+        }
+
+        .navbar-tab-highlight {
+            background-color: #00000050;
+            border-radius: 1rem;
+        }
+
         .generate-button {
-            background-color: #2e4a68;
+            background-color: #2e4a68b7;
             color: #e4e4e4;
 
             border: none;
@@ -265,18 +307,25 @@
                     <div id="gemini-pro-branding">powered by Gemini Pro</div>
                 </div>
             </div>
-            <div class="sidebar-section navbar">
-                
+            <div class="navbar">
+                <div class="navbar-tab">Generate</div>
+                <div class="navbar-tab">Chat</div>
+                <div class="navbar-tab">Settings</div>
+                <div class="navbar-tab-highlight"></div>
             </div>
             <div class="sidebar-section">
-                <p>Get your API key: <a href="https://makersuite.google.com/app/apikey">Google AI Suite</a></p>
-                <input type="text" placeholder="Paste API key here" id="apiKeyInput" class="input-field"></input>
+
+
                 <textarea id="inputText" placeholder="Prompt goes here" class="prompt-field"></textarea>
                 <button id="generate" class="generate-button">Generate</button>
             </div>
 
+            <div class="sidebar-section">
+
+            </div>
 
             <div class="sidebar-section">
+                <input type="text" placeholder="Paste API key here" id="apiKeyInput" class="input-field"></input>
                 <h3>Generation Settings:</h3>
                 <label for="maxTokens">Max Output Tokens:</label>
                 <input type="number" id="maxTokens" class="input-field" min="1" max="4000" value="1000"></input>
@@ -289,7 +338,7 @@
             </div>
 
             <div class="credits">
-                <p>Made by fætalize</p>
+                Made by fætalize
                 <a href="https://github.com/faetalize/zodiac">Source Code</a>
             </div>
         </div>
@@ -303,7 +352,6 @@
         }
       }
     </script>
-
 
     <script type="module">
         import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
@@ -330,9 +378,78 @@
             }
         ];
 
+        //function to hide element smoothly then setting display none after the transition time elapsed
+        function hideElement(element) {
+            element.style.transition = 'opacity 0.2s';
+            element.style.opacity = '0';
+            setTimeout(function () {
+                element.style.display = 'none';
+            }, 200);
+        }
+
+        function showElement(element) {
+            // Wait for other transitions to complete (0.5s delay)
+            setTimeout(function () {
+                // Change display property
+                element.style.display = 'flex';
+                // Wait for next frame for display change to take effect
+                requestAnimationFrame(function () {
+                    // Start opacity transition
+                    element.style.transition = 'opacity 0.2s';
+                    element.style.opacity = '1';
+                });
+            }, 200);
+        }
+
+
+        const tabs = document.querySelectorAll(".navbar-tab");
+        const sidebarViews = document.querySelectorAll(".sidebar-section");
+        const highlight = document.querySelector(".navbar-tab-highlight");
+
+
+
+        let currentTab;
+
+        function navigateTo(tab) {
+            if (tab == tabs[currentTab]) {
+                return;
+            }
+            // set the highlight to match the size of the tab element
+            highlight.style.width = tab.offsetWidth + "px";
+            highlight.style.height = tab.offsetHeight + "px";
+            highlight.style.top = tab.offsetTop + "px";
+            highlight.style.left = tab.offsetLeft + "px";
+
+            let tabIndex = [...tabs].indexOf(tab);
+            if (tabIndex < 0 || tabIndex >= sidebarViews.length) {
+                console.error("Invalid tab index: " + tabIndex);
+                return;
+            }
+
+            if (currentTab != undefined) {
+                hideElement(sidebarViews[currentTab]);
+            }
+            showElement(sidebarViews[tabIndex]);
+            currentTab = tabIndex;
+        }
+
+        tabs.forEach(element => {
+            element.addEventListener("click", () => {
+                navigateTo(element);
+            })
+        });
+
+        sidebarViews.forEach(view => {
+            if (view != sidebarViews[0]) {
+                hideElement(view);
+            }
+        });
+
+        navigateTo(tabs[0]);
+
+        
+
         async function run() {
-
-
             const inputText = document.querySelector("#inputText");
             const resultText = document.querySelector("#resultText");
             const maxTokens = document.querySelector("#maxTokens");
