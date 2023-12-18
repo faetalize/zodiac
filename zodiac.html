@@ -100,6 +100,7 @@
     }
 
     .navbar {
+        position:relative;
         display: flex;
         flex-direction: row;
         border-radius: 1rem;
@@ -115,12 +116,15 @@
         z-index: 2;
     }
 
+    
+
     .navbar-tab-highlight {
         padding: 0;
         margin: 0;
         position: absolute;
         border-radius: 1rem;
         transition: all 0.2s;
+        height: 100%;
         z-index: 1;
     }
 
@@ -262,12 +266,10 @@
 
         .navbar-tab {
             color: #e4e4e4;
-            border-radius: 1rem;
         }
 
         .navbar-tab-highlight {
             background-color: #00000050;
-            border-radius: 1rem;
         }
 
         .generate-button {
@@ -405,20 +407,17 @@
         const tabs = document.querySelectorAll(".navbar-tab");
         const sidebarViews = document.querySelectorAll(".sidebar-section");
         const highlight = document.querySelector(".navbar-tab-highlight");
+        highlight.style.width = `calc(100% / ${tabs.length})`;
 
 
-
-        let currentTab;
+        let currentTab = undefined;
 
         function navigateTo(tab) {
             if (tab == tabs[currentTab]) {
                 return;
             }
             // set the highlight to match the size of the tab element
-            highlight.style.width = tab.offsetWidth + "px";
-            highlight.style.height = tab.offsetHeight + "px";
-            highlight.style.top = tab.offsetTop + "px";
-            highlight.style.left = tab.offsetLeft + "px";
+            
 
             let tabIndex = [...tabs].indexOf(tab);
             if (tabIndex < 0 || tabIndex >= sidebarViews.length) {
@@ -431,6 +430,9 @@
             }
             showElement(sidebarViews[tabIndex]);
             currentTab = tabIndex;
+            
+            highlight.style.left = `calc(100% / ${tabs.length} * ${tabIndex})`;
+            
         }
 
         tabs.forEach(element => {
