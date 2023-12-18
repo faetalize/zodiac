@@ -212,6 +212,18 @@
             background-color: #aabfdb;
         }
 
+        .navbar {
+            background-color: #c9d8f0;
+        }
+
+        .navbar-tab {
+            color: #0a0a0a;
+        }
+
+        .navbar-tab-highlight {
+            background-color: rgb(134, 156, 197)
+        }
+
         .generate-button {
             background-color: #6da2f1;
             color: white;
@@ -449,6 +461,8 @@
 
         navigateTo(tabs[0]);
 
+        const systemPrompt  = "[System]: You are zodiac, a helpful assistant built upon Google's Gemini Pro. Gemini Pro is a new LLM (Large Language Model) release by Google on December 2023. If needed, format your answer using markdown."
+
         
 
         async function run() {
@@ -463,7 +477,7 @@
             };
             const genAI = new GoogleGenerativeAI(API_KEY.value);
             const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig, safetySettings });
-            const prompt = inputText.value + " and format your answer using markdown when and only when it's necessary, as in if your answer is complex enough that it would benefit from being organized.";
+            const prompt = systemPrompt + "\n\n" + inputText.value;
             const result = await model.generateContentStream(prompt);
 
             resultText.innerHTML = '';
