@@ -216,7 +216,7 @@
         }
 
         .sidebar {
-            background-color: #cbe0fc;
+            background-color: #d2e2f7;
         }
 
         .navbar {
@@ -233,7 +233,7 @@
 
         .generate-button {
             background-color: #87b0ed;
-            color: #0a0a0a;
+            color: #2b3d59;
         }
 
         .generate-button:hover {
@@ -293,10 +293,8 @@
         }
 
         .generate-button {
-            background-color: #2e4a68b7;
+            background-color: #22486b;
             color: #e4e4e4;
-
-            border: none;
         }
 
         .generate-button:hover {
@@ -307,7 +305,8 @@
         input,
         textarea,
         select {
-            background-color: #28343f;
+            background-color: #283542;
+
             color: #e4e4e4;
             border: none;
         }
@@ -483,6 +482,11 @@
             const resultText = document.querySelector("#resultText");
             const maxTokens = document.querySelector("#maxTokens");
             const API_KEY = document.querySelector("#apiKeyInput");
+
+            if (API_KEY.value == "") {
+                alert("Please enter an API key");
+                return;
+            }
 
             const generationConfig = {
                 maxOutputTokens: maxTokens.value,
