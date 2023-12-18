@@ -126,6 +126,8 @@
         transition: all 0.2s;
         height: 100%;
         z-index: 1;
+        /* glow */
+        box-shadow: 0 0 1rem 0.05rem #29292a3f;
     }
 
     #gemini-pro-branding {
@@ -169,7 +171,13 @@
     }
 
     @media (max-width: 768px) {
+        body{
+            margin:0;
+            padding:0;
+        }
+        
         .container {
+            padding:0;
             flex-direction: column;
             width: auto;
         }
@@ -179,6 +187,8 @@
             margin: 0;
             min-width: auto;
             position: initial;
+            border-top-right-radius: 0;
+            border-top-left-radius:0;
         }
 
         .navbar {
@@ -213,7 +223,7 @@
         }
 
         .navbar {
-            background-color: #c9d8f0;
+            background-color: rgb(199, 214, 240);
         }
 
         .navbar-tab {
@@ -221,12 +231,12 @@
         }
 
         .navbar-tab-highlight {
-            background-color: rgb(134, 156, 197)
+            background-color: #87b0ed;
         }
 
         .generate-button {
-            background-color: #6da2f1;
-            color: white;
+            background-color: #87b0ed;
+            color: #0a0a0a;
         }
 
         .generate-button:hover {
@@ -237,7 +247,7 @@
         input,
         textarea,
         select {
-            background-color: #cddaed;
+            background-color: #e6edf8;
             border: none;
         }
 
@@ -269,11 +279,11 @@
         }
 
         .sidebar {
-            background-color: #1e2730;
+            background-color: #1a2733;
         }
 
         .navbar {
-            background-color: #00000036;
+            background-color: #111f2d;
         }
 
         .navbar-tab {
@@ -281,7 +291,9 @@
         }
 
         .navbar-tab-highlight {
-            background-color: #00000050;
+            background-color: #22486b;
+            
+        box-shadow: 0 0 1rem 0.05rem #29292aac;
         }
 
         .generate-button {
