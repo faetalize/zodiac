@@ -54,15 +54,11 @@
         border-radius: 0.5rem;
         border:none;
         font-family: noto sans, sans-serif;
-    }
-
-    textarea {
-        resize: vertical;
-        min-height: 15rem;
-    }
+    }  
 
     .prompt-field {
-        height: 15rem;
+        resize: vertical;
+        height: 7rem;
     }
 
     .container {
@@ -501,6 +497,7 @@
             let rawText = "";
 
             for await (const chunk of result.stream) {
+                console.log(chunk);
                 const chunkText = chunk.text();
                 rawText += chunkText;
                 resultText.innerHTML = marked.parse(rawText);
