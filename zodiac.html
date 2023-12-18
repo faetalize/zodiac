@@ -461,7 +461,12 @@
 
         navigateTo(tabs[0]);
 
-        const systemPrompt  = "[System]: You are zodiac, a helpful assistant built upon Google's Gemini Pro. Gemini Pro is a new LLM (Large Language Model) release by Google on December 2023. If needed, format your answer using markdown."
+        const systemPrompt  = "[System]: You are zodiac, a helpful assistant built upon Google's Gemini Pro." +
+        "Gemini Pro is a new LLM (Large Language Model) release by Google on December 2023. If needed, format your answer using markdown." +
+        "Your purpose is being a helpful assistant to the user." +
+        "Today's date is" + new Date().toDateString() + "." +
+        "End of system prompt. [/System]";
+
 
         
 
