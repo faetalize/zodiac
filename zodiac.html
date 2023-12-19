@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,6 +19,29 @@
 
     @import url('https://fonts.googleapis.com/css2?family=Product+Sans&family=Google+Sans+Display:ital@0;1&family=Google+Sans:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Google+Sans+Text:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Material+Symbols+Outlined&family=Space+Mono&display=swap');
 
+    @font-face {
+        font-family: 'Material Symbols Outlined';
+        font-style: normal;
+        font-weight: 400;
+        src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v154/kJF1BvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oDMzByHX9rA6RzaxHMPdY43zj-jCxv3fzvRNU22ZXGJpEpjC_1v-p_4MrImHCIJIZrDCvHOej.woff2) format('woff2');
+    }
+
+    .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: normal;
+        font-style: normal;
+        font-size: 24px;
+        line-height: 1;
+        letter-spacing: normal;
+        text-transform: none;
+        display: inline-block;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        -webkit-font-feature-settings: 'liga';
+        font-feature-settings: "liga";
+        -webkit-font-smoothing: antialiased;
+    }
 
     body {
         font-family: 'Noto Sans', sans-serif;
@@ -52,9 +76,47 @@
         border: 1px solid;
         padding: 0.5rem;
         border-radius: 0.5rem;
-        border:none;
+        border: none;
         font-family: noto sans, sans-serif;
-    }  
+    }
+
+    button:focus {
+        outline: none;
+    }
+
+    .form {
+        display: none;
+        opacity: 0;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .overlay {
+        display: none;
+        position: fixed;
+        opacity: 0;
+        top: 0;
+        left: 0;
+        width: 100dvw;
+        height: 100dvh;
+        backdrop-filter: blur(2rem);
+        justify-content: center;
+        align-items: center;
+    }
+
+    .backButton {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        border: none;
+        background-color: transparent;
+        font-size: 1.5rem;
+        font-weight: 600;
+        transition: all 0.2s;
+
+    }
+
+
 
     .prompt-field {
         resize: vertical;
@@ -75,7 +137,7 @@
         overflow-y: auto;
         gap: 0.5rem;
         padding: 1rem;
-        min-width: 25rem;
+        width: 25rem;
         border-radius: 1rem;
         scrollbar-width: thin;
         height: calc(100dvh - 4rem);
@@ -97,7 +159,7 @@
     }
 
     .navbar {
-        position:relative;
+        position: relative;
         display: flex;
         flex-direction: row;
         border-radius: 0.5rem;
@@ -110,12 +172,14 @@
         width: 100%;
         padding: 0.5rem;
         text-align: center;
-        cursor: pointer;
+
         z-index: 2;
         -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
+
     }
 
-    
+
 
     .navbar-tab-highlight {
         padding: 0;
@@ -159,6 +223,7 @@
         color: white;
         padding: 0.5rem;
         border-radius: 0.5rem;
+        transition: all 0.2s;
     }
 
     .result-text {
@@ -169,15 +234,73 @@
         text-align: justify;
     }
 
+    .personalityCard {
+        box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        -webkit-box-sizing: border-box;
+        background-color: black;
+        background-size: cover;
+        background-position: center;
+        position: relative;
+
+        display: flex;
+        flex-direction: column;
+        justify-content: end;
+        padding: 1rem;
+        border-radius: 1rem;
+        height: 10rem;
+        -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
+        text-shadow: 0 0 10px #000000, 0 0 5px #181818;
+    }
+
+    .personalityCard * {
+        color: #e4e4e4;
+    }
+
+    .edit:hover {
+        text-shadow: 0 0 10px #e4e4e4, 0 0 5px #dfdfdf;
+    }
+
+
+    .personalityCard * {
+        /* unselectable */
+        -webkit-user-select: none;
+        /* Safari */
+        -moz-user-select: none;
+        /* Firefox */
+        -ms-user-select: none;
+        /* IE10+/Edge */
+        user-select: none;
+        /* Standard */
+
+    }
+
+    .personalityCard input {
+        display: none;
+    }
+
+    .edit {
+        /* top right corner */
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        border: none;
+        background-color: transparent;
+        transition: all 0.2s;
+    }
+
+
+
     @media (max-width: 768px) {
-        body{
-            margin:0;
-            padding:0;
+        body {
+            margin: 0;
+            padding: 0;
         }
-        
+
 
         .container {
-            padding:0;
+            padding: 0;
             flex-direction: column;
             width: auto;
         }
@@ -185,15 +308,17 @@
         .sidebar {
             height: auto;
             margin: 0;
-            min-width: auto;
+            width: auto;
             position: initial;
             border-top-right-radius: 0;
-            border-top-left-radius:0;
+            border-top-left-radius: 0;
         }
 
         .navbar {
             position: relative;
         }
+
+
 
         .result-text {
             max-width: 100%;
@@ -241,10 +366,17 @@
             color: white;
         }
 
+
+
+        .backButton:hover {
+            text-shadow: 0 0 20px #000000, 0 0 20px #181818;
+        }
+
         input,
         textarea,
         select {
             background-color: #f0f6ff;
+            outline: 1px solid #8f9eb3;
         }
 
         input::placeholder,
@@ -270,6 +402,10 @@
             color: #e4e4e4;
         }
 
+        button {
+            color: #e4e4e4;
+        }
+
         a {
             color: #92d9eb;
         }
@@ -279,7 +415,7 @@
         }
 
         .navbar {
-            background-color: #111f2d;
+            background-color: #00000047;
         }
 
         .navbar-tab {
@@ -288,8 +424,8 @@
 
         .navbar-tab-highlight {
             background-color: #22486b;
-            
-        box-shadow: 0 0 1rem 0.05rem #29292aac;
+
+            box-shadow: 0 0 1rem 0.05rem #29292aac;
         }
 
         .generate-button {
@@ -298,8 +434,18 @@
         }
 
         .generate-button:hover {
-            background-color: #224c8f;
+            background-color: #31689c;
             color: white;
+        }
+
+        .edit:hover {
+            text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
+            /* Change #00ff00 to the color you want */
+        }
+
+        .backButton:hover {
+            text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
+            /* Change #00ff00 to the color you want */
         }
 
         input,
@@ -335,14 +481,21 @@
                 <div class="navbar-tab-highlight"></div>
             </div>
             <div class="sidebar-section">
-
-
                 <textarea id="inputText" placeholder="Prompt goes here" class="prompt-field"></textarea>
                 <button id="generate" class="generate-button">Generate</button>
             </div>
 
-            <div class="sidebar-section">
-
+            <div class="sidebar-section" id="personalitySection">
+                <label class="personalityCard"
+                    style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.fonearena.com/blog/wp-content/uploads/2023/12/Google-Gemini-AI-1024x577.jpg')">
+                    <input type="radio" name="personality" value="zodiac3" checked>
+                    <div>
+                        <h3>zodiac</h3>
+                        <p>zodiac is a cheerful assistant, always ready to help you with your tasks.</p>
+                    </div>
+                    <button class="edit material-symbols-outlined" id="editDefaultPersonality">edit</button>
+                </label>
+                <button class="generate-button" id="addPersonalityButton">Add Personality</button>
             </div>
 
             <div class="sidebar-section">
@@ -364,6 +517,38 @@
             </div>
         </div>
         <div id="resultText" class="result-text"></div>
+    </div>
+
+    <div class="overlay">
+        <button class="backButton">BACK </button>
+        <div class="form" id="addPersonalityForm">
+            <h1>Add Personality</h1>
+            <label for="personalityNameInput">Personality Name:</label>
+            <input type="text" placeholder="Personality Name" id="personalityNameInput" class="input-field"></input>
+            <label for="personalityDescriptionInput">Personality Description:</label>
+            <textarea id="personalityDescriptionInput" placeholder="Personality Description"
+                class="prompt-field"></textarea>
+            <label for="personalityImageURLInput">Personality Image URL:</label>
+            <input type="text" placeholder="Personality Image URL" id="personalityImageURLInput"
+                class="input-field"></input>
+            <label for="personalityPromptInput">Prompt:</label>
+            <textarea id="personalityPromptInput" placeholder="Personality Prompt" class="prompt-field"></textarea>
+            <button class="generate-button" id="submitNewPersonality">Add Personality</button>
+        </div>
+        <div class="form" id="editPersonalityForm">
+            <h1>Edit Personality</h1>
+            <label for="personalityNameInput">Personality Name:</label>
+            <input type="text" placeholder="Personality Name" id="personalityNameInput" class="input-field"></input>
+            <label for="personalityDescriptionInput">Personality Description:</label>
+            <textarea id="personalityDescriptionInput" placeholder="Personality Description"
+                class="prompt-field"></textarea>
+            <label for="personalityImageURLInput">Personality Image URL:</label>
+            <input type="text" placeholder="Personality Image URL" id="personalityImageURLInput"
+                class="input-field"></input>
+            <label for="personalityPromptInput">Prompt:</label>
+            <textarea id="personalityPromptInput" placeholder="Personality Prompt" class="prompt-field"></textarea>
+            <button class="generate-button" id="updatePersonality">Save</button>
+        </div>
     </div>
 
     <script type="importmap">
@@ -398,6 +583,12 @@
                 threshold: HarmBlockThreshold.BLOCK_NONE,
             }
         ];
+        const systemPrompt = "[System]: You are zodiac, a helpful assistant built upon Google's Gemini Pro." +
+            "Gemini Pro is a new LLM (Large Language Model) release by Google on December 2023. If needed, format your answer using markdown." +
+            "Your purpose is being a helpful assistant to the user." +
+            "Today's date is" + new Date().toDateString() + "." +
+            "End of system prompt. [/System]";
+        const generateButton = document.querySelector("#generate");
 
         //function to hide element smoothly then setting display none after the transition time elapsed
         function hideElement(element) {
@@ -409,7 +600,7 @@
         }
 
         function showElement(element) {
-            // Wait for other transitions to complete (0.5s delay)
+            // Wait for other transitions to complete (0.2s delay)
             setTimeout(function () {
                 // Change display property
                 element.style.display = 'flex';
@@ -429,14 +620,14 @@
         highlight.style.width = `calc(100% / ${tabs.length})`;
 
 
-        let currentTab = undefined;
 
+        let currentTab = undefined;
         function navigateTo(tab) {
             if (tab == tabs[currentTab]) {
                 return;
             }
             // set the highlight to match the size of the tab element
-            
+
 
             let tabIndex = [...tabs].indexOf(tab);
             if (tabIndex < 0 || tabIndex >= sidebarViews.length) {
@@ -449,9 +640,9 @@
             }
             showElement(sidebarViews[tabIndex]);
             currentTab = tabIndex;
-            
+
             highlight.style.left = `calc(100% / ${tabs.length} * ${tabIndex})`;
-            
+
         }
 
         tabs.forEach(element => {
@@ -461,21 +652,127 @@
         });
 
         sidebarViews.forEach(view => {
-            if (view != sidebarViews[0]) {
-                hideElement(view);
-            }
+            hideElement(view);
         });
 
-        navigateTo(tabs[0]);
-
-        const systemPrompt  = "[System]: You are zodiac, a helpful assistant built upon Google's Gemini Pro." +
-        "Gemini Pro is a new LLM (Large Language Model) release by Google on December 2023. If needed, format your answer using markdown." +
-        "Your purpose is being a helpful assistant to the user." +
-        "Today's date is" + new Date().toDateString() + "." +
-        "End of system prompt. [/System]";
+        navigateTo(tabs[1]);
 
 
-        
+        const personalityCardsInnerInput = document.querySelectorAll(".personalityCard input");
+        let personalityCards = document.querySelectorAll(".personalityCard");
+        const formsOverlay = document.querySelector(".overlay");
+        const backButton = document.querySelector(".backButton");
+        const addPersonalityForm = document.querySelector("#addPersonalityForm");
+        const editPersonalityForm = document.querySelector("#editPersonalityForm");
+        const addPersonalityButton = document.querySelector("#addPersonalityButton");
+        const editDefaultPersonalityButton = document.querySelector("#editDefaultPersonality");
+        const submitNewPersonalityButton = document.querySelector("#submitNewPersonality");
+        const updatePersonalityButton = document.querySelector("#updatePersonality");
+
+        function darkenBg(element){
+            let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+            element.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${elementBackgroundImageURL}')`;
+        }
+
+        function lightenBg(element){
+            let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+            element.style.backgroundImage = `url('${elementBackgroundImageURL}')`;
+        }
+
+
+
+
+        //handle radio input check change
+        personalityCardsInnerInput.forEach(input => {
+            input.addEventListener("change", () => {
+                // Darken all cards
+                personalityCards.forEach(card => {
+                    const cardBackgroundImageURL = card.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+                    card.style.outline = "0px solid rgb(150 203 236)";
+                    darkenBg(card);
+                })
+
+                // Lighten selected card
+                input.parentElement.style.outline = "3px solid rgb(150 203 236)";
+                lightenBg(input.parentElement);
+            })
+            // Set initial outline
+            if (input.checked) {
+                lightenBg(input.parentElement);
+                input.parentElement.style.outline = "3px solid rgb(150 203 236)";
+            }
+        })
+
+        function showAddPersonalityForm() {
+            showElement(formsOverlay);
+            showElement(addPersonalityForm);
+        }
+
+        function showEditPersonalityForm() {
+            showElement(formsOverlay);
+            showElement(editPersonalityForm);
+
+            editPersonalityForm
+        }
+
+        function closeOverlay() {
+            hideElement(formsOverlay);
+            hideElement(addPersonalityForm);
+            hideElement(editPersonalityForm);
+        }
+
+        function submitNewPersonality() {
+            const personalityName = document.querySelector("#addPersonalityForm #personalityNameInput");
+            const personalityDescription = document.querySelector("#addPersonalityForm #personalityDescriptionInput");
+            const personalityImageURL = document.querySelector("#addPersonalityForm #personalityImageURLInput");
+            const personalityPrompt = document.querySelector("#addPersonalityForm #personalityPromptInput");
+            const personalitySection = document.querySelector("#personalitySection");
+
+
+            if (personalityName.value == "") {
+                alert("Please enter a personality name");
+                return;
+            }
+            if (personalityPrompt.value == "") {
+                alert("Please enter a personality prompt");
+                return;
+            }
+
+            const personalityCard = document.createElement("label");
+            personalityCard.classList.add("personalityCard");
+            personalityCard.style.backgroundImage = `url('${personalityImageURL.value}')`;
+            personalityCard.innerHTML = `
+            <input type="radio" name="personality" value="${personalityName.value}">
+            <div>
+                <h3>${personalityName.value}</h3>
+                <p>${personalityDescription.value}</p>
+            </div>
+            <button class="edit material-symbols-outlined" id="editDefaultPersonality">edit</button>
+            `;
+
+
+            personalitySection.insertBefore(personalityCard, addPersonalityButton);
+
+            darkenBg(personalityCard);
+
+            personalityCards = document.querySelectorAll(".personalityCard");
+            //add input event listener
+            personalityCard.querySelector("input").addEventListener("change", () => {
+                // Darken all cards
+                personalityCards.forEach(card => {
+                    const cardBackgroundImageURL = card.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+                    card.style.outline = "0px solid rgb(150 203 236)";
+                    darkenBg(card);
+                })
+
+                // Lighten selected card
+                personalityCard.style.outline = "3px solid rgb(150 203 236)";
+                lightenBg(personalityCard);
+            })
+
+            
+            closeOverlay();
+        }
 
         async function run() {
             const inputText = document.querySelector("#inputText");
@@ -510,8 +807,16 @@
             }
         }
 
-        // Call the run function when the generate button is clicked
-        const generateButton = document.querySelector("#generate");
+
+
+
+        backButton.addEventListener("click", closeOverlay);
+
+        addPersonalityButton.addEventListener("click", showAddPersonalityForm);
+
+        editDefaultPersonalityButton.addEventListener("click", showEditPersonalityForm);
+
+        submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
         generateButton.addEventListener("click", run);
 
         // ...
