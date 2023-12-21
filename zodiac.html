@@ -30,7 +30,7 @@
         font-family: 'Material Symbols Outlined';
         font-weight: normal;
         font-style: normal;
-        font-size: 24px;
+        font-size: 1.5rem;
         line-height: 1;
         letter-spacing: normal;
         text-transform: none;
@@ -45,6 +45,8 @@
 
     body {
         font-family: 'Noto Sans', sans-serif;
+
+        margin:0;
         font-size: 1rem;
     }
 
@@ -78,12 +80,15 @@
         border-radius: 0.5rem;
         border: none;
         font-family: noto sans, sans-serif;
+        font-size: 1rem;
     }
 
     button:focus {
         outline: none;
     }
-
+    button {
+        font-size: 1rem;
+    }
     .form {
         display: none;
         opacity: 0;
@@ -104,6 +109,7 @@
         align-items: center;
     }
 
+
     .backButton {
         position: absolute;
         top: 1rem;
@@ -116,6 +122,44 @@
 
     }
 
+    #resultText{
+        margin-top:auto;
+    }
+
+    .messageBox {
+        display:none;
+        position: sticky;
+        bottom: 3rem;
+        z-index: -1;
+    }
+
+    #messageInput {
+        height: 2.5rem ;
+        box-sizing: border-box;
+        text-wrap: wrap;
+        resize: none;
+        width: 100%;
+        padding-right: 2rem;
+    }
+
+    #messageInput::-webkit-scrollbar {
+        height: 1rem;
+        width: 0.5rem;
+    }
+
+    .btn-send {
+        position: absolute;
+        right: 0.5rem;
+        bottom: 0.5rem;
+        padding: 0;
+        margin: 0;
+        border: none;
+        background-color: transparent;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+
 
 
     .prompt-field {
@@ -126,12 +170,14 @@
     .container {
         display: flex;
         gap: 0.5rem;
-        padding: 0.5rem;
+        padding: 1rem;
+
     }
 
     .sidebar {
         position: sticky;
-        top: 1rem;
+        top:1rem;
+
         display: flex;
         flex-direction: column;
         overflow-y: auto;
@@ -226,11 +272,14 @@
         transition: all 0.2s;
     }
 
-    .result-text {
+    #mainContent {
+        display: flex;
+        flex-direction: column;
         padding: 2rem;
         margin-left: auto;
         margin-right: auto;
-        max-width: 32rem;
+        width: 32rem;
+
         text-align: justify;
     }
 
@@ -302,16 +351,18 @@
         .container {
             padding: 0;
             flex-direction: column;
+            height: 100dvh;
+
             width: auto;
         }
 
         .sidebar {
-            height: auto;
+            top: 0;
+            height: calc(100dvh - 2rem);
             margin: 0;
-            width: auto;
-            position: initial;
-            border-top-right-radius: 0;
-            border-top-left-radius: 0;
+            width: calc(100dvw - 2rem);
+            position: fixed;
+            border-radius: 0;
         }
 
         .navbar {
@@ -320,8 +371,12 @@
 
 
 
-        .result-text {
+        #mainContent {
+
+            box-sizing: border-box;
+            margin-top: auto;
             max-width: 100%;
+            padding: 1rem;
         }
     }
 
@@ -357,7 +412,8 @@
         }
 
         .generate-button {
-            background-color: #87b0ed;
+            background-color: #83b5f7;
+
             color: #2b3d59;
         }
 
@@ -516,7 +572,14 @@
                 <a href="https://github.com/faetalize/zodiac">Source Code</a>
             </div>
         </div>
-        <div id="resultText" class="result-text"></div>
+        <div id="mainContent">
+            <div id="resultText" class="result-text"></div>
+            <div class="messageBox">
+                <textarea type="text" placeholder="Type your message here" id="messageInput"
+                    class="input-field"></textarea>
+                <button type="submit" class="btn-send material-symbols-outlined" id="sendMessageButton">send</button>
+            </div>
+        </div>
     </div>
 
     <div class="overlay">
@@ -647,6 +710,13 @@
 
         tabs.forEach(element => {
             element.addEventListener("click", () => {
+                //if tab 1, then show messageInput
+                if (element == tabs[1]) {
+                    showElement(document.querySelector(".messageBox"));
+                }
+                else {
+                    hideElement(document.querySelector(".messageBox"));
+                }
                 navigateTo(element);
             })
         });
@@ -655,7 +725,9 @@
             hideElement(view);
         });
 
-        navigateTo(tabs[1]);
+
+        navigateTo(tabs[0]);
+
 
 
         const personalityCardsInnerInput = document.querySelectorAll(".personalityCard input");
@@ -669,12 +741,16 @@
         const submitNewPersonalityButton = document.querySelector("#submitNewPersonality");
         const updatePersonalityButton = document.querySelector("#updatePersonality");
 
-        function darkenBg(element){
+
+        function darkenBg(element) {
+
             let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
             element.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${elementBackgroundImageURL}')`;
         }
 
-        function lightenBg(element){
+
+        function lightenBg(element) {
+
             let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
             element.style.backgroundImage = `url('${elementBackgroundImageURL}')`;
         }
@@ -770,7 +846,7 @@
                 lightenBg(personalityCard);
             })
 
-            
+
             closeOverlay();
         }
 
@@ -806,6 +882,20 @@
                 hljs.highlightAll();
             }
         }
+
+
+        const messageInput = document.querySelector("#messageInput");
+
+        //if more than one line, set height to scrollheight, and revert upon delete
+        messageInput.addEventListener("input", () => {
+            if (messageInput.value.split("\n").length == 1) {
+                messageInput.style.height = "2.5rem";
+            }
+            else{
+                messageInput.style.height = "";
+                messageInput.style.height = messageInput.scrollHeight + "px";
+            }
+        })
 
 
 
