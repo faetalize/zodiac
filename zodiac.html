@@ -180,7 +180,9 @@
     }
 
 
-
+    .personality-prompt {
+        display: none;
+    }
 
     .prompt-field {
         resize: vertical;
@@ -570,8 +572,9 @@
                     style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.fonearena.com/blog/wp-content/uploads/2023/12/Google-Gemini-AI-1024x577.jpg')">
                     <input type="radio" name="personality" value="zodiac3" checked>
                     <div>
-                        <h3>zodiac</h3>
-                        <p>zodiac is a cheerful assistant, always ready to help you with your tasks.</p>
+                        <h3 class="personality-title">zodiac</h3>
+                        <p class="personality-description">zodiac is a cheerful assistant, always ready to help you with your tasks.</p>
+                        <p class="personality-prompt">You are zodiac, a helpful assistant built upon Google's Gemini Pro. Gemini Pro is a new LLM (Large Language Model) release by Google on December 2023. Your purpose is being a helpful assistant to the user.</p>
                     </div>
                     <button class="edit material-symbols-outlined" id="editDefaultPersonality">edit</button>
                 </label>
@@ -673,12 +676,9 @@
                 threshold: HarmBlockThreshold.BLOCK_NONE,
             }
         ];
-        const systemPrompt = "[System]: You are zodiac, a helpful assistant built upon Google's Gemini Pro." +
-            "Gemini Pro is a new LLM (Large Language Model) release by Google on December 2023. If needed, format your answer using markdown." +
-            "Your purpose is being a helpful assistant to the user." +
+        const systemPrompt = "If needed, format your answer using markdown." +
             "Today's date is" + new Date().toDateString() + "." +
-            "End of system prompt. [/System]";
-        const generateButton = document.querySelector("#generate");
+            "End of system prompt.";
 
         //function to hide element smoothly then setting display none after the transition time elapsed
         function hideElement(element) {
@@ -762,6 +762,8 @@
         const submitNewPersonalityButton = document.querySelector("#submitNewPersonality");
         const updatePersonalityButton = document.querySelector("#updatePersonality");
 
+        const sendMessageButton = document.querySelector("#sendMessageButton");
+
 
         function darkenBg(element) {
 
@@ -841,8 +843,9 @@
             personalityCard.innerHTML = `
             <input type="radio" name="personality" value="${personalityName.value}">
             <div>
-                <h3>${personalityName.value}</h3>
-                <p>${personalityDescription.value}</p>
+                <h3 class="personality-title">${personalityName.value}</h3>
+                <p class="personality-description">${personalityDescription.value}</p>
+                <p class="personality-prompt">${personalityPrompt.value}</p>
             </div>
             <button class="edit material-symbols-outlined" id="editDefaultPersonality">edit</button>
             `;
@@ -872,10 +875,14 @@
         }
 
         async function run() {
-            const inputText = document.querySelector("#inputText");
+            const msg = document.querySelector("#messageInput");
             const resultText = document.querySelector("#resultText");
             const maxTokens = document.querySelector("#maxTokens");
             const API_KEY = document.querySelector("#apiKeyInput");
+            const selectedPersonalityTitle = document.querySelector("input[name='personality']:checked + div .personality-title").innerText;
+            const selectedPersonalityDescription = document.querySelector("input[name='personality']:checked + div .personality-description").innerText;
+            const selectedPersonalityPrompt = document.querySelector("input[name='personality']:checked + div .personality-prompt").innerText;
+            
 
             if (API_KEY.value == "") {
                 alert("Please enter an API key");
@@ -888,10 +895,23 @@
             };
             const genAI = new GoogleGenerativeAI(API_KEY.value);
             const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig, safetySettings });
-            const prompt = systemPrompt + "\n\n" + inputText.value;
-            const result = await model.generateContentStream(prompt);
+            const chat = model.startChat({
+                history: [
+                    {
+                        role: "user",
+                        parts:[{text: `Personality Name: ${selectedPersonalityTitle}, Personality Description: ${selectedPersonalityDescription}, Personality Prompt: ${selectedPersonalityPrompt}. ${systemPrompt}`}]
+                    },
+                    {
+                        role: "model",
+                        parts:[{text: "Understood. Your prompt and described personality will be used for the rest of the conversation."}]
+                    }
+                ]
+            })
+            const result = await chat.sendMessageStream(msg.value);
+
 
             resultText.innerHTML = '';
+            msg.value = '';
             let rawText = "";
 
             for await (const chunk of result.stream) {
@@ -945,6 +965,8 @@
         editDefaultPersonalityButton.addEventListener("click", showEditPersonalityForm);
 
         submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
+
+        sendMessageButton.addEventListener("click", run);
         
 
         // ...
