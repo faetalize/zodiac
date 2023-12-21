@@ -45,6 +45,7 @@
 
     body {
         font-family: 'Noto Sans', sans-serif;
+
         margin:0;
         font-size: 1rem;
     }
@@ -85,11 +86,9 @@
     button:focus {
         outline: none;
     }
-
     button {
         font-size: 1rem;
     }
-
     .form {
         display: none;
         opacity: 0;
@@ -109,7 +108,6 @@
         justify-content: center;
         align-items: center;
     }
-
 
 
     .backButton {
@@ -164,7 +162,6 @@
 
 
 
-
     .prompt-field {
         resize: vertical;
         height: 7rem;
@@ -174,11 +171,13 @@
         display: flex;
         gap: 0.5rem;
         padding: 1rem;
+
     }
 
     .sidebar {
         position: sticky;
         top:1rem;
+
         display: flex;
         flex-direction: column;
         overflow-y: auto;
@@ -280,6 +279,7 @@
         margin-left: auto;
         margin-right: auto;
         width: 32rem;
+
         text-align: justify;
     }
 
@@ -351,8 +351,8 @@
         .container {
             padding: 0;
             flex-direction: column;
-
             height: 100dvh;
+
             width: auto;
         }
 
@@ -378,7 +378,6 @@
             max-width: 100%;
             padding: 1rem;
         }
-
     }
 
     /* Light theme styles */
@@ -414,6 +413,7 @@
 
         .generate-button {
             background-color: #83b5f7;
+
             color: #2b3d59;
         }
 
@@ -725,7 +725,9 @@
             hideElement(view);
         });
 
+
         navigateTo(tabs[0]);
+
 
 
         const personalityCardsInnerInput = document.querySelectorAll(".personalityCard input");
@@ -739,12 +741,16 @@
         const submitNewPersonalityButton = document.querySelector("#submitNewPersonality");
         const updatePersonalityButton = document.querySelector("#updatePersonality");
 
+
         function darkenBg(element) {
+
             let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
             element.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${elementBackgroundImageURL}')`;
         }
 
+
         function lightenBg(element) {
+
             let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
             element.style.backgroundImage = `url('${elementBackgroundImageURL}')`;
         }
@@ -877,6 +883,7 @@
             }
         }
 
+
         const messageInput = document.querySelector("#messageInput");
 
         //if more than one line, set height to scrollheight, and revert upon delete
@@ -889,7 +896,7 @@
                 messageInput.style.height = messageInput.scrollHeight + "px";
             }
         })
-        
+
 
 
 
