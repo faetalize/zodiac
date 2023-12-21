@@ -41,6 +41,7 @@
         -webkit-font-feature-settings: 'liga';
         font-feature-settings: "liga";
         -webkit-font-smoothing: antialiased;
+
     }
 
     body {
@@ -110,6 +111,19 @@
         z-index: 2  ;
     }
 
+    .btn-dismiss{
+        background: transparent;
+        margin: 0;
+        padding: 0;
+        border: none;
+        transition: all 0.2s;
+        cursor: pointer;
+        display: none;
+    }
+
+    .btn-dismiss:hover{
+        text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
+    }
 
     .backButton {
         position: absolute;
@@ -128,7 +142,6 @@
     }
 
     .messageBox {
-        display:none;
         position: sticky;
         bottom: 3rem;
         z-index: 0;
@@ -158,6 +171,12 @@
         background-color: transparent;
         transition: all 0.2s;
         cursor: pointer;
+    }
+
+    #btn-show-sidebar{
+        position: absolute;
+        top: 2rem;
+        left: 2rem;
     }
 
 
@@ -380,8 +399,13 @@
             max-width: 100%;
             padding: 1rem;
         }
+
+        .btn-dismiss{
+            display: block;
+        }
     }
 
+    
     /* Light theme styles */
     @media (prefers-color-scheme: light) {
         :focus {
@@ -526,6 +550,9 @@
     <div class="container">
         <div class="sidebar">
             <div class="header">
+                <button class="material-symbols-outlined btn-dismiss">
+                    arrow_back_ios_new
+                </button>
                 <img src="https://upload.wikimedia.org/wikipedia/commons/f/f0/Google_Bard_logo.svg" id="gemin-pro-logo">
                 <div id="title-div">
                     <div id="zodiac-branding">zodiac </div>
@@ -533,14 +560,9 @@
                 </div>
             </div>
             <div class="navbar">
-                <div class="navbar-tab">Generate</div>
-                <div class="navbar-tab">Chat</div>
+                <div class="navbar-tab">Personalities</div>
                 <div class="navbar-tab">Settings</div>
                 <div class="navbar-tab-highlight"></div>
-            </div>
-            <div class="sidebar-section">
-                <textarea id="inputText" placeholder="Prompt goes here" class="prompt-field"></textarea>
-                <button id="generate" class="generate-button">Generate</button>
             </div>
 
             <div class="sidebar-section" id="personalitySection">
@@ -575,6 +597,9 @@
             </div>
         </div>
         <div id="mainContent">
+            <button class="material-symbols-outlined btn-dismiss" id="btn-show-sidebar">
+                menu
+            </button>
             <div id="resultText" class="result-text"></div>
             <div class="messageBox">
                 <textarea type="text" placeholder="Type your message here" id="messageInput"
@@ -712,13 +737,7 @@
 
         tabs.forEach(element => {
             element.addEventListener("click", () => {
-                //if tab 1, then show messageInput
-                if (element == tabs[1]) {
-                    showElement(document.querySelector(".messageBox"));
-                }
-                else {
-                    hideElement(document.querySelector(".messageBox"));
-                }
+                
                 navigateTo(element);
             })
         });
@@ -900,7 +919,24 @@
         })
 
 
+        const sidebarDismissButton = document.querySelector(".btn-dismiss");
+        sidebarDismissButton.addEventListener("click", () => {
+            hideElement(document.querySelector(".sidebar"));
+        })
 
+        const showSidebarButton = document.querySelector("#btn-show-sidebar");
+        showSidebarButton.addEventListener("click", () => {
+            showElement(document.querySelector(".sidebar"));
+        })
+
+
+        //unhide sidebar if width > 768px (event hander)
+        window.addEventListener("resize", () => {
+            if (window.innerWidth > 768) {
+                showElement(document.querySelector(".sidebar"));
+            }
+        })
+        
 
         backButton.addEventListener("click", closeOverlay);
 
@@ -909,7 +945,7 @@
         editDefaultPersonalityButton.addEventListener("click", showEditPersonalityForm);
 
         submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
-        generateButton.addEventListener("click", run);
+        
 
         // ...
     </script>
