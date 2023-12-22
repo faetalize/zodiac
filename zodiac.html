@@ -948,6 +948,9 @@
             //reverse order of chat history
             chatHistory.reverse();
 
+            //
+            const toneExamples = [];
+
 
             if (API_KEY.value == "") {
                 alert("Please enter an API key");
@@ -959,8 +962,8 @@
                 temperature: 0.9
             };
             const genAI = new GoogleGenerativeAI(API_KEY.value);
-            const model = genAI.getGenerativeModel({ model: "gemini-pro", generationConfig, safetySettings });
-            const chat = model.startChat({
+            const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+            const chat = model.startChat({ generationConfig, safetySettings,
                 history: [
                     {
                         role: "user",
@@ -968,8 +971,9 @@
                     },
                     {
                         role: "model",
-                        parts: [{ text: "Understood. Your prompt and described personality will be used for the rest of the conversation." }]
+                        parts: [{ text: `Okay. From now on, I shall play the role of ${selectedPersonalityTitle}. Your prompt and described personality will be used for the rest of the conversation.` }]
                     },
+                    ...toneExamples,
                     ...chatHistory
                 ]
             })
