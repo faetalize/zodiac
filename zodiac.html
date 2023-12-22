@@ -47,7 +47,7 @@
     body {
         font-family: 'Noto Sans', sans-serif;
 
-        margin:0;
+        margin: 0;
         font-size: 1rem;
     }
 
@@ -87,17 +87,19 @@
     button:focus {
         outline: none;
     }
-    button {
-        font-size: 1rem;
-    }
+
     .form {
         display: none;
         opacity: 0;
         flex-direction: column;
+        width: 32rem;
         gap: 0.5rem;
+        flex-grow: 1;
+        justify-content: center;
     }
 
     .overlay {
+        flex-direction: column;
         display: none;
         position: fixed;
         opacity: 0;
@@ -106,23 +108,9 @@
         width: 100dvw;
         height: 100dvh;
         backdrop-filter: blur(2rem);
-        justify-content: center;
+        z-index: 2;
+        justify-content: flex-start;
         align-items: center;
-        z-index: 2  ;
-    }
-
-    .btn-dismiss{
-        background: transparent;
-        margin: 0;
-        padding: 0;
-        border: none;
-        transition: all 0.2s;
-        cursor: pointer;
-        display: none;
-    }
-
-    .btn-dismiss:hover{
-        text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
     }
 
     .backButton {
@@ -137,18 +125,26 @@
 
     }
 
-    #resultText{
-        margin-top:auto;
+    #btn-hide-sidebar {
+        display: none;
     }
 
-    .messageBox {
-        position: sticky;
-        bottom: 3rem;
-        z-index: 0;
+    .message-container {
+        display: flex;
+        flex-direction: column-reverse;
+        overflow-y: auto;
+        gap: 1rem;
+        padding-bottom: 2rem;
+        flex-grow: 1;
+    }
+
+    .message-box {
+        display: flex;
+        position: relative;
     }
 
     #messageInput {
-        height: 2.5rem ;
+        height: 2.5rem;
         box-sizing: border-box;
         text-wrap: wrap;
         resize: none;
@@ -161,24 +157,26 @@
         width: 0.5rem;
     }
 
-    .btn-send {
+    .btn-textual {
+        background: transparent !important;
+        margin: 0;
+        padding: 0;
+        border: none;
+        transition: all 0.2s;
+        cursor: pointer;
+        font-size: inherit;
+    }
+
+    .btn-textual:hover {
+        text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
+    }
+
+    #btn-send {
         position: absolute;
         right: 0.5rem;
         bottom: 0.5rem;
-        padding: 0;
-        margin: 0;
-        border: none;
-        background-color: transparent;
-        transition: all 0.2s;
-        cursor: pointer;
+        font-size: 1.5rem;
     }
-
-    #btn-show-sidebar{
-        position: absolute;
-        top: 2rem;
-        left: 2rem;
-    }
-
 
     .personality-prompt {
         display: none;
@@ -190,15 +188,20 @@
     }
 
     .container {
+        box-sizing: border-box;
         display: flex;
         gap: 0.5rem;
         padding: 1rem;
+
+
+        width: 100dvw;
+        height: 100dvh;
 
     }
 
     .sidebar {
         position: sticky;
-        top:1rem;
+        top: 1rem;
 
         display: flex;
         flex-direction: column;
@@ -219,12 +222,19 @@
         gap: 0.5rem;
     }
 
+    #btn-show-sidebar {
+        display: none;
+    }
+
     .header {
         display: flex;
+
+        box-sizing: border-box;
         align-items: center;
         font-size: 2rem;
         font-weight: 800;
         gap: 0.5rem;
+        width: 100%;
     }
 
     .navbar {
@@ -286,7 +296,7 @@
         align-items: center;
     }
 
-    .generate-button {
+    button {
         border: none;
         background-color: #3b82f6;
         color: white;
@@ -302,14 +312,14 @@
         margin-left: auto;
         margin-right: auto;
         width: 32rem;
-
         text-align: justify;
     }
 
-    .personalityCard {
+    .card-personality {
         box-sizing: border-box;
         -moz-box-sizing: border-box;
         -webkit-box-sizing: border-box;
+        color: #e4e4e4;
         background-color: black;
         background-size: cover;
         background-position: center;
@@ -326,16 +336,12 @@
         text-shadow: 0 0 10px #000000, 0 0 5px #181818;
     }
 
-    .personalityCard * {
-        color: #e4e4e4;
-    }
-
     .edit:hover {
         text-shadow: 0 0 10px #e4e4e4, 0 0 5px #dfdfdf;
     }
 
 
-    .personalityCard * {
+    .card-personality * {
         /* unselectable */
         -webkit-user-select: none;
         /* Safari */
@@ -348,18 +354,21 @@
 
     }
 
-    .personalityCard input {
+    .card-personality input {
         display: none;
     }
 
-    .edit {
+    .btn-edit-card {
         /* top right corner */
         position: absolute;
         top: 1rem;
         right: 1rem;
-        border: none;
-        background-color: transparent;
-        transition: all 0.2s;
+        font-size: 1.5rem;
+        color: #e4e4e4; 
+    }
+
+    #btn-hide-overlay {
+        padding: 2rem;
     }
 
 
@@ -373,10 +382,7 @@
 
         .container {
             padding: 0;
-            flex-direction: column;
-            height: 100dvh;
 
-            width: auto;
         }
 
         .sidebar {
@@ -386,6 +392,7 @@
             width: calc(100dvw - 2rem);
             position: fixed;
             border-radius: 0;
+            display: none;
         }
 
         .navbar {
@@ -393,21 +400,30 @@
         }
 
 
-
-        #mainContent {
-
-            box-sizing: border-box;
-            margin-top: auto;
-            max-width: 100%;
-            padding: 1rem;
+        #btn-hide-sidebar {
+            display: block;
         }
 
-        .btn-dismiss{
+        #mainContent {
+            padding: 0;
+            margin: 0;
+            width: 100%;
+        }
+
+        #mainContent .header {
+            padding: 2rem;
+        }
+
+        #messageInput {
+            border-radius: 0;
+        }
+
+        #btn-show-sidebar {
             display: block;
         }
     }
 
-    
+
     /* Light theme styles */
     @media (prefers-color-scheme: light) {
         :focus {
@@ -439,22 +455,17 @@
             background-color: #87b0ed;
         }
 
-        .generate-button {
+        button {
             background-color: #83b5f7;
 
             color: #2b3d59;
         }
 
-        .generate-button:hover {
+        button:hover {
             background-color: #0b7bc1;
             color: white;
         }
 
-
-
-        .backButton:hover {
-            text-shadow: 0 0 20px #000000, 0 0 20px #181818;
-        }
 
         input,
         textarea,
@@ -512,22 +523,17 @@
             box-shadow: 0 0 1rem 0.05rem #29292aac;
         }
 
-        .generate-button {
+        button {
             background-color: #22486b;
             color: #e4e4e4;
         }
 
-        .generate-button:hover {
+        button:hover {
             background-color: #31689c;
             color: white;
         }
 
         .edit:hover {
-            text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
-            /* Change #00ff00 to the color you want */
-        }
-
-        .backButton:hover {
             text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
             /* Change #00ff00 to the color you want */
         }
@@ -552,7 +558,7 @@
     <div class="container">
         <div class="sidebar">
             <div class="header">
-                <button class="material-symbols-outlined btn-dismiss">
+                <button class="material-symbols-outlined btn-textual" id="btn-hide-sidebar">
                     arrow_back_ios_new
                 </button>
                 <img src="https://upload.wikimedia.org/wikipedia/commons/f/f0/Google_Bard_logo.svg" id="gemin-pro-logo">
@@ -568,17 +574,21 @@
             </div>
 
             <div class="sidebar-section" id="personalitySection">
-                <label class="personalityCard"
+                <label class="card-personality"
                     style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.fonearena.com/blog/wp-content/uploads/2023/12/Google-Gemini-AI-1024x577.jpg')">
                     <input type="radio" name="personality" value="zodiac3" checked>
                     <div>
                         <h3 class="personality-title">zodiac</h3>
-                        <p class="personality-description">zodiac is a cheerful assistant, always ready to help you with your tasks.</p>
-                        <p class="personality-prompt">You are zodiac, a helpful assistant built upon Google's Gemini Pro. Gemini Pro is a new LLM (Large Language Model) release by Google on December 2023. Your purpose is being a helpful assistant to the user.</p>
+                        <p class="personality-description">zodiac is a cheerful assistant, always ready to help you with
+                            your tasks.</p>
+                        <p class="personality-prompt">You are zodiac, a helpful assistant built upon Google's Gemini
+                            Pro. Gemini Pro is a new LLM (Large Language Model) release by Google on December 2023. Your
+                            purpose is being a helpful assistant to the user.</p>
                     </div>
-                    <button class="edit material-symbols-outlined" id="editDefaultPersonality">edit</button>
+                    <button class="btn-textual btn-edit-card material-symbols-outlined"
+                        id="btn-edit-personality-default">edit</button>
                 </label>
-                <button class="generate-button" id="addPersonalityButton">Add Personality</button>
+                <button id="btn-add-personality">Add Personality</button>
             </div>
 
             <div class="sidebar-section">
@@ -599,22 +609,28 @@
                 <a href="https://github.com/faetalize/zodiac">Source Code</a>
             </div>
         </div>
+
         <div id="mainContent">
-            <button class="material-symbols-outlined btn-dismiss" id="btn-show-sidebar">
-                menu
-            </button>
-            <div id="resultText" class="result-text"></div>
-            <div class="messageBox">
+            <div class="header">
+                <button class="material-symbols-outlined btn-textual" id="btn-show-sidebar">
+                    menu
+                </button>
+            </div>
+            <div class="message-container"></div>
+            <div class="message-box">
                 <textarea type="text" placeholder="Type your message here" id="messageInput"
                     class="input-field"></textarea>
-                <button type="submit" class="btn-send material-symbols-outlined" id="sendMessageButton">send</button>
+                <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
             </div>
         </div>
     </div>
 
     <div class="overlay">
-        <button class="backButton">BACK </button>
-        <div class="form" id="addPersonalityForm">
+        <div class="header">
+            <button class="btn-textual" id="btn-hide-overlay">BACK</button>
+        </div>
+
+        <div class="form" id="form-add-personality">
             <h1>Add Personality</h1>
             <label for="personalityNameInput">Personality Name:</label>
             <input type="text" placeholder="Personality Name" id="personalityNameInput" class="input-field"></input>
@@ -626,9 +642,10 @@
                 class="input-field"></input>
             <label for="personalityPromptInput">Prompt:</label>
             <textarea id="personalityPromptInput" placeholder="Personality Prompt" class="prompt-field"></textarea>
-            <button class="generate-button" id="submitNewPersonality">Add Personality</button>
+            <button id="btn-submit-personality">Add Personality</button>
         </div>
-        <div class="form" id="editPersonalityForm">
+
+        <div class="form" id="form-edit-personality">
             <h1>Edit Personality</h1>
             <label for="personalityNameInput">Personality Name:</label>
             <input type="text" placeholder="Personality Name" id="personalityNameInput" class="input-field"></input>
@@ -640,7 +657,7 @@
                 class="input-field"></input>
             <label for="personalityPromptInput">Prompt:</label>
             <textarea id="personalityPromptInput" placeholder="Personality Prompt" class="prompt-field"></textarea>
-            <button class="generate-button" id="updatePersonality">Save</button>
+            <button id="updatePersonality">Save</button>
         </div>
     </div>
 
@@ -737,7 +754,7 @@
 
         tabs.forEach(element => {
             element.addEventListener("click", () => {
-                
+
                 navigateTo(element);
             })
         });
@@ -751,18 +768,18 @@
 
 
 
-        const personalityCardsInnerInput = document.querySelectorAll(".personalityCard input");
-        let personalityCards = document.querySelectorAll(".personalityCard");
+        const personalityCardsInnerInput = document.querySelectorAll(".card-personality input");
+        let personalityCards = document.querySelectorAll(".card-personality");
         const formsOverlay = document.querySelector(".overlay");
-        const backButton = document.querySelector(".backButton");
-        const addPersonalityForm = document.querySelector("#addPersonalityForm");
-        const editPersonalityForm = document.querySelector("#editPersonalityForm");
-        const addPersonalityButton = document.querySelector("#addPersonalityButton");
-        const editDefaultPersonalityButton = document.querySelector("#editDefaultPersonality");
-        const submitNewPersonalityButton = document.querySelector("#submitNewPersonality");
+        const hideOverlayButton = document.querySelector("#btn-hide-overlay");
+        const addPersonalityForm = document.querySelector("#form-add-personality");
+        const addPersonalityButton = document.querySelector("#btn-add-personality");
+        const editDefaultPersonalityForm = document.querySelector("#form-edit-personality");
+        const editDefaultPersonalityButton = document.querySelector("#btn-edit-personality-default");
+        const submitNewPersonalityButton = document.querySelector("#btn-submit-personality");
         const updatePersonalityButton = document.querySelector("#updatePersonality");
 
-        const sendMessageButton = document.querySelector("#sendMessageButton");
+        const sendMessageButton = document.querySelector("#btn-send");
 
 
         function darkenBg(element) {
@@ -809,22 +826,20 @@
 
         function showEditPersonalityForm() {
             showElement(formsOverlay);
-            showElement(editPersonalityForm);
-
-            editPersonalityForm
+            showElement(editDefaultPersonalityForm);
         }
 
         function closeOverlay() {
             hideElement(formsOverlay);
             hideElement(addPersonalityForm);
-            hideElement(editPersonalityForm);
+            hideElement(editDefaultPersonalityForm);
         }
 
         function submitNewPersonality() {
-            const personalityName = document.querySelector("#addPersonalityForm #personalityNameInput");
-            const personalityDescription = document.querySelector("#addPersonalityForm #personalityDescriptionInput");
-            const personalityImageURL = document.querySelector("#addPersonalityForm #personalityImageURLInput");
-            const personalityPrompt = document.querySelector("#addPersonalityForm #personalityPromptInput");
+            const personalityName = document.querySelector("#form-add-personality #personalityNameInput");
+            const personalityDescription = document.querySelector("#form-add-personality #personalityDescriptionInput");
+            const personalityImageURL = document.querySelector("#form-add-personality #personalityImageURLInput");
+            const personalityPrompt = document.querySelector("#form-add-personality #personalityPromptInput");
             const personalitySection = document.querySelector("#personalitySection");
 
 
@@ -838,7 +853,7 @@
             }
 
             const personalityCard = document.createElement("label");
-            personalityCard.classList.add("personalityCard");
+            personalityCard.classList.add("card-personality");
             personalityCard.style.backgroundImage = `url('${personalityImageURL.value}')`;
             personalityCard.innerHTML = `
             <input type="radio" name="personality" value="${personalityName.value}">
@@ -847,15 +862,14 @@
                 <p class="personality-description">${personalityDescription.value}</p>
                 <p class="personality-prompt">${personalityPrompt.value}</p>
             </div>
-            <button class="edit material-symbols-outlined" id="editDefaultPersonality">edit</button>
+            <button class="btn-textual btn-edit-card material-symbols-outlined" id="btn-edit-personality-${personalityName.value}">edit</button>
             `;
-
 
             personalitySection.insertBefore(personalityCard, addPersonalityButton);
 
             darkenBg(personalityCard);
 
-            personalityCards = document.querySelectorAll(".personalityCard");
+            personalityCards = document.querySelectorAll(".card-personality");
             //add input event listener
             personalityCard.querySelector("input").addEventListener("change", () => {
                 // Darken all cards
@@ -876,13 +890,30 @@
 
         async function run() {
             const msg = document.querySelector("#messageInput");
-            const resultText = document.querySelector("#resultText");
+            const msgText = msg.value;
+            const messageContainer = document.querySelector(".message-container");
             const maxTokens = document.querySelector("#maxTokens");
             const API_KEY = document.querySelector("#apiKeyInput");
             const selectedPersonalityTitle = document.querySelector("input[name='personality']:checked + div .personality-title").innerText;
             const selectedPersonalityDescription = document.querySelector("input[name='personality']:checked + div .personality-description").innerText;
             const selectedPersonalityPrompt = document.querySelector("input[name='personality']:checked + div .personality-prompt").innerText;
-            
+
+
+            //chat history
+            const chatHistory = [];
+            //get chat history from message container
+            const messageElements = messageContainer.querySelectorAll(".message");
+            messageElements.forEach(element => {
+                const messageroleapi = element.querySelector(".message-role-api").innerText;
+                const messagetext = element.querySelector(".message-text").innerText;
+                chatHistory.push({
+                    role: messageroleapi,
+                    parts: [{ text: messagetext }]
+                })
+            })
+            //reverse order of chat history
+            chatHistory.reverse();
+
 
             if (API_KEY.value == "") {
                 alert("Please enter an API key");
@@ -899,29 +930,55 @@
                 history: [
                     {
                         role: "user",
-                        parts:[{text: `Personality Name: ${selectedPersonalityTitle}, Personality Description: ${selectedPersonalityDescription}, Personality Prompt: ${selectedPersonalityPrompt}. ${systemPrompt}`}]
+                        parts: [{ text: `Personality Name: ${selectedPersonalityTitle}, Personality Description: ${selectedPersonalityDescription}, Personality Prompt: ${selectedPersonalityPrompt}. ${systemPrompt}` }]
                     },
                     {
                         role: "model",
-                        parts:[{text: "Understood. Your prompt and described personality will be used for the rest of the conversation."}]
-                    }
+                        parts: [{ text: "Understood. Your prompt and described personality will be used for the rest of the conversation." }]
+                    },
+                    ...chatHistory
                 ]
             })
-            const result = await chat.sendMessageStream(msg.value);
 
 
-            resultText.innerHTML = '';
-            msg.value = '';
+
+            msg.value = "";
+            //create new message div for the user's message then append to message container's top
+            const newMessage = document.createElement("div");
+            newMessage.classList.add("message");
+            newMessage.innerHTML = `
+            <h3 class="message-role">You:</h3>
+            <div class="message-role-api" style="display: none;">user</div>
+            <p class="message-text">${msgText}</p>
+            `;
+            messageContainer.insertBefore(newMessage, messageContainer.firstChild);
+
+            const result = await chat.sendMessageStream(msgText);
+
+            //create new message div for the model's reply then append to message container's top
+            const newReply = document.createElement("div");
+            newReply.classList.add("message");
+            newReply.classList.add("message-model");
+            newReply.innerHTML = `
+            <h3 class="message-role">${selectedPersonalityTitle}:</h3>
+            <div class="message-role-api" style="display: none;">model</div>
+            <p class="message-text">`;
+
+            //get the p element inside the message div
+            const replyText = newReply.querySelector(".message-text");
+
+
+            messageContainer.insertBefore(newReply, messageContainer.firstChild);
+
             let rawText = "";
-
             for await (const chunk of result.stream) {
-                console.log(chunk);
-                const chunkText = chunk.text();
-                rawText += chunkText;
-                resultText.innerHTML = marked.parse(rawText);
-
-                hljs.highlightAll();
+                console.log("hello");
+                rawText += chunk.text();
+                replyText.innerHTML = marked(rawText);
+                void replyText.offsetHeight; // Force reflow
             }
+
+            hljs.highlightAll();
         }
 
 
@@ -932,14 +989,14 @@
             if (messageInput.value.split("\n").length == 1) {
                 messageInput.style.height = "2.5rem";
             }
-            else{
+            else {
                 messageInput.style.height = "";
                 messageInput.style.height = messageInput.scrollHeight + "px";
             }
         })
 
 
-        const sidebarDismissButton = document.querySelector(".btn-dismiss");
+        const sidebarDismissButton = document.querySelector("#btn-hide-sidebar");
         sidebarDismissButton.addEventListener("click", () => {
             hideElement(document.querySelector(".sidebar"));
         })
@@ -956,9 +1013,9 @@
                 showElement(document.querySelector(".sidebar"));
             }
         })
-        
 
-        backButton.addEventListener("click", closeOverlay);
+
+        hideOverlayButton.addEventListener("click", closeOverlay);
 
         addPersonalityButton.addEventListener("click", showAddPersonalityForm);
 
@@ -967,7 +1024,7 @@
         submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
 
         sendMessageButton.addEventListener("click", run);
-        
+
 
         // ...
     </script>
