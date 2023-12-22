@@ -143,6 +143,15 @@
         position: relative;
     }
 
+    .message{
+            
+            padding: 1rem;
+     }
+
+     .message-model{
+        border-radius: 1rem;
+     }
+
     #messageInput {
         height: 2.5rem;
         box-sizing: border-box;
@@ -167,7 +176,7 @@
         font-size: inherit;
     }
 
-    
+
 
     #btn-send {
         position: absolute;
@@ -362,12 +371,13 @@
         top: 1rem;
         right: 1rem;
         font-size: 1.5rem;
-        color: #e4e4e4; 
+        color: #e4e4e4;
     }
 
     #btn-hide-overlay {
         padding: 2rem;
     }
+    
 
 
 
@@ -381,6 +391,11 @@
         .container {
             padding: 0;
 
+        }
+
+        .message-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
         }
 
         .sidebar {
@@ -454,8 +469,8 @@
         }
 
         .btn-textual:hover {
-        text-shadow: 0 0 10px #000000;
-    }
+            text-shadow: 0 0 10px #000000;
+        }
 
         button {
             background-color: #83b5f7;
@@ -478,6 +493,10 @@
         input::placeholder,
         textarea::placeholder {
             color: #7c8a9c;
+        }
+
+        .message-model {
+            background-color: #d2e2f7;
         }
     }
 
@@ -507,8 +526,9 @@
         }
 
         .btn-textual:hover {
-        text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
-    }
+            text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
+        }
+
         .sidebar {
             background-color: #1a2733;
         }
@@ -554,6 +574,11 @@
         input::placeholder,
         textarea::placeholder {
             color: #849caf;
+        }
+
+        
+        .message-model {
+            background-color: #1a2733;
         }
     }
 </style>
@@ -700,6 +725,11 @@
         const systemPrompt = "If needed, format your answer using markdown." +
             "Today's date is" + new Date().toDateString() + "." +
             "End of system prompt.";
+
+        //load api key from local storage into input field
+        const API_KEY = document.querySelector("#apiKeyInput");
+        API_KEY.value = localStorage.getItem("API_KEY");
+
 
         //function to hide element smoothly then setting display none after the transition time elapsed
         function hideElement(element) {
@@ -980,9 +1010,12 @@
                 rawText += chunk.text();
                 replyText.innerHTML = marked(rawText);
                 void replyText.offsetHeight; // Force reflow
+                hljs.highlightAll();
             }
 
-            hljs.highlightAll();
+            //save api key to local storage
+            localStorage.setItem("API_KEY", API_KEY.value);
+
         }
 
 
