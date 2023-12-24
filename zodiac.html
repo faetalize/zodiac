@@ -753,7 +753,9 @@
 
         //load api key from local storage into input field
         const API_KEY = document.querySelector("#apiKeyInput");
+        const maxTokens = document.querySelector("#maxTokens");
         API_KEY.value = localStorage.getItem("API_KEY");
+        maxTokens.value = localStorage.getItem("MAX_TOKENS");
 
 
         //function to hide element smoothly then setting display none after the transition time elapsed
@@ -1109,6 +1111,7 @@
 
             //save api key to local storage
             localStorage.setItem("API_KEY", API_KEY.value);
+            localStorage.setItem("MAX_TOKENS",maxTokens.value);
 
         }
 
