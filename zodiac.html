@@ -12,6 +12,8 @@
     <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.css">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+    <!-- Font-awesome cuz why not -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
 </head>
 
 <style>
@@ -601,6 +603,19 @@
             background-color: #1a2733;
         }
     }
+
+    #btn-reset-chat {
+        background-color: #1a2733;
+        color: #e4e4e4;
+        right: 4rem;
+        margin-right: 5px;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+    #btn-reset-chat:hover {
+        background-color: #313131;
+    }
 </style>
 
 <body>
@@ -672,6 +687,7 @@
             </div>
             <div class="message-container"></div>
             <div class="message-box">
+                <button class="material-symbols-outlined" id="btn-reset-chat">rotate_left</button>
                 <textarea type="text" placeholder="Type your message here" id="messageInput"
                     class="input-field"></textarea>
                 <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
@@ -1022,10 +1038,11 @@
             const selectedPersonalityTitle = document.querySelector("input[name='personality']:checked + div .personality-title").innerText;
             const selectedPersonalityDescription = document.querySelector("input[name='personality']:checked + div .personality-description").innerText;
             const selectedPersonalityPrompt = document.querySelector("input[name='personality']:checked + div .personality-prompt").innerText;
+            const resetChatButton = document.querySelector("#btn-reset-chat");
 
 
             //chat history
-            const chatHistory = [];
+            var chatHistory = [];
             //get chat history from message container
             const messageElements = messageContainer.querySelectorAll(".message");
             messageElements.forEach(element => {
@@ -1054,7 +1071,7 @@
             };
             const genAI = new GoogleGenerativeAI(API_KEY.value);
             const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-            const chat = model.startChat({
+            var chat = model.startChat({
                 generationConfig, safetySettings,
                 history: [
                     {
@@ -1112,6 +1129,30 @@
             //save api key to local storage
             localStorage.setItem("API_KEY", API_KEY.value);
             localStorage.setItem("MAX_TOKENS",maxTokens.value);
+
+            //reset chat button (async)
+            resetChatButton.addEventListener("click", () => {
+                //remove all messages
+                messageContainer.innerHTML = "";
+                //reset chat history
+                chatHistory = [];
+                //reset chat
+                chat = model.startChat({
+                    generationConfig, safetySettings,
+                    history: [
+                        {
+                            role: "user",
+                            parts: [{ text: `Personality Name: ${selectedPersonalityTitle}, Personality Description: ${selectedPersonalityDescription}, Personality Prompt: ${selectedPersonalityPrompt}. ${systemPrompt}` }]
+                        },
+                        {
+                            role: "model",
+                            parts: [{ text: `Okay. From now on, I shall play the role of ${selectedPersonalityTitle}. Your prompt and described personality will be used for the rest of the conversation.` }]
+                        },
+                        ...toneExamples,
+                        ...chatHistory
+                    ]
+                })
+            })
 
         }
 
