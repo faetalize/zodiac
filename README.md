@@ -1,5 +1,5 @@
 # zodiac
-A frontend for Google's Gemini Pro REST API, built with vanilla JS. Get your API key here: [Google AI Suite](https://makersuite.google.com/app/apikey)
+A frontend built to interface with Google's Gemini Pro, built with vanilla JS. Get your API key here: [Google AI Suite](https://makersuite.google.com/app/apikey)
 ## How to use?
 Download `zodiac.html`, and open it in a browser of your choice. **That's it.**
 
