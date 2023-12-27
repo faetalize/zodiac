@@ -853,6 +853,7 @@
         const editDefaultPersonalityButton = document.querySelector("#btn-edit-personality-default");
         const submitNewPersonalityButton = document.querySelector("#btn-submit-personality");
         const updatePersonalityButton = document.querySelector("#updatePersonality");
+        const resetChatButton = document.querySelector("#btn-reset-chat");
 
         const sendMessageButton = document.querySelector("#btn-send");
 
@@ -1036,7 +1037,6 @@
             const selectedPersonalityTitle = document.querySelector("input[name='personality']:checked + div .personality-title").innerText;
             const selectedPersonalityDescription = document.querySelector("input[name='personality']:checked + div .personality-description").innerText;
             const selectedPersonalityPrompt = document.querySelector("input[name='personality']:checked + div .personality-prompt").innerText;
-            const resetChatButton = document.querySelector("#btn-reset-chat");
 
 
             //chat history
