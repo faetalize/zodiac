@@ -1031,6 +1031,7 @@
         }
 
         async function run() {
+            document.getElementById('messageInput').style.height = "2.5rem"; //This will reset messageInput box to its normal size.
             const msg = document.querySelector("#messageInput");
             const msgText = msg.value;
             const maxTokens = document.querySelector("#maxTokens");
