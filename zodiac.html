@@ -1128,31 +1128,13 @@
             localStorage.setItem("API_KEY", API_KEY.value);
             localStorage.setItem("MAX_TOKENS",maxTokens.value);
 
-            //reset chat button (async)
-            resetChatButton.addEventListener("click", () => {
+        }
+
+        //reset chat button (async)
+        resetChatButton.addEventListener("click", () => {
                 //remove all messages
                 messageContainer.innerHTML = "";
-                //reset chat history
-                chatHistory = [];
-                //reset chat
-                chat = model.startChat({
-                    generationConfig, safetySettings,
-                    history: [
-                        {
-                            role: "user",
-                            parts: [{ text: `Personality Name: ${selectedPersonalityTitle}, Personality Description: ${selectedPersonalityDescription}, Personality Prompt: ${selectedPersonalityPrompt}. ${systemPrompt}` }]
-                        },
-                        {
-                            role: "model",
-                            parts: [{ text: `Okay. From now on, I shall play the role of ${selectedPersonalityTitle}. Your prompt and described personality will be used for the rest of the conversation.` }]
-                        },
-                        ...toneExamples,
-                        ...chatHistory
-                    ]
-                })
-            })
-
-        }
+        });
 
 
         const messageInput = document.querySelector("#messageInput");
