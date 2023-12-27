@@ -855,6 +855,7 @@
         const updatePersonalityButton = document.querySelector("#updatePersonality");
         const resetChatButton = document.querySelector("#btn-reset-chat");
 
+        const messageContainer = document.querySelector(".message-container");
         const sendMessageButton = document.querySelector("#btn-send");
 
 
@@ -1031,7 +1032,6 @@
         async function run() {
             const msg = document.querySelector("#messageInput");
             const msgText = msg.value;
-            const messageContainer = document.querySelector(".message-container");
             const maxTokens = document.querySelector("#maxTokens");
             const API_KEY = document.querySelector("#apiKeyInput");
             const selectedPersonalityTitle = document.querySelector("input[name='personality']:checked + div .personality-title").innerText;
@@ -1040,7 +1040,7 @@
 
 
             //chat history
-            var chatHistory = [];
+            let chatHistory = [];
             //get chat history from message container
             const messageElements = messageContainer.querySelectorAll(".message");
             messageElements.forEach(element => {
@@ -1069,7 +1069,7 @@
             };
             const genAI = new GoogleGenerativeAI(API_KEY.value);
             const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-            var chat = model.startChat({
+            const chat = model.startChat({
                 generationConfig, safetySettings,
                 history: [
                     {
