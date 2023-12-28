@@ -808,10 +808,10 @@
         const tabs = document.querySelectorAll(".navbar-tab");
         const sidebarViews = document.querySelectorAll(".sidebar-section");
         const highlight = document.querySelector(".navbar-tab-highlight");
-        highlight.style.width = `calc(100% / ${tabs.length})`;
+        highlight.style.width = `calc(100% / ${tabs.length})`;  
 
 
-
+    
         let currentTab = undefined;
         function navigateTo(tab) {
             if (tab == tabs[currentTab]) {
@@ -1038,9 +1038,13 @@
             closeOverlay();
         }
 
+        function getSanitized(string){
+            return DOMPurify.sanitize(string.replace(/</g, "&lt;").replace(/>/g, "&gt;").trim());
+        }
+
         async function run() {
             const msg = document.querySelector("#messageInput");
-            let msgText = msg.value.replace(/</g, "&lt;").replace(/>/g, "&gt;").trim();
+            let msgText = getSanitized(msg.value);
             msg.value = "";
             document.getElementById('messageInput').style.height = "2.5rem"; //This will reset messageInput box to its normal size.
             if (msgText == "") {
@@ -1104,7 +1108,7 @@
             newMessage.innerHTML = `
             <h3 class="message-role">You:</h3>
             <div class="message-role-api" style="display: none;">user</div>
-            <p class="message-text">${DOMPurify.sanitize(msgText)}</p>
+            <p class="message-text">${msgText}</p>
             `;
             messageContainer.insertBefore(newMessage, messageContainer.firstChild);
 
@@ -1127,9 +1131,9 @@
 
             let rawText = "";
             for await (const chunk of result.stream) {
-                console.log("hello");
                 rawText += chunk.text();
-                replyText.innerHTML = marked(rawText);
+                
+                replyText.innerHTML = DOMPurify.sanitize(marked.parse(rawText));
                 void replyText.offsetHeight; // Force reflow
                 hljs.highlightAll();
             }
