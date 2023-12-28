@@ -12,6 +12,7 @@
     <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.css">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 </head>
 
 <style>
@@ -330,7 +331,6 @@
         margin-left: auto;
         margin-right: auto;
         width: 32rem;
-        text-align: justify;
     }
 
     .card-personality {
@@ -958,7 +958,7 @@
         }
 
 
-        function insertPersonality(personalityJSON){
+        function insertPersonality(personalityJSON) {
             const personalitySection = document.querySelector("#personalitySection");
             const personalitySectionActions = document.querySelector("#btn-array-personality-section");
 
@@ -1032,13 +1032,17 @@
 
         async function run() {
             const msg = document.querySelector("#messageInput");
-            const msgText = msg.value;
+            let msgText = msg.value.replace(/</g, "&lt;").replace(/>/g, "&gt;").trim();
+            msg.value = "";
+            document.getElementById('messageInput').style.height = "2.5rem"; //This will reset messageInput box to its normal size.
+            if (msgText == "") {
+                return;
+            }
             const maxTokens = document.querySelector("#maxTokens");
             const API_KEY = document.querySelector("#apiKeyInput");
             const selectedPersonalityTitle = document.querySelector("input[name='personality']:checked + div .personality-title").innerText;
             const selectedPersonalityDescription = document.querySelector("input[name='personality']:checked + div .personality-description").innerText;
             const selectedPersonalityPrompt = document.querySelector("input[name='personality']:checked + div .personality-prompt").innerText;
-
 
             //chat history
             let chatHistory = [];
@@ -1085,18 +1089,14 @@
                     ...chatHistory
                 ]
             })
-
-
-
-            msg.value = "";
-            document.getElementById('messageInput').style.height = "2.5rem"; //This will reset messageInput box to its normal size.
+            
             //create new message div for the user's message then append to message container's top
             const newMessage = document.createElement("div");
             newMessage.classList.add("message");
             newMessage.innerHTML = `
             <h3 class="message-role">You:</h3>
             <div class="message-role-api" style="display: none;">user</div>
-            <p class="message-text">${msgText}</p>
+            <p class="message-text">${DOMPurify.sanitize(msgText)}</p>
             `;
             messageContainer.insertBefore(newMessage, messageContainer.firstChild);
 
@@ -1128,14 +1128,14 @@
 
             //save api key to local storage
             localStorage.setItem("API_KEY", API_KEY.value);
-            localStorage.setItem("maxTokens",maxTokens.value);
+            localStorage.setItem("maxTokens", maxTokens.value);
 
         }
 
         //reset chat button (async)
         resetChatButton.addEventListener("click", () => {
-                //remove all messages
-                messageContainer.innerHTML = "";
+            //remove all messages
+            messageContainer.innerHTML = "";
         });
 
 
