@@ -1153,17 +1153,17 @@
 
         const messageInput = document.querySelector("#messageInput");
 
-        //if more than one line, set height to scrollheight, and revert upon delete
-        messageInput.addEventListener("input", () => {
-            if (messageInput.value.split("\n").length == 1) {
-                messageInput.style.height = "2.5rem";
+        document.addEventListener('DOMContentLoaded', (event) => {
+          function resizeTextarea() {
+            messageInput.style.height = '2.5rem';
+            // If the content height is greater than the default height, expand it
+            if (messageInput.scrollHeight > messageInput.clientHeight) {
+              messageInput.style.height = `${messageInput.scrollHeight}px`;
             }
-            else {
-                messageInput.style.height = "";
-                messageInput.style.height = messageInput.scrollHeight + "px";
-            }
-        })
-
+          }
+          messageInput.addEventListener('input', resizeTextarea);
+          resizeTextarea();
+        });
 
         const sidebarDismissButton = document.querySelector("#btn-hide-sidebar");
         sidebarDismissButton.addEventListener("click", () => {
