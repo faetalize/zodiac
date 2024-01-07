@@ -189,12 +189,14 @@
     .btn-array {
         display: flex;
         flex-direction: row;
+        justify-content: stretch;
         gap: 0.5rem;
         margin-top: 0.5rem;
     }
 
     .btn-array button {
         flex-grow: 1;
+
     }
 
     .personality-prompt {
@@ -240,8 +242,15 @@
         gap: 0.5rem;
     }
 
-    #sidebar-content{
-        
+    #personalitiesDiv{
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+
+    }
+
+    #sidebar-content {
+
         overflow-y: auto;
         padding: 0.5rem;
     }
@@ -394,6 +403,15 @@
         position: absolute;
         top: 1rem;
         right: 2.5rem;
+        font-size: 1rem;
+        color: #e4e4e4;
+    }
+
+    .btn-delete-card {
+        /* bottom right corner */
+        position: absolute;
+        top: 1rem;
+        right: 4rem;
         font-size: 1rem;
         color: #e4e4e4;
     }
@@ -647,10 +665,13 @@
                         <input type="radio" name="personality" value="zodiac3" checked>
                         <div>
                             <h3 class="personality-title">zodiac</h3>
-                            <p class="personality-description">zodiac is a cheerful assistant, always ready to help you with
+                            <p class="personality-description">zodiac is a cheerful assistant, always ready to help you
+                                with
                                 your tasks.</p>
-                            <p class="personality-prompt">You are zodiac, a helpful assistant created by faetalize, built
-                                upon Google's Gemini Pro model. Gemini Pro is a new LLM (Large Language Model) release by
+                            <p class="personality-prompt">You are zodiac, a helpful assistant created by faetalize,
+                                built
+                                upon Google's Gemini Pro model. Gemini Pro is a new LLM (Large Language Model) release
+                                by
                                 Google on December 2023. Your purpose is being a helpful assistant to the user.</p>
                         </div>
                         <button class="btn-textual btn-edit-card material-symbols-outlined"
@@ -658,12 +679,14 @@
                         <button class="btn-textual btn-share-card material-symbols-outlined"
                             id="btn-share-personality-default">share</button>
                     </label>
+                    <div id="personalitiesDiv"></div>
                     <div class="btn-array" id="btn-array-personality-section">
                         <button id="btn-add-personality">Add Personality</button>
                         <button id="btn-import-personality">Import</button>
+                        <button id="btn-clearall-personality">Clear All</button>
                     </div>
                 </div>
-    
+
                 <div class="sidebar-section">
                     <input type="text" placeholder="Paste API key here" id="apiKeyInput" class="input-field"></input>
                     <h3>Generation Settings:</h3>
@@ -677,7 +700,7 @@
                     </select>
                 </div>
             </div>
-            
+
 
             <div class="credits">
                 Made by fætalize
@@ -808,10 +831,10 @@
         const tabs = document.querySelectorAll(".navbar-tab");
         const sidebarViews = document.querySelectorAll(".sidebar-section");
         const highlight = document.querySelector(".navbar-tab-highlight");
-        highlight.style.width = `calc(100% / ${tabs.length})`;  
+        highlight.style.width = `calc(100% / ${tabs.length})`;
 
 
-    
+
         let currentTab = undefined;
         function navigateTo(tab) {
             if (tab == tabs[currentTab]) {
@@ -853,7 +876,7 @@
 
 
         const personalityCardsInnerInput = document.querySelectorAll(".card-personality input");
-        let personalityCards = document.querySelectorAll(".card-personality");
+        let personalityCards = document.getElementsByClassName("card-personality");
         const formsOverlay = document.querySelector(".overlay");
         const hideOverlayButton = document.querySelector("#btn-hide-overlay");
         const addPersonalityForm = document.querySelector("#form-add-personality");
@@ -863,9 +886,11 @@
         const submitNewPersonalityButton = document.querySelector("#btn-submit-personality");
         const updatePersonalityButton = document.querySelector("#updatePersonality");
         const resetChatButton = document.querySelector("#btn-reset-chat");
+        const importPersonalityButton = document.querySelector("#btn-import-personality");
 
         const messageContainer = document.querySelector(".message-container");
         const sendMessageButton = document.querySelector("#btn-send");
+        const clearAllButton = document.querySelector("#btn-clearall-personality");
 
 
         function darkenBg(element) {
@@ -904,50 +929,7 @@
 
         }
 
-        //handle share button click
-        personalityCards.forEach(card => {
-            const shareButton = card.querySelector(".btn-share-card");
-            shareButton.addEventListener("click", () => {
-                sharePersonality(card);
-            })
-        });
 
-        const importPersonalityButton = document.querySelector("#btn-import-personality");
-        importPersonalityButton.addEventListener("click", () => {
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.addEventListener('change', () => {
-                const file = fileInput.files[0];
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    const personalityJSON = JSON.parse(e.target.result);
-                    insertPersonality(personalityJSON);
-                };
-                reader.readAsText(file);
-            });
-            fileInput.click();
-        });
-
-        //handle radio input check change
-        personalityCardsInnerInput.forEach(input => {
-            input.addEventListener("change", () => {
-                // Darken all cards
-                personalityCards.forEach(card => {
-                    const cardBackgroundImageURL = card.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
-                    card.style.outline = "0px solid rgb(150 203 236)";
-                    darkenBg(card);
-                })
-
-                // Lighten selected card
-                input.parentElement.style.outline = "3px solid rgb(150 203 236)";
-                lightenBg(input.parentElement);
-            })
-            // Set initial outline
-            if (input.checked) {
-                lightenBg(input.parentElement);
-                input.parentElement.style.outline = "3px solid rgb(150 203 236)";
-            }
-        })
 
         function showAddPersonalityForm() {
             showElement(formsOverlay);
@@ -967,7 +949,7 @@
 
 
         function insertPersonality(personalityJSON) {
-            const personalitySection = document.querySelector("#personalitySection");
+            const personalitiesDiv = document.querySelector("#personalitiesDiv");
             const personalitySectionActions = document.querySelector("#btn-array-personality-section");
 
             const personalityCard = document.createElement("label");
@@ -980,12 +962,16 @@
                 <p class="personality-description">${personalityJSON.description}</p>
                 <p class="personality-prompt">${personalityJSON.prompt}</p>
             </div>
-            <button class="btn-textual btn-edit-card material-symbols-outlined" id="btn-edit-personality-${personalityJSON.name}">edit</button>
-            <button class="btn-textual btn-share-card material-symbols-outlined" id="btn-share-personality-${personalityJSON.name}">share</button>
+            <button class="btn-textual btn-edit-card material-symbols-outlined" 
+                id="btn-edit-personality-${personalityJSON.name}">edit</button>
+            <button class="btn-textual btn-share-card material-symbols-outlined" 
+                id="btn-share-personality-${personalityJSON.name}">share</button>
+            <button class="btn-textual btn-delete-card material-symbols-outlined"
+                id="btn-delete-personality-${personalityJSON.name}">delete</button>
             `;
 
             //insert personality card before the button array
-            personalitySection.insertBefore(personalityCard, personalitySectionActions);
+            personalitiesDiv.append(personalityCard);
 
             darkenBg(personalityCard);
 
@@ -1008,6 +994,24 @@
             sharebtn.addEventListener("click", () => {
                 sharePersonality(personalityCard);
             });
+
+            const deletebtn = personalityCard.querySelector(".btn-delete-card");
+            deletebtn.addEventListener("click", () => {
+                deleteLocalPersonality(Array.prototype.indexOf.call(personalityCard.parentNode.children, personalityCard));
+                personalityCard.remove();
+            });
+        }
+
+        function setLocalPersonality(personalityJSON) {
+            const savedPersonalities = JSON.parse(localStorage.getItem("personalities"));
+            let newSavedPersonalities = [];
+            if (savedPersonalities) {
+                newSavedPersonalities = [...savedPersonalities, personalityJSON];
+            }
+            else {
+                newSavedPersonalities = [personalityJSON];
+            }
+            localStorage.setItem("personalities", JSON.stringify(newSavedPersonalities));
         }
 
         function submitNewPersonality() {
@@ -1015,8 +1019,7 @@
             const personalityDescription = document.querySelector("#form-add-personality #personalityDescriptionInput");
             const personalityImageURL = document.querySelector("#form-add-personality #personalityImageURLInput");
             const personalityPrompt = document.querySelector("#form-add-personality #personalityPromptInput");
-            const personalitySection = document.querySelector("#personalitySection");
-
+            const personalitiesDiv = document.querySelector("#personalitiesDiv");
 
             if (personalityName.value == "") {
                 alert("Please enter a personality name");
@@ -1035,10 +1038,21 @@
                 image: personalityImageURL.value
             }
             insertPersonality(personalityJSON);
+            setLocalPersonality(personalityJSON);
             closeOverlay();
         }
 
-        function getSanitized(string){
+        function getLocalPersonalities() {
+            const personalitiesJSON = localStorage.getItem("personalities");
+            return personalitiesJSON;
+        }
+        function deleteLocalPersonality(index) {
+            let localPers = JSON.parse(getLocalPersonalities());
+            localPers.splice(index,1);
+            localStorage.setItem("personalities", JSON.stringify(localPers));
+        }
+
+        function getSanitized(string) {
             return DOMPurify.sanitize(string.replace(/</g, "&lt;").replace(/>/g, "&gt;").trim());
         }
 
@@ -1101,7 +1115,7 @@
                     ...chatHistory
                 ]
             })
-            
+
             //create new message div for the user's message then append to message container's top
             const newMessage = document.createElement("div");
             newMessage.classList.add("message");
@@ -1132,7 +1146,7 @@
             let rawText = "";
             for await (const chunk of result.stream) {
                 rawText += chunk.text();
-                
+
                 replyText.innerHTML = DOMPurify.sanitize(marked.parse(rawText));
                 void replyText.offsetHeight; // Force reflow
                 hljs.highlightAll();
@@ -1181,7 +1195,15 @@
             if (window.innerWidth > 768) {
                 showElement(document.querySelector(".sidebar"));
             }
-        })
+        });
+
+        //load personalities on launch
+        const personalitiesArray = JSON.parse(localStorage.getItem("personalities"));
+        if (personalitiesArray) {
+            for (let personality of personalitiesArray) {
+                insertPersonality(personality);
+            }
+        }
 
 
         hideOverlayButton.addEventListener("click", closeOverlay);
@@ -1194,7 +1216,66 @@
 
         sendMessageButton.addEventListener("click", run);
 
+        clearAllButton.addEventListener("click", () => {
+            localStorage.removeItem("personalities");
+        })
 
+        importPersonalityButton.addEventListener("click", () => {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.addEventListener('change', () => {
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const personalityJSON = JSON.parse(e.target.result);
+                    insertPersonality(personalityJSON);
+                    setLocalPersonality(personalityJSON);
+                };
+                reader.readAsText(file);
+            });
+            fileInput.click();
+            fileInput.remove();
+        });
+
+        //handle share button click
+        for (let card of personalityCards) {
+            const shareButton = card.querySelector(".btn-share-card");
+            shareButton.addEventListener("click", () => {
+                sharePersonality(card);
+            });
+        }
+
+        //handle delete button click
+        for (let card of personalityCards) {
+            const deleteButton = card.querySelector(".btn-delete-card");
+            if (deleteButton) {
+                deleteButton.addEventListener("click", () => {
+                    deleteLocalPersonality(Array.prototype.indexOf.call(card.parentNode.children, card));
+                    card.remove();
+                });
+            }
+        }
+
+        //handle radio input check change
+        for (let input of personalityCardsInnerInput) {
+            input.addEventListener("change", () => {
+                // Darken all cards
+                personalityCards.forEach(card => {
+                    const cardBackgroundImageURL = card.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+                    card.style.outline = "0px solid rgb(150 203 236)";
+                    darkenBg(card);
+                })
+
+                // Lighten selected card
+                input.parentElement.style.outline = "3px solid rgb(150 203 236)";
+                lightenBg(input.parentElement);
+            })
+            // Set initial outline
+            if (input.checked) {
+                lightenBg(input.parentElement);
+                input.parentElement.style.outline = "3px solid rgb(150 203 236)";
+            }
+        }
         // ...
     </script>
 
