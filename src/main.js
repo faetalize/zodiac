@@ -33,7 +33,6 @@ maxTokens.value = localStorage.getItem("maxTokens");
 if (maxTokens.value == "") maxTokens.value = 1000;
 
 
-//function to hide element smoothly then setting display none after the transition time elapsed
 function hideElement(element) {
     element.style.transition = 'opacity 0.2s';
     element.style.opacity = '0';
@@ -88,10 +87,10 @@ function navigateTo(tab) {
 
 }
 
-tabs.forEach(element => {
-    element.addEventListener("click", () => {
+tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
 
-        navigateTo(element);
+        navigateTo(tab);
     })
 });
 
@@ -99,9 +98,7 @@ sidebarViews.forEach(view => {
     hideElement(view);
 });
 
-
 navigateTo(tabs[0]);
-
 
 
 const personalityCardsInnerInput = document.querySelectorAll(".card-personality input");
@@ -113,7 +110,6 @@ const addPersonalityButton = document.querySelector("#btn-add-personality");
 const editDefaultPersonalityForm = document.querySelector("#form-edit-personality");
 const editDefaultPersonalityButton = document.querySelector("#btn-edit-personality-default");
 const submitNewPersonalityButton = document.querySelector("#btn-submit-personality");
-const updatePersonalityButton = document.querySelector("#updatePersonality");
 const resetChatButton = document.querySelector("#btn-reset-chat");
 const importPersonalityButton = document.querySelector("#btn-import-personality");
 
@@ -159,7 +155,6 @@ function sharePersonality(personality) {
 }
 
 
-
 function showAddPersonalityForm() {
     showElement(formsOverlay);
     showElement(addPersonalityForm);
@@ -179,7 +174,6 @@ function closeOverlay() {
 
 function insertPersonality(personalityJSON) {
     const personalitiesDiv = document.querySelector("#personalitiesDiv");
-    const personalitySectionActions = document.querySelector("#btn-array-personality-section");
 
     const personalityCard = document.createElement("label");
     personalityCard.classList.add("card-personality");
@@ -248,7 +242,6 @@ function submitNewPersonality() {
     const personalityDescription = document.querySelector("#form-add-personality #personalityDescriptionInput");
     const personalityImageURL = document.querySelector("#form-add-personality #personalityImageURLInput");
     const personalityPrompt = document.querySelector("#form-add-personality #personalityPromptInput");
-    const personalitiesDiv = document.querySelector("#personalitiesDiv");
 
     if (personalityName.value == "") {
         alert("Please enter a personality name");
