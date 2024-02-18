@@ -176,13 +176,24 @@
         font-size: inherit;
     }
 
-
-
     #btn-send {
         position: absolute;
         right: 0.5rem;
         bottom: 0.5rem;
         font-size: 1.5rem;
+    }
+    #title-div{
+        flex-grow: 1;
+    }
+
+    .badge{
+        background-color: #253a5c;
+        border: 2px solid rgba(35, 108, 119, 0.508);
+        color: #85e0fb;
+        padding: 0.5rem;
+        border-radius: 1rem;
+        font-size: 0.75rem;
+        font-weight: bold;
     }
 
     .btn-array {
@@ -260,7 +271,6 @@
 
     .header {
         display: flex;
-
         box-sizing: border-box;
         align-items: center;
         font-size: 2rem;
@@ -650,6 +660,7 @@
                     <div id="zodiac-branding">zodiac </div>
                     <div id="gemini-pro-branding">powered by Gemini Pro</div>
                 </div>
+                <button class="badge" id="">v0.1.0</button>
             </div>
             <div class="navbar">
                 <div class="navbar-tab">Personalities</div>
