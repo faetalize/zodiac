@@ -92,6 +92,7 @@
         display: none;
         opacity: 0;
         flex-direction: column;
+        max-width: 80%;
         width: 32rem;
         gap: 0.5rem;
         flex-grow: 1;
@@ -111,6 +112,16 @@
         z-index: 2;
         justify-content: flex-start;
         align-items: center;
+    }
+
+    #whats-new{
+        display: none;
+        flex-direction: column;
+        max-width: 80%;
+        width: 32rem;
+        gap: 0.5rem;
+        flex-grow: 1;
+        justify-content: center;
     }
 
     .backButton {
@@ -205,8 +216,7 @@
     }
 
     .btn-array button {
-        flex-grow: 1;
-
+        flex: 1;
     }
 
     .personality-prompt {
@@ -660,7 +670,7 @@
                     <div id="zodiac-branding">zodiac </div>
                     <div id="gemini-pro-branding">powered by Gemini Pro</div>
                 </div>
-                <button class="badge" id="">v0.1.0</button>
+                <button class="badge" id="btn-whatsnew">v0.1.0</button>
             </div>
             <div class="navbar">
                 <div class="navbar-tab">Personalities</div>
@@ -767,6 +777,13 @@
             <label for="personalityPromptInput">Prompt:</label>
             <textarea id="personalityPromptInput" placeholder="Personality Prompt" class="prompt-field"></textarea>
             <button id="updatePersonality">Save</button>
+        </div>
+
+        <div id="whats-new">
+            <h1 id="header-version">What's New in </h1>
+            <li id="changelog">
+
+            </li>
         </div>
     </div>
 

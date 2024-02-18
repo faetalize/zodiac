@@ -2,6 +2,9 @@ import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/generative-ai";
 
+const version = "0.1.1";
+
+
 const safetySettings = [
 
     {
@@ -112,14 +115,14 @@ const editDefaultPersonalityButton = document.querySelector("#btn-edit-personali
 const submitNewPersonalityButton = document.querySelector("#btn-submit-personality");
 const resetChatButton = document.querySelector("#btn-reset-chat");
 const importPersonalityButton = document.querySelector("#btn-import-personality");
-
 const messageContainer = document.querySelector(".message-container");
 const sendMessageButton = document.querySelector("#btn-send");
 const clearAllButton = document.querySelector("#btn-clearall-personality");
+const whatsNewButton = document.querySelector("#btn-whatsnew");
+
 
 
 function darkenBg(element) {
-
     let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
     element.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${elementBackgroundImageURL}')`;
 }
@@ -169,6 +172,7 @@ function closeOverlay() {
     hideElement(formsOverlay);
     hideElement(addPersonalityForm);
     hideElement(editDefaultPersonalityForm);
+    hideElement(document.querySelector("#whats-new"));
 }
 
 
@@ -276,6 +280,12 @@ function deleteLocalPersonality(index) {
 
 function getSanitized(string) {
     return DOMPurify.sanitize(string.replace(/</g, "&lt;").replace(/>/g, "&gt;").trim());
+}
+
+function showWhatsNew() {
+    const whatsNewDiv = document.querySelector("#whats-new");
+    showElement(formsOverlay);
+    showElement(whatsNewDiv);
 }
 
 async function run() {
@@ -427,7 +437,19 @@ if (personalitiesArray) {
     }
 }
 
+//version number
+const badge = document.querySelector("#btn-whatsnew");
+badge.innerText = `v${version}`;
+document.getElementById('header-version').textContent += ` v${version}`;
 
+//show whats new on launch if new version
+const prevVersion = localStorage.getItem("version");
+if (prevVersion != version) {
+    localStorage.setItem("version", version);
+    showWhatsNew();
+}
+
+//event listeners
 hideOverlayButton.addEventListener("click", closeOverlay);
 
 addPersonalityButton.addEventListener("click", showAddPersonalityForm);
@@ -437,6 +459,8 @@ editDefaultPersonalityButton.addEventListener("click", showEditPersonalityForm);
 submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
 
 sendMessageButton.addEventListener("click", run);
+
+whatsNewButton.addEventListener("click", showWhatsNew);
 
 clearAllButton.addEventListener("click", () => {
     localStorage.removeItem("personalities");
