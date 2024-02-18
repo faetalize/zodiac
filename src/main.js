@@ -442,6 +442,13 @@ const badge = document.querySelector("#btn-whatsnew");
 badge.innerText = `v${version}`;
 document.getElementById('header-version').textContent += ` v${version}`;
 
+//show whats new on launch if new version
+const prevVersion = localStorage.getItem("version");
+if (prevVersion != version) {
+    localStorage.setItem("version", version);
+    showWhatsNew();
+}
+
 //event listeners
 hideOverlayButton.addEventListener("click", closeOverlay);
 
