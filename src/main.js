@@ -2,7 +2,7 @@ import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/generative-ai";
 
-const version = "0.1.1";
+const version = "0.1.2";
 
 
 const safetySettings = [
