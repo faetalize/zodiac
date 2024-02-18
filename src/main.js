@@ -2,6 +2,9 @@ import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/generative-ai";
 
+const version = "0.1.1";
+
+
 const safetySettings = [
 
     {
@@ -118,8 +121,8 @@ const clearAllButton = document.querySelector("#btn-clearall-personality");
 const whatsNewButton = document.querySelector("#btn-whatsnew");
 
 
-function darkenBg(element) {
 
+function darkenBg(element) {
     let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
     element.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${elementBackgroundImageURL}')`;
 }
@@ -169,6 +172,7 @@ function closeOverlay() {
     hideElement(formsOverlay);
     hideElement(addPersonalityForm);
     hideElement(editDefaultPersonalityForm);
+    hideElement(document.querySelector("#whats-new"));
 }
 
 
@@ -433,7 +437,12 @@ if (personalitiesArray) {
     }
 }
 
+//version number
+const badge = document.querySelector("#btn-whatsnew");
+badge.innerText = `v${version}`;
+document.getElementById('header-version').textContent += ` v${version}`;
 
+//event listeners
 hideOverlayButton.addEventListener("click", closeOverlay);
 
 addPersonalityButton.addEventListener("click", showAddPersonalityForm);
