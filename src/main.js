@@ -4,7 +4,6 @@ import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/genera
 
 const version = "0.1.1";
 
-
 const safetySettings = [
 
     {
