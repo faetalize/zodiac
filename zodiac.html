@@ -92,6 +92,7 @@
         display: none;
         opacity: 0;
         flex-direction: column;
+        max-width: 80%;
         width: 32rem;
         gap: 0.5rem;
         flex-grow: 1;
@@ -111,6 +112,10 @@
         z-index: 2;
         justify-content: flex-start;
         align-items: center;
+    }
+
+    #whats-new{
+        display: none;
     }
 
     .backButton {
@@ -660,7 +665,7 @@
                     <div id="zodiac-branding">zodiac </div>
                     <div id="gemini-pro-branding">powered by Gemini Pro</div>
                 </div>
-                <button class="badge" id="">v0.1.0</button>
+                <button class="badge" id="btn-whatsnew">v0.1.0</button>
             </div>
             <div class="navbar">
                 <div class="navbar-tab">Personalities</div>
@@ -767,6 +772,14 @@
             <label for="personalityPromptInput">Prompt:</label>
             <textarea id="personalityPromptInput" placeholder="Personality Prompt" class="prompt-field"></textarea>
             <button id="updatePersonality">Save</button>
+        </div>
+
+        <div id="whats-new">
+            <h1>What's New</h1>
+            <p>zodiac is a cheerful assistant, always ready to help you with your tasks.</p>
+            <p>You are zodiac, a helpful assistant created by faetalize, built upon Google's Gemini Pro model. Gemini
+                Pro is a new LLM (Large Language Model) release by Google on December 2023. Your purpose is being a
+                helpful assistant to the user.</p>
         </div>
     </div>
 

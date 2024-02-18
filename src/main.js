@@ -112,10 +112,10 @@ const editDefaultPersonalityButton = document.querySelector("#btn-edit-personali
 const submitNewPersonalityButton = document.querySelector("#btn-submit-personality");
 const resetChatButton = document.querySelector("#btn-reset-chat");
 const importPersonalityButton = document.querySelector("#btn-import-personality");
-
 const messageContainer = document.querySelector(".message-container");
 const sendMessageButton = document.querySelector("#btn-send");
 const clearAllButton = document.querySelector("#btn-clearall-personality");
+const whatsNewButton = document.querySelector("#btn-whatsnew");
 
 
 function darkenBg(element) {
@@ -278,6 +278,12 @@ function getSanitized(string) {
     return DOMPurify.sanitize(string.replace(/</g, "&lt;").replace(/>/g, "&gt;").trim());
 }
 
+function showWhatsNew() {
+    const whatsNewDiv = document.querySelector("#whats-new");
+    showElement(formsOverlay);
+    showElement(whatsNewDiv);
+}
+
 async function run() {
     const msg = document.querySelector("#messageInput");
     let msgText = getSanitized(msg.value);
@@ -437,6 +443,8 @@ editDefaultPersonalityButton.addEventListener("click", showEditPersonalityForm);
 submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
 
 sendMessageButton.addEventListener("click", run);
+
+whatsNewButton.addEventListener("click", showWhatsNew);
 
 clearAllButton.addEventListener("click", () => {
     localStorage.removeItem("personalities");
