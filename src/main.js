@@ -2,7 +2,7 @@ import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/generative-ai";
 
-const version = "0.1.2";
+const version = "0.1.3";
 
 //inputs
 const ApiKeyInput = document.querySelector("#apiKeyInput");
@@ -11,7 +11,7 @@ const messageInput = document.querySelector("#messageInput");
 
 //forms
 const addPersonalityForm = document.querySelector("#form-add-personality");
-const editDefaultPersonalityForm = document.querySelector("#form-edit-personality");
+const editPersonalityForm = document.querySelector("#form-edit-personality");
 
 //buttons
 const sendMessageButton = document.querySelector("#btn-send");
@@ -95,6 +95,8 @@ if (personalitiesArray) {
         insertPersonality(personality);
     }
 }
+let personalityToEditIndex = 0;
+
 //add default personality card event listeners and initial state
 const shareButton = defaultPersonalityCard.querySelector(".btn-share-card");
 const editButton = defaultPersonalityCard.querySelector(".btn-edit-card");
@@ -106,15 +108,8 @@ shareButton.addEventListener("click", () => {
 );
 
 editButton.addEventListener("click", () => {
-    showEditPersonalityForm();
-    const personalityName = defaultPersonalityCard.querySelector(".personality-title").innerText;
-    const personalityDescription = defaultPersonalityCard.querySelector(".personality-description").innerText;
-    const personalityPrompt = defaultPersonalityCard.querySelector(".personality-prompt").innerText;
-    const personalityImageURL = defaultPersonalityCard.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
-    document.querySelector("#form-edit-personality #personalityNameInput").value = personalityName;
-    document.querySelector("#form-edit-personality #personalityDescriptionInput").value = personalityDescription;
-    document.querySelector("#form-edit-personality #personalityPromptInput").value = personalityPrompt;
-    document.querySelector("#form-edit-personality #personalityImageURLInput").value = personalityImageURL;
+    alert("You cannot edit the default personality card.");
+    return;
 });
 
 input.addEventListener("change", () => {
@@ -134,14 +129,17 @@ if (input.checked) {
 }
 
 //setup version number on badge and header
-badge.innerText = `v${version}`;
+badge.querySelector("#badge-version").textContent = `v${version}`;
 document.getElementById('header-version').textContent += ` v${version}`;
 
 //show whats new on launch if new version
 const prevVersion = localStorage.getItem("version");
 if (prevVersion != version) {
     localStorage.setItem("version", version);
-    showWhatsNew();
+    badge.classList.add("badge-highlight");
+    setTimeout(() => {
+        badge.classList.remove("badge-highlight");
+    }, 7000);
 }
 
 //event listeners
@@ -149,11 +147,9 @@ hideOverlayButton.addEventListener("click", closeOverlay);
 
 addPersonalityButton.addEventListener("click", showAddPersonalityForm);
 
-editDefaultPersonalityButton.addEventListener("click", showEditPersonalityForm);
-
 submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
 
-submitPersonalityEditButton.addEventListener("click", submitPersonalityEdit);
+submitPersonalityEditButton.addEventListener("click", () => {submitPersonalityEdit(personalityToEditIndex)});
 
 sendMessageButton.addEventListener("click", run);
 
@@ -299,13 +295,13 @@ function showAddPersonalityForm() {
 
 function showEditPersonalityForm() {
     showElement(formsOverlay);
-    showElement(editDefaultPersonalityForm);
+    showElement(editPersonalityForm);
 }
 
 function closeOverlay() {
     hideElement(formsOverlay);
     hideElement(addPersonalityForm);
-    hideElement(editDefaultPersonalityForm);
+    hideElement(editPersonalityForm);
     hideElement(document.querySelector("#whats-new"));
 }
 
@@ -353,6 +349,7 @@ function insertPersonality(personalityJSON) {
     }
 
     editButton.addEventListener("click", () => {
+        personalityToEditIndex = Array.prototype.indexOf.call(personalityCard.parentNode.children, personalityCard);
         showEditPersonalityForm();
         const personalityName = personalityCard.querySelector(".personality-title").innerText;
         const personalityDescription = personalityCard.querySelector(".personality-description").innerText;
@@ -421,40 +418,41 @@ function submitNewPersonality() {
     closeOverlay();
 }
 
-function submitPersonalityEdit() {
-    const personalityName = document.querySelector("#form-edit-personality #personalityNameInput");
-    const personalityDescription = document.querySelector("#form-edit-personality #personalityDescriptionInput");
-    const personalityImageURL = document.querySelector("#form-edit-personality #personalityImageURLInput");
-    const personalityPrompt = document.querySelector("#form-edit-personality #personalityPromptInput");
+function submitPersonalityEdit(personalityIndex) {
+    const newName = editPersonalityForm.querySelector("#personalityNameInput").value;
+    const newDescription = editPersonalityForm.querySelector("#personalityDescriptionInput").value;
+    const newPrompt = editPersonalityForm.querySelector("#personalityPromptInput").value;
+    const newImageURL = editPersonalityForm.querySelector("#personalityImageURLInput").value;
 
-    if (personalityName.value == "") {
+    if (newName.value == "") {
         alert("Please enter a personality name");
         return;
     }
-    if (personalityPrompt.value == "") {
+    if (newPrompt.value == "") {
         alert("Please enter a personality prompt");
         return;
     }
 
-    //to json
-    const personalityJSON = {
-        name: personalityName.value,
-        description: personalityDescription.value,
-        prompt: personalityPrompt.value,
-        image: personalityImageURL.value
-    }
+    const personalityCard = [...personalityCards][personalityIndex+1]; //+1 because the default personality card is not in the array
+    personalityCard.querySelector(".personality-title").innerText = newName;
+    personalityCard.querySelector(".personality-description").innerText = newDescription;
+    personalityCard.querySelector(".personality-prompt").innerText = newPrompt;
+    personalityCard.style.backgroundImage = `url('${newImageURL}')`;
+    darkenBg(personalityCard);
 
-    //delete old personality
-    const oldPersonality = document.querySelector(`input[value="${personalityName.value}"]`).parentElement;
-    deleteLocalPersonality(Array.prototype.indexOf.call(oldPersonality.parentNode.children, oldPersonality));
-    oldPersonality.remove();
-
-    //insert new personality
-    insertPersonality(personalityJSON);
-    setLocalPersonality(personalityJSON);
+    const personalitiesJSON = JSON.parse(getLocalPersonalities());
+    personalitiesJSON[personalityIndex] = {
+        name: newName,
+        description: newDescription,
+        prompt: newPrompt,
+        image: newImageURL
+    };
+    localStorage.setItem("personalities", JSON.stringify(personalitiesJSON));
     closeOverlay();
-
 }
+
+
+
 
 function getLocalPersonalities() {
     const personalitiesJSON = localStorage.getItem("personalities");
@@ -490,7 +488,7 @@ async function run() {
     const selectedPersonalityTitle = document.querySelector("input[name='personality']:checked + div .personality-title").innerText;
     const selectedPersonalityDescription = document.querySelector("input[name='personality']:checked + div .personality-description").innerText;
     const selectedPersonalityPrompt = document.querySelector("input[name='personality']:checked + div .personality-prompt").innerText;
-
+    const selectedPersonalityToneExamples = [];
     //chat history
     let chatHistory = [];
     //get chat history from message container
@@ -505,10 +503,6 @@ async function run() {
     })
     //reverse order of chat history
     chatHistory.reverse();
-
-    //
-    const toneExamples = [];
-
 
     if (API_KEY.value == "") {
         alert("Please enter an API key");
@@ -532,7 +526,7 @@ async function run() {
                 role: "model",
                 parts: [{ text: `Okay. From now on, I shall play the role of ${selectedPersonalityTitle}. Your prompt and described personality will be used for the rest of the conversation.` }]
             },
-            ...toneExamples,
+            ...selectedPersonalityToneExamples,
             ...chatHistory
         ]
     })
