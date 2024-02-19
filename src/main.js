@@ -4,12 +4,10 @@ import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/genera
 
 const version = "0.1.2";
 
-
-
-
 //inputs
 const ApiKeyInput = document.querySelector("#apiKeyInput");
 const maxTokensInput = document.querySelector("#maxTokens");
+const messageInput = document.querySelector("#messageInput");
 
 //forms
 const addPersonalityForm = document.querySelector("#form-add-personality");
@@ -39,6 +37,9 @@ const sidebarViews = [...document.getElementsByClassName("sidebar-section")];
 //nav elements
 const tabs = [...document.getElementsByClassName("navbar-tab")];
 const tabHighlight = document.querySelector(".navbar-tab-highlight");
+
+//misc
+const badge = document.querySelector("#btn-whatsnew");
 
 //-------------------------------
 
@@ -96,7 +97,7 @@ resetChatButton.addEventListener("click", () => {
 });
 
 
-const messageInput = document.querySelector("#messageInput");
+
 
 //if more than one line, set height to scrollheight, and revert upon delete
 messageInput.addEventListener("input", () => {
@@ -137,7 +138,6 @@ if (personalitiesArray) {
 }
 
 //version number
-const badge = document.querySelector("#btn-whatsnew");
 badge.innerText = `v${version}`;
 document.getElementById('header-version').textContent += ` v${version}`;
 
