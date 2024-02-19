@@ -87,48 +87,6 @@ sidebarViews.forEach(view => {
 
 navigateTo(tabs[0]);
 
-
-
-
-//reset chat button (async)
-resetChatButton.addEventListener("click", () => {
-    //remove all messages
-    messageContainer.innerHTML = "";
-});
-
-
-
-
-//if more than one line, set height to scrollheight, and revert upon delete
-messageInput.addEventListener("input", () => {
-    if (messageInput.value.split("\n").length == 1) {
-        messageInput.style.height = "2.5rem";
-    }
-    else {
-        messageInput.style.height = "";
-        messageInput.style.height = messageInput.scrollHeight + "px";
-    }
-})
-
-
-
-hideSidebarButton.addEventListener("click", () => {
-    hideElement(sidebar);
-})
-
-
-showSidebarButton.addEventListener("click", () => {
-    showElement(sidebar);
-})
-
-
-//unhide sidebar if width > 768px (event hander)
-window.addEventListener("resize", () => {
-    if (window.innerWidth > 768) {
-        showElement(document.querySelector(".sidebar"));
-    }
-});
-
 //load personalities on launch
 const personalitiesArray = JSON.parse(localStorage.getItem("personalities"));
 if (personalitiesArray) {
@@ -163,6 +121,14 @@ sendMessageButton.addEventListener("click", run);
 
 whatsNewButton.addEventListener("click", showWhatsNew);
 
+hideSidebarButton.addEventListener("click", () => {
+    hideElement(sidebar);
+});
+
+showSidebarButton.addEventListener("click", () => {
+    showElement(sidebar);
+});
+
 clearAllButton.addEventListener("click", () => {
     localStorage.removeItem("personalities");
 })
@@ -184,65 +150,79 @@ importPersonalityButton.addEventListener("click", () => {
     fileInput.remove();
 });
 
-//handle share button click
-for (let card of personalityCards) {
+resetChatButton.addEventListener("click", () => {
+    messageContainer.innerHTML = "";
+});
+
+window.addEventListener("resize", () => {
+    //show sidebar if window is resized to desktop size
+    if (window.innerWidth > 768) {
+        showElement(document.querySelector(".sidebar"));
+    }
+});
+
+messageInput.addEventListener("input", () => {
+    //auto resize message input
+    if (messageInput.value.split("\n").length == 1) {
+        messageInput.style.height = "2.5rem";
+    }
+    else {
+        messageInput.style.height = "";
+        messageInput.style.height = messageInput.scrollHeight + "px";
+    }
+});
+
+//-------------------------------
+
+//cards event listeners and initial setup
+personalityCards.forEach(card => {
     const shareButton = card.querySelector(".btn-share-card");
+    const deleteButton = card.querySelector(".btn-delete-card");
+    const editButton = card.querySelector(".btn-edit-card");
+    const input = card.querySelector("input");
+
     shareButton.addEventListener("click", () => {
         sharePersonality(card);
     });
-}
 
-//handle delete button click
-for (let card of personalityCards) {
-    const deleteButton = card.querySelector(".btn-delete-card");
-    if (deleteButton) {
-        deleteButton.addEventListener("click", () => {
-            deleteLocalPersonality(Array.prototype.indexOf.call(card.parentNode.children, card));
-            card.remove();
-        });
-    }
-}
+    deleteButton.addEventListener("click", () => {
+        deleteLocalPersonality(Array.prototype.indexOf.call(card.parentNode.children, card));
+        card.remove();
+    });
 
-//handle edit button click
-for (let card of personalityCards) {
-    const editButton = card.querySelector(".btn-edit-card");
-    if (editButton) {
-        editButton.addEventListener("click", () => {
-            showEditPersonalityForm();
-            const personalityName = card.querySelector(".personality-title").innerText;
-            const personalityDescription = card.querySelector(".personality-description").innerText;
-            const personalityPrompt = card.querySelector(".personality-prompt").innerText;
-            const personalityImageURL = card.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
-            document.querySelector("#form-edit-personality #personalityNameInput").value = personalityName;
-            document.querySelector("#form-edit-personality #personalityDescriptionInput").value = personalityDescription;
-            document.querySelector("#form-edit-personality #personalityPromptInput").value = personalityPrompt;
-            document.querySelector("#form-edit-personality #personalityImageURLInput").value = personalityImageURL;
-        });
-    }
-}
+    editButton.addEventListener("click", () => {
+        showEditPersonalityForm();
+        const personalityName = card.querySelector(".personality-title").innerText;
+        const personalityDescription = card.querySelector(".personality-description").innerText;
+        const personalityPrompt = card.querySelector(".personality-prompt").innerText;
+        const personalityImageURL = card.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+        document.querySelector("#form-edit-personality #personalityNameInput").value = personalityName;
+        document.querySelector("#form-edit-personality #personalityDescriptionInput").value = personalityDescription;
+        document.querySelector("#form-edit-personality #personalityPromptInput").value = personalityPrompt;
+        document.querySelector("#form-edit-personality #personalityImageURLInput").value = personalityImageURL;
+    });
 
-//handle radio input check change
-personalityCards.forEach(card => {
-    const input = card.querySelector("input");
     input.addEventListener("change", () => {
         // Darken all cards
         personalityCards.forEach(card => {
-            const cardBackgroundImageURL = card.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
             card.style.outline = "0px solid rgb(150 203 236)";
             darkenBg(card);
         })
-
         // Lighten selected card
         input.parentElement.style.outline = "3px solid rgb(150 203 236)";
         lightenBg(input.parentElement);
     })
+
     // Set initial outline
     if (input.checked) {
         lightenBg(input.parentElement);
         input.parentElement.style.outline = "3px solid rgb(150 203 236)";
     }
-})
+});
 
+//-------------------------------
+
+//functions
 function hideElement(element) {
     element.style.transition = 'opacity 0.2s';
     element.style.opacity = '0';
@@ -600,3 +580,5 @@ async function run() {
     localStorage.setItem("maxTokens", maxTokens.value);
 
 }
+
+//-------------------------------
