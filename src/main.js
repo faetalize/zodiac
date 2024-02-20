@@ -17,7 +17,6 @@ const editPersonalityForm = document.querySelector("#form-edit-personality");
 const sendMessageButton = document.querySelector("#btn-send");
 const clearAllButton = document.querySelector("#btn-clearall-personality");
 const whatsNewButton = document.querySelector("#btn-whatsnew");
-const editDefaultPersonalityButton = document.querySelector("#btn-edit-personality-default");
 const submitNewPersonalityButton = document.querySelector("#btn-submit-personality");
 const resetChatButton = document.querySelector("#btn-reset-chat");
 const importPersonalityButton = document.querySelector("#btn-import-personality");
@@ -165,7 +164,12 @@ showSidebarButton.addEventListener("click", () => {
 
 clearAllButton.addEventListener("click", () => {
     localStorage.removeItem("personalities");
-})
+    [...personalityCards].forEach(card => {
+        if (card != defaultPersonalityCard) {
+            card.remove();
+        }
+    });
+});
 
 importPersonalityButton.addEventListener("click", () => {
     const fileInput = document.createElement('input');
