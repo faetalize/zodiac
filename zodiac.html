@@ -203,18 +203,34 @@
         bottom: 0.5rem;
         font-size: 1.5rem;
     }
-    #title-div{
-        flex-grow: 1;
+
+    @keyframes spin {
+        0% {
+            border-color: #85e0fb;
+        }
+        50% {
+            border-color: #253a5c;
+        }
+        100% {
+            border-color: #85e0fb;
+        }
     }
 
     .badge{
         background-color: #253a5c;
+        justify-self: end;
         border: 2px solid rgba(35, 108, 119, 0.508);
         color: #85e0fb;
         padding: 0.5rem;
         border-radius: 1rem;
         font-size: 0.75rem;
         font-weight: bold;
+        margin-left: auto;
+        transition: width ease-in-out 0.25s, gap ease-in-out 0.25s;
+    }
+
+    .badge-highlight{
+        animation: spin 1s ease infinite;
     }
 
     .btn-array {
@@ -339,6 +355,7 @@
         color: #7c8a9c;
         font-size: 1rem;
         font-weight: 400;
+        width: max-content;
     }
 
     #gemin-pro-logo {
@@ -680,7 +697,9 @@
                     <div id="zodiac-branding">zodiac </div>
                     <div id="gemini-pro-branding">powered by Gemini Pro</div>
                 </div>
-                <button class="badge" id="btn-whatsnew">v0.1.0</button>
+                <button class="badge" id="btn-whatsnew">
+                    <span id="badge-version"></span>
+                </button>
             </div>
             <div class="navbar">
                 <div class="navbar-tab">Personalities</div>
@@ -690,9 +709,9 @@
 
             <div id="sidebar-content">
                 <div class="sidebar-section" id="personalitySection">
-                    <label class="card-personality"
+                    <label class="card-personality" id="card-personality-default"
                         style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.fonearena.com/blog/wp-content/uploads/2023/12/Google-Gemini-AI-1024x577.jpg')">
-                        <input type="radio" name="personality" value="zodiac3" checked>
+                        <input type="radio" name="personality" value="zodiac" checked>
                         <div>
                             <h3 class="personality-title">zodiac</h3>
                             <p class="personality-description">zodiac is a cheerful assistant, always ready to help you
@@ -786,15 +805,15 @@
                 class="input-field"></input>
             <label for="personalityPromptInput">Prompt:</label>
             <textarea id="personalityPromptInput" placeholder="Personality Prompt" class="prompt-field"></textarea>
-            <button id="updatePersonality">Save</button>
+            <button id="btn-submit-personality-edit">Save</button>
         </div>
 
         <div id="whats-new">
             <h1 id="header-version">What's New in </h1>
             <ul id="changelog">
-                <li>Initial alpha release</li>
+                <li>Added ability to modify personalities</li>
                 <li>Added version badge</li>
-                <li>Added importing and exporting</li>
+                <li>stability improvements</li>
             </ul>
         </div>
     </div>

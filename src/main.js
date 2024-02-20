@@ -2,8 +2,53 @@ import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/generative-ai";
 
-const version = "0.1.2";
+const version = "0.1.3";
 
+//inputs
+const ApiKeyInput = document.querySelector("#apiKeyInput");
+const maxTokensInput = document.querySelector("#maxTokens");
+const messageInput = document.querySelector("#messageInput");
+
+//forms
+const addPersonalityForm = document.querySelector("#form-add-personality");
+const editPersonalityForm = document.querySelector("#form-edit-personality");
+
+//buttons
+const sendMessageButton = document.querySelector("#btn-send");
+const clearAllButton = document.querySelector("#btn-clearall-personality");
+const whatsNewButton = document.querySelector("#btn-whatsnew");
+const submitNewPersonalityButton = document.querySelector("#btn-submit-personality");
+const resetChatButton = document.querySelector("#btn-reset-chat");
+const importPersonalityButton = document.querySelector("#btn-import-personality");
+const addPersonalityButton = document.querySelector("#btn-add-personality");
+const hideOverlayButton = document.querySelector("#btn-hide-overlay");
+const submitPersonalityEditButton = document.querySelector("#btn-submit-personality-edit");
+const hideSidebarButton = document.querySelector("#btn-hide-sidebar");
+const showSidebarButton = document.querySelector("#btn-show-sidebar");
+
+//containers
+const sidebar = document.querySelector(".sidebar");
+const messageContainer = document.querySelector(".message-container");
+const personalityCards = document.getElementsByClassName("card-personality");
+const formsOverlay = document.querySelector(".overlay");
+const sidebarViews = document.getElementsByClassName("sidebar-section");
+const defaultPersonalityCard = document.querySelector("#card-personality-default");
+
+//nav elements
+const tabs = [...document.getElementsByClassName("navbar-tab")];
+const tabHighlight = document.querySelector(".navbar-tab-highlight");
+
+//misc
+const badge = document.querySelector("#btn-whatsnew");
+
+//-------------------------------
+
+//load api key from local storage into input field
+ApiKeyInput.value = localStorage.getItem("API_KEY");
+maxTokensInput.value = localStorage.getItem("maxTokens");
+if (maxTokensInput.value == "") maxTokensInput.value = 1000;
+
+//define AI settings
 const safetySettings = [
 
     {
@@ -27,14 +72,147 @@ const systemPrompt = "If needed, format your answer using markdown." +
     "Today's date is" + new Date().toDateString() + "." +
     "End of system prompt.";
 
-//load api key from local storage into input field
-const API_KEY = document.querySelector("#apiKeyInput");
-const maxTokens = document.querySelector("#maxTokens");
-API_KEY.value = localStorage.getItem("API_KEY");
-maxTokens.value = localStorage.getItem("maxTokens");
-if (maxTokens.value == "") maxTokens.value = 1000;
+//setup tabs
+let currentTab = undefined;
+tabHighlight.style.width = `calc(100% / ${tabs.length})`;
+tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+        navigateTo(tab);
+    })
+});
 
+[...sidebarViews].forEach(view => {
+    hideElement(view);
+});
 
+navigateTo(tabs[0]);
+
+//load personalities on launch
+const personalitiesArray = JSON.parse(getLocalPersonalities());
+if (personalitiesArray) {
+    for (let personality of personalitiesArray) {
+        insertPersonality(personality);
+    }
+}
+let personalityToEditIndex = 0;
+
+//add default personality card event listeners and initial state
+const shareButton = defaultPersonalityCard.querySelector(".btn-share-card");
+const editButton = defaultPersonalityCard.querySelector(".btn-edit-card");
+const input = defaultPersonalityCard.querySelector("input");
+
+shareButton.addEventListener("click", () => {
+    sharePersonality(defaultPersonalityCard);
+}
+);
+
+editButton.addEventListener("click", () => {
+    alert("You cannot edit the default personality card.");
+    return;
+});
+
+input.addEventListener("change", () => {
+    // Darken all cards
+    [...personalityCards].forEach(card => {
+        card.style.outline = "0px solid rgb(150 203 236)";
+        darkenBg(card);
+    })
+    // Lighten selected card
+    input.parentElement.style.outline = "3px solid rgb(150 203 236)";
+    lightenBg(input.parentElement);
+});
+
+if (input.checked) {
+    lightenBg(input.parentElement);
+    input.parentElement.style.outline = "3px solid rgb(150 203 236)";
+}
+
+//setup version number on badge and header
+badge.querySelector("#badge-version").textContent = `v${version}`;
+document.getElementById('header-version').textContent += ` v${version}`;
+
+//show whats new on launch if new version
+const prevVersion = localStorage.getItem("version");
+if (prevVersion != version) {
+    localStorage.setItem("version", version);
+    badge.classList.add("badge-highlight");
+    setTimeout(() => {
+        badge.classList.remove("badge-highlight");
+    }, 7000);
+}
+
+//event listeners
+hideOverlayButton.addEventListener("click", closeOverlay);
+
+addPersonalityButton.addEventListener("click", showAddPersonalityForm);
+
+submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
+
+submitPersonalityEditButton.addEventListener("click", () => {submitPersonalityEdit(personalityToEditIndex)});
+
+sendMessageButton.addEventListener("click", run);
+
+whatsNewButton.addEventListener("click", showWhatsNew);
+
+hideSidebarButton.addEventListener("click", () => {
+    hideElement(sidebar);
+});
+
+showSidebarButton.addEventListener("click", () => {
+    showElement(sidebar);
+});
+
+clearAllButton.addEventListener("click", () => {
+    localStorage.removeItem("personalities");
+    [...personalityCards].forEach(card => {
+        if (card != defaultPersonalityCard) {
+            card.remove();
+        }
+    });
+});
+
+importPersonalityButton.addEventListener("click", () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const personalityJSON = JSON.parse(e.target.result);
+            insertPersonality(personalityJSON);
+            setLocalPersonality(personalityJSON);
+        };
+        reader.readAsText(file);
+    });
+    fileInput.click();
+    fileInput.remove();
+});
+
+resetChatButton.addEventListener("click", () => {
+    messageContainer.innerHTML = "";
+});
+
+window.addEventListener("resize", () => {
+    //show sidebar if window is resized to desktop size
+    if (window.innerWidth > 768) {
+        showElement(document.querySelector(".sidebar"));
+    }
+});
+
+messageInput.addEventListener("input", () => {
+    //auto resize message input
+    if (messageInput.value.split("\n").length == 1) {
+        messageInput.style.height = "2.5rem";
+    }
+    else {
+        messageInput.style.height = "";
+        messageInput.style.height = messageInput.scrollHeight + "px";
+    }
+});
+
+//-------------------------------
+
+//functions
 function hideElement(element) {
     element.style.transition = 'opacity 0.2s';
     element.style.opacity = '0';
@@ -57,15 +235,19 @@ function showElement(element) {
     }, 200);
 }
 
-
-const tabs = document.querySelectorAll(".navbar-tab");
-const sidebarViews = document.querySelectorAll(".sidebar-section");
-const highlight = document.querySelector(".navbar-tab-highlight");
-highlight.style.width = `calc(100% / ${tabs.length})`;
-
+function darkenBg(element) {
+    let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+    element.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${elementBackgroundImageURL}')`;
+}
 
 
-let currentTab = undefined;
+function lightenBg(element) {
+
+    let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+    element.style.backgroundImage = `url('${elementBackgroundImageURL}')`;
+}
+
+
 function navigateTo(tab) {
     if (tab == tabs[currentTab]) {
         return;
@@ -85,54 +267,9 @@ function navigateTo(tab) {
     showElement(sidebarViews[tabIndex]);
     currentTab = tabIndex;
 
-    highlight.style.left = `calc(100% / ${tabs.length} * ${tabIndex})`;
+    tabHighlight.style.left = `calc(100% / ${tabs.length} * ${tabIndex})`;
 
 }
-
-tabs.forEach(tab => {
-    tab.addEventListener("click", () => {
-
-        navigateTo(tab);
-    })
-});
-
-sidebarViews.forEach(view => {
-    hideElement(view);
-});
-
-navigateTo(tabs[0]);
-
-
-const personalityCardsInnerInput = document.querySelectorAll(".card-personality input");
-let personalityCards = document.getElementsByClassName("card-personality");
-const formsOverlay = document.querySelector(".overlay");
-const hideOverlayButton = document.querySelector("#btn-hide-overlay");
-const addPersonalityForm = document.querySelector("#form-add-personality");
-const addPersonalityButton = document.querySelector("#btn-add-personality");
-const editDefaultPersonalityForm = document.querySelector("#form-edit-personality");
-const editDefaultPersonalityButton = document.querySelector("#btn-edit-personality-default");
-const submitNewPersonalityButton = document.querySelector("#btn-submit-personality");
-const resetChatButton = document.querySelector("#btn-reset-chat");
-const importPersonalityButton = document.querySelector("#btn-import-personality");
-const messageContainer = document.querySelector(".message-container");
-const sendMessageButton = document.querySelector("#btn-send");
-const clearAllButton = document.querySelector("#btn-clearall-personality");
-const whatsNewButton = document.querySelector("#btn-whatsnew");
-
-
-
-function darkenBg(element) {
-    let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
-    element.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${elementBackgroundImageURL}')`;
-}
-
-
-function lightenBg(element) {
-
-    let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
-    element.style.backgroundImage = `url('${elementBackgroundImageURL}')`;
-}
-
 
 function sharePersonality(personality) {
     //export personality to json
@@ -152,8 +289,6 @@ function sharePersonality(personality) {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-
-
 }
 
 
@@ -164,21 +299,21 @@ function showAddPersonalityForm() {
 
 function showEditPersonalityForm() {
     showElement(formsOverlay);
-    showElement(editDefaultPersonalityForm);
+    showElement(editPersonalityForm);
 }
 
 function closeOverlay() {
     hideElement(formsOverlay);
     hideElement(addPersonalityForm);
-    hideElement(editDefaultPersonalityForm);
+    hideElement(editPersonalityForm);
     hideElement(document.querySelector("#whats-new"));
 }
 
 
 function insertPersonality(personalityJSON) {
     const personalitiesDiv = document.querySelector("#personalitiesDiv");
-
     const personalityCard = document.createElement("label");
+
     personalityCard.classList.add("card-personality");
     personalityCard.style.backgroundImage = `url('${personalityJSON.image}')`;
     personalityCard.innerHTML = `
@@ -198,34 +333,54 @@ function insertPersonality(personalityJSON) {
 
     //insert personality card before the button array
     personalitiesDiv.append(personalityCard);
-
     darkenBg(personalityCard);
 
-    personalityCards = document.querySelectorAll(".card-personality");
-    //add input event listener
-    personalityCard.querySelector("input").addEventListener("change", () => {
+    const shareButton = personalityCard.querySelector(".btn-share-card");
+    const deleteButton = personalityCard.querySelector(".btn-delete-card");
+    const editButton = personalityCard.querySelector(".btn-edit-card");
+    const input = personalityCard.querySelector("input");
+
+    shareButton.addEventListener("click", () => {
+        sharePersonality(personalityCard);
+    });
+    
+    //conditional because the default personality card doesn't have a delete button
+    if(deleteButton){
+        deleteButton.addEventListener("click", () => {
+            deleteLocalPersonality(Array.prototype.indexOf.call(personalityCard.parentNode.children, personalityCard));
+            personalityCard.remove();
+        });
+    }
+
+    editButton.addEventListener("click", () => {
+        personalityToEditIndex = Array.prototype.indexOf.call(personalityCard.parentNode.children, personalityCard);
+        showEditPersonalityForm();
+        const personalityName = personalityCard.querySelector(".personality-title").innerText;
+        const personalityDescription = personalityCard.querySelector(".personality-description").innerText;
+        const personalityPrompt = personalityCard.querySelector(".personality-prompt").innerText;
+        const personalityImageURL = personalityCard.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+        document.querySelector("#form-edit-personality #personalityNameInput").value = personalityName;
+        document.querySelector("#form-edit-personality #personalityDescriptionInput").value = personalityDescription;
+        document.querySelector("#form-edit-personality #personalityPromptInput").value = personalityPrompt;
+        document.querySelector("#form-edit-personality #personalityImageURLInput").value = personalityImageURL;
+    });
+
+    input.addEventListener("change", () => {
         // Darken all cards
-        personalityCards.forEach(card => {
-            const cardBackgroundImageURL = card.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+        [...personalityCards].forEach(card => {
             card.style.outline = "0px solid rgb(150 203 236)";
             darkenBg(card);
         })
-
         // Lighten selected card
-        personalityCard.style.outline = "3px solid rgb(150 203 236)";
-        lightenBg(personalityCard);
-    })
-
-    const sharebtn = personalityCard.querySelector(".btn-share-card");
-    sharebtn.addEventListener("click", () => {
-        sharePersonality(personalityCard);
+        input.parentElement.style.outline = "3px solid rgb(150 203 236)";
+        lightenBg(input.parentElement);
     });
 
-    const deletebtn = personalityCard.querySelector(".btn-delete-card");
-    deletebtn.addEventListener("click", () => {
-        deleteLocalPersonality(Array.prototype.indexOf.call(personalityCard.parentNode.children, personalityCard));
-        personalityCard.remove();
-    });
+    // Set initial outline
+    if (input.checked) {
+        lightenBg(input.parentElement);
+        input.parentElement.style.outline = "3px solid rgb(150 203 236)";
+    }
 }
 
 function setLocalPersonality(personalityJSON) {
@@ -267,10 +422,47 @@ function submitNewPersonality() {
     closeOverlay();
 }
 
+function submitPersonalityEdit(personalityIndex) {
+    const newName = editPersonalityForm.querySelector("#personalityNameInput").value;
+    const newDescription = editPersonalityForm.querySelector("#personalityDescriptionInput").value;
+    const newPrompt = editPersonalityForm.querySelector("#personalityPromptInput").value;
+    const newImageURL = editPersonalityForm.querySelector("#personalityImageURLInput").value;
+
+    if (newName.value == "") {
+        alert("Please enter a personality name");
+        return;
+    }
+    if (newPrompt.value == "") {
+        alert("Please enter a personality prompt");
+        return;
+    }
+
+    const personalityCard = [...personalityCards][personalityIndex+1]; //+1 because the default personality card is not in the array
+    personalityCard.querySelector(".personality-title").innerText = newName;
+    personalityCard.querySelector(".personality-description").innerText = newDescription;
+    personalityCard.querySelector(".personality-prompt").innerText = newPrompt;
+    personalityCard.style.backgroundImage = `url('${newImageURL}')`;
+    darkenBg(personalityCard);
+
+    const personalitiesJSON = JSON.parse(getLocalPersonalities());
+    personalitiesJSON[personalityIndex] = {
+        name: newName,
+        description: newDescription,
+        prompt: newPrompt,
+        image: newImageURL
+    };
+    localStorage.setItem("personalities", JSON.stringify(personalitiesJSON));
+    closeOverlay();
+}
+
+
+
+
 function getLocalPersonalities() {
     const personalitiesJSON = localStorage.getItem("personalities");
     return personalitiesJSON;
 }
+
 function deleteLocalPersonality(index) {
     let localPers = JSON.parse(getLocalPersonalities());
     localPers.splice(index, 1);
@@ -300,7 +492,7 @@ async function run() {
     const selectedPersonalityTitle = document.querySelector("input[name='personality']:checked + div .personality-title").innerText;
     const selectedPersonalityDescription = document.querySelector("input[name='personality']:checked + div .personality-description").innerText;
     const selectedPersonalityPrompt = document.querySelector("input[name='personality']:checked + div .personality-prompt").innerText;
-
+    const selectedPersonalityToneExamples = [];
     //chat history
     let chatHistory = [];
     //get chat history from message container
@@ -315,10 +507,6 @@ async function run() {
     })
     //reverse order of chat history
     chatHistory.reverse();
-
-    //
-    const toneExamples = [];
-
 
     if (API_KEY.value == "") {
         alert("Please enter an API key");
@@ -342,7 +530,7 @@ async function run() {
                 role: "model",
                 parts: [{ text: `Okay. From now on, I shall play the role of ${selectedPersonalityTitle}. Your prompt and described personality will be used for the rest of the conversation.` }]
             },
-            ...toneExamples,
+            ...selectedPersonalityToneExamples,
             ...chatHistory
         ]
     })
@@ -389,136 +577,4 @@ async function run() {
 
 }
 
-//reset chat button (async)
-resetChatButton.addEventListener("click", () => {
-    //remove all messages
-    messageContainer.innerHTML = "";
-});
-
-
-const messageInput = document.querySelector("#messageInput");
-
-//if more than one line, set height to scrollheight, and revert upon delete
-messageInput.addEventListener("input", () => {
-    if (messageInput.value.split("\n").length == 1) {
-        messageInput.style.height = "2.5rem";
-    }
-    else {
-        messageInput.style.height = "";
-        messageInput.style.height = messageInput.scrollHeight + "px";
-    }
-})
-
-
-const sidebarDismissButton = document.querySelector("#btn-hide-sidebar");
-sidebarDismissButton.addEventListener("click", () => {
-    hideElement(document.querySelector(".sidebar"));
-})
-
-const showSidebarButton = document.querySelector("#btn-show-sidebar");
-showSidebarButton.addEventListener("click", () => {
-    showElement(document.querySelector(".sidebar"));
-})
-
-
-//unhide sidebar if width > 768px (event hander)
-window.addEventListener("resize", () => {
-    if (window.innerWidth > 768) {
-        showElement(document.querySelector(".sidebar"));
-    }
-});
-
-//load personalities on launch
-const personalitiesArray = JSON.parse(localStorage.getItem("personalities"));
-if (personalitiesArray) {
-    for (let personality of personalitiesArray) {
-        insertPersonality(personality);
-    }
-}
-
-//version number
-const badge = document.querySelector("#btn-whatsnew");
-badge.innerText = `v${version}`;
-document.getElementById('header-version').textContent += ` v${version}`;
-
-//show whats new on launch if new version
-const prevVersion = localStorage.getItem("version");
-if (prevVersion != version) {
-    localStorage.setItem("version", version);
-    showWhatsNew();
-}
-
-//event listeners
-hideOverlayButton.addEventListener("click", closeOverlay);
-
-addPersonalityButton.addEventListener("click", showAddPersonalityForm);
-
-editDefaultPersonalityButton.addEventListener("click", showEditPersonalityForm);
-
-submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
-
-sendMessageButton.addEventListener("click", run);
-
-whatsNewButton.addEventListener("click", showWhatsNew);
-
-clearAllButton.addEventListener("click", () => {
-    localStorage.removeItem("personalities");
-})
-
-importPersonalityButton.addEventListener("click", () => {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.addEventListener('change', () => {
-        const file = fileInput.files[0];
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const personalityJSON = JSON.parse(e.target.result);
-            insertPersonality(personalityJSON);
-            setLocalPersonality(personalityJSON);
-        };
-        reader.readAsText(file);
-    });
-    fileInput.click();
-    fileInput.remove();
-});
-
-//handle share button click
-for (let card of personalityCards) {
-    const shareButton = card.querySelector(".btn-share-card");
-    shareButton.addEventListener("click", () => {
-        sharePersonality(card);
-    });
-}
-
-//handle delete button click
-for (let card of personalityCards) {
-    const deleteButton = card.querySelector(".btn-delete-card");
-    if (deleteButton) {
-        deleteButton.addEventListener("click", () => {
-            deleteLocalPersonality(Array.prototype.indexOf.call(card.parentNode.children, card));
-            card.remove();
-        });
-    }
-}
-
-//handle radio input check change
-for (let input of personalityCardsInnerInput) {
-    input.addEventListener("change", () => {
-        // Darken all cards
-        personalityCards.forEach(card => {
-            const cardBackgroundImageURL = card.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
-            card.style.outline = "0px solid rgb(150 203 236)";
-            darkenBg(card);
-        })
-
-        // Lighten selected card
-        input.parentElement.style.outline = "3px solid rgb(150 203 236)";
-        lightenBg(input.parentElement);
-    })
-    // Set initial outline
-    if (input.checked) {
-        lightenBg(input.parentElement);
-        input.parentElement.style.outline = "3px solid rgb(150 203 236)";
-    }
-}
-// ...
+//-------------------------------
