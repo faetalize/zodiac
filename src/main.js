@@ -18,7 +18,6 @@ const sendMessageButton = document.querySelector("#btn-send");
 const clearAllButton = document.querySelector("#btn-clearall-personality");
 const whatsNewButton = document.querySelector("#btn-whatsnew");
 const submitNewPersonalityButton = document.querySelector("#btn-submit-personality");
-const resetChatButton = document.querySelector("#btn-reset-chat");
 const importPersonalityButton = document.querySelector("#btn-import-personality");
 const addPersonalityButton = document.querySelector("#btn-add-personality");
 const hideOverlayButton = document.querySelector("#btn-hide-overlay");
@@ -194,10 +193,6 @@ importPersonalityButton.addEventListener("click", () => {
     });
     fileInput.click();
     fileInput.remove();
-});
-
-resetChatButton.addEventListener("click", () => {
-    messageContainer.innerHTML = "";
 });
 
 window.addEventListener("resize", () => {
