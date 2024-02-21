@@ -152,6 +152,14 @@ submitPersonalityEditButton.addEventListener("click", () => {submitPersonalityEd
 
 sendMessageButton.addEventListener("click", run);
 
+//enter key to send message but support shift+enter for new line
+messageInput.addEventListener("keydown", (e) => {
+    if (e.key == "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        run();
+    }
+});
+
 whatsNewButton.addEventListener("click", showWhatsNew);
 
 hideSidebarButton.addEventListener("click", () => {
