@@ -17,11 +17,11 @@
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-VCHJXFGB08"></script>
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
 
-  gtag('config', 'G-VCHJXFGB08');
+    gtag('config', 'G-VCHJXFGB08');
 </script>
 
 <style>
@@ -124,7 +124,7 @@
         align-items: center;
     }
 
-    #whats-new{
+    #whats-new {
         display: none;
         flex-direction: column;
         max-width: 80%;
@@ -197,6 +197,25 @@
         font-size: inherit;
     }
 
+    .list-item{
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        transition: all 0.2s;
+        cursor: pointer;
+        
+        
+    }
+
+    .list-item:hover {
+    }
+
+    .card-personality {
+        .btn-textual {
+            color: #e4e4e4;
+            text-shadow: 0 0 10px #000000, 0 0 5px #181818;
+        }
+    }
+
     #btn-send {
         position: absolute;
         right: 0.5rem;
@@ -208,19 +227,21 @@
         0% {
             border-color: #85e0fb;
         }
+
         50% {
             border-color: #253a5c;
         }
+
         100% {
             border-color: #85e0fb;
         }
     }
 
-    .badge{
-        background-color: #253a5c;
+    .badge {
+
+
         justify-self: end;
-        border: 2px solid rgba(35, 108, 119, 0.508);
-        color: #85e0fb;
+
         padding: 0.5rem;
         border-radius: 1rem;
         font-size: 0.75rem;
@@ -229,7 +250,7 @@
         transition: width ease-in-out 0.25s, gap ease-in-out 0.25s;
     }
 
-    .badge-highlight{
+    .badge-highlight {
         animation: spin 1s ease infinite;
     }
 
@@ -329,11 +350,16 @@
         width: 100%;
         padding: 0.5rem;
         text-align: center;
-
+        border-radius: 0.5rem;
         z-index: 2;
         -webkit-tap-highlight-color: transparent;
         cursor: pointer;
+        transition: all 0.2s;
+    }
 
+    /* same but if not have 'test' class */
+    .navbar-tab:not(.navbar-tab-active):hover {
+        background-color: #54545419;
     }
 
 
@@ -413,11 +439,6 @@
         cursor: pointer;
         text-shadow: 0 0 10px #000000, 0 0 5px #181818;
     }
-
-    .edit:hover {
-        text-shadow: 0 0 10px #e4e4e4, 0 0 5px #dfdfdf;
-    }
-
 
     .card-personality * {
         /* unselectable */
@@ -556,18 +577,21 @@
             background-color: #87b0ed;
         }
 
+        .btn-textual {
+            color: #0a0a0a;
+        }
+
         .btn-textual:hover {
             text-shadow: 0 0 10px #000000;
         }
 
         button {
-            background-color: #83b5f7;
-
-            color: #2b3d59;
+            background-color: #417ecf;
+            color: #e0ecfd;
         }
 
         button:hover {
-            background-color: rgb(63, 191, 255);
+            background-color: #3b73bd;
         }
 
 
@@ -575,7 +599,7 @@
         textarea,
         select {
             background-color: #f0f6ff;
-            outline: 1px solid #8f9eb3;
+            outline: 1px solid #54545428;
         }
 
         input::placeholder,
@@ -585,6 +609,16 @@
 
         .message-model {
             background-color: #d2e2f7;
+        }
+
+        .badge {
+            background-color: #87d3ed;
+            border: 1px solid rgba(27, 104, 123, 0.508);
+            color: #34545c;
+        }
+
+        .badge:hover {
+            background-color: #6fd5f7;
         }
     }
 
@@ -647,11 +681,6 @@
             text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
         }
 
-        .edit:hover {
-            text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
-            /* Change #00ff00 to the color you want */
-        }
-
         input,
         textarea,
         select {
@@ -670,19 +699,12 @@
         .message-model {
             background-color: #1a2733;
         }
-    }
 
-    #btn-reset-chat {
-        background-color: #1a2733;
-        color: #e4e4e4;
-        right: 4rem;
-        margin-right: 5px;
-        transition: all 0.2s;
-        cursor: pointer;
-    }
-
-    #btn-reset-chat:hover {
-        background-color: #313131;
+        .badge {
+            background-color: #253a5c;
+            border: 1px solid rgba(35, 108, 119, 0.508);
+            color: #b6ebfb;
+        }
     }
 </style>
 
@@ -703,12 +725,18 @@
                 </button>
             </div>
             <div class="navbar">
+                <div class="navbar-tab">Chats</div>
                 <div class="navbar-tab">Personalities</div>
                 <div class="navbar-tab">Settings</div>
                 <div class="navbar-tab-highlight"></div>
             </div>
 
             <div id="sidebar-content">
+                <div class="sidebar-section" id="chatHistorySection">
+                    <div class="list-item">Chat 1</div>
+                    <button class="btn-textual" id="btn-reset-chat">Reset Chat</button>
+                </div>
+
                 <div class="sidebar-section" id="personalitySection">
                     <label class="card-personality" id="card-personality-default"
                         style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.fonearena.com/blog/wp-content/uploads/2023/12/Google-Gemini-AI-1024x577.jpg')">

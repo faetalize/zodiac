@@ -34,7 +34,7 @@ const sidebarViews = document.getElementsByClassName("sidebar-section");
 const defaultPersonalityCard = document.querySelector("#card-personality-default");
 
 //nav elements
-const tabs = [...document.getElementsByClassName("navbar-tab")];
+const tabs = document.getElementsByClassName("navbar-tab");
 const tabHighlight = document.querySelector(".navbar-tab-highlight");
 
 //misc
@@ -74,7 +74,7 @@ const systemPrompt = "If needed, format your answer using markdown." +
 //setup tabs
 let currentTab = undefined;
 tabHighlight.style.width = `calc(100% / ${tabs.length})`;
-tabs.forEach(tab => {
+[...tabs].forEach(tab => {
     tab.addEventListener("click", () => {
         navigateTo(tab);
     })
@@ -140,6 +140,42 @@ if (prevVersion != version) {
     }, 7000);
 }
 
+//indexedDB setup
+// Step 1: Create a database and an object store for chat histories
+let db;
+let request = indexedDB.open("chatDB", 1);
+let objectStore;
+let transaction;
+
+request.onupgradeneeded = function (event) {
+    db = event.target.result;
+    objectStore = db.createObjectStore("chats", { keyPath: "id", autoIncrement: true });
+};
+
+request.onsuccess = function (event) {
+    db = event.target.result;
+    transaction = db.transaction("chats", "readonly");
+    objectStore = transaction.objectStore("chats");
+    let requestGetAll = objectStore.getAll();
+    requestGetAll.onsuccess = function (event) {
+        let chats = event.target.result;
+        chats.forEach(chatHistory => {
+            let chatHistoryDiv = document.createElement("div");
+            chatHistoryDiv.classList.add("chat-history");
+            chatHistoryDiv.innerHTML = `
+            <p>${chatHistory}</p>
+        `;
+            document.querySelector("#chat-history-container").appendChild(chatHistoryDiv);
+        });
+    };
+};
+
+request.onerror = function (event) {
+    console.error("Database error: " + event.target.errorCode);
+};
+
+
+
 //event listeners
 hideOverlayButton.addEventListener("click", closeOverlay);
 
@@ -147,7 +183,7 @@ addPersonalityButton.addEventListener("click", showAddPersonalityForm);
 
 submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
 
-submitPersonalityEditButton.addEventListener("click", () => {submitPersonalityEdit(personalityToEditIndex)});
+submitPersonalityEditButton.addEventListener("click", () => { submitPersonalityEdit(personalityToEditIndex) });
 
 sendMessageButton.addEventListener("click", run);
 
@@ -255,9 +291,9 @@ function navigateTo(tab) {
     if (tab == tabs[currentTab]) {
         return;
     }
+    tab.classList.add("navbar-tab-active");
+
     // set the highlight to match the size of the tab element
-
-
     let tabIndex = [...tabs].indexOf(tab);
     if (tabIndex < 0 || tabIndex >= sidebarViews.length) {
         console.error("Invalid tab index: " + tabIndex);
@@ -266,9 +302,11 @@ function navigateTo(tab) {
 
     if (currentTab != undefined) {
         hideElement(sidebarViews[currentTab]);
+        tabs[currentTab].classList.remove("navbar-tab-active");
     }
     showElement(sidebarViews[tabIndex]);
     currentTab = tabIndex;
+
 
     tabHighlight.style.left = `calc(100% / ${tabs.length} * ${tabIndex})`;
 
@@ -346,9 +384,9 @@ function insertPersonality(personalityJSON) {
     shareButton.addEventListener("click", () => {
         sharePersonality(personalityCard);
     });
-    
+
     //conditional because the default personality card doesn't have a delete button
-    if(deleteButton){
+    if (deleteButton) {
         deleteButton.addEventListener("click", () => {
             deleteLocalPersonality(Array.prototype.indexOf.call(personalityCard.parentNode.children, personalityCard));
             personalityCard.remove();
@@ -440,7 +478,7 @@ function submitPersonalityEdit(personalityIndex) {
         return;
     }
 
-    const personalityCard = [...personalityCards][personalityIndex+1]; //+1 because the default personality card is not in the array
+    const personalityCard = [...personalityCards][personalityIndex + 1]; //+1 because the default personality card is not in the array
     personalityCard.querySelector(".personality-title").innerText = newName;
     personalityCard.querySelector(".personality-description").innerText = newDescription;
     personalityCard.querySelector(".personality-prompt").innerText = newPrompt;
@@ -578,6 +616,16 @@ async function run() {
     localStorage.setItem("API_KEY", API_KEY.value);
     localStorage.setItem("maxTokens", maxTokens.value);
 
+    //save chat history to indexedDB
+    const chatHistoryDiv = document.createElement("div");
+    chatHistoryDiv.classList.add("chat-history");
+    chatHistoryDiv.innerHTML = `
+            Chat ${new Date().toLocaleString()}:
+        `;
+    //adding to db
+    transaction = db.transaction("chats", "readwrite");
+    objectStore = transaction.objectStore("chats");
+    objectStore.add(newMessage.innerHTML + replyText.innerHTML);
 }
 
 //-------------------------------
