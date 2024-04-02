@@ -12,6 +12,7 @@
         href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.css">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
 </head>
 
 <!-- Google tag (gtag.js) -->
@@ -203,10 +204,11 @@
         transition: all 0.2s;
         cursor: pointer;
         
-        
     }
 
     .list-item:hover {
+        
+        background-color: #00000024;
     }
 
     .card-personality {
@@ -387,6 +389,12 @@
     #gemin-pro-logo {
         width: 2rem;
         height: 2rem;
+    }
+
+    #chatHistorySection{
+        display:flex;
+        flex-direction: column;
+        gap: 8px;
     }
 
     .credits {
@@ -732,9 +740,10 @@
             </div>
 
             <div id="sidebar-content">
-                <div class="sidebar-section" id="chatHistorySection">
-                    <div class="list-item">Chat 1</div>
-                    <button class="btn-textual" id="btn-reset-chat">Reset Chat</button>
+                <div class="sidebar-section" >
+                    <div id="chatHistorySection">
+                    </div>
+                    <button class="btn-textual" id="btn-reset-chat">Delete All Chats</button>
                 </div>
 
                 <div class="sidebar-section" id="personalitySection">
