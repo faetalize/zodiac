@@ -197,9 +197,12 @@ submitPersonalityEditButton.addEventListener("click", () => { submitPersonalityE
 
 sendMessageButton.addEventListener("click", run);
 
-newChatButton.addEventListener("click", ()=>{
-    currentChat=null; 
-    messageContainer.innerHTML= ""; 
+newChatButton.addEventListener("click", () => {
+    if (!currentChat) {
+        return
+    }
+    currentChat = null;
+    messageContainer.innerHTML = "";
     document.querySelector("input[name='currentChat']:checked").checked = false;
 });
 
@@ -687,20 +690,27 @@ async function insertMessage(sender, msgText, selectedPersonalityTitle = null, n
 
 async function run() {
     const msg = document.querySelector("#messageInput");
-    let msgText = getSanitized(msg.value);
-    msg.value = "";
-    document.getElementById('messageInput').style.height = "2.5rem"; //This will reset messageInput box to its normal size.
-    if (msgText == "") {
-        return;
-    }
     const selectedPersonalityTitle = document.querySelector("input[name='personality']:checked + div .personality-title").innerText;
     const selectedPersonalityDescription = document.querySelector("input[name='personality']:checked + div .personality-description").innerText;
     const selectedPersonalityPrompt = document.querySelector("input[name='personality']:checked + div .personality-prompt").innerText;
-    const selectedPersonalityToneExamples = [];
-    //chat history
-    let chatHistory = [];
-    //get chat history from message container
     const messageElements = messageContainer.querySelectorAll(".message");
+    const selectedPersonalityToneExamples = [];
+
+
+    if (!ApiKeyInput.value) {
+        alert("Please enter an API key");
+        return;
+    }
+
+    let msgText = getSanitized(msg.value);
+    if (!msgText) {
+        return;
+    }
+    const genAI = new GoogleGenerativeAI(ApiKeyInput.value);
+    const model = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
+    
+    //we need reversed chat history so the order is correct
+    let chatHistory = [];
     messageElements.forEach(element => {
         const messageroleapi = element.querySelector(".message-role-api").innerText;
         const messagetext = element.querySelector(".message-text").innerText;
@@ -708,22 +718,33 @@ async function run() {
             role: messageroleapi,
             parts: [{ text: messagetext }]
         })
-    })
-    //reverse order of chat history
+    });
     chatHistory.reverse();
 
-    if (ApiKeyInput.value == "") {
-        alert("Please enter an API key");
-        return;
+
+    //user msg handling
+    await insertMessage("user", msgText);
+    msg.value = "";
+    document.getElementById('messageInput').style.height = "2.5rem"; //This will reset messageInput box to its normal size.
+    if (!currentChat) {
+        const result = await model.generateContent('Please generate a short title for the following request from a user: ' + msgText);
+        const title = (await result.response).text();
+        currentChat = await addChatHistory(title, msgText);
+        document.querySelector(`#chat${currentChat}`).click();
+    }
+    else {
+        const currentChatHistory = await getChatById(currentChat);
+        currentChatHistory.content.push({ role: "user", txt: msgText });
+        await db.chats.put(currentChatHistory);
     }
 
+
+    //model msg handling
     const generationConfig = {
         maxOutputTokens: maxTokensInput.value,
         temperature: 0.9
     };
-    const genAI = new GoogleGenerativeAI(ApiKeyInput.value);
-    const model = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings } );
-    const chat = model.startChat({
+    const chat = await model.startChat({
         generationConfig, safetySettings,
         history: [
             {
@@ -738,21 +759,6 @@ async function run() {
             ...chatHistory
         ]
     });
-    //user msg handling
-    if (!currentChat) {
-        const result = await model.generateContent('Please generate a short title for the following request from a user: ' + msgText);
-        const title = (await result.response).text();
-        currentChat = await addChatHistory(title, msgText);
-        document.querySelector(`#chat${currentChat}`).click();
-    }
-    else {
-        const currentChatHistory = await getChatById(currentChat);
-        currentChatHistory.content.push({ role: "user", txt: msgText });
-        await db.chats.put(currentChatHistory);
-    }
-    await insertMessage("user", msgText, selectedPersonalityTitle);
-
-    //model msg handling
     const stream = await chat.sendMessageStream(msgText);
     const replyHTML = await insertMessage("model", "", selectedPersonalityTitle, stream);
     const currentChatHistory = await getChatById(currentChat);
