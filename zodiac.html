@@ -1,7 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -198,18 +196,25 @@
         font-size: inherit;
     }
 
-    .list-item{
+    .label-currentchat {
+        display: flex;
+        gap: 1rem;
         padding: 0.5rem;
         border-radius: 0.5rem;
         transition: all 0.2s;
         cursor: pointer;
-        
+
     }
 
-    .list-item:hover {
-        
+    .label-currentchat * {
+        cursor: inherit;
+    }
+
+    .label-currentchat:hover {
+
         background-color: #00000024;
     }
+
 
     .card-personality {
         .btn-textual {
@@ -391,8 +396,8 @@
         height: 2rem;
     }
 
-    #chatHistorySection{
-        display:flex;
+    #chatHistorySection {
+        display: flex;
         flex-direction: column;
         gap: 8px;
     }
@@ -490,6 +495,15 @@
         font-size: 1rem;
         color: #e4e4e4;
     }
+
+    .input-radio-currentchat {
+        display: none;
+    }
+
+    .input-radio-currentchat:checked+div {
+        background-color: #00000024;
+    }
+
 
     #btn-hide-overlay {
         padding: 2rem;
@@ -740,7 +754,7 @@
             </div>
 
             <div id="sidebar-content">
-                <div class="sidebar-section" >
+                <div class="sidebar-section">
                     <div id="chatHistorySection">
                     </div>
                     <button class="btn-textual" id="btn-reset-chat">Delete All Chats</button>
