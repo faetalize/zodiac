@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -415,8 +416,8 @@
     }
 
     button {
+        font-weight: 600;
         border: none;
-        background-color: #3b82f6;
         color: white;
         padding: 0.5rem;
         border-radius: 0.5rem;
@@ -608,12 +609,12 @@
         }
 
         button {
-            background-color: #417ecf;
-            color: #e0ecfd;
+            background-color: #9dc2f7;
+            color: #0e1928;
         }
 
         button:hover {
-            background-color: #3b73bd;
+            background-color: #7fb1f3;
         }
 
 
@@ -686,8 +687,8 @@
         }
 
         button {
-            background-color: #22486b;
-            color: #c9d3ee;
+            background-color: #5082b0;
+            color: #0b2469;
         }
 
         button:hover {
@@ -755,9 +756,14 @@
 
             <div id="sidebar-content">
                 <div class="sidebar-section">
+                    <div class="btn-array">
+                        <button id="btn-new-chat">New Chat</button>
+                        <button id="btn-reset-chat">Delete All Chats</button>
+                    </div>
+
+
                     <div id="chatHistorySection">
                     </div>
-                    <button class="btn-textual" id="btn-reset-chat">Delete All Chats</button>
                 </div>
 
                 <div class="sidebar-section" id="personalitySection">

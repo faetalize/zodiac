@@ -25,6 +25,7 @@ const submitPersonalityEditButton = document.querySelector("#btn-submit-personal
 const hideSidebarButton = document.querySelector("#btn-hide-sidebar");
 const showSidebarButton = document.querySelector("#btn-show-sidebar");
 const deleteAllChatsButton = document.querySelector("#btn-reset-chat");
+const newChatButton = document.querySelector("#btn-new-chat");
 
 //containers
 const sidebar = document.querySelector(".sidebar");
@@ -195,6 +196,12 @@ submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
 submitPersonalityEditButton.addEventListener("click", () => { submitPersonalityEdit(personalityToEditIndex) });
 
 sendMessageButton.addEventListener("click", run);
+
+newChatButton.addEventListener("click", ()=>{
+    currentChat=null; 
+    messageContainer.innerHTML= ""; 
+    document.querySelector("input[name='currentChat']:checked").checked = false;
+});
 
 //enter key to send message but support shift+enter for new line
 messageInput.addEventListener("keydown", (e) => {
