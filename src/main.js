@@ -2,6 +2,7 @@ import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/generative-ai";
 
+
 const version = "0.5";
 
 //inputs
@@ -170,6 +171,7 @@ for (let chat of chats) {
     const chatLabel = document.createElement("label");
     chatLabel.setAttribute("for", "chat" + chat.id);
     chatLabel.textContent = chat.title;
+    chatLabel.classList.add("title-chat");
 
     const historyEntry = document.createElement("div");
     historyEntry.classList.add("label-currentchat");
@@ -185,6 +187,7 @@ for (let chat of chats) {
     //
     historyEntry.addEventListener("click", async () => { await onChatSelect(chat.id, chatElement); });
 }
+
 
 //event listeners
 hideOverlayButton.addEventListener("click", closeOverlay);
@@ -407,6 +410,7 @@ async function addChatHistory(title, firstMessage = null) {
 
         const chatLabel = document.createElement("label");
         chatLabel.setAttribute("for", "chat" + id);
+        chatLabel.classList.add("title-chat");
         chatLabel.textContent = title;
 
         const historyEntry = document.createElement("div");
