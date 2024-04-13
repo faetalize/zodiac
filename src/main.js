@@ -147,7 +147,7 @@ if (prevVersion != version) {
 
 //indexedDB setup
 let db = new Dexie("chatDB");
-let currentChat;
+let currentChat = null;
 db.version(3).stores({
     chats: `
         ++id,
@@ -160,32 +160,7 @@ db.version(3).stores({
 //get all chats and load them in the template
 let chats = await getAllChatIdentifiers();
 for (let chat of chats) {
-    const chatElement = document.createElement("input");
-    chatElement.setAttribute("type", "radio");
-    chatElement.setAttribute("name", "currentChat");
-    chatElement.setAttribute("value", "chat" + chat.id);
-    chatElement.id = "chat" + chat.id;
-    chatElement.classList.add("input-radio-currentchat");
-    chatHistorySection.append(chatElement);
-
-    const chatLabel = document.createElement("label");
-    chatLabel.setAttribute("for", "chat" + chat.id);
-    chatLabel.textContent = chat.title;
-    chatLabel.classList.add("title-chat");
-
-    const historyEntry = document.createElement("div");
-    historyEntry.classList.add("label-currentchat");
-
-    const chatIcon = document.createElement("span");
-    chatIcon.classList.add("material-symbols-outlined");
-    chatIcon.innerHTML = "chat_bubble";
-
-    historyEntry.append(chatIcon);
-    historyEntry.append(chatLabel);
-
-    chatHistorySection.append(historyEntry);
-    //
-    historyEntry.addEventListener("click", async () => { await onChatSelect(chat.id, chatElement); });
+    insertChatHistory(chat);
 }
 
 
@@ -198,7 +173,13 @@ submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
 
 submitPersonalityEditButton.addEventListener("click", () => { submitPersonalityEdit(personalityToEditIndex) });
 
-sendMessageButton.addEventListener("click", run);
+sendMessageButton.addEventListener("click", async () => {
+    try {
+        await run();
+    } catch (error) {
+        alert(error)
+    }
+});
 
 newChatButton.addEventListener("click", () => {
     if (!currentChat) {
@@ -387,6 +368,21 @@ async function onChatSelect(chatID, inputElement) {
     }
 }
 
+async function deleteChat(id) {
+    try {
+        await db.chats.delete(id);
+        const input = chatHistorySection.querySelector(`#chat${id}`);
+        input.nextElementSibling.remove();
+        input.remove();
+        if (currentChat == id) {
+            messageContainer.innerHTML = "";
+            currentChat = null;
+        }
+    } catch (error) {
+        return console.error(error);
+    }
+}
+
 async function deleteAllChats() {
     try {
         await db.chats.clear();
@@ -400,6 +396,44 @@ async function deleteAllChats() {
 }
 
 
+function insertChatHistory(chat) {
+    const chatLabel = document.createElement("label");
+    chatLabel.setAttribute("for", "chat" + chat.id);
+    chatLabel.classList.add("title-chat");
+    chatLabel.textContent = chat.title;
+
+    const historyEntry = document.createElement("div");
+    historyEntry.classList.add("label-currentchat");
+
+    const chatIcon = document.createElement("span");
+    chatIcon.classList.add("material-symbols-outlined");
+    chatIcon.innerHTML = "chat_bubble";
+
+    const deleteEntryButton = document.createElement("button");
+    deleteEntryButton.classList.add("btn-textual", "material-symbols-outlined");
+    deleteEntryButton.textContent = "delete";
+    deleteEntryButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteChat(chat.id);
+    })
+
+    historyEntry.append(chatIcon);
+    historyEntry.append(chatLabel);
+    historyEntry.append(deleteEntryButton);
+
+    chatHistorySection.prepend(historyEntry);
+
+    const chatElement = document.createElement("input");
+    chatElement.setAttribute("type", "radio");
+    chatElement.setAttribute("name", "currentChat");
+    chatElement.setAttribute("value", "chat" + chat.id);
+    chatElement.id = "chat" + chat.id;
+    chatElement.classList.add("input-radio-currentchat");
+    chatHistorySection.prepend(chatElement);
+    //
+    historyEntry.addEventListener("click", async () => { await onChatSelect(chat.id, chatElement); });
+}
+
 async function addChatHistory(title, firstMessage = null) {
     try {
         const id = await db.chats.put({
@@ -407,33 +441,7 @@ async function addChatHistory(title, firstMessage = null) {
             timestamp: Date.now(),
             content: firstMessage ? [{ role: "user", txt: firstMessage }] : []
         });
-
-        const chatLabel = document.createElement("label");
-        chatLabel.setAttribute("for", "chat" + id);
-        chatLabel.classList.add("title-chat");
-        chatLabel.textContent = title;
-
-        const historyEntry = document.createElement("div");
-        historyEntry.classList.add("label-currentchat");
-
-        const chatIcon = document.createElement("span");
-        chatIcon.classList.add("material-symbols-outlined");
-        chatIcon.innerHTML = "chat_bubble";
-
-        historyEntry.append(chatIcon);
-        historyEntry.append(chatLabel);
-
-        chatHistorySection.prepend(historyEntry);
-
-        const chatElement = document.createElement("input");
-        chatElement.setAttribute("type", "radio");
-        chatElement.setAttribute("name", "currentChat");
-        chatElement.setAttribute("value", "chat" + id);
-        chatElement.id = "chat" + id;
-        chatElement.classList.add("input-radio-currentchat");
-        chatHistorySection.prepend(chatElement);
-        //
-        historyEntry.addEventListener("click", async () => { await onChatSelect(id, chatElement); });
+        insertChatHistory({ title, id });
         return id
     } catch (error) {
         console.error(error);
@@ -712,7 +720,7 @@ async function run() {
     }
     const genAI = new GoogleGenerativeAI(ApiKeyInput.value);
     const model = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
-    
+
     //we need reversed chat history so the order is correct
     let chatHistory = [];
     messageElements.forEach(element => {
