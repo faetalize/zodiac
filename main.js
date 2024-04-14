@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/generative-ai";
 
 
-const version = "0.5";
+const version = "0.6";
 
 //inputs
 const ApiKeyInput = document.querySelector("#apiKeyInput");
