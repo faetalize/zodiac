@@ -3,7 +3,7 @@ A frontend built to interface with Google's Gemini Pro, built with vanilla JS. G
 
 ![image](https://github.com/faetalize/zodiac/assets/134988598/914ff978-2611-4e9f-b00f-55966b238dcb)
 ## How to use?
-Download `zodiac.html` and `main.js`, and open `zodiac.html` in a browser of your choice. **That's it.**
+Download the repo, and open `zodiac.html` in a browser of your choice. **That's it.**
 
 *Alternatively, here's an online version you can try if you would rather not locally run it:* [zodiac online](https://faetalize.github.io/zodiac/zodiac.html)
 ## Sponsor my development
