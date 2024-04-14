@@ -216,6 +216,79 @@
         background-color: #00000024;
     }
 
+    @font-face {
+        font-family: 'gt-america';
+        src: url("./gt-america-standard-regular.ttf");
+    }
+
+    @font-face {
+        font-family: 'ubuntu-webfont';
+        src: url("./ubuntu-bold-italic-webfont.ttf");
+    }
+
+    @font-face {
+        font-family: 'paypal-sans';
+        src: url("./PayPalSansBig-Medium.ttf")
+    }
+
+    .card {
+        box-sizing: border-box;
+        border-radius: 0.5rem;
+        text-align: center;
+        text-decoration: none;
+        padding: 1rem;
+        transition: background-color 0.25s ease-out;
+    }
+
+    .card-patreon {
+        background: #f96854;
+        color: #69160b;
+    }
+
+    .card-patreon:hover {
+        background: #d35747;
+    }
+
+    .patreon-logo {
+        font-family: 'gt-america';
+        font-weight: bolder;
+        color: #052d49;
+    }
+
+    .card-paypal {
+        background: white;
+        color: rgb(87, 87, 87);
+    }
+
+    .card-paypal:hover {
+        background: rgb(231, 231, 231);
+    }
+
+    .paypal-logo1 {
+        font-family: 'paypal-sans';
+        font-style: italic;
+        color: #003087;
+    }
+
+    .paypal-logo2 {
+        font-family: 'paypal-sans';
+        font-style: italic;
+        color: #009cde;
+    }
+
+    .card-liberapay {
+        background: #f6c915;
+        color: #816908;
+    }
+
+    .card-liberapay:hover {
+        background: #dab213;
+    }
+
+    .liberapay-logo {
+        font-family: 'ubuntu-webfont';
+        color: #1a171b;
+    }
 
     .card-personality {
         .btn-textual {
@@ -245,6 +318,7 @@
         }
     }
 
+
     .badge {
         justify-self: end;
         padding: 0.5rem;
@@ -256,7 +330,7 @@
     }
 
     .title-chat {
-    flex-grow: 1;
+        flex-grow: 1;
         text-wrap: nowrap;
         overflow-x: hidden;
     }
@@ -275,6 +349,17 @@
     .btn-array button {
         flex: 1;
     }
+
+    .btn-array-vertical {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+
+        * {
+            flex-grow: 1;
+        }
+    }
+
 
     .personality-prompt {
         display: none;
@@ -808,6 +893,15 @@
                         <option value="moderate">Moderate</option>
                         <option value="risky">Risky</option>
                     </select>
+                    <h3>Donate</h3>
+                    <div class="btn-array-vertical">
+                        <a href="https://patreon.com/faetalize" target="_blank" rel="noopener noreferrer" class="card card-patreon">Sponsor me on <span
+                                class="patreon-logo">PATREON</span></a>
+                        <a href="https://liberapay.com/faetalize" target="_blank" rel="noopener noreferrer" class="card card-liberapay">Sponsor me on <span
+                                class="liberapay-logo">liberapay</span></a>
+                        <a href="https://www.paypal.com/paypalme/alskdjaoiwdawwfq" target="_blank" rel="noopener noreferrer" class="card card-paypal">Donate once
+                            on <span class="paypal-logo1">Pay</span><span class="paypal-logo2">Pal</span></a>
+                    </div>
                 </div>
             </div>
 
