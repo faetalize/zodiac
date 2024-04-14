@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,16 +11,17 @@
         href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.css">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
 </head>
 
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-VCHJXFGB08"></script>
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
 
-  gtag('config', 'G-VCHJXFGB08');
+    gtag('config', 'G-VCHJXFGB08');
 </script>
 
 <style>
@@ -124,7 +124,7 @@
         align-items: center;
     }
 
-    #whats-new{
+    #whats-new {
         display: none;
         flex-direction: column;
         max-width: 80%;
@@ -197,6 +197,33 @@
         font-size: inherit;
     }
 
+    .label-currentchat {
+        display: flex;
+        gap: 1rem;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        transition: all 0.2s;
+        cursor: pointer;
+
+    }
+
+    .label-currentchat * {
+        cursor: inherit;
+    }
+
+    .label-currentchat:hover {
+
+        background-color: #00000024;
+    }
+
+
+    .card-personality {
+        .btn-textual {
+            color: #e4e4e4;
+            text-shadow: 0 0 10px #000000, 0 0 5px #181818;
+        }
+    }
+
     #btn-send {
         position: absolute;
         right: 0.5rem;
@@ -208,19 +235,18 @@
         0% {
             border-color: #85e0fb;
         }
+
         50% {
             border-color: #253a5c;
         }
+
         100% {
             border-color: #85e0fb;
         }
     }
 
-    .badge{
-        background-color: #253a5c;
+    .badge {
         justify-self: end;
-        border: 2px solid rgba(35, 108, 119, 0.508);
-        color: #85e0fb;
         padding: 0.5rem;
         border-radius: 1rem;
         font-size: 0.75rem;
@@ -229,7 +255,12 @@
         transition: width ease-in-out 0.25s, gap ease-in-out 0.25s;
     }
 
-    .badge-highlight{
+    .title-chat {
+        text-wrap: nowrap;
+        overflow-x: hidden;
+    }
+
+    .badge-highlight {
         animation: spin 1s ease infinite;
     }
 
@@ -238,7 +269,6 @@
         flex-direction: row;
         justify-content: stretch;
         gap: 0.5rem;
-        margin-top: 0.5rem;
     }
 
     .btn-array button {
@@ -329,11 +359,16 @@
         width: 100%;
         padding: 0.5rem;
         text-align: center;
-
+        border-radius: 0.5rem;
         z-index: 2;
         -webkit-tap-highlight-color: transparent;
         cursor: pointer;
+        transition: all 0.2s;
+    }
 
+    /* same but if not have 'test' class */
+    .navbar-tab:not(.navbar-tab-active):hover {
+        background-color: #54545419;
     }
 
 
@@ -363,6 +398,12 @@
         height: 2rem;
     }
 
+    #chatHistorySection {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
     .credits {
         margin-top: auto;
         display: flex;
@@ -376,8 +417,8 @@
     }
 
     button {
+        font-weight: 600;
         border: none;
-        background-color: #3b82f6;
         color: white;
         padding: 0.5rem;
         border-radius: 0.5rem;
@@ -413,11 +454,6 @@
         cursor: pointer;
         text-shadow: 0 0 10px #000000, 0 0 5px #181818;
     }
-
-    .edit:hover {
-        text-shadow: 0 0 10px #e4e4e4, 0 0 5px #dfdfdf;
-    }
-
 
     .card-personality * {
         /* unselectable */
@@ -461,6 +497,15 @@
         font-size: 1rem;
         color: #e4e4e4;
     }
+
+    .input-radio-currentchat {
+        display: none;
+    }
+
+    .input-radio-currentchat:checked+div {
+        background-color: #00000024;
+    }
+
 
     #btn-hide-overlay {
         padding: 2rem;
@@ -556,18 +601,21 @@
             background-color: #87b0ed;
         }
 
+        .btn-textual {
+            color: #0a0a0a;
+        }
+
         .btn-textual:hover {
             text-shadow: 0 0 10px #000000;
         }
 
         button {
-            background-color: #83b5f7;
-
-            color: #2b3d59;
+            background-color: #9dc2f7;
+            color: #0e1928;
         }
 
         button:hover {
-            background-color: rgb(63, 191, 255);
+            background-color: #7fb1f3;
         }
 
 
@@ -575,7 +623,7 @@
         textarea,
         select {
             background-color: #f0f6ff;
-            outline: 1px solid #8f9eb3;
+            outline: 1px solid #54545428;
         }
 
         input::placeholder,
@@ -585,6 +633,16 @@
 
         .message-model {
             background-color: #d2e2f7;
+        }
+
+        .badge {
+            background-color: #87d3ed;
+            border: 1px solid rgba(27, 104, 123, 0.508);
+            color: #34545c;
+        }
+
+        .badge:hover {
+            background-color: #6fd5f7;
         }
     }
 
@@ -630,8 +688,8 @@
         }
 
         button {
-            background-color: #22486b;
-            color: #c9d3ee;
+            background-color: #5082b0;
+            color: #0b2469;
         }
 
         button:hover {
@@ -640,15 +698,11 @@
 
         .btn-textual {
             color: #e4e4e4;
+            text-shadow: 0 0 10px #000000, 0 0 5px #181818;
         }
 
         .btn-textual:hover {
             text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
-        }
-
-        .edit:hover {
-            text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
-            /* Change #00ff00 to the color you want */
         }
 
         input,
@@ -669,19 +723,12 @@
         .message-model {
             background-color: #1a2733;
         }
-    }
 
-    #btn-reset-chat {
-        background-color: #1a2733;
-        color: #e4e4e4;
-        right: 4rem;
-        margin-right: 5px;
-        transition: all 0.2s;
-        cursor: pointer;
-    }
-
-    #btn-reset-chat:hover {
-        background-color: #313131;
+        .badge {
+            background-color: #253a5c;
+            border: 1px solid rgba(35, 108, 119, 0.508);
+            color: #b6ebfb;
+        }
     }
 </style>
 
@@ -702,12 +749,24 @@
                 </button>
             </div>
             <div class="navbar">
+                <div class="navbar-tab">Chats</div>
                 <div class="navbar-tab">Personalities</div>
                 <div class="navbar-tab">Settings</div>
                 <div class="navbar-tab-highlight"></div>
             </div>
 
             <div id="sidebar-content">
+                <div class="sidebar-section">
+                    <div class="btn-array">
+                        <button id="btn-new-chat">New Chat</button>
+                        <button id="btn-reset-chat">Delete All Chats</button>
+                    </div>
+
+
+                    <div id="chatHistorySection">
+                    </div>
+                </div>
+
                 <div class="sidebar-section" id="personalitySection">
                     <label class="card-personality" id="card-personality-default"
                         style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.fonearena.com/blog/wp-content/uploads/2023/12/Google-Gemini-AI-1024x577.jpg')">
@@ -765,7 +824,6 @@
             </div>
             <div class="message-container"></div>
             <div class="message-box">
-                <button class="material-symbols-outlined" id="btn-reset-chat">rotate_left</button>
                 <textarea type="text" placeholder="Type your message here" id="messageInput"
                     class="input-field"></textarea>
                 <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
@@ -811,8 +869,8 @@
         <div id="whats-new">
             <h1 id="header-version">What's New in </h1>
             <ul id="changelog">
-                <li>Added ability to modify personalities</li>
-                <li>Added version badge</li>
+                <li>Fixed Bug where sending two messages in a row leads to crash</li>
+                <li>NEW: chat history feature implementation</li>
                 <li>stability improvements</li>
             </ul>
         </div>
