@@ -109,6 +109,12 @@
         justify-content: center;
     }
 
+    .slider{
+        margin: 0;
+        padding: 0;
+        flex-grow:1;
+    }
+
     .overlay {
         flex-direction: column;
         display: none;
@@ -841,7 +847,6 @@
                 <div class="navbar-tab">Settings</div>
                 <div class="navbar-tab-highlight"></div>
             </div>
-
             <div id="sidebar-content">
                 <div class="sidebar-section">
                     <div class="btn-array">
@@ -883,7 +888,9 @@
                 </div>
 
                 <div class="sidebar-section">
-                    <h3>API Key</h3>
+                    <span>
+                        <h3>API Key</h3>
+                    </span>
                     <input type="text" placeholder="Paste API key here" id="apiKeyInput" class="input-field"></input>
                     <h3>Generation Settings</h3>
                     <label for="maxTokens">Max Output Tokens</label>
@@ -894,6 +901,11 @@
                         <option value="moderate">Moderate</option>
                         <option value="risky">Risky</option>
                     </select>
+                    <label for="temperature">Temperature</label>
+                    <div class="btn-array">
+                        <input type="range" min="20" max="200" id="temperature" class="slider">
+                        <label id="label-temperature">0</label>
+                    </div>
                     <h3>Donate</h3>
                     <div class="btn-array-vertical">
                         <a href="https://patreon.com/faetalize" target="_blank" rel="noopener noreferrer" class="card card-patreon">Sponsor me on <span
