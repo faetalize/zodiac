@@ -109,6 +109,12 @@
         justify-content: center;
     }
 
+    .slider{
+        margin: 0;
+        padding: 0;
+        flex-grow:1;
+    }
+
     .overlay {
         flex-direction: column;
         display: none;
@@ -216,6 +222,79 @@
         background-color: #00000024;
     }
 
+    @font-face {
+        font-family: 'gt-america';
+        src: url("./gt-america-standard-regular.ttf");
+    }
+
+    @font-face {
+        font-family: 'ubuntu-webfont';
+        src: url("./ubuntu-bold-italic-webfont.ttf");
+    }
+
+    @font-face {
+        font-family: 'paypal-sans';
+        src: url("./PayPalSansBig-Medium.ttf")
+    }
+
+    .card {
+        box-sizing: border-box;
+        border-radius: 0.5rem;
+        text-align: center;
+        text-decoration: none;
+        padding: 1rem;
+        transition: background-color 0.25s ease-out;
+    }
+
+    .card-patreon {
+        background: #f96854;
+        color: #69160b;
+    }
+
+    .card-patreon:hover {
+        background: #d35747;
+    }
+
+    .patreon-logo {
+        font-family: 'gt-america';
+        font-weight: bolder;
+        color: #052d49;
+    }
+
+    .card-paypal {
+        background: white;
+        color: rgb(87, 87, 87);
+    }
+
+    .card-paypal:hover {
+        background: rgb(231, 231, 231);
+    }
+
+    .paypal-logo1 {
+        font-family: 'paypal-sans';
+        font-style: italic;
+        color: #003087;
+    }
+
+    .paypal-logo2 {
+        font-family: 'paypal-sans';
+        font-style: italic;
+        color: #009cde;
+    }
+
+    .card-liberapay {
+        background: #f6c915;
+        color: #816908;
+    }
+
+    .card-liberapay:hover {
+        background: #dab213;
+    }
+
+    .liberapay-logo {
+        font-family: 'ubuntu-webfont';
+        color: #1a171b;
+    }
 
     .card-personality {
         .btn-textual {
@@ -245,6 +324,7 @@
         }
     }
 
+
     .badge {
         justify-self: end;
         padding: 0.5rem;
@@ -256,7 +336,7 @@
     }
 
     .title-chat {
-    flex-grow: 1;
+        flex-grow: 1;
         text-wrap: nowrap;
         overflow-x: hidden;
     }
@@ -275,6 +355,17 @@
     .btn-array button {
         flex: 1;
     }
+
+    .btn-array-vertical {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+
+        * {
+            flex-grow: 1;
+        }
+    }
+
 
     .personality-prompt {
         display: none;
@@ -300,7 +391,7 @@
     .sidebar {
         position: sticky;
         top: 1rem;
-
+        flex-shrink: 0;
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
@@ -428,6 +519,7 @@
 
     #mainContent {
         display: flex;
+        flex-shrink: 0;
         flex-direction: column;
         padding: 2rem;
         margin-left: auto;
@@ -515,7 +607,7 @@
 
 
 
-    @media (max-width: 768px) {
+    @media (max-width: 1032px) {
         body {
             margin: 0;
             padding: 0;
@@ -755,12 +847,11 @@
                 <div class="navbar-tab">Settings</div>
                 <div class="navbar-tab-highlight"></div>
             </div>
-
             <div id="sidebar-content">
                 <div class="sidebar-section">
                     <div class="btn-array">
-                        <button id="btn-new-chat">New Chat</button>
-                        <button id="btn-reset-chat">Delete All Chats</button>
+                        <button id="btn-new-chat">New</button>
+                        <button id="btn-reset-chat">Clear All</button>
                     </div>
 
 
@@ -790,14 +881,16 @@
                     </label>
                     <div id="personalitiesDiv"></div>
                     <div class="btn-array" id="btn-array-personality-section">
-                        <button id="btn-add-personality">Add Personality</button>
+                        <button id="btn-add-personality">Add</button>
                         <button id="btn-import-personality">Import</button>
                         <button id="btn-clearall-personality">Clear All</button>
                     </div>
                 </div>
 
                 <div class="sidebar-section">
-                    <h3>API Key</h3>
+                    <span>
+                        <h3>API Key</h3>
+                    </span>
                     <input type="text" placeholder="Paste API key here" id="apiKeyInput" class="input-field"></input>
                     <h3>Generation Settings</h3>
                     <label for="maxTokens">Max Output Tokens</label>
@@ -808,6 +901,20 @@
                         <option value="moderate">Moderate</option>
                         <option value="risky">Risky</option>
                     </select>
+                    <label for="temperature">Temperature</label>
+                    <div class="btn-array">
+                        <input type="range" min="20" max="200" id="temperature" class="slider">
+                        <label id="label-temperature">0</label>
+                    </div>
+                    <h3>Donate</h3>
+                    <div class="btn-array-vertical">
+                        <a href="https://patreon.com/faetalize" target="_blank" rel="noopener noreferrer" class="card card-patreon">Sponsor me on <span
+                                class="patreon-logo">PATREON</span></a>
+                        <a href="https://liberapay.com/faetalize" target="_blank" rel="noopener noreferrer" class="card card-liberapay">Sponsor me on <span
+                                class="liberapay-logo">liberapay</span></a>
+                        <a href="https://www.paypal.com/paypalme/alskdjaoiwdawwfq" target="_blank" rel="noopener noreferrer" class="card card-paypal">Donate once
+                            on <span class="paypal-logo1">Pay</span><span class="paypal-logo2">Pal</span></a>
+                    </div>
                 </div>
             </div>
 
@@ -871,9 +978,9 @@
         <div id="whats-new">
             <h1 id="header-version">What's New in </h1>
             <ul id="changelog">
-                <li>Fixed Bug where sending two messages in a row leads to crash</li>
-                <li>NEW: chat history feature implementation</li>
-                <li>stability improvements</li>
+                <li>NEW: temperature is now adjustable, can range from 0.1 to 2 (numbers above 1.2 tend to cause incredibly creative hallucinations, use at your own risk)</li>
+                <li>added some links for ppl wishing to financially contribute with donations</li>
+                <li>more stability improvements</li>
             </ul>
         </div>
     </div>

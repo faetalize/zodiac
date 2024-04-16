@@ -3,11 +3,12 @@ import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/generative-ai";
 
 
-const version = "0.5";
+const version = "0.6";
 
 //inputs
 const ApiKeyInput = document.querySelector("#apiKeyInput");
 const maxTokensInput = document.querySelector("#maxTokens");
+const temperatureInput = document.querySelector("#temperature");
 const messageInput = document.querySelector("#messageInput");
 
 //forms
@@ -41,6 +42,9 @@ const chatHistorySection = document.querySelector("#chatHistorySection");
 const tabs = document.getElementsByClassName("navbar-tab");
 const tabHighlight = document.querySelector(".navbar-tab-highlight");
 
+//outputs
+const temperatureLabel = document.querySelector("#label-temperature");
+
 //misc
 const badge = document.querySelector("#btn-whatsnew");
 
@@ -48,8 +52,12 @@ const badge = document.querySelector("#btn-whatsnew");
 
 //load api key from local storage into input field
 ApiKeyInput.value = localStorage.getItem("API_KEY");
-maxTokensInput.value = localStorage.getItem("maxTokens");
-if (maxTokensInput.value == "") maxTokensInput.value = 1000;
+if (!localStorage.getItem("maxTokens")) maxTokensInput.value = 1000;
+
+//set initial temperature
+temperatureInput.value = localStorage.getItem("TEMPERATURE");
+if (!localStorage.getItem("TEMPERATURE")) temperatureInput.value = 70;
+temperatureLabel.textContent = temperatureInput.value/100;
 
 //define AI settings
 const safetySettings = [
@@ -172,6 +180,10 @@ addPersonalityButton.addEventListener("click", showAddPersonalityForm);
 submitNewPersonalityButton.addEventListener("click", submitNewPersonality);
 
 submitPersonalityEditButton.addEventListener("click", () => { submitPersonalityEdit(personalityToEditIndex) });
+
+temperatureInput.addEventListener("input", () => {
+    temperatureLabel.textContent = temperatureInput.value/100;
+});
 
 sendMessageButton.addEventListener("click", async () => {
     try {
@@ -325,7 +337,6 @@ async function getAllChatIdentifiers() {
                 identifiers.push({ id: chat.id, title: chat.title });
             }
         )
-        identifiers.reverse();
         return identifiers;
     } catch (error) {
         //to be implemented
@@ -754,7 +765,7 @@ async function run() {
     //model msg handling
     const generationConfig = {
         maxOutputTokens: maxTokensInput.value,
-        temperature: 0.9
+        temperature: temperatureInput.value/100
     };
     const chat = await model.startChat({
         generationConfig, safetySettings,
@@ -781,6 +792,7 @@ async function run() {
     //save api key to local storage
     localStorage.setItem("API_KEY", ApiKeyInput.value);
     localStorage.setItem("maxTokens", maxTokensInput.value);
+    localStorage.setItem("TEMPERATURE", temperatureInput.value);
 }
 
 //-------------------------------
