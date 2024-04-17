@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/generative-ai";
 
 
-const version = "0.6";
+const version = "0.7";
 
 //inputs
 const ApiKeyInput = document.querySelector("#apiKeyInput");
@@ -675,10 +675,13 @@ async function insertMessage(sender, msgText, selectedPersonalityTitle = null, n
         newMessage.classList.add("message-model");
         messageRole = selectedPersonalityTitle;
         newMessage.innerHTML = `
-            <h3 class="message-role">${messageRole}</h3>
+            <div class="message-header"><h3 class="message-role">${messageRole}</h3>
+            <button class="btn-refresh btn-textual material-symbols-outlined" >refresh</button></div>
             <div class="message-role-api" style="display: none;">${sender}</div>
             <p class="message-text"></p>
             `;
+        const refreshButton = newMessage.querySelector(".btn-refresh");
+        refreshButton.addEventListener("click", await run())
         const messageContent = newMessage.querySelector(".message-text");
         //no streaming necessary if not receiving answer
         if (!netStream) {
@@ -698,20 +701,21 @@ async function insertMessage(sender, msgText, selectedPersonalityTitle = null, n
             }
             hljs.highlightAll();
             return messageContent.innerHTML;
-
         }
     }
     else {
         messageRole = "You:";
         newMessage.innerHTML = `
-                <h3 class="message-role">${messageRole}</h3>
+                <div class="message-header">
+                    <h3 class="message-role">${messageRole}</h3>
+                </div>
                 <div class="message-role-api" style="display: none;">${sender}</div>
                 <p class="message-text">${msgText}</p>
                 `;
     }
 }
 
-async function run() {
+async function run(msg, selectedPersonality, history) {
     const msg = document.querySelector("#messageInput");
     const selectedPersonalityTitle = document.querySelector("input[name='personality']:checked + div .personality-title").innerText;
     const selectedPersonalityDescription = document.querySelector("input[name='personality']:checked + div .personality-description").innerText;
