@@ -187,8 +187,9 @@ temperatureInput.addEventListener("input", () => {
 
 sendMessageButton.addEventListener("click", async () => {
     try {
-        await run();
+        await run(messageInput,  getSelectedPersonality(), getChatHistory());
     } catch (error) {
+        console.error(error);
         alert(error)
     }
 });
@@ -206,7 +207,7 @@ newChatButton.addEventListener("click", () => {
 messageInput.addEventListener("keydown", (e) => {
     if (e.key == "Enter" && !e.shiftKey) {
         e.preventDefault();
-        run();
+        sendMessageButton.click();
     }
 });
 
@@ -373,6 +374,7 @@ async function onChatSelect(chatID, inputElement) {
             await insertMessage(msg.role, msg.txt, msg.personality);
         }
         currentChat = chatID;
+        messageContainer.scrollTo(0, messageContainer.scrollHeight);
         inputElement.click();
     } catch (error) {
         console.error(error);
@@ -406,6 +408,34 @@ async function deleteAllChats() {
     }
 }
 
+function getSelectedPersonality(){
+    try {
+        const selectedPersonalityProps = document.querySelector("input[name='personality']:checked + div");
+        return {
+            title: selectedPersonalityProps.querySelector(".personality-title").textContent,
+            description: selectedPersonalityProps.querySelector(".personality-description").textContent,
+            prompt: selectedPersonalityProps.querySelector(".personality-prompt").textContent,
+            tone: []
+        }
+    } catch (error) {
+        alert("No personality selected.");
+        console.error(error);
+        return;
+    }
+}
+
+function getChatHistory(){
+    let chatHistory = [];
+    [...messageContainer.children].forEach(element => {
+        const messageroleapi = element.querySelector(".message-role-api").innerText;
+        const messagetext = element.querySelector(".message-text").innerText;
+        chatHistory.push({
+            role: messageroleapi,
+            parts: [{ text: messagetext }]
+        })
+    });
+    return chatHistory;
+}
 
 function insertChatHistory(chat) {
     const chatLabel = document.createElement("label");
@@ -668,7 +698,7 @@ async function insertMessage(sender, msgText, selectedPersonalityTitle = null, n
     //create new message div for the user's message then append to message container's top
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
-    messageContainer.insertBefore(newMessage, messageContainer.firstChild);
+    messageContainer.append(newMessage);
     let messageRole;
     //handle model's message
     if (sender != "user") {
@@ -681,7 +711,7 @@ async function insertMessage(sender, msgText, selectedPersonalityTitle = null, n
             <p class="message-text"></p>
             `;
         const refreshButton = newMessage.querySelector(".btn-refresh");
-        refreshButton.addEventListener("click", await run())
+        refreshButton.addEventListener("click", async () => { await regenerate(newMessage)});
         const messageContent = newMessage.querySelector(".message-text");
         //no streaming necessary if not receiving answer
         if (!netStream) {
@@ -693,6 +723,7 @@ async function insertMessage(sender, msgText, selectedPersonalityTitle = null, n
                 try {
                     rawText += chunk.text();
                     messageContent.innerHTML = marked.parse(rawText);
+                    messageContainer.scrollTo(0, messageContainer.scrollHeight);
 
                 } catch (error) {
                     alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
@@ -712,17 +743,18 @@ async function insertMessage(sender, msgText, selectedPersonalityTitle = null, n
                 <div class="message-role-api" style="display: none;">${sender}</div>
                 <p class="message-text">${msgText}</p>
                 `;
+        messageContainer.scrollTo(0, messageContainer.scrollHeight);
     }
 }
 
 async function run(msg, selectedPersonality, history) {
-    const msg = document.querySelector("#messageInput");
-    const selectedPersonalityTitle = document.querySelector("input[name='personality']:checked + div .personality-title").innerText;
-    const selectedPersonalityDescription = document.querySelector("input[name='personality']:checked + div .personality-description").innerText;
-    const selectedPersonalityPrompt = document.querySelector("input[name='personality']:checked + div .personality-prompt").innerText;
-    const messageElements = messageContainer.querySelectorAll(".message");
-    const selectedPersonalityToneExamples = [];
-
+    if (!selectedPersonality) {
+        return;
+    }
+    const selectedPersonalityTitle = selectedPersonality.title;
+    const selectedPersonalityDescription = selectedPersonality.description;
+    const selectedPersonalityPrompt = selectedPersonality.prompt;
+    const selectedPersonalityToneExamples = selectedPersonality.tone;
 
     if (!ApiKeyInput.value) {
         alert("Please enter an API key");
@@ -735,20 +767,7 @@ async function run(msg, selectedPersonality, history) {
     }
     const genAI = new GoogleGenerativeAI(ApiKeyInput.value);
     const model = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
-
-    //we need reversed chat history so the order is correct
-    let chatHistory = [];
-    messageElements.forEach(element => {
-        const messageroleapi = element.querySelector(".message-role-api").innerText;
-        const messagetext = element.querySelector(".message-text").innerText;
-        chatHistory.push({
-            role: messageroleapi,
-            parts: [{ text: messagetext }]
-        })
-    });
-    chatHistory.reverse();
-
-
+    
     //user msg handling
     await insertMessage("user", msgText);
     msg.value = "";
@@ -764,7 +783,6 @@ async function run(msg, selectedPersonality, history) {
         currentChatHistory.content.push({ role: "user", txt: msgText });
         await db.chats.put(currentChatHistory);
     }
-
 
     //model msg handling
     const generationConfig = {
@@ -783,7 +801,7 @@ async function run(msg, selectedPersonality, history) {
                 parts: [{ text: `Okay. From now on, I shall play the role of ${selectedPersonalityTitle}. Your prompt and described personality will be used for the rest of the conversation.` }]
             },
             ...selectedPersonalityToneExamples,
-            ...chatHistory
+            ...history
         ]
     });
     const stream = await chat.sendMessageStream(msgText);
@@ -797,6 +815,25 @@ async function run(msg, selectedPersonality, history) {
     localStorage.setItem("API_KEY", ApiKeyInput.value);
     localStorage.setItem("maxTokens", maxTokensInput.value);
     localStorage.setItem("TEMPERATURE", temperatureInput.value);
+}
+
+async function regenerate(messageElement){
+    const lastMessageElement = messageElement.previousElementSibling;
+    messageInput.value = lastMessageElement.querySelector(".message-text").textContent;
+    let i = 0;
+    for(let message of messageContainer.children){
+        if (messageElement == message) {
+            const newMessages = [...messageContainer.children].slice(0,i-1);
+            messageContainer.replaceChildren(...newMessages);
+            let currentChatHistory = await getChatById(currentChat);
+            currentChatHistory.content = currentChatHistory.content.slice(0,i-1);
+            await db.chats.put(currentChatHistory);
+            break;
+        }
+        i++;
+    }
+
+    run(messageInput, getSelectedPersonality(), getChatHistory());
 }
 
 //-------------------------------
