@@ -1,3 +1,5 @@
+!!!! THIS PROJECT IS **STILL ACTIVE** - I AM JUST TAKING A SMALL BREAK !!!!!
+
 # zodiac
 A frontend built to interface with Google's Gemini Pro, built with vanilla JS. Get your API key here: [Google AI Suite](https://makersuite.google.com/app/apikey)
 
