@@ -3,7 +3,14 @@ const messageContainer = document.querySelector(".message-container");
 let currentChat = null;
 const chatHistorySection = document.querySelector("#chatHistorySection");
 export function setupDB() {
-    let db = new Dexie("chatDB");
+    let db;
+    try {
+         db = new Dexie("chatDB");
+    } catch (error) {
+        console.error(error);
+        alert("failed to setup dexie");
+        return;
+    }
     db.version(3).stores({
         chats: `
         ++id,

@@ -1,24 +1,37 @@
 import { showEditPersonalityForm } from "../services/Overlay.service";
-import { sharePersonality, deleteLocalPersonality, getPersonalityCard } from "../services/Personality.service";
-import * as helpers from "../utils/helpers.util";
+import { sharePersonality, deletePersonality, getPersonalityCard, getPersonalityIndex } from "../services/Personality.service";
 
-export function createPersonalityCard(JSON) {
+export class Personality {
+    constructor(name = "", image = "", description = "", prompt = "", aggressiveness = 0, sensuality = 0 , internetEnabled = false, toneExamples = []) {
+        this.name = name;
+        this.image = image;
+        this.description = description;
+        this.prompt = prompt;
+        this.aggressiveness = aggressiveness;
+        this.sensuality = sensuality;
+        this.internetEnabled = internetEnabled;
+        this.toneExamples = toneExamples;
+    }
+}
+
+export function createPersonalityCard(personality) {
     const personalityCard = document.createElement("label");
     personalityCard.classList.add("card-personality");
-    personalityCard.style.backgroundImage = `url('${JSON.image}')`;
     personalityCard.innerHTML = `
-            <input type="radio" name="personality" value="${JSON.name}">
-            <div>
-                <h3 class="personality-title">${JSON.name}</h3>
-                <p class="personality-description">${JSON.description}</p>
-                <p class="personality-prompt">${JSON.prompt}</p>
+            <img class="background-img" src="${personality.image}"></img>
+            <input  type="radio" name="personality" value="${personality.name}">
+            <div class="btn-array-personalityactions">
+                <button class="btn-textual btn-edit-card material-symbols-outlined" 
+                    id="btn-edit-personality-${personality.name}">edit</button>
+                <button class="btn-textual btn-share-card material-symbols-outlined" 
+                    id="btn-share-personality-${personality.name}">share</button>
+                <button class="btn-textual btn-delete-card material-symbols-outlined"
+                    id="btn-delete-personality-${personality.name}">delete</button>
             </div>
-            <button class="btn-textual btn-edit-card material-symbols-outlined" 
-                id="btn-edit-personality-${JSON.name}">edit</button>
-            <button class="btn-textual btn-share-card material-symbols-outlined" 
-                id="btn-share-personality-${JSON.name}">share</button>
-            <button class="btn-textual btn-delete-card material-symbols-outlined"
-                id="btn-delete-personality-${JSON.name}">delete</button>
+            <div class="personality-info">
+                <h3 class="personality-title">${personality.name}</h3>
+                <p class="personality-description">${personality.description}</p>
+            </div>
             `;
 
     // Add event listeners
@@ -28,7 +41,7 @@ export function createPersonalityCard(JSON) {
     const input = personalityCard.querySelector("input");
     if (shareButton) {
         shareButton.addEventListener("click", () => {
-            sharePersonality(personalityCard);
+            sharePersonality(personality);
         });
     }
     if (deleteButton) {
@@ -38,35 +51,31 @@ export function createPersonalityCard(JSON) {
                 getPersonalityCard(0).click();
             }
             //we can't call indexOf on a HTMLCollection, so we convert it to an array first
-            const index = Array.from(personalityCard.parentNode.children).indexOf(personalityCard);
-            deleteLocalPersonality(index);
+            const index = getPersonalityIndex(personalityCard);
+            deletePersonality(index);
             personalityCard.remove();
         });
     }
     editButton.addEventListener("click", () => {
         const personalityToEditIndex = Array.from(personalityCard.parentNode.children).indexOf(personalityCard);
-        if(personalityToEditIndex<=0){return}
+        if (personalityToEditIndex <= 0) { return }
         showEditPersonalityForm(personalityToEditIndex);
     });
     input.addEventListener("change", () => {
         const personalityCards = document.getElementsByClassName("card-personality");
-        console.log("input checked")
         if (input.checked) {
             // Darken all cards
             [...personalityCards].forEach(card => {
-                card.style.outline = "0px solid rgb(150 203 236)";
-                helpers.darkenCard(card);
+                card.classList.remove("selected-card");
+                card.classList.remove("selected-card-after-transition");
             })
             // Lighten selected card
-            input.parentElement.style.outline = "3px solid rgb(150 203 236)";
-            helpers.lightenCard(input.parentElement);
+            input.parentElement.classList.add("selected-card");
+            setTimeout(() => {
+                input.parentElement.classList.add("selected-card-after-transition");
+            }, 250);
         }
 
     });
-    // Set initial outline
-    if (input.checked) {
-        helpers.lightenCard(input.parentElement);
-        input.parentElement.style.outline = "3px solid rgb(150 203 236)";
-    }
     return personalityCard;
 }

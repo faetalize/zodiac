@@ -1,4 +1,27 @@
- 
+export function hideElement(element) {
+    element.style.transition = 'opacity 0.2s';
+    element.style.opacity = '0';
+    setTimeout(function () {
+        element.style.display = 'none';
+    }, 200);
+}
+
+export function showElement(element, wait) {
+    let timeToWait = 0
+    if (wait) {
+        timeToWait = 200;
+    }
+    setTimeout(function () {
+        element.style.display = 'flex';
+        element.style.opacity = '0';  //required as certain elements arent opacity 0 despite being hidden
+        element.style.transition = 'opacity 0.2s';
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function(){
+                element.style.opacity = '1';
+            });
+        });
+    }, timeToWait);
+}   
 
 export function darkenCard(element) {
     let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');

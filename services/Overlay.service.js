@@ -18,7 +18,6 @@ export function showEditPersonalityForm(personalityIndex) {
     editPersonalityForm.querySelector("#personalityPromptInput").value = personality.prompt;
     editPersonalityForm.querySelector("#personalityImageURLInput").value = personality.image;
     editPersonalityForm.querySelector("#personalityIndex").value = personalityIndex;
-
 }
 
 export function editPersonalityFormSubmit() {

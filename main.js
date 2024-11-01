@@ -5,6 +5,12 @@ import * as settingsService from "./services/Settings.service";
 import * as overlayService from './services/Overlay.service';
 import * as chatsService from './services/Chats.service';
 import { createPersonalityCard } from "./components/Personality.component";
+import * as stepper from "./components/Stepper.component";
+
+
+
+
+
 
 const version = "0.8";
 
@@ -30,6 +36,7 @@ const formsOverlay = document.querySelector(".overlay");
 
 //misc
 const badge = document.querySelector("#btn-whatsnew");
+overlayService.showAddPersonalityForm();
 
 //setup tabs
 helpers.tabsFirstTimeSetup();
@@ -60,7 +67,7 @@ let db = chatsService.setupDB();
 //get all chats and load them in the template
 let chats = await chatsService.getAllChatIdentifiers(db);
 for (let chat of chats) {
-    chatsService.insertChatHistory(chat,db);
+    chatsService.insertChatHistory(chat, db);
 }
 
 
@@ -69,15 +76,9 @@ hideOverlayButton.addEventListener("click", overlayService.closeOverlay);
 
 addPersonalityButton.addEventListener("click", overlayService.showAddPersonalityForm);
 
-submitNewPersonalityButton.addEventListener("click", personalityService.submitNewPersonality);
-
-submitPersonalityEditButton.addEventListener("click", () => { overlayService.editPersonalityFormSubmit() });
-
-
-
 sendMessageButton.addEventListener("click", async () => {
     try {
-        await run(messageInput,  getSelectedPersonality(), chatsService.getChatHistory());
+        await run(messageInput, personalityService.getSelectedPersonality(), chatsService.getChatHistory());
     } catch (error) {
         console.error(error);
         alert(error)
@@ -106,14 +107,14 @@ hideSidebarButton.addEventListener("click", () => {
 });
 
 showSidebarButton.addEventListener("click", () => {
-    helpers.showElement(sidebar,false);
+    helpers.showElement(sidebar, false);
 });
 
 clearAllButton.addEventListener("click", () => {
     personalityService.clearAllPersonalities();
 });
 
-deleteAllChatsButton.addEventListener("click", ()=> {chatsService.deleteAllChats(db)});
+deleteAllChatsButton.addEventListener("click", () => { chatsService.deleteAllChats(db) });
 
 importPersonalityButton.addEventListener("click", () => {
     const fileInput = document.createElement('input');
@@ -124,7 +125,7 @@ importPersonalityButton.addEventListener("click", () => {
         reader.onload = function (e) {
             const personalityJSON = JSON.parse(e.target.result);
             personalityService.insertPersonality(createPersonalityCard(personalityJSON));
-            personalityService.setLocalPersonality(personalityJSON);
+            personalityService.addPersonality(personalityJSON);
         };
         reader.readAsText(file);
     });
@@ -137,45 +138,29 @@ window.addEventListener("resize", () => {
     if (window.innerWidth > 1032) {
         const sidebarElement = document.querySelector(".sidebar");
         //to prevent running showElement more than necessary, we check the opacity.
-        if (sidebarElement.style.opacity == 0){
+        if (sidebarElement.style.opacity == 0) {
             console.log("condition true");
             helpers.showElement(sidebarElement, false);
         }
-        
+
     }
+});
+
+messageInput.addEventListener("blur", () => {
+});
+
+//hmm
+messageInput.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+    document.execCommand("insertText", false, text);
 });
 
 messageInput.addEventListener("input", () => {
-    //auto resize message input
-    if (messageInput.value.split("\n").length == 1) {
-        messageInput.style.height = "2.5rem";
-    }
-    else {
-        messageInput.style.height = "";
-        messageInput.style.height = messageInput.scrollHeight + "px";
+    if (messageInput.innerHTML == "<br>") {
+        messageInput.innerHTML = "";
     }
 });
-
-
-
-
-
-function getSelectedPersonality(){
-    try {
-        const selectedPersonalityProps = document.querySelector("input[name='personality']:checked + div");
-        return {
-            title: selectedPersonalityProps.querySelector(".personality-title").textContent,
-            description: selectedPersonalityProps.querySelector(".personality-description").textContent,
-            prompt: selectedPersonalityProps.querySelector(".personality-prompt").textContent,
-            tone: []
-        }
-    } catch (error) {
-        alert("No personality selected.");
-        console.error(error);
-        return;
-    }
-}
-
 
 
 function getSanitized(string) {
@@ -184,45 +169,45 @@ function getSanitized(string) {
 
 function showWhatsNew() {
     const whatsNewDiv = document.querySelector("#whats-new");
-    helpers.showElement(formsOverlay,false);
-    helpers.showElement(whatsNewDiv,false);
+    helpers.showElement(formsOverlay, false);
+    helpers.showElement(whatsNewDiv, false);
 }
-
-
 
 async function run(msg, selectedPersonality, history) {
     if (!selectedPersonality) {
         return;
     }
-    const selectedPersonalityTitle = selectedPersonality.title;
+    const selectedPersonalityTitle = selectedPersonality.name;
     const selectedPersonalityDescription = selectedPersonality.description;
     const selectedPersonalityPrompt = selectedPersonality.prompt;
-    const selectedPersonalityToneExamples = selectedPersonality.tone;
 
     if (!settingsService.getSettings().apiKey) {
         alert("Please enter an API key");
         return;
     }
 
-    let msgText = getSanitized(msg.value);
+    let msgText = getSanitized(msg.textContent);
     if (!msgText) {
         return;
     }
     const genAI = new GoogleGenerativeAI(settingsService.getSettings().apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings: settingsService.getSafetySettings() });
-    
+
+    //get selected model version
+    const version = document.querySelector("#selectedModel").value;
+
+    const model = genAI.getGenerativeModel({ model: version, safetySettings: settingsService.getSafetySettings() });
+
     //user msg handling
     await chatsService.insertMessage("user", msgText);
-    msg.value = "";
-    document.getElementById('messageInput').style.height = "2.5rem"; //This will reset messageInput box to its normal size.
+    msg.textContent = "";
     if (!chatsService.getCurrentChat()) {
-        const result = await model.generateContent('Please generate a short title for the following request from a user: ' + msgText);
+        const result = await model.generateContent('Please generate a short title for the following request from a user, only reply with the short title, nothing else: ' + msgText);
         const title = (await result.response).text();
-        chatsService.setCurrentChat(await chatsService.addChatHistory(title, msgText,db));
+        chatsService.setCurrentChat(await chatsService.addChatHistory(title, msgText, db));
         document.querySelector(`#chat${chatsService.getCurrentChat()}`).click();
     }
     else {
-        const currentChatHistory = await chatsService.getChatById(chatsService.getCurrentChat(),db);
+        const currentChatHistory = await chatsService.getChatById(chatsService.getCurrentChat(), db);
         currentChatHistory.content.push({ role: "user", txt: msgText });
         await db.chats.put(currentChatHistory);
     }
@@ -230,8 +215,8 @@ async function run(msg, selectedPersonality, history) {
     //model msg handling
     const generationConfig = {
         maxOutputTokens: settingsService.getSettings().maxTokens,
-        temperature: settingsService.getSettings().temperature/100
-    };    
+        temperature: settingsService.getSettings().temperature / 100
+    };
     const safetySettings = settingsService.getSafetySettings();
     const chat = await model.startChat({
         generationConfig, safetySettings,
@@ -244,13 +229,12 @@ async function run(msg, selectedPersonality, history) {
                 role: "model",
                 parts: [{ text: `Okay. From now on, I shall play the role of ${selectedPersonalityTitle}. Your prompt and described personality will be used for the rest of the conversation.` }]
             },
-            ...selectedPersonalityToneExamples,
             ...history
         ]
     });
     const stream = await chat.sendMessageStream(msgText);
     const replyHTML = await chatsService.insertMessage("model", "", selectedPersonalityTitle, stream);
-    const currentChatHistory = await chatsService.getChatById(chatsService.getCurrentChat(),db);
+    const currentChatHistory = await chatsService.getChatById(chatsService.getCurrentChat(), db);
     currentChatHistory.content.push({ role: "model", personality: selectedPersonalityTitle, txt: replyHTML });
     //this replaces the existing chat history in the DB
     await db.chats.put(currentChatHistory);
@@ -258,23 +242,23 @@ async function run(msg, selectedPersonality, history) {
     settingsService.saveSettings();
 }
 
-async function regenerate(messageElement){
+async function regenerate(messageElement) {
     const lastMessageElement = messageElement.previousElementSibling;
     messageInput.value = lastMessageElement.querySelector(".message-text").textContent;
     let i = 0;
-    for(let message of messageContainer.children){
+    for (let message of messageContainer.children) {
         if (messageElement == message) {
-            const newMessages = [...messageContainer.children].slice(0,i-1);
+            const newMessages = [...messageContainer.children].slice(0, i - 1);
             messageContainer.replaceChildren(...newMessages);
-            let currentChatHistory = await getChatById(chatsService.getCurrentChat(),db);
-            currentChatHistory.content = currentChatHistory.content.slice(0,i-1);
+            let currentChatHistory = await getChatById(chatsService.getCurrentChat(), db);
+            currentChatHistory.content = currentChatHistory.content.slice(0, i - 1);
             await db.chats.put(currentChatHistory);
             break;
         }
         i++;
     }
 
-    run(messageInput, getSelectedPersonality(), getChatHistory());
+    run(messageInput, personalityService.getSelectedPersonality(), getChatHistory());
 }
 
 //-------------------------------

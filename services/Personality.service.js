@@ -1,18 +1,13 @@
-import { createPersonalityCard } from "../components/Personality.component";
-import * as helpers from "../utils/helpers.util";
+import { createPersonalityCard, Personality } from "../components/Personality.component";
 import * as overlayService from "./Overlay.service";
 
-function setupDefaultPersonality() {
-    const defaultPersonalityJSON = {
-        name: 'zodiac',
-        image: 'https://images.fonearena.com/blog/wp-content/uploads/2023/12/Google-Gemini-AI-1024x577.jpg',
-        description: 'zodiac is a cheerful assistant, always ready to help you with your tasks.',
-        prompt: "You are zodiac, a helpful assistant created by faetalize, built upon Google's Gemini Pro model. Gemini Pro is a new LLM (Large Language Model) release by Google on December 2023. Your purpose is being a helpful assistant to the user."
-    }
-    const defaultPersonalityCard = createPersonalityCard(defaultPersonalityJSON);
-    insertPersonality(defaultPersonalityCard);
-    //add default personality card event listeners and initial state
-    const shareButton = defaultPersonalityCard.querySelector(".btn-share-card");
+const defaultPersonality = new Personality('zodiac', 'https://techcrunch.com/wp-content/uploads/2023/12/google-bard-gemini-v2.jpg',
+    'zodiac is a cheerful assistant, always ready to help you with your tasks.',
+    "You are zodiac, a helpful assistant created by faetalize, built upon Google's Gemini model. Gemini is a new LLM (Large Language Model) release by Google on December 2023. Your purpose is being a helpful assistant to the user.");
+
+//add default personality card event listeners and initial state
+function setupDefaultPersonalityCard() {
+    const defaultPersonalityCard = insertPersonality(defaultPersonality);
     const editButton = defaultPersonalityCard.querySelector(".btn-edit-card");
     const deleteButton = defaultPersonalityCard.querySelector(".btn-delete-card");
     const input = defaultPersonalityCard.querySelector("input");
@@ -24,41 +19,45 @@ function setupDefaultPersonality() {
     input.click();
 }
 
-
 export function getSelectedPersonality() {
-    return document.querySelector("input[name='personality']:checked");
+    const selectedPersonalityCard = document.querySelector("input[name='personality']:checked").parentElement;
+    const index = getPersonalityIndex(selectedPersonalityCard);
+    return getPersonalityByIndex(index);
 }
 
-export function getLocalPersonalities() {
-    const personalitiesJSON = localStorage.getItem("personalities");
-    return personalitiesJSON;
+export function getPersonalityIndex(personalityCard){
+    const index = Array.from(document.querySelectorAll(".card-personality")).indexOf(personalityCard);
+    return index;
 }
 
-export function deleteLocalPersonality(index) {
-    let localPers = JSON.parse(getLocalPersonalities());
+export function getAllPersonalities() {
+    const personalities = localStorage.getItem("personalities");
+    if (!personalities) {
+        return [];
+    };
+    return JSON.parse(personalities);
+}
+
+export function deletePersonality(index) {
+    let localPers = getAllPersonalities();
     localPers = localPers.splice(index, 1);
     localStorage.setItem("personalities", JSON.stringify(localPers));
 }
 
-export function insertPersonality(personalityCard) {
+export function insertPersonality(personality) {
     const personalitiesDiv = document.querySelector("#personalitiesDiv");
-    personalitiesDiv.append(personalityCard);
-    helpers.darkenCard(personalityCard);
+    const card = createPersonalityCard(personality);
+    personalitiesDiv.append(card);
+    return card;
 }
 
-export function sharePersonality(personalityCard) {
-    //export personality to json
-    const personalityJSON = {
-        name: personalityCard.querySelector(".personality-title").innerText,
-        description: personalityCard.querySelector(".personality-description").innerText,
-        prompt: personalityCard.querySelector(".personality-prompt").innerText,
-        image: personalityCard.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '')
-    }
-    const personalityJSONString = JSON.stringify(personalityJSON);
+export function sharePersonality(personality) {
+    //export personality to a string
+    const personalityString = JSON.stringify(personality);
     //download
     const element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(personalityJSONString));
-    element.setAttribute('download', `${personalityJSON.name}.json`);
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(personalityString));
+    element.setAttribute('download', `${personality.name}.json`);
     element.style.display = 'none';
     //appending the element is required for firefox
     document.body.appendChild(element);
@@ -68,32 +67,26 @@ export function sharePersonality(personalityCard) {
 
 export function initializePersonalities() {
     const personalityCards = document.querySelectorAll(".card-personality");
-    personalityCards.forEach((card)=>{card.remove()});
-    setupDefaultPersonality();
-    const personalitiesArray = JSON.parse(getLocalPersonalities());
+    personalityCards.forEach((card) => { card.remove() });
+    setupDefaultPersonalityCard();
+    const personalitiesArray = getAllPersonalities();
     if (personalitiesArray) {
         for (let personality of personalitiesArray) {
-            insertPersonality(createPersonalityCard(personality));
+            insertPersonality(personality);
         }
     }
-
 }
 
-export function clearAllPersonalities(){
+export function clearAllPersonalities() {
     localStorage.removeItem("personalities");
-    const personalityCards = document.querySelectorAll(".card-personality");
-    [...personalityCards].forEach(card => {
-        if (card != defaultPersonalityCard) {
-            card.remove();
-        }
-    });
+    initializePersonalities();
 }
 
 export function submitNewPersonality() {
-    const personalityName = document.querySelector("#form-add-personality #personalityNameInput");
-    const personalityDescription = document.querySelector("#form-add-personality #personalityDescriptionInput");
-    const personalityImageURL = document.querySelector("#form-add-personality #personalityImageURLInput");
-    const personalityPrompt = document.querySelector("#form-add-personality #personalityPromptInput");
+    const personalityName = document.querySelector("#form-add-personality #personalityNameInput").value;
+    const personalityDescription = document.querySelector("#form-add-personality #personalityDescriptionInput").value;
+    const personalityImageURL = document.querySelector("#form-add-personality #personalityImageURLInput").value;
+    const personalityPrompt = document.querySelector("#form-add-personality #personalityPromptInput").value;
 
     if (personalityName.value == "") {
         alert("Please enter a personality name");
@@ -104,44 +97,33 @@ export function submitNewPersonality() {
         return;
     }
 
-    //to json
-    const personalityJSON = {
-        name: personalityName.value,
-        description: personalityDescription.value,
-        prompt: personalityPrompt.value,
-        image: personalityImageURL.value
-    }
-    insertPersonality(createPersonalityCard(personalityJSON));
-    setLocalPersonality(personalityJSON);
+    const personality = new Personality(personalityName, personalityImageURL, personalityDescription, personalityPrompt);
+    insertPersonality(personality);
+    addPersonality(personality);
     overlayService.closeOverlay();
 }
 
-export function setLocalPersonality(personalityJSON) {
-    const savedPersonalities = JSON.parse(localStorage.getItem("personalities"));
-    let newSavedPersonalities = [];
-    if (savedPersonalities) {
-        newSavedPersonalities = [...savedPersonalities, personalityJSON];
-    }
-    else {
-        newSavedPersonalities = [personalityJSON];
-    }
-    localStorage.setItem("personalities", JSON.stringify(newSavedPersonalities));
+export function addPersonality(personality) {
+    const savedPersonalities = getAllPersonalities();
+    localStorage.setItem("personalities", JSON.stringify([...savedPersonalities, personality]));
 }
 
 export function getPersonalityByIndex(index) {
-    const personalities = JSON.parse(getLocalPersonalities());
-    return personalities[index-1]; // -1 because the default personality is not in the array
+    if (index <= 0) {
+        return defaultPersonality;
+    }
+    const personalities = getAllPersonalities();
+    return personalities[index - 1]; // -1 because the default personality is not in the array
 }
 
 export function submitPersonalityEdit(personalityIndex, personalityJSON) {
-    const personalities = JSON.parse(getLocalPersonalities());
-    personalities[personalityIndex-1] = personalityJSON;
+    const personalities = JSON.parse(getAllPersonalities());
+    personalities[personalityIndex - 1] = personalityJSON;
     localStorage.setItem("personalities", JSON.stringify(personalities));
     initializePersonalities();
 }
 
 export function getPersonalityCard(index) {
-
     const personalityCards = document.getElementsByClassName("card-personality");
     if (index <= 0) {
         return personalityCards[0];
