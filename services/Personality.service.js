@@ -1,23 +1,7 @@
-import { createPersonalityCard, Personality } from "../components/Personality.component";
+import { createPersonalityCard, Personality } from "../components/PersonalityCard.component";
 import * as overlayService from "./Overlay.service";
 
-const defaultPersonality = new Personality('zodiac', 'https://techcrunch.com/wp-content/uploads/2023/12/google-bard-gemini-v2.jpg',
-    'zodiac is a cheerful assistant, always ready to help you with your tasks.',
-    "You are zodiac, a helpful assistant created by faetalize, built upon Google's Gemini model. Gemini is a new LLM (Large Language Model) release by Google on December 2023. Your purpose is being a helpful assistant to the user.");
 
-//add default personality card event listeners and initial state
-function setupDefaultPersonalityCard() {
-    const defaultPersonalityCard = insertPersonality(defaultPersonality);
-    const editButton = defaultPersonalityCard.querySelector(".btn-edit-card");
-    const deleteButton = defaultPersonalityCard.querySelector(".btn-delete-card");
-    const input = defaultPersonalityCard.querySelector("input");
-    editButton.addEventListener("click", () => {
-        alert("You cannot edit the default personality card.");
-        return;
-    });
-    deleteButton.remove();
-    input.click();
-}
 
 export function getSelectedPersonality() {
     const selectedPersonalityCard = document.querySelector("input[name='personality']:checked").parentElement;
@@ -63,18 +47,6 @@ export function sharePersonality(personality) {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-}
-
-export function initializePersonalities() {
-    const personalityCards = document.querySelectorAll(".card-personality");
-    personalityCards.forEach((card) => { card.remove() });
-    setupDefaultPersonalityCard();
-    const personalitiesArray = getAllPersonalities();
-    if (personalitiesArray) {
-        for (let personality of personalitiesArray) {
-            insertPersonality(personality);
-        }
-    }
 }
 
 export function clearAllPersonalities() {

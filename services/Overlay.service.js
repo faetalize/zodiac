@@ -1,4 +1,4 @@
-import {showElement, hideElement} from '../utils/helpers.util';
+import {showElement, hideElement} from '../utils/helpers';
 import { getPersonalityByIndex, submitPersonalityEdit } from './Personality.service';
 const formsOverlay = document.querySelector(".overlay");
 const addPersonalityForm = document.querySelector("#form-add-personality");

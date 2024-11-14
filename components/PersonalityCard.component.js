@@ -1,8 +1,8 @@
 import { showEditPersonalityForm } from "../services/Overlay.service";
-import { sharePersonality, deletePersonality, getPersonalityCard, getPersonalityIndex } from "../services/Personality.service";
+import * as personalityService from "../services/Personality.service";
 
 export class Personality {
-    constructor(name = "", image = "", description = "", prompt = "", aggressiveness = 0, sensuality = 0 , internetEnabled = false, toneExamples = []) {
+    constructor(name = "", image = "", description = "", prompt = "", aggressiveness = 0, sensuality = 0, internetEnabled = false, roleplayEnabled = false, toneExamples = []) {
         this.name = name;
         this.image = image;
         this.description = description;
@@ -10,6 +10,7 @@ export class Personality {
         this.aggressiveness = aggressiveness;
         this.sensuality = sensuality;
         this.internetEnabled = internetEnabled;
+        this.roleplayEnabled = roleplayEnabled;
         this.toneExamples = toneExamples;
     }
 }
@@ -78,4 +79,30 @@ export function createPersonalityCard(personality) {
 
     });
     return personalityCard;
+}
+
+//default personality setup
+
+const defaultPersonality = new Personality('zodiac', 'https://techcrunch.com/wp-content/uploads/2023/12/google-bard-gemini-v2.jpg',
+    'zodiac is a cheerful assistant, always ready to help you with your tasks.',
+    "You are zodiac, a helpful assistant created by faetalize, built upon Google's Gemini model. Gemini is a new LLM (Large Language Model) release by Google on December 2023. Your purpose is being a helpful assistant to the user.");
+
+const defaultPersonalityCard = personalityService.insertPersonality(defaultPersonality);
+const editButton = defaultPersonalityCard.querySelector(".btn-edit-card");
+const deleteButton = defaultPersonalityCard.querySelector(".btn-delete-card");
+const input = defaultPersonalityCard.querySelector("input");
+editButton.addEventListener("click", () => {
+    alert("You cannot edit the default personality card.");
+    return;
+});
+deleteButton.remove();
+input.click();
+
+//
+const personalityCards = document.querySelectorAll(".card-personality");
+const personalitiesArray = personalityService.getAllPersonalities();
+if (personalitiesArray) {
+    for (let personality of personalitiesArray) {
+        personalityService.insertPersonality(personality);
+    }
 }

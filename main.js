@@ -1,30 +1,27 @@
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 import * as personalityService from "./services/Personality.service";
-import * as helpers from "./utils/helpers.util";
+import * as helpers from "./utils/helpers";
 import * as settingsService from "./services/Settings.service";
 import * as overlayService from './services/Overlay.service';
 import * as chatsService from './services/Chats.service';
-import { createPersonalityCard } from "./components/Personality.component";
-import * as stepper from "./components/Stepper.component";
+import { createPersonalityCard } from "./components/PersonalityCard.component";
+import './components/AddPersonalityForm.component';
+import './components/Stepper.component';
+import './components/WhatsNew.component';
+import './components/SidebarTabs.component';
+import './components/PersonalityCard.component';
+import './components/addToneExample.component';
 
 
-
-
-
-
-const version = "0.8";
 
 const messageInput = document.querySelector("#messageInput");
 
 //buttons
 const sendMessageButton = document.querySelector("#btn-send");
 const clearAllButton = document.querySelector("#btn-clearall-personality");
-const whatsNewButton = document.querySelector("#btn-whatsnew");
-const submitNewPersonalityButton = document.querySelector("#btn-submit-personality");
 const importPersonalityButton = document.querySelector("#btn-import-personality");
 const addPersonalityButton = document.querySelector("#btn-add-personality");
 const hideOverlayButton = document.querySelector("#btn-hide-overlay");
-const submitPersonalityEditButton = document.querySelector("#btn-submit-personality-edit");
 const hideSidebarButton = document.querySelector("#btn-hide-sidebar");
 const showSidebarButton = document.querySelector("#btn-show-sidebar");
 const deleteAllChatsButton = document.querySelector("#btn-reset-chat");
@@ -32,34 +29,19 @@ const newChatButton = document.querySelector("#btn-new-chat");
 
 //containers
 const sidebar = document.querySelector(".sidebar");
-const formsOverlay = document.querySelector(".overlay");
 
 //misc
 const badge = document.querySelector("#btn-whatsnew");
-overlayService.showAddPersonalityForm();
 
-//setup tabs
-helpers.tabsFirstTimeSetup();
+overlayService.showAddPersonalityForm();
 
 settingsService.loadSettings();
 
-//load personalities on launch
-personalityService.initializePersonalities();
-
-
 //setup version number on badge and header
-badge.querySelector("#badge-version").textContent = `v${version}`;
-document.getElementById('header-version').textContent += `v${version}`;
+badge.querySelector("#badge-version").textContent = `v${helpers.getVersion()}`;
+document.getElementById('header-version').textContent += `v${helpers.getVersion()}`;
 
-//show whats new on launch if new version
-const prevVersion = localStorage.getItem("version");
-if (prevVersion != version) {
-    localStorage.setItem("version", version);
-    badge.classList.add("badge-highlight");
-    setTimeout(() => {
-        badge.classList.remove("badge-highlight");
-    }, 7000);
-}
+
 
 //indexedDB setup
 let db = chatsService.setupDB();
@@ -100,7 +82,6 @@ messageInput.addEventListener("keydown", (e) => {
     }
 });
 
-whatsNewButton.addEventListener("click", showWhatsNew);
 
 hideSidebarButton.addEventListener("click", () => {
     helpers.hideElement(sidebar);
@@ -167,11 +148,7 @@ function getSanitized(string) {
     return DOMPurify.sanitize(string.replace(/</g, "&lt;").replace(/>/g, "&gt;").trim());
 }
 
-function showWhatsNew() {
-    const whatsNewDiv = document.querySelector("#whats-new");
-    helpers.showElement(formsOverlay, false);
-    helpers.showElement(whatsNewDiv, false);
-}
+
 
 async function run(msg, selectedPersonality, history) {
     if (!selectedPersonality) {

@@ -102,17 +102,14 @@
         outline: none;
     }
 
-    .form {
-        display: none;
-        opacity: 0;
-        flex-direction: column;
-        max-width: 90%;
-        max-height: 90%;
-        width: 34rem;
-        gap: 0.5rem;
-        border-radius: 1rem;
-        padding: 1rem;
-        box-sizing: border-box;
+    form {
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    #form-add-personality {
+        height: 28rem;
+        width: 28rem;
     }
 
     .overlay-content {
@@ -120,7 +117,7 @@
         width: 100%;
         justify-content: center;
         align-items: center;
-        flex-grow:1;
+        flex-grow: 1;
         overflow: hidden;
         padding: 1rem;
         box-sizing: border-box;
@@ -129,16 +126,16 @@
     .stepper {
         display: flex;
         flex-direction: column;
-        width: 32rem;
         gap: 0.5rem;
-        max-height: 100%;
+        width: 100%;
+        height: 100%;
     }
 
-    #btn-stepper-submit{
+    #btn-stepper-submit {
         display: none;
     }
 
-    #btn-stepper-previous{
+    #btn-stepper-previous {
         visibility: hidden;
     }
 
@@ -146,11 +143,17 @@
         visibility: visible;
     }
 
-    .stepper-footer *{
-        flex:1;
+    .stepper-footer * {
+        flex: 1;
     }
-    
-    .step:not(.active){
+
+    .step {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .step:not(.active) {
         display: none;
     }
 
@@ -162,9 +165,10 @@
         display: block;
     }
 
-    
+
 
     .stepper-content {
+        flex-grow: 1;
         overflow: auto;
     }
 
@@ -246,8 +250,8 @@
     #message-box {
         display: flex;
         flex-shrink: 0;
-        width: 100%;
         border-radius: 1rem;
+        box-sizing: border-box;
         overflow: hidden;
     }
 
@@ -266,9 +270,11 @@
         flex-grow: 1;
         border-radius: 0;
         padding: 0.8rem;
-        box-sizing: border-box;
     }
 
+    #messageInput:focus-visible {
+        border: none;
+    }
 
     #changelog {
         display: flex;
@@ -842,7 +848,7 @@
         }
 
         #message-box {
-            border-radius: 0;
+            margin: 1rem;
         }
 
         #btn-show-sidebar {
@@ -853,8 +859,9 @@
 
     /* Light theme styles */
     @media (prefers-color-scheme: light) {
-        :focus {
-            outline: 1px solid #8f9eb3;
+        :focus-visible {
+            border: 1px solid #8f9eb3;
+            outline: none;
         }
 
         body {
@@ -904,7 +911,7 @@
         textarea,
         select {
             background-color: #f0f6ff;
-            outline: 1px solid #54545428;
+            border: 1px solid #54545428;
         }
 
         input::placeholder,
@@ -939,13 +946,13 @@
             background-color: #ffffff82;
         }
 
-        #messageInput {
-            outline: 1px solid #dfeeff;
-        }
-
         #message-box {
             background-color: #dfeeff !important;
-            outline: 1px solid #cbdbf0;
+            border: 1px solid #cbdbf0;
+        }
+
+        :has(>#messageInput:focus-visible) {
+            border: 1px solid #8f9eb3;
         }
     }
 
@@ -955,10 +962,10 @@
             color-scheme: dark;
         }
 
-        :focus {
-            outline: 1px solid #73859e;
+        :focus-visible {
+            border: 1px solid #8f9eb3;
+            outline: none;
         }
-
 
 
         body {
@@ -969,8 +976,6 @@
         a {
             color: #92d9eb;
         }
-
-
 
         .sidebar {
             background-color: #1a2733;
@@ -1012,9 +1017,8 @@
         textarea,
         select {
             background-color: #283542;
-
+            border: 1px solid #b6b6b62f;
             color: #e4e4e4;
-            border: none;
         }
 
         input::placeholder,
@@ -1049,13 +1053,19 @@
             background-color: #00000082;
         }
 
-        #messageInput {
-            outline: 1px solid #283542;
-        }
-
         #message-box {
             background-color: #283542 !important;
         }
+
+        #btn-add-tone-example {
+            background-color: #283542;
+            border: 1px solid #b6b6b62f;
+            color: #849caf;
+        }
+
+        #btn-add-tone-example:hover {
+            background-color: #1a2733;
+        }   
 
     }
 </style>
@@ -1170,39 +1180,91 @@
             <button class="btn-textual" id="btn-hide-overlay">BACK</button>
         </div>
         <div class="overlay-content">
-            <form id="">
-                <div class="stepper first-step">
+            <form id="form-add-personality">
+                <div class="stepper first-step" id="stepper-add-personality">
                     <div class="stepper-content">
                         <div class="step active">
-                            <p>Step 1: Lorem ipsum dolor sit amet consectetur adipisicing elit. Quasi autem aperiam porro
-                                ipsa earum sunt ratione vero ipsam magni provident commodi, numquam cupiditate itaque
-                                officia non facilis, ut ab dolorem?</p>
+                            <!-- title of section -->
+                            <h3>Basic Info</h3>
+                            <label for="name">Name:</label>
+                            <input type="text" name="name" placeholder="Mario" list="name-list">
+                            <label for="description">Description:</label>
+                            <input type="text" name="description" placeholder="A  plumber with a shroom addiction.">
+                            <label for="image">Image URL:</label>
+                            <input type="text" name="image" placeholder="https://example.com/mario.png">
+                            <label for="prompt">System Prompt:</label>
+                            <textarea type="text" name="prompt"
+                                placeholder="You are to act as main character from the Mario video game series..."
+                                style="height: 5rem; resize:vertical"></textarea>
                         </div>
                         <div class="step">
-                            <p>Step 2: Lorem ipsum dolor sit amet consectetur adipisicing elit. Porro numquam iste ipsa
-                                repellendus fugiat consequuntur veniam unde sunt quae doloremque sed, vero accusamus ea
-                                minima saepe placeat. Sequi, cum rem.</p>
+                            <h3>Personality</h3>
+                            <label for="aggressiveness">Aggressiveness:</label>
+                            <input type="range" name="aggressiveness" min="0" max="3" step="1"
+                                list="aggressiveness-steps">
+                            <datalist id="aggressiveness-steps">
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </datalist>
+                            <label for="sensuality">Sensuality:</label>
+                            <input type="range" name="sensuality" min="0" max="3" step="1" list="sensuality-steps">
+                            <datalist id="sensuality-steps">
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </datalist>
+                            <h3>Tweaks</h3>
+                            <!-- internet access toggle -->
+                            <div>
+                                <input id="internet-access" type="checkbox" name="internetEnabled"></input>
+                                <label for="internet-access">Internet Access</label>
+                            </div>
+                            <!-- roleplay toggle -->
+                            <div>
+                                <input id="roleplay" type="checkbox" name="roleplayEnabled"></input>
+                                <label for="roleplay">Roleplay</label>
+                            </div>
                         </div>
                         <div class="step">
-                            <p>Step 3: Lorem ipsum dolor sit amet consectetur adipisicing elit. Porro numquam iste ipsa
-                                repellendus fugiat consequuntur veniam unde sunt quae doloremque sed, vero accusamus ea
-                                minima saepe placeat. Sequi, cum rem.</p>
+                            <div>
+                                <h3 style="display:inline">Tone Examples</h3>
+                                <span style="opacity: 60%; font-size: 90%; font-style: italic;">Optional</span>
+                            </div>
+                            <input type="text" name="tone-example-1" class="tone-example"
+                                placeholder="I'm a plumber, not a doctor. Lets-a go!">
+                            <button type="button" class=" material-symbols-outlined btn-add-tone-example">add_circle</button>
+
+
                         </div>
                         <div class="step">
-                            <p>Step 4: Lorem ipsum dolor sit amet consectetur adipisicing elit. Porro numquam iste ipsa
-                                repellendus fugiat consequuntur veniam unde sunt quae doloremque sed, vero accusamus ea
-                                minima saepe placeat. Sequi, cum rem.</p>
+                            <h3>Finalize</h3>
+                            <!-- show a summary -->
+                             <div class="summary">
+                                <div class="card-summary"></div>
+                                <div class="details">
+                                    <p>Prompt: <span class="prompt"></span></p>
+                                    <p>Aggressiveness: <span class="aggressiveness"></span></p>
+                                    <p>Sensuality: <span class="sensuality"></span></p>
+                                    <p>Internet Access: <span class="internet-access"></span></p>
+                                    <p>Roleplay Enabled: <span class="roleplay"></span></p>
+                                </div>
+                             </div>
+
+
                         </div>
                     </div>
                     <div class="stepper-footer">
-                        <button id="btn-stepper-previous">Previous</button>
+                        <button id="btn-stepper-previous" type="button">Previous</button>
                         <div id="stepper-progress"></div>
-                        <button id="btn-stepper-next">Next</button>
+                        <button id="btn-stepper-next" type="button">Next</button>
                         <button id="btn-stepper-submit" type="submit">Submit</button>
                     </div>
                 </div>
             </form>
-            
+
 
             <div id="whats-new">
                 <h1 id="header-version">What's New in </h1>
