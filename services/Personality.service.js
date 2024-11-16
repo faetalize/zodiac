@@ -11,7 +11,8 @@ export function getSelectedPersonality() {
 
 export function getPersonalityIndex(personalityCard){
     const index = Array.from(document.querySelectorAll(".card-personality")).indexOf(personalityCard);
-    return index;
+    //we don't count the default personality
+    return index-1;
 }
 
 export function getAllPersonalities() {
@@ -24,7 +25,7 @@ export function getAllPersonalities() {
 
 export function deletePersonality(index) {
     let localPers = getAllPersonalities();
-    localPers = localPers.splice(index, 1);
+    localPers.splice(index, 1);
     localStorage.setItem("personalities", JSON.stringify(localPers));
 }
 
@@ -54,22 +55,15 @@ export function clearAllPersonalities() {
     initializePersonalities();
 }
 
-export function submitNewPersonality() {
-    const personalityName = document.querySelector("#form-add-personality #personalityNameInput").value;
-    const personalityDescription = document.querySelector("#form-add-personality #personalityDescriptionInput").value;
-    const personalityImageURL = document.querySelector("#form-add-personality #personalityImageURLInput").value;
-    const personalityPrompt = document.querySelector("#form-add-personality #personalityPromptInput").value;
-
-    if (personalityName.value == "") {
+export function submitNewPersonality(personality) {
+    if (personality.name == "") {
         alert("Please enter a personality name");
         return;
     }
-    if (personalityPrompt.value == "") {
+    if (personality.prompt == "") {
         alert("Please enter a personality prompt");
         return;
     }
-
-    const personality = new Personality(personalityName, personalityImageURL, personalityDescription, personalityPrompt);
     insertPersonality(personality);
     addPersonality(personality);
     overlayService.closeOverlay();

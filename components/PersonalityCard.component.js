@@ -42,18 +42,17 @@ export function createPersonalityCard(personality) {
     const input = personalityCard.querySelector("input");
     if (shareButton) {
         shareButton.addEventListener("click", () => {
-            sharePersonality(personality);
+            personalityService.sharePersonality(personality);
         });
     }
     if (deleteButton) {
         deleteButton.addEventListener("click", () => {
             //first if the personality to delete is the one currently selected, we select the default personality
             if (input.checked) {
-                getPersonalityCard(0).click();
+                personalityService.getPersonalityCard(0).click();
             }
-            //we can't call indexOf on a HTMLCollection, so we convert it to an array first
-            const index = getPersonalityIndex(personalityCard);
-            deletePersonality(index);
+            const index = personalityService.getPersonalityIndex(personalityCard);
+            personalityService.deletePersonality(index);
             personalityCard.remove();
         });
     }

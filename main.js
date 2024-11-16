@@ -10,7 +10,6 @@ import './components/Stepper.component';
 import './components/WhatsNew.component';
 import './components/SidebarTabs.component';
 import './components/PersonalityCard.component';
-import './components/addToneExample.component';
 
 
 

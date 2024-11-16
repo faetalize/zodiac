@@ -1,57 +1,33 @@
-import { getStepperById } from "../services/Stepper.service";
-import { Personality, createPersonalityCard } from "./PersonalityCard.component";
+import { createPersonalityCard, Personality } from "./PersonalityCard.component";
+import * as personalityService from '../services/Personality.service';
 
-function updateSummary(stepper) {
-    //check if the stepper has a summary section
-    if (!stepper.element.querySelector(".summary")) {
-        return;
-    }
-
-    const data = new FormData(stepper.element.parentElement);
-    //turn into object while ensuring the tone examples are an array
-    const summary = new Personality();
+function makePersonality(form) {
+    //turn all the form data into a personality object
+    const personality = new Personality();
+    const data = new FormData(form);
     for (const [key, value] of data.entries()) {
-        if (key.includes("tone-example")) {
-            if (!summary.toneExamples) {
-                summary.toneExamples = [];
-            }
-            summary.toneExamples.push(value);
+        if (key.includes("tone")) {
+            personality.toneExamples.push(value);
+            continue;
         }
-        else {
-            summary[key] = value;
-        }
+        personality[key] = value;
     }
-
-    console.log(summary);
-    //we update the summary when the form's data changes
-    const card = createPersonalityCard(summary);
-    card.querySelector("input").remove();
-    card.querySelectorAll("button").forEach(button => button.remove());
-    card.classList.add("selected-card");
-    stepper.element.querySelector(".summary>.card-summary").innerHTML = card.outerHTML;
-    stepper.element.querySelector(".summary .details .prompt").innerHTML = summary.prompt;
-    stepper.element.querySelector(".summary .details .sensuality").innerHTML = summary.sensuality + "/3";
-    stepper.element.querySelector(".summary .details .aggressiveness").innerHTML = summary.aggressiveness + "/3";
-    stepper.element.querySelector(".summary .details .roleplay").innerHTML = summary.roleplayEnabled;
-    stepper.element.querySelector(".summary .details .internet-access").innerHTML = summary.internetEnabled
+    return personality;
 }
 
 const form = document.querySelector("#form-add-personality");
-const inputs = form.querySelectorAll("input");
-const textareas = form.querySelectorAll("textarea");
-const stepper = getStepperById("stepper-add-personality");
-for (const input of inputs) {
-    input.addEventListener("input", () => updateSummary(stepper));
-}
-for (const textarea of textareas) {
-    textarea.addEventListener("input", () => updateSummary(stepper));
-}
-stepper.element.querySelector("#btn-stepper-next").addEventListener("click", () => updateSummary(stepper));
-
-//override the form submit
-form.submit = (e) => {
-    console.log("submitting");
+form.submit = () => {
+    personalityService.submitNewPersonality(makePersonality(form));
 }
 
-HTMLAllCollection.prototype.forEach = Array.prototype.forEach;
-
+//this code is for setting up the add tone example button
+const btn = document.querySelector('#btn-add-tone-example');
+btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = `tone-example-${document.querySelectorAll('.tone-example').length + 1}`;
+    input.classList.add('tone-example');
+    input.placeholder = 'Tone example';
+    btn.before(input);
+});
