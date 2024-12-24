@@ -5,6 +5,7 @@ const showSidebarButton = document.querySelector("#btn-show-sidebar");
 const tabs = document.querySelectorAll(".navbar-tab");
 const tabHighlight = document.querySelector("#navbar-tab-highlight");
 const sidebarViews = document.querySelectorAll(".sidebar-section");
+const sidebar = document.querySelector(".sidebar");
 
 hideSidebarButton.addEventListener("click", () => {
     helpers.hideElement(sidebar);
