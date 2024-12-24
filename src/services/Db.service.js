@@ -1,7 +1,8 @@
 import { Dexie } from 'dexie';
 import * as personalityService from './Personality.service';
+import * as chatService from './Chats.service';
 
-export function setupDB() {
+export async function setupDB() {
     let db;
     try {
         db = new Dexie("chatDB");
@@ -20,7 +21,7 @@ export function setupDB() {
     });
 
     //add a personalities table
-    db.version(4).stores({ 
+    db.version(4).stores({
         personalities: `
             ++id,
             name,
@@ -31,18 +32,33 @@ export function setupDB() {
             internetEnabled,
             roleplayEnabled,
             toneExamples
-        ` 
+        `
     });
-    migratePersonalities(db);
+    await migratePersonalities(db);
+    await migrateChats(db);
     return db;
 }
 
-export const db = setupDB();
+export const db = await setupDB();
 
-function migratePersonalities(db) {
+async function migratePersonalities(db) {
     const personalities = JSON.parse(localStorage.getItem('personalities')) || [];
     if (!personalities) return;
-    db.personalities.bulkPut(personalities);
+    await db.personalities.bulkPut(personalities);
     localStorage.removeItem('personalities');
 }
 
+async function migrateChats(db) {
+    const chats = await chatService.getAllChats(db);
+    if (!chats) return;
+    //convert chats.message.txt to chats.message.parts[0].text
+    await db.chats.bulkPut([...chats].map(chat => {
+        for (const message of chat.content) {
+            if (!message.parts) {
+                message.parts = [{ text: message.txt }]
+            }
+            delete message.txt;
+        }
+        return chat;
+    }));
+}

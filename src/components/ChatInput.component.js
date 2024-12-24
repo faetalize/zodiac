@@ -1,5 +1,6 @@
 import * as messageService from '../services/Message.service';
 import * as dbService from '../services/Db.service';
+import * as helpers from '../utils/helpers';
 
 const messageInput = document.querySelector("#messageInput");
 const sendMessageButton = document.querySelector("#btn-send");
