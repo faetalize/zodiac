@@ -1,3 +1,6 @@
+import DOMPurify from 'dompurify';
+import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+
 // Description: This file contains helper functions that are used throughout the application.
 
 export function hideElement(element) {
@@ -42,8 +45,29 @@ export function lightenCard(element) {
     element.style.backgroundImage = `url('${elementBackgroundImageURL}')`;
 }
 
-
-
 export function getVersion(){
     return "0.8";
+}
+
+export function getSanitized(string) {
+    return DOMPurify.sanitize(string.trim(), {breaks: true});
+}
+
+function getUnescaped(innerHTML){
+    return innerHTML.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+}
+
+function getMdNewLined(innerHTML){
+    //replace <br> with \n
+    //also collapse multiple newlines into one
+    return innerHTML.replace(/<br>/g, "\n").replace(/\n{2,}/g, "\n");
+}
+
+export function getEncoded(innerHTML){
+    return getUnescaped(getMdNewLined(innerHTML)).trim();
+}
+
+export function getDecoded(encoded){
+    //reescape, convert to md
+    return marked.parse(encoded.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"), {breaks: true});
 }
