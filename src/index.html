@@ -79,9 +79,10 @@
                     <h3>Generation Settings</h3>
                     <label for="selectedModel">Model</label>
                     <select id="selectedModel" class="input-field">
-                        <option value="gemini-1.0-pro">Pro 1.0</option>
-                        <option value="gemini-1.5-flash" selected>Flash 1.5</option>
+                        <option value="gemini-1.5-flash">Flash 1.5</option>
                         <option value="gemini-1.5-pro">Pro 1.5</option>
+                        <option value="gemini-2.0-flash" selected>Flash 2.0</option>
+                        <option value="gemini-2.0-pro-exp-02-05">Pro 2.0</option>
                     </select>
                     <label for="maxTokens">Max Output Tokens</label>
                     <input type="number" id="maxTokens" class="input-field" min="1" max="4000" value="1000"></input>
@@ -215,14 +216,9 @@
             <div id="whats-new">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li>NEW: temperature is now adjustable, can range from 0.1 to 2 (numbers above 1.2 tend to cause
-                        incredibly creative hallucinations, use at your own risk)</li>
-                    <li>NEW: added state of the art 1.5 models, now available in Pro and Flash variants</li>
+                    <li>NEW: Added 2.0 models, now available in Pro and Flash variants</li>
                     <li>Stability improvements</li>
-                    <li>The entire codebase has been refactored for ease of development - visit the github repo if you wish to
-                        contribute
-                    </li>
-                    <li>Visit my discord if you'd like to connect regarding  the project, need support, or have any questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Servier</a></li>
+                    <li>Visit my discord if you'd like to connect regarding  the project, need support, or have any questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
 
                 </ul>
             </div>
