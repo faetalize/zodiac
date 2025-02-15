@@ -1,4 +1,4 @@
-!!!! THIS PROJECT IS **STILL ACTIVE** - I AM JUST TAKING A SMALL BREAK !!!!!
+!!!! THIS PROJECT IS **STILL ACTIVE** - Contributions are welcome !!!!
 
 # zodiac
 A frontend built to interface with Google's Gemini. Get your API key here: [Google AI Suite](https://makersuite.google.com/app/apikey)
