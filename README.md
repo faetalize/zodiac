@@ -5,7 +5,7 @@ A frontend built to interface with Google's Gemini. Get your API key here: [Goog
 
 ![image](https://github.com/faetalize/zodiac/assets/134988598/914ff978-2611-4e9f-b00f-55966b238dcb)
 ## How to use?
-Ensure you're on the `main` branch if an end user. If developer wishing to contribute, use the `dev` branch.\
+Ensure you're on the `main` branch if an end user. If developer wishing to contribute, use the `dev` branch.
 
 Clone the repo and run `npm install`, then `npm run dev` to run your own instance.
 
