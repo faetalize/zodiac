@@ -77,9 +77,8 @@ window.addEventListener("resize", () => {
     //show sidebar if window is resized to desktop size
     if (window.innerWidth > 1032) {
         const sidebarElement = document.querySelector(".sidebar");
-        //to prevent running showElement more than necessary, we check the opacity.
+        //to prevent running showElement more than necessary
         if (sidebarElement.style.opacity == 0) {
-            console.log("condition true");
             helpers.showElement(sidebarElement, false);
         }
     }

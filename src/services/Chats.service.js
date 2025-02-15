@@ -1,6 +1,8 @@
 import * as messageService from "./Message.service"
+import * as helpers from "../utils/helpers"
 const messageContainer = document.querySelector(".message-container");
 const chatHistorySection = document.querySelector("#chatHistorySection");
+const sidebar = document.querySelector(".sidebar");
 
 export function getCurrentChatId() {
     const currentChatElement = document.querySelector("input[name='currentChat']:checked");
@@ -48,7 +50,13 @@ function insertChatEntry(chat, db) {
     chatLabel.setAttribute("for", "chat" + chat.id);
     chatLabel.classList.add("title-chat");
     chatLabel.classList.add("label-currentchat");
-    chatLabel.textContent = chat.title;
+    
+
+    //
+    const chatLabelText = document.createElement("span");
+    chatLabelText.style.overflow= "hidden";
+    chatLabelText.style.textOverflow = "ellipsis";
+    chatLabelText.textContent = chat.title;
 
     //
     const chatIcon = document.createElement("span");
@@ -60,16 +68,20 @@ function insertChatEntry(chat, db) {
     deleteEntryButton.classList.add("btn-textual", "material-symbols-outlined");
     deleteEntryButton.textContent = "delete";
     deleteEntryButton.addEventListener("click", (e) => {
-        e.stopPropagation();
+        e.stopPropagation(); //so we don't activate the radio button
         deleteChat(chat.id, db);
     })
 
-    chatLabel.prepend(chatIcon);
+    chatLabel.append(chatIcon);
+    chatLabel.append(chatLabelText);
     chatLabel.append(deleteEntryButton);
 
 
     chatRadioButton.addEventListener("change", async () => {
         await loadChat(chat.id, db);
+        if(window.innerWidth < 1032){
+            helpers.hideElement(sidebar);
+        }
     });
 
     chatHistorySection.prepend(chatRadioButton, chatLabel);
