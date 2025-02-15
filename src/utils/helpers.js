@@ -71,3 +71,10 @@ export function getDecoded(encoded){
     //reescape, convert to md
     return marked.parse(encoded.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"), {breaks: true});
 }
+
+export function messageContainerScrollToBottom(){
+    const container = document.querySelector(".message-container");
+    container.scrollBy({
+        top: container.scrollHeight
+    });
+}
