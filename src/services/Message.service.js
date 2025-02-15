@@ -35,9 +35,6 @@ export async function send(msg, db) {
         document.querySelector(`#chat${id}`).click();
     }
     await insertMessage("user", msg);
-    //scroll
-    const messageContainer = document.querySelector(".message-container");
-    messageContainer.scrollTo(0, messageContainer.scrollHeight);
     //model reply
     const generationConfig = {
         maxOutputTokens: settings.maxTokens,
@@ -52,7 +49,7 @@ export async function send(msg, db) {
             },
             {
                 role: "model",
-                parts:[{text: "okie dokie. from now on, I will be acting as the personality you have chosen"}]
+                parts: [{ text: "okie dokie. from now on, I will be acting as the personality you have chosen" }]
             },
             ...(selectedPersonality.toneExamples ? selectedPersonality.toneExamples.map((tone) => {
                 return { role: "model", parts: [{ text: tone }] }
@@ -124,8 +121,10 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             let rawText = "";
             for await (const chunk of netStream.stream) {
                 try {
+                    
                     rawText += chunk.text();
                     messageContent.innerHTML = marked.parse(rawText, { breaks: true }); //convert md to HTML
+                    helpers.messageContainerScrollToBottom();
                 } catch (error) {
                     alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
                     console.error(error);
@@ -133,6 +132,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 }
             }
             hljs.highlightAll();
+            helpers.messageContainerScrollToBottom();
             return { HTML: messageContent.innerHTML, md: rawText };
         }
     }
