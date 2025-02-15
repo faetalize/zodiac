@@ -11,5 +11,5 @@ Clone the repo and run `npm install`, then `npm run dev` to run your own instanc
 
 *Alternatively, here's an online version you can try if you would rather not run it locally:* [zodiac online](https://zodic.faetalize.dev/)
 ## Sponsor my development
-You may support me finantially here: [LiberaPay](https://liberapay.com/faetalize) or [Patreon](https://patreon.com/faetalize)
-I have zero plans to ever monetize my projects, no matter how popular they get. All features will be available to all. Your donations will be used in order to fund my technical needs (IDE subscriptions, testing products for RnD, etc)
+You may support me finantially here: [LiberaPay](https://liberapay.com/faetalize) or [Patreon](https://patreon.com/faetalize).
+I have zero plans to ever monetize my projects, no matter how popular they get. All features will be available to all. Your donations will be used in order to fund my technical needs (IDE subscriptions, training, etc)
