@@ -16,11 +16,13 @@ export class Personality {
     }
 }
 
+export function saveSelectedPersonality(id) {
+    localStorage.setItem('selectedPersonalityId', id.toString());
+}
+
 export async function initialize() {
     //default personality setup
     const defaultPersonalityCard = insert(getDefault());
-
-    defaultPersonalityCard.querySelector("input").click();
 
     //load all personalities from local storage
     const personalitiesArray = await getAll();
@@ -28,6 +30,17 @@ export async function initialize() {
         for (let personality of personalitiesArray) {
             insert(personality);
         }
+    }
+    // selected personality save
+    const savedPersonalityId = localStorage.getItem('selectedPersonalityId');
+    if (savedPersonalityId) {
+        const savedPersonalityCard = document.querySelector(`#personality-${savedPersonalityId}`);
+        if (savedPersonalityCard) {
+        savedPersonalityCard.querySelector("input").click();
+        }
+    }
+    else {
+        defaultPersonalityCard.querySelector("input").click();
     }
 }
 
@@ -150,6 +163,15 @@ export function generateCard(personality) {
     shareButton.addEventListener("click", () => {
         share(personality);
     });
+
+    input.addEventListener("change", () => {
+        if (input.checked && personality.id !== undefined) {
+          saveSelectedPersonality(personality.id);
+        } else if (input.checked && !personality.id) {
+          saveSelectedPersonality(-1);
+        }
+      });
+
     if (deleteButton) {
         deleteButton.addEventListener("click", () => {
             //first if the personality to delete is the one currently selected, we select the default personality
