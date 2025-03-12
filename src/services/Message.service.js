@@ -115,26 +115,28 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         const messageContent = newMessage.querySelector(".message-text");
         //no streaming necessary if not receiving answer
         if (!netStream) {
-            messageContent.innerHTML = marked.parse(msg);
-        }
-        else {
-            let rawText = "";
+            messageContent.innerHTML = marked.parse(msg)
+          } else {
+            let rawText = ""
             for await (const chunk of netStream.stream) {
-                try {
-                    
-                    rawText += chunk.text();
-                    messageContent.innerHTML = marked.parse(rawText, { breaks: true }); //convert md to HTML
-                    helpers.messageContainerScrollToBottom();
-                } catch (error) {
-                    alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
-                    console.error(error);
-                    return;
+              try {
+                rawText += chunk.text()
+                messageContent.innerHTML = marked.parse(rawText, { breaks: true })
+                if (window.innerWidth >= 768) {
+                  helpers.messageContainerScrollToBottom()
                 }
+              } catch (error) {
+                alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error)
+                console.error(error)
+                return
+              }
             }
-            hljs.highlightAll();
-            helpers.messageContainerScrollToBottom();
-            return { HTML: messageContent.innerHTML, md: rawText };
-        }
+            hljs.highlightAll()
+            if (window.innerWidth >= 768) {
+              helpers.messageContainerScrollToBottom()
+            }
+            return { HTML: messageContent.innerHTML, md: rawText }
+          }
     }
     //handle user's message, expect encoded
     else {
