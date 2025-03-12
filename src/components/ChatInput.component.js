@@ -28,6 +28,7 @@ messageInput.addEventListener("input", () => {
 });
 
 sendMessageButton.addEventListener("click", async () => {
+    const originalMessage = messageInput.innerHTML
     try {
         const message = helpers.getEncoded(messageInput.innerHTML);
         messageInput.innerHTML = "";
@@ -38,6 +39,7 @@ sendMessageButton.addEventListener("click", async () => {
             alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");
             return;
         }
+        messageInput.innerHTML = originalMessage;
         console.error(error);
         alert(error)
     }
