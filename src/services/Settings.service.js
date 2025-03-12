@@ -4,6 +4,7 @@ const ApiKeyInput = document.querySelector("#apiKeyInput");
 const maxTokensInput = document.querySelector("#maxTokens");
 const temperatureInput = document.querySelector("#temperature");
 const modelSelect = document.querySelector("#selectedModel");
+const safetySettingsSelect = document.querySelector("#safetySettings");
 
 export function initialize(){
     loadSettings();
@@ -15,6 +16,7 @@ export function loadSettings() {
     maxTokensInput.value = localStorage.getItem("maxTokens") || 1000;
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || 70;
     modelSelect.value = localStorage.getItem("model") || "gemini-1.5-flash";
+    safetySettingsSelect.value = localStorage.getItem("safetySettings") || "safe";
 }
 
 export function saveSettings() {
@@ -22,9 +24,20 @@ export function saveSettings() {
     localStorage.setItem("maxTokens", maxTokensInput.value);
     localStorage.setItem("TEMPERATURE", temperatureInput.value);
     localStorage.setItem("model", modelSelect.value);
+    localStorage.setItem("safetySettings", safetySettingsSelect.value);
 }
 
 export function getSettings() {
+    const safetyLevel = safetySettingsSelect.value;
+    
+    let threshold = HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE;
+    
+    if (safetyLevel === "moderate") {
+        threshold = HarmBlockThreshold.BLOCK_ONLY_HIGH;
+    } else if (safetyLevel === "risky") {
+        threshold = HarmBlockThreshold.BLOCK_NONE;
+    }
+    
     return {
         apiKey: ApiKeyInput.value,
         maxTokens: maxTokensInput.value,
@@ -32,19 +45,19 @@ export function getSettings() {
         safetySettings: [
             {
                 category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
+                threshold: threshold,
             },
             {
                 category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
+                threshold: threshold,
             },
             {
                 category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
+                threshold: threshold,
             },
             {
                 category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
+                threshold: threshold,
             }
         ],
         model: modelSelect.value
