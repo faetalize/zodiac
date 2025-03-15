@@ -75,8 +75,10 @@ function insert(personality) {
 }
 
 export function share(personality) {
+    const personalityCopy = {...personality}
+    delete personalityCopy.id
     //export personality to a string
-    const personalityString = JSON.stringify(personality);
+    const personalityString = JSON.stringify(personalityCopy)
     //download
     const element = document.createElement('a');
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(personalityString));
