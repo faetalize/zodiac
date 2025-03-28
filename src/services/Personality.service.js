@@ -8,6 +8,7 @@ export async function migratePersonalities(database) {
     if (!chats) return;
 
     const migratedChats = await Promise.all([...chats].map(async chat => {
+        console.log('Migrating chat:', chat);
         for (const message of chat.content) {
             if (message.personality) {
                 const personality = await getByName(message.personality, database);
@@ -60,11 +61,35 @@ export async function get(id) {
 }
 
 export async function getByName(name, database = null) {
-    if (name === "zodiac") {
+    if (!name) return null;
+    
+    // Handle default personality
+    if (name.toLowerCase() === "zodiac") {
         return { ...getDefault(), id: -1 };
     }
+
     const dbToUse = database || db;
-    return await dbToUse.personalities.where('name').equals(name).first();
+    try {
+        // First try exact match
+        let personality = await dbToUse.personalities.where('name').equals(name).first();
+        
+        // If not found, try case-insensitive search
+        if (!personality) {
+            const allPersonalities = await dbToUse.personalities.toArray();
+            personality = allPersonalities.find(p => 
+                p.name.toLowerCase() === name.toLowerCase()
+            );
+        }
+
+        // Debug logging
+        console.log('Searching for personality:', name);
+        console.log('Found personality:', personality);
+
+        return personality || null;
+    } catch (error) {
+        console.error(`Error finding personality by name: ${name}`, error);
+        return null;
+    }
 }
 
 export async function getAll() {
