@@ -12,6 +12,13 @@ export async function migratePersonalities(database) {
         for (const message of chat.content) {
             if (message.personality) {
                 const personality = await getByName(message.personality, database);
+                if (!personality) {
+                    // Personality was deleted, set to default personality
+                    const defaultPersonality = getDefault();
+                    message.personalityid = -1; // Default personality ID
+                    message.personality = defaultPersonality.name;
+                    console.log(`Personality "${message.personality}" not found, defaulting to ${defaultPersonality.name}`);
+                }
                 message.personalityid = personality.id;
             }
             else {
