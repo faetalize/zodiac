@@ -1,20 +1,6 @@
 import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
-
-export class Personality {
-    constructor(name = "", image = "", description = "", prompt = "", aggressiveness = 0, sensuality = 0, internetEnabled = false, roleplayEnabled = false, toneExamples = []) {
-
-        this.name = name;
-        this.image = image;
-        this.description = description;
-        this.prompt = prompt;
-        this.aggressiveness = aggressiveness;
-        this.sensuality = sensuality;
-        this.internetEnabled = internetEnabled;
-        this.roleplayEnabled = roleplayEnabled;
-        this.toneExamples = toneExamples;
-    }
-}
+import { Personality } from "../models/Personality";
 
 export async function initialize() {
     //default personality setup
@@ -31,9 +17,9 @@ export async function initialize() {
     }
 }
 
-export async function getSelected(){
+export async function getSelected() {
     const selectedID = document.querySelector("input[name='personality']:checked").parentElement.id.split("-")[1];
-    if(!selectedID){
+    if (!selectedID) {
         return getDefault();
     }
     return await get(parseInt(selectedID));
@@ -50,6 +36,14 @@ export async function get(id) {
         return getDefault();
     }
     return await db.personalities.get(id);
+}
+
+export async function getByName(name, database = null) {
+    if (name === "zodiac") {
+        return { ...getDefault(), id: -1 };
+    }
+    const dbToUse = database || db;
+    return await dbToUse.personalities.where('name').equals(name).first();
 }
 
 export async function getAll() {
@@ -75,7 +69,7 @@ function insert(personality) {
 }
 
 export function share(personality) {
-    const personalityCopy = {...personality}
+    const personalityCopy = { ...personality }
     delete personalityCopy.id
     //export personality to a string
     const personalityString = JSON.stringify(personalityCopy)
@@ -112,9 +106,9 @@ export async function edit(id, personality) {
     const input = element.querySelector("input");
 
     await db.personalities.update(id, personality);
-    
+
     //reselect the personality if it was selected prior
-    element.replaceWith(generateCard({id, ...personality}));
+    element.replaceWith(generateCard({ id, ...personality }));
     if (input.checked) {
         document.querySelector(`#personality-${id}`).querySelector("input").click();
     }

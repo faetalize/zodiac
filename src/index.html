@@ -34,7 +34,7 @@
                 <img src="https://upload.wikimedia.org/wikipedia/commons/f/f0/Google_Bard_logo.svg" id="gemin-pro-logo">
                 <div id="title-div">
                     <div id="zodiac-branding">zodiac </div>
-                    <div id="gemini-pro-branding">powered by Gemini</div>
+                    <div id="gemini-pro-branding">powered by Gemini 2.5</div>
                 </div>
                 <button class="badge" id="btn-whatsnew">
                     <span id="badge-version"></span>
@@ -75,40 +75,82 @@
 
                 <div class="sidebar-section">
                     <h3>API Key</h3>
-                    <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
-                        class="input-field"></input>
+                    <div class="api-key">
+                        <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
+                            class="input-field"></input>
+                        <button class="material-symbols-outlined btn-textual" onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')">
+                            help
+                        </button>
+                    </div>
+                    <div class="api-key-error">
+                        <span class="material-symbols-outlined">error</span> Invalid API Key
+                    </div>
                     <h3>Generation Settings</h3>
                     <div class="generation-settings">
                         <div>
-                            <label class="setting-label" for="selectedModel"><span class="material-symbols-outlined">neurology</span>Model</label>
+                            <label class="setting-label" for="selectedModel"><span class="material-symbols-outlined">neurology</span>Model
+                                <span class="material-symbols-outlined tooltip" 
+                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                info="Pro model has a very low daily limit. It is recommmended to stick to Flash or Flash Lite, only falling back to pro for high priority requests.">
+                                    info
+                                </span> </label>
                             <select id="selectedModel" class="input-field">
-                                <option value="gemini-1.5-flash">Flash 1.5</option>
-                                <option value="gemini-1.5-pro">Pro 1.5</option>
-                                <option value="gemini-2.0-flash" selected>Flash 2.0</option>
-                                <option value="gemini-2.0-pro-exp-02-05">Pro 2.0</option>
+                                <option value="gemini-2.0-flash-lite">Flash Lite</option>
+                                <option value="gemini-2.0-flash" selected="true">Flash</option>
+                                <option value="gemini-2.5-pro-exp-03-25">Pro</option>
                             </select>
                         </div>
                         <div>
-                            <label class="setting-label" for="maxTokens"><span class="material-symbols-outlined">generating_tokens</span>Max Output
-                                Tokens</label>
+                            <label class="setting-label" for="maxTokens"><span class="material-symbols-outlined">generating_tokens</span><span>
+                                Max Output
+                                    Tokens
+                            </span>
+                            <span class="material-symbols-outlined tooltip" 
+                            style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                            info="Dictates the maximum length of the model's response. If responses get cut off, increase this value.">
+                                info
+                            </span> 
+                        </label>
                             <input type="number" id="maxTokens" class="input-field" min="1" max="4000" value="1000"></input>
                         </div>
                         <div>
                             <label class="setting-label" for="safetySettings"><span class="material-symbols-outlined">
                                     health_and_safety
-                                </span>Safety Settings</label>
+                                </span>
+                                <span>Safety</span>
+                                <span class="material-symbols-outlined tooltip" 
+                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                info="Controls the model's sensitivity to potentially harmful content.">
+                                    info
+                                </span> </label>
                             <select id="safetySettings" class="input-field">
                                 <option value="safe">Safe</option>
                                 <option value="moderate">Moderate</option>
-                                <option value="risky">Risky</option>
+                                <option value="risky" selected="true">Risky</option>
                             </select>
                         </div>
                         <div>
-                            <label for="temperature">Temperature</label>
+                            <label class="setting-label" for="temperature">
+                                <span class="material-symbols-outlined">thermostat</span>
+                                <span>Temperature</span> 
+                                <span class="material-symbols-outlined tooltip" 
+                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                info="Lower values are more deterministic, higher values are more creative. The recommended range is between 0.5 and 1.25.">
+                                    info
+                                </span> 
+                            </label>
                             <div class="btn-array">
                                 <input type="range" min="20" max="200" id="temperature" class="slider">
                                 <label id="label-temperature">0</label>
                             </div>
+                        </div>
+                    </div>
+                    <h3>User Experience</h3>
+                    <div>
+                        <!-- autoscroll toggle -->
+                         <div style="display: flex; gap: 0.25rem; align-items: center;">
+                            <input id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
+                            <label for="autoscroll">Autoscroll</label>
                         </div>
                     </div>
                     <h3>Donate</h3>
@@ -126,6 +168,7 @@
                             <span class="paypal-logo1">Pay</span><span class="paypal-logo2">Pal</span>
                         </a>
                     </div>
+
                 </div>
             </div>
 
@@ -197,17 +240,17 @@
                             <div style="display: flex; gap: 0.25rem; align-items: center;">
                                 <input id="internet-access" type="checkbox" name="internetEnabled"></input>
                                 <label for="internet-access">Internet Access</label>
-                                <span class="material-symbols-outlined"
+                                <span class="material-symbols-outlined tooltip"
                                     style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    title="Enhance the model's responses with online search queries. Useful for fact checking and grounding. Currently still in development.">info</span>
+                                    info="Enhance the model's responses with online search queries. Useful for fact checking and grounding. Currently still in development.">info</span>
                             </div>
                             <!-- roleplay toggle -->
                             <div style="display: flex; gap: 0.25rem; align-items: center;">
                                 <input id="roleplay" type="checkbox" name="roleplayEnabled"></input>
                                 <label for="roleplay">Roleplay</label>
-                                <span class="material-symbols-outlined"
+                                <span class="material-symbols-outlined tooltip"
                                     style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    title="This attribute enhances your roleplay experience by enabling a new game-ified interface. Currently still in development.">info</span>
+                                    info="This attribute enhances your roleplay experience by enabling a new game-ified interface. Currently still in development.">info</span>
                             </div>
                         </div>
                         <div class="step">
@@ -230,24 +273,20 @@
                 </div>
             </form>
 
-
             <div id="whats-new">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li>NEW: Added 2.0 models, now available in Pro and Flash variants</li>
-                    <li>Stability improvements</li>
+                    <li>NEW: Added autoscroll toggle in settings.</li>
+                    <li>NEW: Added 2.5 model, only available in the Pro variant for now. </li>
+                    <li>Stability improvements.</li>
                     <li>Visit my discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
 
                 </ul>
             </div>
         </div>
-
-
     </div>
-
     <script type="module" src="main.js"></script>
-
 </body>
 
 </html>

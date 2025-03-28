@@ -29,7 +29,7 @@ export async function send(msg, db) {
     //user msg handling
 
     if (!await chatsService.getCurrentChat(db)) { //we create a new chat if there is none is currently selected
-        const result = await generativeModel.generateContent('Please generate a short title for the following request from a user, only reply with the short title, nothing else: ' + msg);
+        const result = await generativeModel.generateContent("The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is:  " + msg);
         const title = result.response.text()
         const id = await chatsService.addChat(title, null, db);
         document.querySelector(`#chat${id}`).click();
@@ -60,11 +60,11 @@ export async function send(msg, db) {
         ]
     });
     const stream = await chat.sendMessageStream(msg);
-    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db);
+    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image);
     //save chat history and settings
     const currentChat = await chatsService.getCurrentChat(db);
     currentChat.content.push({ role: "user", parts: [{ text: msg }] });
-    currentChat.content.push({ role: "model", personality: selectedPersonality.name, parts: [{ text: reply.md }] });
+    currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
     await db.chats.put(currentChat);
     settingsService.saveSettings();
 }
@@ -83,7 +83,7 @@ async function regenerate(responseElement, db) {
 
 
 
-export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null) {
+export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null) {
     //create new message div for the user's message then append to message container's top
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
@@ -94,8 +94,11 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         newMessage.classList.add("message-model");
         const messageRole = selectedPersonalityTitle;
         newMessage.innerHTML = `
-            <div class="message-header"><h3 class="message-role">${messageRole}</h3>
-            <button class="btn-refresh btn-textual material-symbols-outlined" >refresh</button></div>
+            <div class="message-header">
+                <img class="pfp" src="${pfpSrc}" loading="lazy"></img>
+                <h3 class="message-role">${messageRole}</h3>
+                <button class="btn-refresh btn-textual material-symbols-outlined" >refresh</button>
+            </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text"></div>
             `;
@@ -121,7 +124,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             let rawText = "";
             for await (const chunk of netStream.stream) {
                 try {
-                    
                     rawText += chunk.text();
                     messageContent.innerHTML = marked.parse(rawText, { breaks: true }); //convert md to HTML
                     helpers.messageContainerScrollToBottom();
