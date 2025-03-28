@@ -18,6 +18,7 @@ export async function migratePersonalities(database) {
                     message.personalityid = -1; // Default personality ID
                     message.personality = defaultPersonality.name;
                     console.log(`Personality "${message.personality}" not found, defaulting to ${defaultPersonality.name}`);
+                    continue;
                 }
                 message.personalityid = personality.id;
             }
