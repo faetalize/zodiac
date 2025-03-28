@@ -1,5 +1,6 @@
 import DOMPurify from 'dompurify';
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+import { getSettings } from '../services/Settings.service';
 
 // Description: This file contains helper functions that are used throughout the application.
 
@@ -46,7 +47,7 @@ export function lightenCard(element) {
 }
 
 export function getVersion(){
-    return "0.9";
+    return "0.9.1";
 }
 
 export function getSanitized(string) {
@@ -73,6 +74,9 @@ export function getDecoded(encoded){
 }
 
 export function messageContainerScrollToBottom(){
+    if(!getSettings().autoscroll){
+        return;
+    }
     const container = document.querySelector(".message-container");
     container.scrollBy({
         top: container.scrollHeight

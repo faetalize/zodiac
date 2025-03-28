@@ -12,10 +12,7 @@ for (const path in components) {
     components[path]();
 }
 
-
-
-settingsService.loadSettings();
-
+settingsService.initialize();
 
 //get all chats from indexedDB
 await chatsService.initialize(dbService.db);

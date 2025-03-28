@@ -5,17 +5,18 @@ import * as helpers from '../utils/helpers';
 const messageInput = document.querySelector("#messageInput");
 const sendMessageButton = document.querySelector("#btn-send");
 
-
 //enter key to send message but support shift+enter for new line
 messageInput.addEventListener("keydown", (e) => {
-    if (e.key == "Enter" && !e.shiftKey) {
+    // Check if the user is on a mobile device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (e.key === "Enter" && !e.shiftKey && !isMobile) {
         e.preventDefault();
         sendMessageButton.click();
     }
 });
 messageInput.addEventListener("blur", () => {
 });
-//hmm
 messageInput.addEventListener("paste", (e) => {
     e.preventDefault();
     const text = (e.originalEvent || e).clipboardData.getData('text/plain');
@@ -26,7 +27,6 @@ messageInput.addEventListener("input", () => {
         messageInput.innerHTML = "";
     }
 });
-
 sendMessageButton.addEventListener("click", async () => {
     try {
         const message = helpers.getEncoded(messageInput.innerHTML);

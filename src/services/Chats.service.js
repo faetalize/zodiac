@@ -1,5 +1,6 @@
 import * as messageService from "./Message.service"
 import * as helpers from "../utils/helpers"
+import * as personalityService from "./Personality.service";
 const messageContainer = document.querySelector(".message-container");
 const chatHistorySection = document.querySelector("#chatHistorySection");
 const sidebar = document.querySelector(".sidebar");
@@ -50,11 +51,11 @@ function insertChatEntry(chat, db) {
     chatLabel.setAttribute("for", "chat" + chat.id);
     chatLabel.classList.add("title-chat");
     chatLabel.classList.add("label-currentchat");
-    
+
 
     //
     const chatLabelText = document.createElement("span");
-    chatLabelText.style.overflow= "hidden";
+    chatLabelText.style.overflow = "hidden";
     chatLabelText.style.textOverflow = "ellipsis";
     chatLabelText.textContent = chat.title;
 
@@ -79,7 +80,7 @@ function insertChatEntry(chat, db) {
 
     chatRadioButton.addEventListener("change", async () => {
         await loadChat(chat.id, db);
-        if(window.innerWidth < 1032){
+        if (window.innerWidth < 1032) {
             helpers.hideElement(sidebar);
         }
     });
@@ -134,8 +135,25 @@ export async function loadChat(chatID, db) {
         }
         messageContainer.innerHTML = "";
         const chat = await getChatById(chatID, db);
+        console.log(chat);
         for (const msg of chat.content) {
-            await messageService.insertMessage(msg.role, msg.parts[0].text, msg.personality, null, db);
+            if (msg.role === "model") {
+                const personality = msg.personalityid ?
+                    await personalityService.get(msg.personalityid, db) :
+                    await personalityService.getByName(msg.personality, db);
+                await messageService.insertMessage(
+                    msg.role,
+                    msg.parts[0].text,
+                    personality.name,
+                    null,
+                    db,
+                    personality.image
+                );
+            }
+            else {
+                await messageService.insertMessage(msg.role, msg.parts[0].text, null, null, db);
+            }
+
         }
         messageContainer.scrollTo(0, messageContainer.scrollHeight);
     }

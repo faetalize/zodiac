@@ -1,4 +1,4 @@
-import { Personality } from "../services/Personality.service";
+import { Personality } from "../models/Personality";
 import * as personalityService from '../services/Personality.service';
 import * as stepperService from '../services/Stepper.service';
 import * as overlayService from '../services/Overlay.service';

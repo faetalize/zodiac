@@ -5,15 +5,15 @@
 @font-face {
     font-family: 'Material Symbols Outlined';
     font-style: normal;
-    font-weight: 400;
-    src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v154/kJF1BvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oDMzByHX9rA6RzaxHMPdY43zj-jCxv3fzvRNU22ZXGJpEpjC_1v-p_4MrImHCIJIZrDCvHOej.woff2) format('woff2');
-}
+    font-weight: 100 700;
+    src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v232/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsI.woff2) format('woff2');
+  }
 
 .material-symbols-outlined {
     font-family: 'Material Symbols Outlined';
     font-weight: normal;
     font-style: normal;
-    font-size: 1.5rem;
+    font-size: 24px;
     line-height: 1;
     letter-spacing: normal;
     text-transform: none;
@@ -109,6 +109,21 @@ form {
 /* all but the first sidebarcontet */
 .sidebar-section:not(:first-child) {
     display: none;
+}
+
+.api-key {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+
+    input {
+        flex-grow: 1;
+    }
+    .material-symbols-outlined {
+        font-size: 2rem;
+        opacity: 1;
+        font-weight: 200;
+    }
 }
 
 .stepper {
@@ -219,8 +234,13 @@ form {
     flex-direction: column;
     overflow-y: auto;
     gap: 1rem;
-    padding-bottom: 2rem;
+    padding-bottom: 1.5rem;
     flex-grow: 1;
+    padding-right: 1.5rem;
+}
+
+.message-text{
+    margin-top: 1rem;
 }
 
 .message-text p {
@@ -234,6 +254,7 @@ form {
 
 .message-model {
     border-radius: 1rem;
+    margin-left: 15%;
 }
 
 #message-box {
@@ -556,6 +577,8 @@ form {
 
 .message-header {
     display: flex;
+    align-items: center;
+    gap:1rem;
 
     h3 {
         flex-grow: 1;
@@ -617,12 +640,13 @@ button {
 
 #mainContent {
     display: flex;
-    flex-shrink: 0;
+    flex: 1;
     flex-direction: column;
     padding: 2rem;
     margin-left: auto;
     margin-right: auto;
-    width: 32rem;
+    max-width: 40%;
+    min-width: 32rem;
 }
 
 .btn-array-personalityactions {
@@ -741,7 +765,13 @@ button {
     flex-direction: column;
 }
 
-
+.pfp{
+    height: 28px;
+    width: 28px;
+    border-radius: 6px;
+    object-fit: cover;
+    image-rendering: auto;
+}
 
 .card-personality:has(input[name="personality"]:checked) .personality-description {
     display: -webkit-box;
@@ -785,6 +815,17 @@ input[name="currentChat"][value="none"] {
     display: flex;
     gap: 4px;
     align-items: center;
+}
+
+.api-key-error {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    font-size:0.8rem;
+    opacity: 0.8;
+    .material-symbols-outlined {
+        font-size: inherit;
+    }
 }
 
 @media (min-width: 1032px) {
@@ -834,6 +875,7 @@ input[name="currentChat"][value="none"] {
         padding: 0;
         margin: 0;
         width: 100%;
+        max-width: 100%;
     }
 
     #mainContent .header {
@@ -897,7 +939,11 @@ input[name="currentChat"][value="none"] {
     }
 
     button:hover {
-        background-color: #335a91;
+        background-color: #3c66a1;
+    }
+
+    button:active {
+        background-color: #23487a;
     }
 
 
@@ -957,6 +1003,18 @@ input[name="currentChat"][value="none"] {
     code {
         background-color: #ffffffa8;
     }
+
+    .api-key-valid {
+        border: 1px solid #0be43ab0;
+    }
+
+    .api-key-invalid {
+        border: 1px solid #ff4a53da;
+    }
+
+    .api-key-error {
+        color: #bf121c;
+    }
 }
 
 /* Dark theme styles */
@@ -1008,6 +1066,10 @@ input[name="currentChat"][value="none"] {
 
     button:hover {
         background-color: #5280ac;
+    }
+
+    button:active {
+        background-color: #3a648b;
     }
 
     .btn-textual {
@@ -1073,6 +1135,18 @@ input[name="currentChat"][value="none"] {
     code {
         background-color: #0c0c0c8a;
         outline: 1px solid #000000ab;
+    }
+
+    .api-key-valid {
+        border: 1px solid #137e3ab0;
+    }
+
+    .api-key-invalid {
+        border: 1px solid #bf121cad;
+    }
+
+    .api-key-error {
+        color: #ff4a53;
     }
 
 }

@@ -1,15 +1,16 @@
 {
   "devDependencies": {
-    "vite": "^5.4.10"
+    "vite": "^6.2.2"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "dexie": "^4.0.10",
-    "dompurify": "^3.2.3"
+    "dompurify": "^3.2.3",
+    "tippy.js": "^6.3.7"
   },
-    "scripts": {
-      "dev": "vite", 
-      "build": "vite build",
-      "preview": "vite preview"
-    }
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  }
 }
