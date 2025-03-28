@@ -135,7 +135,6 @@ export async function loadChat(chatID, db) {
         }
         messageContainer.innerHTML = "";
         const chat = await getChatById(chatID, db);
-        console.log(chat);
         for (const msg of chat.content) {
             if (msg.role === "model") {
                 const personality = msg.personalityid ?
