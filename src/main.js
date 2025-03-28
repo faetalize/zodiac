@@ -3,7 +3,7 @@ import * as personalityService from "./services/Personality.service";
 import * as settingsService from "./services/Settings.service";
 import * as overlayService from './services/Overlay.service';
 import * as chatsService from './services/Chats.service';
-import * as dbService from './services/Db.service';
+import { db } from './services/Db.service';
 import * as helpers from "./utils/helpers";
 
 //load all component code
@@ -12,14 +12,13 @@ for (const path in components) {
     components[path]();
 }
 
+// Initialize in the correct order
 settingsService.initialize();
 
-//get all chats from indexedDB
-await chatsService.initialize(dbService.db);
-
-//initialize personalities
+// Initialize database and migrate
+await chatsService.initialize(db);
+await personalityService.migratePersonalities(db);
 await personalityService.initialize();
-
 
 //event listeners
 const hideOverlayButton = document.querySelector("#btn-hide-overlay");
@@ -50,7 +49,7 @@ clearAllButton.addEventListener("click", () => {
 });
 
 const deleteAllChatsButton = document.querySelector("#btn-reset-chat");
-deleteAllChatsButton.addEventListener("click", () => { chatsService.deleteAllChats(dbService.db) });
+deleteAllChatsButton.addEventListener("click", () => { chatsService.deleteAllChats(db) });
 
 
 const importPersonalityButton = document.querySelector("#btn-import-personality");
