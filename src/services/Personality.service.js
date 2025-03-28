@@ -2,6 +2,27 @@ import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
 import { Personality } from "../models/Personality";
 
+// Move the migration logic to a separate function that can be called from main.js
+export async function migratePersonalities(database) {
+    const chats = await database.chats.toArray();
+    if (!chats) return;
+
+    const migratedChats = await Promise.all([...chats].map(async chat => {
+        for (const message of chat.content) {
+            if (message.personality) {
+                const personality = await getByName(message.personality, database);
+                message.personalityid = personality.id;
+            }
+            else {
+                delete message.personalityid;
+            }
+        }
+        return chat;
+    }));
+
+    await database.chats.bulkPut(migratedChats);
+}
+
 export async function initialize() {
     //default personality setup
     const defaultPersonalityCard = insert(getDefault());
