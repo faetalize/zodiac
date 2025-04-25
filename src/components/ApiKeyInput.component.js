@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 const apiKeyInput = document.querySelector("#apiKeyInput");
 
@@ -9,10 +9,13 @@ apiKeyInput.addEventListener("input", () => {
     }
     debounceTimer = setTimeout(async () => {
         const apiKey = apiKeyInput.value.trim();
-        const genAi = new GoogleGenerativeAI(apiKey);
+        const ai = new GoogleGenAI({ apiKey: apiKey });
         try {
-            const model = genAi.getGenerativeModel({ model: "gemini-2.0-flash" });
-            await model.generateContent("test");
+            // Test the API key with a simple query
+            await ai.models.generateContent({
+                model: "gemini-2.0-flash",
+                contents: "test"
+            });
             apiKeyInput.classList.add("api-key-valid");
             apiKeyInput.classList.remove("api-key-invalid");
             document.querySelector(".api-key-error").style.display = "none";

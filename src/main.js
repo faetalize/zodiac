@@ -24,11 +24,6 @@ await personalityService.initialize();
 const hideOverlayButton = document.querySelector("#btn-hide-overlay");
 hideOverlayButton.addEventListener("click", () => overlayService.closeOverlay());
 
-const addPersonalityButton = document.querySelector("#btn-add-personality");
-addPersonalityButton.addEventListener("click", () => overlayService.showAddPersonalityForm());
-
-
-
 const newChatButton = document.querySelector("#btn-new-chat");
 newChatButton.addEventListener("click", () => {
     if (!chatsService.getCurrentChatId()) {

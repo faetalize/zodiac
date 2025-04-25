@@ -47,7 +47,7 @@ export function lightenCard(element) {
 }
 
 export function getVersion(){
-    return "0.9.1";
+    return "0.9.5";
 }
 
 export function getSanitized(string) {

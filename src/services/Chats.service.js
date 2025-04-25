@@ -154,7 +154,11 @@ export async function loadChat(chatID, db) {
             }
 
         }
-        messageContainer.scrollTo(0, messageContainer.scrollHeight);
+        // Always scroll to bottom when loading a chat
+        messageContainer.scrollTo({
+            top: messageContainer.scrollHeight,
+            behavior: 'auto'
+        });
     }
     catch (error) {
         alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
