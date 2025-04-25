@@ -41,7 +41,7 @@ export async function send(msg, db) {
         const id = await chatsService.addChat(title, null, db);
         document.querySelector(`#chat${id}`).click();
     }
-    await insertMessage("user", msg);
+    await insertMessage("user", msg, null, null, db);
     helpers.messageContainerScrollToBottom();
     //model reply
     
@@ -252,6 +252,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 }
                 hljs.highlightAll();
                 helpers.messageContainerScrollToBottom();
+                setupMessageEditing(newMessage, db);
                 return { HTML: messageContent.innerHTML, md: rawText };
             } catch (error) {
                 alert("Error processing response: " + error);
