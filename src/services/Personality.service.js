@@ -35,7 +35,6 @@ export async function migratePersonalities(database) {
 export async function initialize() {
     //default personality setup
     const defaultPersonalityCard = insert(getDefault());
-
     defaultPersonalityCard.querySelector("input").click();
 
     //load all personalities from local storage
@@ -45,6 +44,10 @@ export async function initialize() {
             insert(personality);
         }
     }
+    
+    // Add the "Create New" card at the end
+    const createCard = createAddPersonalityCard();
+    document.querySelector("#personalitiesDiv").appendChild(createCard);
 }
 
 export async function getSelected() {
@@ -138,6 +141,23 @@ export function share(personality) {
     document.body.removeChild(element);
 }
 
+export function createAddPersonalityCard() {
+    const card = document.createElement("div");
+    card.classList.add("card-personality", "card-add-personality");
+    card.id = "btn-add-personality";
+    card.innerHTML = `
+        <div class="add-personality-content">
+            <span class="material-symbols-outlined add-icon">add</span>
+        </div>
+    `;
+    
+    card.addEventListener("click", () => {
+        overlayService.showAddPersonalityForm();
+    });
+    
+    return card;
+}
+
 export async function removeAll() {
     await db.personalities.clear();
     document.querySelector("#personalitiesDiv").childNodes.forEach(node => {
@@ -153,6 +173,12 @@ export async function add(personality) {
         id: id,
         ...personality
     });
+    
+    // Move the add card to be the last element
+    const addCard = document.querySelector("#btn-add-personality");
+    if (addCard) {
+        document.querySelector("#personalitiesDiv").appendChild(addCard);
+    }
 }
 
 export async function edit(id, personality) {
