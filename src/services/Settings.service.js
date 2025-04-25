@@ -1,4 +1,4 @@
-import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/generative-ai";
+import { HarmBlockThreshold, HarmCategory } from "@google/genai";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput");
 const maxTokensInput = document.querySelector("#maxTokens");
@@ -37,22 +37,10 @@ export function getSettings() {
         maxTokens: maxTokensInput.value,
         temperature: temperatureInput.value,
         safetySettings: [
-            {
-                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                threshold: HarmBlockThreshold.BLOCK_NONE,
-            }
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
         ],
         model: modelSelect.value,
         autoscroll: autoscrollToggle.checked,
