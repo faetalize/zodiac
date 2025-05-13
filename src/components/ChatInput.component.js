@@ -34,11 +34,13 @@ sendMessageButton.addEventListener("click", async () => {
         await messageService.send(message, dbService.db);
 
     } catch (error) {
-        if(error.status === 429){
+        console.error("error", JSON.stringify(error));
+        if(error.status === 429 || error.code === 429){
             alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");
-            return;
         }
-        console.error(error);
-        alert(error)
+        else{            
+            alert(error);
+        }
+        
     }
 });
