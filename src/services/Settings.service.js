@@ -19,7 +19,7 @@ export function loadSettings() {
     ApiKeyInput.value = localStorage.getItem("API_KEY") || "";
     maxTokensInput.value = localStorage.getItem("maxTokens") || 1000;
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || 70;
-    modelSelect.value = localStorage.getItem("model") || "gemini-2.0-flash";
+    modelSelect.value = localStorage.getItem("model") || "gemini-2.5-flash";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
 }
 
