@@ -8,6 +8,8 @@
     <link rel="shortcut icon" href="https://upload.wikimedia.org/wikipedia/commons/f/f0/Google_Bard_logo.svg"
         type="image/x-icon">
     <link rel="stylesheet" href="./styles/main.css">
+    <link rel="stylesheet" href="./styles/dark.css">
+    <link rel="stylesheet" href="./styles/light.css">
     <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.css">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
@@ -33,7 +35,7 @@
                 </button>
                 <img src="https://upload.wikimedia.org/wikipedia/commons/f/f0/Google_Bard_logo.svg" id="gemin-pro-logo">
                 <div id="title-div">
-                    <div id="zodiac-branding">zodiac </div>
+                    <div id="zodiac-branding">zodiac</div>
                     <div id="gemini-pro-branding">powered by Gemini 2.5</div>
                 </div>
                 <button class="badge" id="btn-whatsnew">
@@ -80,7 +82,8 @@
                     <div class="api-key">
                         <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
                             class="input-field"></input>
-                        <button class="material-symbols-outlined btn-textual" onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')">
+                        <button class="material-symbols-outlined btn-textual"
+                            onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')">
                             help
                         </button>
                     </div>
@@ -90,39 +93,42 @@
                     <h3>Generation Settings</h3>
                     <div class="generation-settings">
                         <div>
-                            <label class="setting-label" for="selectedModel"><span class="material-symbols-outlined">neurology</span>Model
-                                <span class="material-symbols-outlined tooltip" 
-                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                info="Pro model has a very low daily limit. It is recommmended to stick to Flash or Flash Lite, only falling back to pro for high priority requests.">
+                            <label class="setting-label" for="selectedModel"><span
+                                    class="material-symbols-outlined">neurology</span>Model
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Pro model has a very low daily limit. It is recommmended to stick to Flash or Flash Lite, only falling back to pro for high priority requests.">
                                     info
                                 </span> </label>
                             <select id="selectedModel" class="input-field">
                                 <option value="gemini-2.0-flash-lite">Flash Lite</option>
-                                <option value="gemini-2.5-flash-preview-04-17" selected="true">Flash</option>
-                                <option value="gemini-2.5-pro-preview-05-06">Pro</option>
+                                <option value="gemini-2.5-flash" selected="true">Flash</option>
+                                <option value="gemini-2.5-pro">Pro</option>
                             </select>
                         </div>
                         <div>
-                            <label class="setting-label" for="maxTokens"><span class="material-symbols-outlined">generating_tokens</span><span>
-                                Max Output
+                            <label class="setting-label" for="maxTokens"><span
+                                    class="material-symbols-outlined">generating_tokens</span><span>
+                                    Max Output
                                     Tokens
-                            </span>
-                            <span class="material-symbols-outlined tooltip" 
-                            style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                            info="Dictates the maximum length of the model's response. If responses get cut off, increase this value.">
-                                info
-                            </span> 
-                        </label>
-                            <input type="number" id="maxTokens" class="input-field" min="1" max="1000000" value="1000"></input>
+                                </span>
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Dictates the maximum length of the model's response. If responses get cut off, increase this value.">
+                                    info
+                                </span>
+                            </label>
+                            <input type="number" id="maxTokens" class="input-field" min="1" max="1000000"
+                                value="1000"></input>
                         </div>
                         <div>
                             <label class="setting-label" for="safetySettings"><span class="material-symbols-outlined">
                                     health_and_safety
                                 </span>
                                 <span>Safety</span>
-                                <span class="material-symbols-outlined tooltip" 
-                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                info="Controls the model's sensitivity to potentially harmful content.">
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Controls the model's sensitivity to potentially harmful content.">
                                     info
                                 </span> </label>
                             <select id="safetySettings" class="input-field">
@@ -134,12 +140,12 @@
                         <div>
                             <label class="setting-label" for="temperature">
                                 <span class="material-symbols-outlined">thermostat</span>
-                                <span>Temperature</span> 
-                                <span class="material-symbols-outlined tooltip" 
-                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                info="Lower values are more deterministic, higher values are more creative. The recommended range is between 0.5 and 1.25.">
+                                <span>Temperature</span>
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Lower values are more deterministic, higher values are more creative. The recommended range is between 0.5 and 1.25.">
                                     info
-                                </span> 
+                                </span>
                             </label>
                             <div class="btn-array">
                                 <input type="range" min="20" max="200" id="temperature" class="slider">
@@ -150,7 +156,7 @@
                     <h3>User Experience</h3>
                     <div>
                         <!-- autoscroll toggle -->
-                         <div style="display: flex; gap: 0.25rem; align-items: center;">
+                        <div style="display: flex; gap: 0.25rem; align-items: center;">
                             <input id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
                             <label for="autoscroll">Autoscroll</label>
                         </div>
@@ -189,8 +195,19 @@
             </div>
             <div class="message-container"></div>
             <div id="message-box">
-                <span contenteditable placeholder="Send a message" id="messageInput" class="input-field"></span>
-                <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
+                <span contenteditable placeholder="Send a message to" id="messageInput" class="input-field"></span>
+                <div id="attachment-preview" class="attachment-preview-container">
+                    <input type="file" name="attachments" id="attachments">
+                </div>
+                <div id="message-box-buttons">
+                    <button type="button" class="btn-textual material-symbols-outlined"
+                        id="btn-attach">attach_file</button>
+                    <button type="button" class="btn-textual material-symbols-outlined"
+                        id="btn-internet">language</button>
+                    <button type="button" class="btn-textual material-symbols-outlined"
+                        id="btn-roleplay">pan_tool</button>
+                    <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
+                </div>
             </div>
         </div>
     </div>
@@ -278,10 +295,10 @@
             <div id="whats-new">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li>Warning: Pro model is currently disabled for free users. <br>
-                        This is a limitation set by Google and cannot be bypassed. 
-                        <a href="https://x.com/officiallogank/status/1922357621178200248">More info</a></li>
-                    
+                    <li>Pro has been reactivated for free users! Enjoy. </li>
+                    <li>Vision/multimodal support has been added.</li>
+                    <li>Online search/grounding support has been added.</li>
+
                     <li>Visit my discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
 
@@ -289,7 +306,7 @@
             </div>
         </div>
     </div>
-    <script type="module" src="main.js"></script>
+    <script type="module" src="main.ts" defer></script>
 </body>
 
 </html>

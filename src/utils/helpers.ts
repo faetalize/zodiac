@@ -1,10 +1,10 @@
 import DOMPurify from 'dompurify';
-import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+import { marked } from "marked";
 import { getSettings } from '../services/Settings.service';
 
 // Description: This file contains helper functions that are used throughout the application.
 
-export function hideElement(element) {
+export function hideElement(element: HTMLElement) {
     if (!element) {
         return;
     }
@@ -15,7 +15,7 @@ export function hideElement(element) {
     }, 200);
 }
 
-export function showElement(element, wait) {
+export function showElement(element: HTMLElement, wait: boolean) {
     if (!element) {
         return;
     }
@@ -35,40 +35,48 @@ export function showElement(element, wait) {
     }, timeToWait);
 }
 
-export function darkenCard(element) {
-    let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+export function darkenCard(element: HTMLElement) {
+    const backgroundImageMatch = element.style.backgroundImage.match(/url\((.*?)\)/);
+    if (!backgroundImageMatch) {
+        return;
+    }
+    let elementBackgroundImageURL = backgroundImageMatch[1].replace(/('|")/g, '');
     element.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${elementBackgroundImageURL}')`;
 }
 
 
-export function lightenCard(element) {
-    let elementBackgroundImageURL = element.style.backgroundImage.match(/url\((.*?)\)/)[1].replace(/('|")/g, '');
+export function lightenCard(element: HTMLElement) {
+    const backgroundImageMatch = element.style.backgroundImage.match(/url\((.*?)\)/);
+    if (!backgroundImageMatch) {
+        return;
+    }
+    let elementBackgroundImageURL = backgroundImageMatch[1].replace(/('|")/g, '');
     element.style.backgroundImage = `url('${elementBackgroundImageURL}')`;
 }
 
 export function getVersion(){
-    return "0.9.6";
+    return "0.9.8";
 }
 
-export function getSanitized(string) {
-    return DOMPurify.sanitize(string.trim(), {breaks: true});
+export function getSanitized(string: string) {
+    return DOMPurify.sanitize(string.trim());
 }
 
-function getUnescaped(innerHTML){
+function getUnescaped(innerHTML: string){
     return innerHTML.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 }
 
-function getMdNewLined(innerHTML){
+function getMdNewLined(innerHTML: string){
     //replace <br> with \n
     //also collapse multiple newlines into one
     return innerHTML.replace(/<br>/g, "\n").replace(/\n{2,}/g, "\n");
 }
 
-export function getEncoded(innerHTML){
+export function getEncoded(innerHTML: string){
     return getUnescaped(getMdNewLined(innerHTML)).trim();
 }
 
-export function getDecoded(encoded){
+export function getDecoded(encoded: string){
     //reescape, convert to md
     return marked.parse(encoded.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"), {breaks: true});
 }
@@ -78,7 +86,21 @@ export function messageContainerScrollToBottom(){
         return;
     }
     const container = document.querySelector(".message-container");
-    container.scrollBy({
-        top: container.scrollHeight
+    container?.scrollBy({
+        top: container.scrollHeight,
+        behavior: 'instant',
+    });
+}
+
+export async function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            resolve(reader.result as string);
+        };
+        reader.onerror = (error) => {
+            reject(error);
+        };
     });
 }
