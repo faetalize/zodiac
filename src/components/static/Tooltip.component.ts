@@ -6,7 +6,7 @@ const tooltips = document.querySelectorAll('.tooltip');
 
 for(const tooltip of tooltips){
     tippy(tooltip, {
-        content: tooltip.getAttribute("info"),
+        content: tooltip.getAttribute("info") || "",
         theme: "material",
         placement: "top",
         arrow: true,

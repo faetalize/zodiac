@@ -1,9 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 
-const apiKeyInput = document.querySelector("#apiKeyInput");
+const apiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
 
-let debounceTimer;
-apiKeyInput.addEventListener("input", () => {
+let debounceTimer: NodeJS.Timeout;
+apiKeyInput?.addEventListener("input", () => {
     if (debounceTimer) {
         clearTimeout(debounceTimer);
     }
@@ -18,11 +18,11 @@ apiKeyInput.addEventListener("input", () => {
             });
             apiKeyInput.classList.add("api-key-valid");
             apiKeyInput.classList.remove("api-key-invalid");
-            document.querySelector(".api-key-error").style.display = "none";
+            document.querySelector<HTMLElement>(".api-key-error")!.style.display = "none";
         } catch (error) {
             apiKeyInput.classList.add("api-key-invalid");
             apiKeyInput.classList.remove("api-key-valid");
-            document.querySelector(".api-key-error").style.display = "flex";
+            document.querySelector<HTMLElement>(".api-key-error")!.style.display = "flex";
         }
     }, 2000);
 });

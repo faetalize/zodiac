@@ -1,10 +1,14 @@
 import { HarmBlockThreshold, HarmCategory } from "@google/genai";
 
-const ApiKeyInput = document.querySelector("#apiKeyInput");
-const maxTokensInput = document.querySelector("#maxTokens");
-const temperatureInput = document.querySelector("#temperature");
-const modelSelect = document.querySelector("#selectedModel");
-const autoscrollToggle = document.querySelector("#autoscroll");
+const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
+const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
+const temperatureInput = document.querySelector("#temperature") as HTMLInputElement;
+const modelSelect = document.querySelector("#selectedModel") as HTMLSelectElement;
+const autoscrollToggle = document.querySelector("#autoscroll") as HTMLInputElement;
+
+if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !autoscrollToggle) {
+    throw new Error("One or more settings elements are missing in the DOM.");
+}
 
 export function initialize() {
     loadSettings();
@@ -17,9 +21,9 @@ export function initialize() {
 
 export function loadSettings() {
     ApiKeyInput.value = localStorage.getItem("API_KEY") || "";
-    maxTokensInput.value = localStorage.getItem("maxTokens") || 1000;
-    temperatureInput.value = localStorage.getItem("TEMPERATURE") || 70;
-    modelSelect.value = localStorage.getItem("model") || "gemini-2.0-flash";
+    maxTokensInput.value = localStorage.getItem("maxTokens") || "1000";
+    temperatureInput.value = localStorage.getItem("TEMPERATURE") || "70";
+    modelSelect.value = localStorage.getItem("model") || "gemini-2.5-flash";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
 }
 
@@ -28,7 +32,7 @@ export function saveSettings() {
     localStorage.setItem("maxTokens", maxTokensInput.value);
     localStorage.setItem("TEMPERATURE", temperatureInput.value);
     localStorage.setItem("model", modelSelect.value);
-    localStorage.setItem("autoscroll", autoscrollToggle.checked);
+    localStorage.setItem("autoscroll", autoscrollToggle.checked.toString());
 }
 
 export function getSettings() {

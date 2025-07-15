@@ -1,0 +1,166 @@
+/* Dark theme styles */
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+    }
+
+    :focus-visible{
+        border: 1px solid #8f9eb3;
+        outline: none;
+    }
+
+    .message-text:focus-visible {
+        outline: 1px solid #8f9eb3a6;
+    }
+
+
+    body {
+        background-color: #12171d;
+        color: #e4e4e4;
+    }
+
+    a {
+        color: #92d9eb;
+    }
+
+    .sidebar {
+        background-color: #1a2733;
+    }
+
+    .navbar {
+        background-color: #00000047;
+    }
+
+    .navbar-tab {
+        color: #e4e4e4;
+    }
+
+    #navbar-tab-highlight {
+        background-color: #22486b;
+        box-shadow: 0 0 1rem 0.05rem #29292aac;
+    }
+
+    .navbar-tab:not(.navbar-tab-active):hover {
+        background-color: #00000042;
+    }
+
+    button {
+        background-color: #5f96c8;
+        color: #0b2469;
+    }
+
+    button:hover {
+        background-color: #5280ac;
+    }
+
+    button:active {
+        background-color: #3a648b;
+    }
+
+    .btn-toggled {
+        background: #166bb1b0 !important;
+    }
+
+
+    .btn-textual {
+        color: #e4e4e4;
+        text-shadow: 0 0 10px #000000, 0 0 5px #181818;
+    }
+
+    .btn-textual:hover {
+        text-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
+    }
+
+    input,
+    textarea,
+    select {
+        background-color: #283542;
+        border: 1px solid #b6b6b62f;
+        color: #e4e4e4;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: #849caf;
+    }
+
+
+    .message:not(.message-model) {
+        background-color: #1a2733;
+    }
+
+    .badge {
+        background-color: #253a5c;
+        border: 1px solid rgba(35, 108, 119, 0.508);
+        color: #b6ebfb;
+    }
+
+    .input-radio-currentchat:checked+label {
+        background-color: #0f4c84b2;
+        color: #bcdbf7;
+    }
+
+    .label-currentchat:hover {
+        background-color: #597c9124;
+    }
+
+    .overlay {
+        background-color: #00000082;
+    }
+
+    #message-box {
+        background-color: #1b2935 !important;
+    }
+
+    #messageInput {
+        background-color: #283542;
+    }
+
+    #btn-add-tone-example {
+        background-color: #283542;
+        border: 1px solid #b6b6b62f;
+        color: #849caf;
+    }
+
+    #btn-add-tone-example:hover {
+        background-color: #1a2733;
+    }
+
+    code {
+        background-color: #0c0c0c8a;
+        outline: 1px solid #000000ab;
+    }
+
+    .api-key-valid {
+        border: 1px solid #137e3ab0;
+    }
+
+    .api-key-invalid {
+        border: 1px solid #bf121cad;
+    }
+
+    .api-key-error {
+        color: #ff4a53;
+    }
+
+    .card-add-personality {
+        background-color: rgba(40, 78, 125, 0.4);
+        border: 1px dashed rgba(95, 150, 200, 0.3);
+    }
+
+    .card-add-personality:hover {
+        background-color: rgba(48, 103, 170, 0.4);
+        border-color: rgba(95, 150, 200, 0.6);
+    }
+
+    .card-add-personality .add-icon {
+        color: #5f96c8;
+    }
+
+    .attachment-container {
+        background-color: #060d1447;
+        outline: 1px solid #ffffff1c;
+    }
+
+
+}
