@@ -38,7 +38,7 @@ export async function send(msg: string) {
         role: "user",
         parts: [{ text: msg, attachments: attachmentFiles }],
     }
-    
+
     //model setup
     const ai = new GoogleGenAI({ apiKey: settings.apiKey });
     const config: GenerateContentConfig = {
@@ -47,9 +47,7 @@ export async function send(msg: string) {
         systemInstruction: settingsService.getSystemPrompt(),
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain",
-        tools: [
-            isInternetSearchEnabled ? { googleSearch: {} } : {},
-        ]
+        tools: isInternetSearchEnabled ? [ { googleSearch: {} } ] : undefined
     };
 
     //initlialize chat history
