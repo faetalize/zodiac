@@ -47,7 +47,7 @@ export async function send(msg: string) {
         systemInstruction: settingsService.getSystemPrompt(),
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain",
-        tools: isInternetSearchEnabled ? [ { googleSearch: {} } ] : undefined
+        tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined
     };
 
     //initlialize chat history
@@ -82,7 +82,7 @@ export async function send(msg: string) {
         (document.querySelector(`#chat${id}`) as HTMLElement)?.click();
     }
 
-    
+
 
 
     // Add chat history
@@ -135,27 +135,17 @@ export async function send(msg: string) {
     helpers.messageContainerScrollToBottom();
 
     let stream: AsyncGenerator<GenerateContentResponse>;
-    try {
-        stream = await chat.sendMessageStream({
-            message: [
-                {
-                    text: msg,
-                },
-                //for each file in attachments.files, we add it to the message
-                ...uploadedFiles.map((file) => {
-                    return createPartFromUri(file.uri!, file.mimeType!);
-                }),
-            ],
-        });
-    } catch (error) {
-        (userMessageElement as HTMLElement).classList.add("message-failure");
-        if ((error as any).status === 429) {
-            alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");
-            return;
-        }
-        alert("Error, please report this to the developer. You might need to restart the page to continue normal usage.");
-        return;
-    }
+    stream = await chat.sendMessageStream({
+        message: [
+            {
+                text: msg,
+            },
+            //for each file in attachments.files, we add it to the message
+            ...uploadedFiles.map((file) => {
+                return createPartFromUri(file.uri!, file.mimeType!);
+            }),
+        ],
+    });
 
     //insert model message placeholder
     const responseElement = await insertMessageV2({
@@ -170,37 +160,29 @@ export async function send(msg: string) {
     //process the stream
     let rawText = "";
     let groundingRenderedContentFromStream = "";
-    try {
-        // In the new API, we receive an iterable stream
-        for await (const chunk of stream) {
-            // The chunks will have text property that contains content
-            if (chunk && chunk.text) {
-                rawText += chunk.text;
-                messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-                helpers.messageContainerScrollToBottom();
-            }
-            if (chunk.candidates && chunk.candidates[0].groundingMetadata && chunk.candidates[0].groundingMetadata.searchEntryPoint?.renderedContent) {
-                groundingRenderedContentFromStream = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
-                const shadow = groundingRendered.attachShadow({ mode: "open" });
-                shadow.innerHTML = groundingRenderedContentFromStream;
-                shadow.querySelector<HTMLDivElement>(".carousel")!.style.scrollbarWidth = "unset";
-            }
+    // In the new API, we receive an iterable stream
+    for await (const chunk of stream) {
+        // The chunks will have text property that contains content
+        if (chunk && chunk.text) {
+            rawText += chunk.text;
+            messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+            helpers.messageContainerScrollToBottom();
         }
-        hljs.highlightAll();
-        helpers.messageContainerScrollToBottom();
-    } catch (error) {
-        if ((error as any).status === 429) {
-            alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");
-            return;
+        if (chunk.candidates && chunk.candidates[0].groundingMetadata && chunk.candidates[0].groundingMetadata.searchEntryPoint?.renderedContent) {
+            groundingRenderedContentFromStream = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
+            const shadow = groundingRendered.attachShadow({ mode: "open" });
+            shadow.innerHTML = groundingRenderedContentFromStream;
+            shadow.querySelector<HTMLDivElement>(".carousel")!.style.scrollbarWidth = "unset";
         }
-        alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
-        console.error(error);
     }
+    hljs.highlightAll();
+    helpers.messageContainerScrollToBottom();
     //save chat history and settings
     currentChat.content.push({ role: "user", parts: [{ text: msg, attachments: attachmentFiles }] });
     currentChat.content.push({ role: "model", personalityid: selectedPersonalityId, parts: [{ text: rawText }], groundingContent: groundingRenderedContentFromStream || "" });
     await db.chats.put(currentChat);
     settingsService.saveSettings();
+    return userMessageElement;
 }
 
 export async function regenerate(responseElement: HTMLElement) {

@@ -41,44 +41,44 @@ messageInput.addEventListener("input", () => {
     }
 });
 sendMessageButton.addEventListener("click", async () => {
+    let userMessageElement: HTMLElement | undefined;
     try {
         const message = helpers.getEncoded(messageInput.innerHTML);
         messageInput.innerHTML = "";
-        await messageService.send(message);
-
+        userMessageElement = await messageService.send(message);
     } catch (error: any) {
-        console.error("error", JSON.stringify(error));
-        if (error.status === 429 || error.code === 429) {
+        (userMessageElement as HTMLElement).classList.add("message-failure");
+        if ((error as any).status === 429) {
             alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");
+            return;
         }
-        else {
-            alert(error);
-        }
+        alert("Error, please report this to the developer. You might need to restart the page to continue normal usage.");
+        return;
     }
 });
 
 
 const setupBottomBar = async () => {
     const personality = await personalityService.getSelected();
-        if (personality) {
-            messageInput.setAttribute("placeholder", `Send a message to ${personality.name}`);
-            if (personality.roleplayEnabled){
-                roleplayActionsMenu.style.display = "block";
-            }
-            else {
-                roleplayActionsMenu.style.display = "none";
-            }
-            if (personality.internetEnabled) {
-                internetSearchToggle.style.display = "block";
-            }
-            else {
-                internetSearchToggle.style.display = "none";
-            }
+    if (personality) {
+        messageInput.setAttribute("placeholder", `Send a message to ${personality.name}`);
+        if (personality.roleplayEnabled) {
+            roleplayActionsMenu.style.display = "block";
         }
         else {
-            messageInput.setAttribute("placeholder", "Send a message");
+            roleplayActionsMenu.style.display = "none";
         }
-    
+        if (personality.internetEnabled) {
+            internetSearchToggle.style.display = "block";
+        }
+        else {
+            internetSearchToggle.style.display = "none";
+        }
+    }
+    else {
+        messageInput.setAttribute("placeholder", "Send a message");
+    }
+
 }
 
 
