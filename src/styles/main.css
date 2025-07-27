@@ -90,6 +90,32 @@ button:focus {
     outline: none;
 }
 
+.btn-danger {
+    background-color: #df0707;
+    color: rgb(243, 227, 227);
+}
+
+.btn-danger:hover {
+    background-color: #b50505;
+}
+
+.btn-danger:active {
+    background-color: #8b0404;
+}
+
+.btn-neutral {
+    background-color: #d3d3d3;
+    color: #000000;
+}
+
+.btn-neutral:hover {
+    background-color: #b0b0b0;
+}
+
+.btn-neutral:active {
+    background-color: #8c8c8c;
+}
+
 form {
     max-width: 100%;
     max-height: 100%;
@@ -966,6 +992,33 @@ input[name="currentChat"][value="none"] {
     .material-symbols-outlined {
         font-size: inherit;
     }
+}
+
+
+#dialog{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 99;
+    display:none;
+    flex-direction: column;
+    gap: 2rem;
+    width: 25rem;
+    max-width: 90%;
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+#dialog-message{
+    flex-grow: 1;
+    padding: 2rem 2rem 0 2rem;
+    overflow-y: auto;
+}
+
+#dialog-buttons{
+    padding: 1.5rem;
+    background-color: #00000049;
 }
 
 

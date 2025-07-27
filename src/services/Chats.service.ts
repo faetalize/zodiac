@@ -191,4 +191,35 @@ export async function editChat(id: number, title: string) {
     }
 }
 
+export async function exportAllChats(): Promise<void> {
+    const chats = await getAllChats(db);
+    //we remove the id
+    const blob = new Blob([JSON.stringify(chats.map(({ id, ...rest }) => rest), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'chats.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
 
+export async function importChats(file: File): Promise<void> {
+    const reader = new FileReader();
+    reader.addEventListener('load', async (event) => {
+        const content = event.target?.result as string;
+        try {
+            const chats: Chat[] = JSON.parse(content);
+            for (const chat of chats) {
+                //we insert the chat with a new ID
+                await db.chats.add(chat);
+            }
+            initialize();
+        } catch (error) {
+            console.error("Error parsing chat file:", error);
+            alert("Failed to import chats. Please ensure the file is in the correct format.");
+        }
+    });
+    reader.readAsText(file);
+}

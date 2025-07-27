@@ -15,7 +15,8 @@ export async function initialize() {
     const personalitiesArray = await getAll();
     if (personalitiesArray) {
         for (let personality of personalitiesArray) {
-            insert(personality, personality.id);
+            const { id: id , ...personalityData } = personality; // Destructure to exclude 'id'
+            insert(personalityData, id);
         }
     }
 
@@ -84,7 +85,7 @@ function insert(personality: Personality, id: number) {
 
 export function share(personality: Personality) {
     //export personality to a string
-    const personalityString = JSON.stringify(personality)
+    const personalityString = JSON.stringify(personality, null, 2)
     //download
     const element = document.createElement('a');
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(personalityString));
@@ -123,7 +124,7 @@ export async function removeAll() {
 }
 
 export async function add(personality: Personality) {
-    const id = await db.personalities.add(personality); //insert in db
+    const id = await db.personalities.add(structuredClone(personality));
     insert(personality, id);
 
     // Move the add card to be the last element
@@ -135,7 +136,6 @@ export async function add(personality: Personality) {
 
 export async function edit(id: number, personality: Personality) {
     const element = document.querySelector(`#personality-${id}`);
-    const checked = element?.querySelector("input")?.checked;
 
     await db.personalities.update(id, {...personality});
 
@@ -147,7 +147,7 @@ export async function edit(id: number, personality: Personality) {
 export function generateCard(personality: Personality, id: number) {
     const card = document.createElement("label");
     card.classList.add("card-personality");
-    if (id) {
+    if (id && id !== -1) {
         card.id = `personality-${id}`;
     }
     card.innerHTML = `

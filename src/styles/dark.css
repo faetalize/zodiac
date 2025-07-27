@@ -162,5 +162,8 @@
         outline: 1px solid #ffffff1c;
     }
 
+    #dialog{
+        background-color: #461010;
+    }
 
 }

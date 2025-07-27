@@ -1,6 +1,5 @@
 /* Light theme styles */
 @media (prefers-color-scheme: light) {
-
     :focus-visible{
         border: 1px solid #8f9eb3;
         outline: none;
@@ -146,5 +145,13 @@
     .attachment-container {
         background-color: #03509c25;
         outline: 1px solid #00000030
+    }
+
+    #dialog{
+        background-color: #971c1c;
+    }
+
+    #dialog-message {
+        color: #ffe3e3;
     }
 }
