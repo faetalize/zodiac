@@ -1,8 +1,8 @@
 
-const steppers = [...document.querySelectorAll(".stepper")].map((element) => ({ element: element, step: 0 }));
+const steppers = [...document.querySelectorAll<HTMLElement>(".stepper")].map((element) => ({ element: element, step: 0 }));
 
-export function update(stepper) {
-    const steps = stepper.element.querySelectorAll(".step");
+export function update(stepper: { element: HTMLElement; step: number }) {
+    const steps = stepper.element.querySelectorAll<HTMLElement>(".step");
     stepper.step = Math.max(0, Math.min(stepper.step, steps.length - 1));
     stepper.element.classList.toggle("first-step", stepper.step === 0);
     stepper.element.classList.toggle("final-step", stepper.step === steps.length - 1);
@@ -17,11 +17,11 @@ export function update(stepper) {
     }
 }
 
-export function getStep(stepper, index){
+export function getStep(stepper: { element: HTMLElement; step: number }, index: number) {
     return stepper.element.querySelectorAll(".step")[index];
 }
 
-export function get(id) {
+export function get(id: string): { element: HTMLElement; step: number } | undefined {
     return steppers.find(stepper => stepper.element.id === id);
 }
 

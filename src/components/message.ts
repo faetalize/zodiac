@@ -63,7 +63,7 @@ export const messageElement = async (
         <div class="message-role-api" style="display: none;">${message.role}</div>
         <div class="message-text">${helpers.getDecoded(message.parts[0].text) || ""}</div>
         <div class="message-grounding-rendered-content"></div>`;
-        if(message.groundingContent){
+        if (message.groundingContent) {
             const shadow = messageElement.querySelector<HTMLElement>(".message-grounding-rendered-content")!.attachShadow({ mode: "open" });
             shadow.innerHTML = message.groundingContent;
             shadow.querySelector<HTMLDivElement>(".carousel")!.style.scrollbarWidth = "unset";
@@ -150,7 +150,11 @@ function setupMessageRegeneration(messageElement: HTMLElement) {
 
     refreshButton.addEventListener("click", async () => {
         try {
-            await messageService.regenerate(messageElement);
+            const confirmation = await helpers.confirmDialog("This action will also clear messages after the response you wish to regenerate. This action cannot be undone!");
+            if (confirmation) {
+                await messageService.regenerate(messageElement);
+            }
+
         } catch (error) {
             if ((error as any).status === 429) {
                 alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");

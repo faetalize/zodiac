@@ -28,6 +28,13 @@
 
 <body>
     <div class="container">
+        <div id="dialog">
+            <div id="dialog-message"></div>
+            <div id="dialog-buttons" class="btn-array">
+                <button class="btn-danger" id="btn-dialog-ok">OK</button>
+                <button class="btn-neutral" id="btn-dialog-cancel">Cancel</button>
+            </div>
+        </div>
         <div class="sidebar">
             <div class="header">
                 <button class="material-symbols-outlined btn-textual" id="btn-hide-sidebar">
@@ -160,6 +167,12 @@
                             <input id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
                             <label for="autoscroll">Autoscroll</label>
                         </div>
+                    </div>
+                    <h3>Data Management</h3>
+                    <div class="btn-array-vertical">
+                        <button id="btn-bulk-import-chats">Bulk Import Chats</button>
+                        <button id="btn-export-all-chats">Export All Chats</button>
+                        <button id="btn-clear-all-data" class="btn-danger">Wipe Everything</button>
                     </div>
                     <h3>Donate</h3>
                     <div class="btn-array">
@@ -295,17 +308,18 @@
             <div id="whats-new">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li>Pro has been reactivated for free users! Enjoy. </li>
-                    <li>Vision/multimodal support has been added.</li>
-                    <li>Online search/grounding support has been added.</li>
-
+                    <li>Fixed bug that caused spontaneous chat deletion</li>
+                    <li>Data management features added: you can now backup/restore your chats</li>
                     <li>Visit my discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
 
                 </ul>
             </div>
+
+
         </div>
     </div>
+
     <script type="module" src="main.ts" defer></script>
 </body>
 

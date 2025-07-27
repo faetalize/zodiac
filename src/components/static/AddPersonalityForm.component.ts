@@ -46,7 +46,6 @@ form.submit = () => {
             if (key === 'id') {
                 continue;
             }
-
             if (key === 'aggressiveness' || key === 'sensuality') {
                 personality[key] = Number(value);
             } else if (key === 'description' || key === 'image' || key === 'name' || key === 'prompt') {
@@ -62,7 +61,6 @@ form.submit = () => {
         //handle both edit and add cases
         const id = Number(data.get('id'));
         if (id) {
-            console.log("Editing personality with id:", id);
             personalityService.edit(id, personality);
         }
         else {

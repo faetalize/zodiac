@@ -1,6 +1,8 @@
+import * as overlayService from "../services/Overlay.service";
 import DOMPurify from 'dompurify';
 import { marked } from "marked";
 import { getSettings } from '../services/Settings.service';
+
 
 // Description: This file contains helper functions that are used throughout the application.
 
@@ -55,7 +57,7 @@ export function lightenCard(element: HTMLElement) {
 }
 
 export function getVersion(){
-    return "0.9.8";
+    return "0.9.9";
 }
 
 export function getSanitized(string: string) {
@@ -101,6 +103,31 @@ export async function fileToBase64(file: File): Promise<string> {
         };
         reader.onerror = (error) => {
             reject(error);
+        };
+    });
+}
+
+export async function confirmDialog(message: string): Promise<boolean> {
+    const dialog = document.querySelector<HTMLDivElement>("#dialog");
+    const dialogMessage = document.querySelector<HTMLDivElement>("#dialog-message");
+    const btnDialogOk = document.querySelector<HTMLButtonElement>("#btn-dialog-ok");
+    const btnDialogCancel = document.querySelector<HTMLButtonElement>("#btn-dialog-cancel");
+    if (!dialog || !dialogMessage || !btnDialogOk || !btnDialogCancel) {
+        console.error("Dialog elements not found in the document");
+        throw new Error("Dialog elements not found in the document");
+    }
+    showElement(dialog, false);
+    return new Promise((resolve) => {
+        dialogMessage.textContent = message;
+
+        btnDialogOk.onclick = () => {
+            hideElement(dialog);
+            resolve(true);
+        };
+
+        btnDialogCancel.onclick = () => {
+            hideElement(dialog);
+            resolve(false);
         };
     });
 }

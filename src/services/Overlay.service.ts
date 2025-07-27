@@ -82,3 +82,13 @@ export function closeOverlay() {
         }
     }
 }
+
+export function show(elementId: string){
+    const element = document.querySelector<HTMLElement>(`#${elementId}`);
+    if (!element) {
+        console.error(`Element with id ${elementId} not found`);
+        return;
+    }
+    showElement(overlay, false);
+    showElement(element, false);
+}
