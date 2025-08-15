@@ -170,6 +170,7 @@ export async function send(msg: string) {
         }
         if (chunk.candidates && chunk.candidates[0].groundingMetadata && chunk.candidates[0].groundingMetadata.searchEntryPoint?.renderedContent) {
             groundingRenderedContentFromStream = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
+            // Create a shadow DOM for the grounding rendered content
             const shadow = groundingRendered.attachShadow({ mode: "open" });
             shadow.innerHTML = groundingRenderedContentFromStream;
             shadow.querySelector<HTMLDivElement>(".carousel")!.style.scrollbarWidth = "unset";

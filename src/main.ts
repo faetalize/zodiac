@@ -4,6 +4,8 @@ import * as settingsService from "./services/Settings.service";
 import * as overlayService from './services/Overlay.service';
 import * as chatsService from './services/Chats.service';
 
+
+
 //load all component code
 const components = import.meta.glob('./components/static/*.ts');
 for (const path in components) {
@@ -20,3 +22,6 @@ await personalityService.initialize();
 //event listeners
 const hideOverlayButton = document.querySelector("#btn-hide-overlay");
 hideOverlayButton?.addEventListener("click", () => overlayService.closeOverlay());
+
+
+overlayService.show("form-subscription")

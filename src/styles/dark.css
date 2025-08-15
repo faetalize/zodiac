@@ -35,7 +35,7 @@
         color: #e4e4e4;
     }
 
-    #navbar-tab-highlight {
+    .navbar-tab-highlight {
         background-color: #22486b;
         box-shadow: 0 0 1rem 0.05rem #29292aac;
     }

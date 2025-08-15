@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@google/genai": "^0.8.0",
+    "@supabase/supabase-js": "^2.53.0",
     "dexie": "^4.0.10",
     "dompurify": "^3.2.3",
     "highlight.js": "^11.11.1",

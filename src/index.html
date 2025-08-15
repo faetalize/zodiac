@@ -36,24 +36,32 @@
             </div>
         </div>
         <div class="sidebar">
-            <div class="header">
-                <button class="material-symbols-outlined btn-textual" id="btn-hide-sidebar">
+            <div class="header" style="padding-block: 12px;">
+                <button class=" material-symbols-outlined btn-textual" id="btn-hide-sidebar">
                     arrow_back_ios_new
                 </button>
                 <img src="https://upload.wikimedia.org/wikipedia/commons/f/f0/Google_Bard_logo.svg" id="gemin-pro-logo">
                 <div id="title-div">
-                    <div id="zodiac-branding">zodiac</div>
-                    <div id="gemini-pro-branding">powered by Gemini 2.5</div>
+                    <div id="zodiac-branding">
+                        <span style="line-height: 12px;margin-top: -7px;">zodiac</span>
+                        <button class="badge" id="btn-whatsnew">
+                            <span id="badge-version"></span>
+                        </button>
+                    </div>
+                    <div id="gemini-pro-branding">Gemini 2.5</div>
                 </div>
-                <button class="badge" id="btn-whatsnew">
-                    <span id="badge-version"></span>
+
+                <button id="btn-login" class=" logged-out-component">
+                    Login
                 </button>
+                <img class="user-avatar logged-in-component" id="user-profile"
+                    src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==">
             </div>
-            <div class="navbar">
+            <div class="navbar" data-target-id="sidebar-content">
                 <div class="navbar-tab">Chats</div>
                 <div class="navbar-tab">Personalities</div>
                 <div class="navbar-tab">Settings</div>
-                <div id="navbar-tab-highlight"></div>
+                <div class="navbar-tab-highlight"></div>
             </div>
             <div id="sidebar-content">
                 <div class="sidebar-section">
@@ -97,6 +105,11 @@
                     <div class="api-key-error">
                         <span class="material-symbols-outlined">error</span> Invalid API Key
                     </div>
+                    <div style="
+                        text-align: center;
+                        font-weight: 800;
+                        text-transform: uppercase;">or</div>
+                    <button id="btn-subscribe-to-pro">Subscribe to Pro</button>
                     <h3>Generation Settings</h3>
                     <div class="generation-settings">
                         <div>
@@ -170,6 +183,7 @@
                     </div>
                     <h3>Data Management</h3>
                     <div class="btn-array-vertical">
+                        <button id="btn-online-sync">Sync Online</button>
                         <button id="btn-bulk-import-chats">Bulk Import Chats</button>
                         <button id="btn-export-all-chats">Export All Chats</button>
                         <button id="btn-clear-all-data" class="btn-danger">Wipe Everything</button>
@@ -195,8 +209,12 @@
 
 
             <div class="credits">
-                Made by fætalize
+
+
+
                 <a href="https://github.com/faetalize/zodiac">Source Code</a>
+                <a href="terms-of-service.html">Terms of Service</a>
+                <a href="privacy-policy.html">Privacy Policy</a>
             </div>
         </div>
 
@@ -297,10 +315,10 @@
                         </div>
                     </div>
                     <div class="stepper-footer">
-                        <button id="btn-stepper-previous" type="button">Previous</button>
-                        <div id="stepper-progress"></div>
-                        <button id="btn-stepper-next" type="button">Next</button>
-                        <button id="btn-stepper-submit" type="submit">Submit</button>
+                        <button class="btn-stepper-previous" type="button">Previous</button>
+                        <div class="stepper-progress"></div>
+                        <button class="btn-stepper-next" type="button">Next</button>
+                        <button class="btn-stepper-submit" type="submit">Submit</button>
                     </div>
                 </div>
             </form>
@@ -312,15 +330,170 @@
                     <li>Data management features added: you can now backup/restore your chats</li>
                     <li>Visit my discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
-
                 </ul>
             </div>
 
+            <div id="login-register-tabs">
+                <div class="navbar" data-target-id="login-register-container">
+                    <div class="navbar-tab active">Login</div>
+                    <div class="navbar-tab">Register</div>
+                    <div class="navbar-tab-highlight"></div>
+                </div>
+                <div id="login-register-container">
+                    <div id="login">
+                        <input type="text" id="email" placeholder="Email" class="input-field" autocomplete="off">
+                        <input type="password" id="password" placeholder="Password" class="input-field">
+                        <div id="login-error" class="error-message">
+                            <span class="material-symbols-outlined">error</span>
+                            <span id="login-error-message">Invalid email or password</span>
+                        </div>
+                        <button id="btn-login-submit">Login</button>
 
-        </div>
-    </div>
+                    </div>
+                    <div id="register">
+                        <input type="text" id="register-email" placeholder="Email" class="input-field">
+                        <input type="password" id="register-password" placeholder="Password" class="input-field">
+                        <input type="password" id="register-password-confirm" placeholder="Confirm Password"
+                            class="input-field">
 
-    <script type="module" src="main.ts" defer></script>
+                        <div>
+                            <input type="checkbox" name="terms" id="register-terms">
+                            <label for="register-terms" class="input-field">By registering, you agree to the <a
+                                    href="terms-of-service.html">terms</a> and <a href="privacy-policy.html">privacy
+                                    policy</a></label>
+                        </div>
+                        <div id="register-error" class="error-message">
+                            <span class="material-symbols-outlined">error</span> <span
+                                id="register-error-message">Registration failed, please try again</span>
+                        </div>
+                        <button id="btn-register-submit">Register</button>
+                    </div>
+
+
+                </div>
+            </div>
+
+            <div id="profile">
+                <h1>Profile</h1>
+                <div id="profile-pfp-edit">
+                    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
+                        alt="Profile Picture" id="profile-pfp">
+                    <button id="btn-change-pfp" class="btn-textual material-symbols-outlined">edit</button>
+                </div>
+                <input type="text" id="profile-preferred-name" placeholder="Preferred Name" class="input-field">
+                <textarea id="profile-system-prompt" placeholder="System Prompt Addition" class="input-field"
+                    style="height: 5rem; resize:vertical"></textarea>
+                <button id="btn-profile-save">Save</button>
+                <button id="btn-profile-logout" class="btn-danger">Log Out</button>
+            </div>
+
+            <div id="form-subscription">
+                <h3>Pick a Subscription</h3>
+                <div class="btn-array">
+                    <button type="button" id="btn-subscribe-free" class="btn-neutral btn-subscription-choice">
+                        <div class="tier-content">
+                            <h1>Free</h1>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">Online
+                                    sync</span>
+                            </div>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">Sync
+                                    includes: up to 10 chats, unlimited personalities</span>
+                            </div>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">Access to
+                                    personality marketplace</span>
+                            </div>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">Bring your
+                                    own API key</span>
+                            </div>
+                            <div class="tier-price">
+                                <span class="material-symbols-outlined">attach_money</span>
+                                <span>Free</span>
+                            </div>
+                        </div>
+                    </button>
+                    <button type="button" id="btn-subscribe-pro" class="btn-neutral btn-subscription-choice">
+                        <div id="best-value">
+                            <span>Best Value</span>
+                        </div>
+                        <div class="tier-content">
+                            <h1>Pro</h1>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">Everything
+                                    from Free...</span>
+                            </div>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">You don't
+                                    need an API key</span>
+                            </div>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">Unlimited
+                                    Flash and Pro models with FULL token context limits</span>
+                            </div>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">No rate
+                                    limiting</span>
+                            </div>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">Unlimited
+                                    chat and personalities sync</span>
+                            </div>
+                            <div class="tier-price">
+                                <span class="material-symbols-outlined">attach_money</span>
+                                <span>14.99/month</span>
+                            </div>
+                        </div>
+                    </button>
+                    <button type="button" id="btn-subscribe-max" class="btn-neutral btn-subscription-choice" disabled>
+                        <div class="tier-content">
+                            <h1>Max</h1>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">Everything
+                                    from Pro...</span>
+                            </div>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">
+                                    Image Generation</span>
+                            </div>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">30 Image
+                                    generations per day</span>
+                            </div>
+                            <div class="selling-point">
+                                <span class="material-symbols-outlined">check_circle</span> <span
+                                    class="selling-point-text">Coming
+                                    soon</span>
+                            </div>
+                            <!-- price -->
+                            <div class="tier-price">
+                                <span class="material-symbols-outlined">attach_money</span>
+                                <span>29.99/month</span>
+                            </div>
+
+
+                        </div>
+                    </button>
+
+                </div>
+            </div>
+
+
+            <script type="module" src="main.ts" defer></script>
 </body>
 
 </html>

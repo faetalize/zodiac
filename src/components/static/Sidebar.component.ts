@@ -1,12 +1,11 @@
 import * as helpers from "../../utils/helpers";
+import * as overlayService from "../../services/Overlay.service";
 import * as personalityService from "../../services/Personality.service";
 import * as chatsService from "../../services/Chats.service";
 import { db } from "../../services/Db.service";
 
 const hideSidebarButton = document.querySelector("#btn-hide-sidebar");
 const showSidebarButton = document.querySelector("#btn-show-sidebar");
-const tabs = document.querySelectorAll<HTMLElement>(".navbar-tab");
-const tabHighlight = document.querySelector<HTMLElement>("#navbar-tab-highlight");
 const sidebarViews = document.querySelectorAll<HTMLElement>(".sidebar-section");
 const sidebar = document.querySelector<HTMLDivElement>(".sidebar");
 const clearAllPersonalitiesButton = document.querySelector("#btn-clearall-personality");
@@ -16,13 +15,12 @@ const importPersonalityButton = document.querySelector("#btn-import-personality"
 const clearAllDataButton = document.querySelector("#btn-clear-all-data");
 const bulkImportChatsButton = document.querySelector("#btn-bulk-import-chats");
 const exportAllChatsButton = document.querySelector("#btn-export-all-chats");
+const loginButton = document.querySelector("#btn-login");
 
 
 if (!sidebar ||
     !hideSidebarButton ||
     !showSidebarButton ||
-    !tabHighlight ||
-    !tabs ||
     !sidebarViews ||
     !clearAllPersonalitiesButton ||
     !deleteAllChatsButton ||
@@ -41,13 +39,13 @@ showSidebarButton.addEventListener("click", () => {
     helpers.showElement(sidebar, false);
 });
 clearAllPersonalitiesButton.addEventListener("click", async () => {
-    const confirmation = await helpers.confirmDialog("You are about to clear all your custom personalities. This action cannot be undone!");
+    const confirmation = await helpers.confirmDialogDanger("You are about to clear all your custom personalities. This action cannot be undone!");
     if (confirmation) {
         personalityService.removeAll();
     }
 });
 deleteAllChatsButton.addEventListener("click", async () => {
-    const confirmation = await helpers.confirmDialog("You are about to wipe your chats. This action cannot be undone!");
+    const confirmation = await helpers.confirmDialogDanger("You are about to wipe your chats. This action cannot be undone!");
     if (confirmation) {
         await chatsService.deleteAllChats(db);
     }
@@ -62,6 +60,10 @@ newChatButton.addEventListener("click", () => {
     }
     chatsService.newChat();
 });
+
+loginButton?.addEventListener("click", ()=>{
+    overlayService.show("login-register-tabs");
+})
 
 exportAllChatsButton.addEventListener("click", async () => {
     await chatsService.exportAllChats();
@@ -95,7 +97,7 @@ importPersonalityButton.addEventListener("click", () => {
 });
 
 clearAllDataButton.addEventListener("click", async () => {
-    const confirmation = await helpers.confirmDialog("You are about to clear all your data. This action cannot be undone!");
+    const confirmation = await helpers.confirmDialogDanger("You are about to clear all your data. This action cannot be undone!");
     if (confirmation) {
         await db.delete();
         localStorage.clear();
@@ -113,29 +115,3 @@ window.addEventListener("resize", () => {
         }
     }
 });
-
-let activeTabIndex: number | undefined = undefined;
-function navigateTo(tab: HTMLElement) {
-    const index = [...tabs].indexOf(tab);
-    if (index == activeTabIndex) {
-        return;
-    }
-    tab.classList.add("navbar-tab-active");
-    //hide active view before proceeding
-    if (activeTabIndex !== undefined) {
-        helpers.hideElement(sidebarViews[activeTabIndex]);
-        tabs[activeTabIndex].classList.remove("navbar-tab-active");
-    }
-    helpers.showElement(sidebarViews[index], true);
-    activeTabIndex = index;
-    tabHighlight!.style.left = `calc(100% / ${tabs.length} * ${index})`;
-}
-//tab setup
-tabHighlight!.style.width = `calc(100% / ${tabs.length})`;
-for (const tab of tabs) {
-    tab.addEventListener("click", () => {
-        navigateTo(tab);
-    });
-}
-
-navigateTo(tabs[0]);
