@@ -107,7 +107,7 @@ export async function fileToBase64(file: File): Promise<string> {
     });
 }
 
-export async function confirmDialog(message: string): Promise<boolean> {
+export async function confirmDialogDanger(message: string): Promise<boolean> {
     const dialog = document.querySelector<HTMLDivElement>("#dialog");
     const dialogMessage = document.querySelector<HTMLDivElement>("#dialog-message");
     const btnDialogOk = document.querySelector<HTMLButtonElement>("#btn-dialog-ok");

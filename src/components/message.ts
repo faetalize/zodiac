@@ -150,7 +150,7 @@ function setupMessageRegeneration(messageElement: HTMLElement) {
 
     refreshButton.addEventListener("click", async () => {
         try {
-            const confirmation = await helpers.confirmDialog("This action will also clear messages after the response you wish to regenerate. This action cannot be undone!");
+            const confirmation = await helpers.confirmDialogDanger("This action will also clear messages after the response you wish to regenerate. This action cannot be undone!");
             if (confirmation) {
                 await messageService.regenerate(messageElement);
             }
