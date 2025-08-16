@@ -62,6 +62,7 @@ newChatButton.addEventListener("click", () => {
 });
 
 loginButton?.addEventListener("click", ()=>{
+    return;
     overlayService.show("login-register-tabs");
 })
 
