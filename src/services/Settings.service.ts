@@ -1,4 +1,5 @@
 import { HarmBlockThreshold, HarmCategory } from "@google/genai";
+import * as supabaseService from "./Supabase.service";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
@@ -51,7 +52,8 @@ export function getSettings() {
     }
 }
 
-export function getSystemPrompt() {
+export async function getSystemPrompt() {
+    const userProfile = await supabaseService.getUserProfile();
     const systemPrompt = "If needed, format your answer using markdown. " +
         "Today's date is " + new Date().toDateString() + ". " +
         "You are to act as the personality dictated by the user. " +
@@ -67,6 +69,7 @@ export function getSystemPrompt() {
         "2 requires you to be moderately sensual. You may flirt and be suggestive. Do not initiate sexual topics unless the user does so, after which you may be open to discussing them. " +
         "1 requires you to be slightly sensual. Affection and love may be shared but it is platonic and non sexual. " +
         "0 requires you to be non-sensual. Total aversion to flirting or sexuality. If aggressiveness is 0, you may not reject the user's advances, but you do not reciprocate or enjoy them. " +
+        userProfile.systemPromptAddition + " " +
         "End of system prompt.";
     return systemPrompt;
 }

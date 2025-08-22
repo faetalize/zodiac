@@ -166,4 +166,12 @@
         background-color: #461010;
     }
 
+     #profile-pfp {
+        filter: invert(1);
+    }
+
+    #profile-pfp[src]:not([src=""]):not([src="undefined"]):not([src="null"]):not([src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="]){
+        filter: invert(0);
+    }
+
 }

@@ -24,5 +24,4 @@ await personalityService.initialize();
 const hideOverlayButton = document.querySelector("#btn-hide-overlay");
 hideOverlayButton?.addEventListener("click", () => overlayService.closeOverlay());
 
-
-await supabaseService.logout();
+overlayService.show("profile")

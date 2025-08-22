@@ -1,5 +1,5 @@
 export interface User {
-    avatar: string;
+    avatar?: string;
     preferredName: string;
     systemPromptAddition: string;
 }

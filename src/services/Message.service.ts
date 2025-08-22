@@ -3,6 +3,7 @@ import { Content, GenerateContentConfig, GenerateContentResponse, GoogleGenAI, P
 import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
+import * as supabaseService from "./Supabase.service";
 import * as helpers from "../utils/helpers";
 import hljs from 'highlight.js';
 import { db } from "./Db.service";
@@ -18,6 +19,7 @@ export async function send(msg: string) {
     const isInternetSearchEnabled = document.querySelector<HTMLButtonElement>("#btn-internet")?.classList.contains("btn-toggled");
     const attachments = document.querySelector<HTMLInputElement>("#attachments");
     const attachmentFiles = structuredClone(attachments?.files) || new DataTransfer().files;
+    
     attachments!.value = ""; // Clear attachments input after sending
     attachments!.files = new DataTransfer().files; // Reset the FileList
     clearAttachmentPreviews(); // Clear attachment previews
@@ -44,7 +46,7 @@ export async function send(msg: string) {
     const config: GenerateContentConfig = {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: parseInt(settings.temperature) / 100,
-        systemInstruction: settingsService.getSystemPrompt(),
+        systemInstruction: await settingsService.getSystemPrompt(),
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain",
         tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined
