@@ -129,6 +129,8 @@ form {
     display: none;
     flex-direction: column;
     transition: height 0.2s ease-in-out;
+    height: 32rem;
+    width: 32rem;
 }
 
 #login{
@@ -744,8 +746,10 @@ form {
     background-image: none;
 }
 
+
+
 #profile{
-    height: unset;
+    width: 24rem;
     display: none;
     flex-direction: column;
     align-items: center;

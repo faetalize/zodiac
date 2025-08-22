@@ -15,7 +15,7 @@ const importPersonalityButton = document.querySelector("#btn-import-personality"
 const clearAllDataButton = document.querySelector("#btn-clear-all-data");
 const bulkImportChatsButton = document.querySelector("#btn-bulk-import-chats");
 const exportAllChatsButton = document.querySelector("#btn-export-all-chats");
-const loginButton = document.querySelector("#btn-login");
+
 
 
 if (!sidebar ||
@@ -61,10 +61,7 @@ newChatButton.addEventListener("click", () => {
     chatsService.newChat();
 });
 
-loginButton?.addEventListener("click", ()=>{
-    return;
-    overlayService.show("login-register-tabs");
-})
+
 
 exportAllChatsButton.addEventListener("click", async () => {
     await chatsService.exportAllChats();

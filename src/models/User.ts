@@ -1,6 +1,4 @@
-import { UserMetadata } from "@supabase/supabase-js";
-
-export interface User extends UserMetadata{
+export interface User {
     avatar: string;
     preferredName: string;
     systemPromptAddition: string;
