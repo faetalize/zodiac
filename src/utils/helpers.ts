@@ -107,6 +107,64 @@ export async function fileToBase64(file: File): Promise<string> {
     });
 }
 
+/**
+ * Calculates fuzzy search score between a search term and a target string
+ * Returns a score from 0 to 1, where 1 is a perfect match
+ * @param searchTerm The term being searched for
+ * @param target The string to search within
+ * @returns Score between 0 and 1, or null if no match
+ */
+export function fuzzySearch(searchTerm: string, target: string): number | null {
+    if (!searchTerm || !target) {
+        return null;
+    }
+
+    const search = searchTerm.toLowerCase();
+    const text = target.toLowerCase();
+    
+    // Exact match gets highest score
+    if (text === search) {
+        return 1;
+    }
+    
+    // Contains search term gets high score
+    if (text.includes(search)) {
+        return 0.8 + (0.2 * (search.length / text.length));
+    }
+    
+    // Fuzzy matching - check if all characters in search term appear in order
+    let searchIndex = 0;
+    let matchedChars = 0;
+    let consecutiveMatches = 0;
+    let maxConsecutiveMatches = 0;
+    
+    for (let i = 0; i < text.length && searchIndex < search.length; i++) {
+        if (text[i] === search[searchIndex]) {
+            matchedChars++;
+            searchIndex++;
+            consecutiveMatches++;
+            maxConsecutiveMatches = Math.max(maxConsecutiveMatches, consecutiveMatches);
+        } else {
+            consecutiveMatches = 0;
+        }
+    }
+    
+    // All characters must be found in order
+    if (searchIndex < search.length) {
+        return null;
+    }
+    
+    // Calculate score based on:
+    // - Percentage of characters matched
+    // - Longest consecutive match sequence
+    // - Relative length of search term to target
+    const charMatchRatio = matchedChars / search.length;
+    const consecutiveBonus = maxConsecutiveMatches / search.length;
+    const lengthPenalty = search.length / text.length;
+    
+    return (charMatchRatio * 0.4) + (consecutiveBonus * 0.4) + (lengthPenalty * 0.2);
+}
+
 export async function confirmDialogDanger(message: string): Promise<boolean> {
     const dialog = document.querySelector<HTMLDivElement>("#dialog");
     const dialogMessage = document.querySelector<HTMLDivElement>("#dialog-message");
