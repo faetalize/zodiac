@@ -139,3 +139,4 @@ node_modules
 #live-server
 .vite
 .vite/*
+.github/copilot-instructions.md
