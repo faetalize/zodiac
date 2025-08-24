@@ -45,6 +45,7 @@ function insertChatEntry(chat: DbChat) {
 
     // chat title
     const chatLabelText = document.createElement("span");
+    chatLabelText.classList.add("chat-title-text");
     chatLabelText.style.overflow = "hidden";
     chatLabelText.style.textOverflow = "ellipsis";
     chatLabelText.textContent = chat.title;

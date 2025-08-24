@@ -15,8 +15,10 @@ const importPersonalityButton = document.querySelector("#btn-import-personality"
 const clearAllDataButton = document.querySelector("#btn-clear-all-data");
 const bulkImportChatsButton = document.querySelector("#btn-bulk-import-chats");
 const exportAllChatsButton = document.querySelector("#btn-export-all-chats");
+const chatSearchInput = document.querySelector<HTMLInputElement>("#chat-search-input");
 
-
+// Debounce timer for chat search
+let chatSearchDebounceTimer: number;
 
 if (!sidebar ||
     !hideSidebarButton ||
@@ -28,6 +30,7 @@ if (!sidebar ||
     !importPersonalityButton ||
     !exportAllChatsButton ||
     !bulkImportChatsButton ||
+    !chatSearchInput ||
     !clearAllDataButton) {
     console.error("Sidebar component is missing some elements. Please check the HTML structure.");
     throw new Error("Sidebar component is not properly initialized.");
@@ -61,7 +64,28 @@ newChatButton.addEventListener("click", () => {
     chatsService.newChat();
 });
 
-
+chatSearchInput.addEventListener("input", () => {
+    // Clear existing timer
+    clearTimeout(chatSearchDebounceTimer);
+    
+    // Set new timer with 300ms delay
+    chatSearchDebounceTimer = window.setTimeout(() => {
+        const searchTerm = chatSearchInput.value.toLowerCase();
+        const chatHistorySection = document.querySelector("#chatHistorySection");
+        if (!chatHistorySection) {
+            return;
+        }
+        const chatElements = chatHistorySection.querySelectorAll<HTMLLabelElement>(".label-currentchat");
+        chatElements.forEach(chatElement => {
+            const chatName = chatElement.querySelector('.chat-title-text')?.textContent?.toLowerCase();
+            if (chatName && chatName.includes(searchTerm)) {
+                helpers.showElement(chatElement, true);
+            } else {
+                helpers.hideElement(chatElement);
+            }
+        });
+    }, 300);
+});
 
 exportAllChatsButton.addEventListener("click", async () => {
     await chatsService.exportAllChats();
