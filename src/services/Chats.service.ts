@@ -2,6 +2,7 @@ import * as messageService from "./Message.service"
 import * as helpers from "../utils/helpers"
 import { Db, db } from "./Db.service";
 import { Chat, DbChat } from "../models/Chat";
+import { Message } from "../models/Message";
 const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
 const chatHistorySection = document.querySelector<HTMLDivElement>("#chatHistorySection");
 const sidebar = document.querySelector<HTMLDivElement>(".sidebar");
@@ -105,11 +106,11 @@ function insertChatEntry(chat: DbChat) {
     }
 }
 
-export async function addChat(title: string, db: Db) {
+export async function addChat(title: string, content?: Message[]) {
     const chat: Chat = {
         title: title,
         timestamp: Date.now(),
-        content: []
+        content: content || []
     };
     const id = await db.chats.put(chat);
     insertChatEntry({ ...chat, id });

@@ -80,7 +80,7 @@ export async function send(msg: string) {
             contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
         });
         const title = response.text || "";
-        const id = await chatsService.addChat(title, db);
+        const id = await chatsService.addChat(title);
         (document.querySelector(`#chat${id}`) as HTMLElement)?.click();
     }
 
