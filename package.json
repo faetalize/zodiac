@@ -17,6 +17,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "devlocal": "vite --host",
     "build": "vite build",
     "preview": "vite preview"
   }
