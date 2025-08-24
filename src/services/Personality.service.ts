@@ -9,6 +9,7 @@ export async function initialize() {
         console.error("Default personality failed to insert");
         return
     }
+    defaultPersonalityCard.querySelector(".btn-edit-card")?.remove(); // Remove edit button from default personality
     defaultPersonalityCard.querySelector("input")?.click();
 
     //load all personalities from local storage
