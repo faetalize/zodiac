@@ -689,6 +689,10 @@ form {
 
 }
 
+#chat-title{
+    font-size: 1.2rem;
+}
+
 .sidebar {
     position: sticky;
     top: 1rem;

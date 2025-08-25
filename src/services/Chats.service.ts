@@ -3,6 +3,7 @@ import * as helpers from "../utils/helpers"
 import { Db, db } from "./Db.service";
 import { Chat, DbChat } from "../models/Chat";
 import { Message } from "../models/Message";
+import hljs from "highlight.js";
 const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
 const chatHistorySection = document.querySelector<HTMLDivElement>("#chatHistorySection");
 const sidebar = document.querySelector<HTMLDivElement>(".sidebar");
@@ -146,6 +147,7 @@ export function newChat() {
         return;
     }
     messageContainer.innerHTML = "";
+    document.querySelector("#chat-title")!.textContent = "";
     const checkedInput = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
     if (checkedInput) {
         checkedInput.checked = false;
@@ -162,6 +164,7 @@ export async function loadChat(chatID: number, db: Db) {
         const currentChat = await getCurrentChat(db);
         if (currentChat) {
             messageContainer.innerHTML = ""; // Clear existing messages
+            document.querySelector("#chat-title")!.textContent = currentChat.title;
         }
         const chat = await db.chats.get(chatID);
         for (const msg of chat?.content || []) {
@@ -172,6 +175,7 @@ export async function loadChat(chatID: number, db: Db) {
             top: messageContainer.scrollHeight,
             behavior: 'instant'
         });
+        hljs.highlightAll();
     }
     catch (error) {
         alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
