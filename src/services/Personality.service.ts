@@ -117,11 +117,13 @@ export function createAddPersonalityCard() {
 
 export async function removeAll() {
     await db.personalities.clear();
-    for (const child of document.querySelector<HTMLDivElement>("#personalitiesDiv")!.children) {
-        if (child.id) {
-            child.remove();
+    const personalityElements = document.querySelector<HTMLDivElement>("#personalitiesDiv")!.children;
+    for (let i = personalityElements.length - 1; i >= 0; i--) {
+        const element = personalityElements[i];
+        if (element.id !== "btn-add-personality" && element.id) {
+            element.remove();
         }
-    };
+    }
 }
 
 export async function add(personality: Personality) {
