@@ -3,7 +3,6 @@ import { Content, GenerateContentConfig, GenerateContentResponse, GoogleGenAI, P
 import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
-import * as supabaseService from "./Supabase.service";
 import * as helpers from "../utils/helpers";
 import hljs from 'highlight.js';
 import { db } from "./Db.service";
