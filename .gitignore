@@ -144,3 +144,4 @@ supabase
 supabase/*
 supabase/functions
 supabase/functions/*
+deno.lock
