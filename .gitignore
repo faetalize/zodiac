@@ -140,3 +140,7 @@ node_modules
 .vite
 .vite/*
 .github/copilot-instructions.md
+supabase
+supabase/*
+supabase/functions
+supabase/functions/*
