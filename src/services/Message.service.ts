@@ -1,5 +1,5 @@
 //handles sending messages to the api
-import { Content, GenerateContentConfig, GenerateContentResponse, GoogleGenAI, Part, createPartFromUri } from "@google/genai"
+import { Content, GenerateContentConfig, GenerateContentResponse, GoogleGenAI, Part, PersonGeneration, SafetyFilterLevel, createPartFromUri } from "@google/genai"
 import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
@@ -10,6 +10,8 @@ import { parseMarkdownToHtml } from "./Parser.service";
 import { clearAttachmentPreviews } from "../components/static/AttachmentPreview.component";
 import { Message } from "../models/Message";
 import { messageElement } from "../components/message";
+import { isImageModeActive } from "../components/static/ImageButton.component";
+import { Buffer } from "buffer/";
 
 export async function send(msg: string) {
     const settings = settingsService.getSettings();
@@ -18,10 +20,12 @@ export async function send(msg: string) {
     const isInternetSearchEnabled = document.querySelector<HTMLButtonElement>("#btn-internet")?.classList.contains("btn-toggled");
     const attachments = document.querySelector<HTMLInputElement>("#attachments");
     const attachmentFiles = structuredClone(attachments?.files) || new DataTransfer().files;
-    
+
     attachments!.value = ""; // Clear attachments input after sending
     attachments!.files = new DataTransfer().files; // Reset the FileList
     clearAttachmentPreviews(); // Clear attachment previews
+
+    const imageGenerationMode = isImageModeActive();
 
     if (!selectedPersonality) {
         return;
@@ -34,11 +38,6 @@ export async function send(msg: string) {
         return;
     }
 
-    //handling user's message
-    const message: Message = {
-        role: "user",
-        parts: [{ text: msg, attachments: attachmentFiles }],
-    }
 
     //model setup
     const ai = new GoogleGenAI({ apiKey: settings.apiKey });
@@ -50,6 +49,38 @@ export async function send(msg: string) {
         responseMimeType: "text/plain",
         tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined
     };
+
+    if (imageGenerationMode) {
+        const response = await ai.models.generateImages({
+            model: 'models/imagen-4.0-ultra-generate-001',
+            prompt: msg,
+            config: {
+                numberOfImages: 1,
+                outputMimeType: 'image/jpeg',
+                personGeneration: PersonGeneration.ALLOW_ALL,
+                aspectRatio: '1:1',
+                safetyFilterLevel: SafetyFilterLevel.BLOCK_LOW_AND_ABOVE,
+            },
+        });
+        if(!response.generatedImages){
+            alert("Image generation failed");
+            return;
+        }
+        const b64 = response.generatedImages[0].image?.imageBytes;
+        const imageElement = document.createElement("img");
+        imageElement.src = `data:image/jpeg;base64,${b64}`;
+        document.body.appendChild(imageElement);
+        return;
+    }
+
+
+    //handling user's message
+    const message: Message = {
+        role: "user",
+        parts: [{ text: msg, attachments: attachmentFiles }],
+    }
+
+
 
     //initlialize chat history
     const history: Content[] = [

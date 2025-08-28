@@ -11,7 +11,6 @@ imageButton.addEventListener("click", () => {
     imageButton.classList.toggle("btn-toggled");
 });
 
-// Export the state for other components to access
 export function isImageModeActive(): boolean {
     return isImageModeEnabled;
 }

@@ -47,12 +47,15 @@ sendMessageButton.addEventListener("click", async () => {
         messageInput.innerHTML = "";
         userMessageElement = await messageService.send(message);
     } catch (error: any) {
-        (userMessageElement as HTMLElement).classList.add("message-failure");
+        if (userMessageElement) {
+            (userMessageElement as HTMLElement).classList.add("message-failure");
+        }
         if ((error as any).status === 429) {
             alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");
             return;
         }
         alert("Error, please report this to the developer. You might need to restart the page to continue normal usage.");
+        console.log(error);
         return;
     }
 });
