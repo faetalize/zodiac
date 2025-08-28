@@ -2,6 +2,7 @@
   "devDependencies": {
     "@types/marked": "^5.0.2",
     "@types/turndown": "^5.0.5",
+    "supabase": "^2.39.2",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   },
