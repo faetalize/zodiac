@@ -95,6 +95,10 @@ button:focus {
     outline: none;
 }
 
+input:disabled{
+    filter: blur(2px);
+}
+
 #btn-whatsnew {
     justify-self: center;
 }
