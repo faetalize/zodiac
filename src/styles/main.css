@@ -393,6 +393,7 @@ form {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    scrollbar-gutter: stable;
     gap: 1rem;
     padding-bottom: 1.5rem;
     flex-grow: 1;
@@ -723,6 +724,7 @@ form {
 
 .sidebar-section {
     overflow-y: auto;
+    scrollbar-gutter: stable;
     margin-bottom: 1rem;
     height: 100%;
     display: flex;
@@ -766,6 +768,7 @@ form {
     align-items: center;
     gap: 1rem;
     overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 
 #profile>* {
@@ -799,6 +802,7 @@ form {
     flex-direction: column;
     gap: 0.4rem;
     padding: 0 1rem 0.75rem 1rem;
+    font-size: 0.95rem;
 }
 
 .subscription-row{
@@ -812,12 +816,20 @@ form {
     display: flex;
     justify-content: flex-end;
     padding: 0.5rem 1rem 0.75rem 1rem;
+    font-size: 0.95rem;
 }
 
-/* Collapsed state hides body and footer */
-#subscription-status-row.collapsed .subscription-card-body,
-#subscription-status-row.collapsed .subscription-card-footer{
-    display: none;
+/* Collapsed state hides details with transition */
+.subscription-card-details{
+    overflow: hidden;
+    max-height: 500px; /* expanded baseline */
+    opacity: 1;
+    transition: max-height 0.2s ease, opacity 0.2s ease;
+}
+
+#subscription-status-row.collapsed .subscription-card-details{
+    max-height: 0;
+    opacity: 0;
 }
 
 /* Balanced padding when collapsed so header looks centered */
@@ -882,6 +894,7 @@ form {
     font-weight: 600;
     flex-shrink: 0;
     font-size: 0.8rem;
+    width: 100%;
 }
 
 #personalitiesDiv {
@@ -1321,6 +1334,7 @@ input[name="currentChat"][value="none"] {
     flex-grow: 1;
     padding: 2rem 2rem 0 2rem;
     overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 
 #dialog-buttons {

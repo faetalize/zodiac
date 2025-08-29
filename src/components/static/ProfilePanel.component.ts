@@ -20,17 +20,10 @@ if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveBut
 function toggleSubscriptionCard(){
     const cardEl = subscriptionCard as HTMLElement;
     const isCollapsed = cardEl.classList.toggle('collapsed');
-    cardEl.setAttribute('aria-expanded', (!isCollapsed).toString());
 }
 
 const headerEl = subscriptionHeader as HTMLElement;
 headerEl.addEventListener('click', toggleSubscriptionCard);
-headerEl.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggleSubscriptionCard();
-    }
-});
 
 pfpChangeButton.addEventListener("click", async () => {
     const tempInput: HTMLInputElement = document.createElement("input");
