@@ -388,12 +388,12 @@
                         alt="Profile Picture" id="profile-pfp">
                     <button id="btn-change-pfp" class="btn-textual material-symbols-outlined">edit</button>
                 </div>
-                <div id="subscription-status-row" class="logged-in-component hidden">
-                    <div class="subscription-card-header">
+                <div id="subscription-status-row" class="logged-in-component hidden collapsed" aria-expanded="false">
+                    <div class="subscription-card-header" role="button" tabindex="0" aria-controls="subscription-card-content">
                         <h3 style="margin:0;">Subscription</h3>
                         <span id="subscription-badge" class="badge">Free</span>
                     </div>
-                    <div class="subscription-card-body">
+                    <div id="subscription-card-content" class="subscription-card-body">
                         <div class="subscription-row">
                             <span class="setting-label">Current tier</span>
                             <span id="subscription-tier-text">Free</span>

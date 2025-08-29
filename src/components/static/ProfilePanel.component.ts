@@ -7,12 +7,30 @@ const systemPromptAddition = document.querySelector("#profile-system-prompt");
 const saveButton = document.querySelector("#btn-profile-save");
 const subscriptionBadge = document.querySelector<HTMLElement>("#subscription-badge");
 const manageSubscriptionBtn = document.querySelector<HTMLButtonElement>("#btn-manage-subscription");
+const subscriptionCard = document.querySelector<HTMLElement>("#subscription-status-row");
+const subscriptionHeader = document.querySelector<HTMLElement>(".subscription-card-header");
 let image: File;
 
-if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn) {
+if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader) {
     console.error("One or more profile panel elements are missing.");
     throw new Error("Profile panel initialization failed.");
 }
+
+// Expand/collapse subscription card
+function toggleSubscriptionCard(){
+    const cardEl = subscriptionCard as HTMLElement;
+    const isCollapsed = cardEl.classList.toggle('collapsed');
+    cardEl.setAttribute('aria-expanded', (!isCollapsed).toString());
+}
+
+const headerEl = subscriptionHeader as HTMLElement;
+headerEl.addEventListener('click', toggleSubscriptionCard);
+headerEl.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleSubscriptionCard();
+    }
+});
 
 pfpChangeButton.addEventListener("click", async () => {
     const tempInput: HTMLInputElement = document.createElement("input");

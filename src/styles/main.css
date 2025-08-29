@@ -790,6 +790,8 @@ form {
     align-items: center;
     justify-content: space-between;
     padding: 0.75rem 1rem 0.25rem 1rem;
+    cursor: pointer;
+    user-select: none;
 }
 
 .subscription-card-body{
@@ -810,6 +812,17 @@ form {
     display: flex;
     justify-content: flex-end;
     padding: 0.5rem 1rem 0.75rem 1rem;
+}
+
+/* Collapsed state hides body and footer */
+#subscription-status-row.collapsed .subscription-card-body,
+#subscription-status-row.collapsed .subscription-card-footer{
+    display: none;
+}
+
+/* Balanced padding when collapsed so header looks centered */
+#subscription-status-row.collapsed .subscription-card-header{
+    padding: 0.75rem 1rem;
 }
 
 #subscription-badge{
