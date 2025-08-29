@@ -145,6 +145,11 @@
         background-color: #0e1a24;
         border-color: #2a3a45;
     }
+    /* Info profile card (dark) */
+    #profile-info-card{
+        background-color: #0e1a24;
+        border-color: #2a3a45;
+    }
     .subscription-card-header{ background-color: transparent; }
     .subscription-card-body{ background-color: transparent; }
     .subscription-card-footer{ background-color: transparent; }

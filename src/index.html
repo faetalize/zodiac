@@ -409,9 +409,18 @@
                         </div>
                     </div>
                 </div>
-                <input type="text" id="profile-preferred-name" placeholder="Preferred Name" class="input-field">
-                <textarea id="profile-system-prompt" placeholder="System Prompt Addition" class="input-field"
-                    style="height: 5rem; resize:vertical"></textarea>
+                <div id="profile-info-card" class="profile-card collapsed">
+                    <div class="subscription-card-header">
+                        <h3 style="margin:0;">Info</h3>
+                    </div>
+                    <div id="profile-info-content" class="subscription-card-details">
+                        <div class="subscription-card-body">
+                            <input type="text" id="profile-preferred-name" placeholder="Preferred Name" class="input-field">
+                            <textarea id="profile-system-prompt" placeholder="System Prompt Addition" class="input-field"
+                                style="height: 5rem; resize:vertical"></textarea>
+                        </div>
+                    </div>
+                </div>
                 <button id="btn-profile-save">Save</button>
                 <button id="btn-profile-logout" class="btn-danger">Log Out</button>
             </div>

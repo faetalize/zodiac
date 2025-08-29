@@ -142,6 +142,11 @@
         background-color: #e8f1ff;
         border-color: #cbdbf0;
     }
+    /* Info profile card (light) */
+    #profile-info-card{
+        background-color: #e8f1ff;
+        border-color: #cbdbf0;
+    }
     .subscription-card-header{ background-color: transparent; }
     .subscription-card-body{ background-color: transparent; }
     .subscription-card-footer{ background-color: transparent; }

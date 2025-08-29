@@ -777,6 +777,17 @@ form {
     width: 100%;
 }
 
+/* Generic profile cards */
+.profile-card{
+    border-radius: 0.75rem;
+    border: 1px solid transparent; /* themed */
+    overflow: hidden;
+}
+
+.profile-card .subscription-card-body{
+    gap: 0.6rem;
+}
+
 /* Subscription card */
 #subscription-status-row{
     display: flex;
@@ -788,11 +799,15 @@ form {
     border: 1px solid transparent; /* themed */
 }
 
+#subscription-status-row.collapsed{
+   gap: 0;
+}
+
 .subscription-card-header{
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem 1rem 0.25rem 1rem;
+    padding: 0.75rem 1rem 0.75rem 1rem;
     cursor: pointer;
     user-select: none;
 }
@@ -823,22 +838,10 @@ form {
 .subscription-card-details{
     overflow: hidden;
     height: 0;
-    opacity: 0;
-    transition: height 0.22s ease-in-out, opacity 0.18s ease-in-out;
+    transition: height 0.22s ease-in-out;
+    will-change: height;
 }
 
-#subscription-status-row:not(.collapsed) .subscription-card-details{
-    opacity: 1;
-}
-
-#subscription-status-row.collapsed{
-    gap: 0;
-}
-
-/* Balanced padding when collapsed so header looks centered */
-#subscription-status-row.collapsed .subscription-card-header{
-    padding: 0.75rem 1rem;
-}
 
 #subscription-badge{
     text-transform: uppercase;

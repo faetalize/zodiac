@@ -8,18 +8,19 @@ const saveButton = document.querySelector("#btn-profile-save");
 const subscriptionBadge = document.querySelector<HTMLElement>("#subscription-badge");
 const manageSubscriptionBtn = document.querySelector<HTMLButtonElement>("#btn-manage-subscription");
 const subscriptionCard = document.querySelector<HTMLElement>("#subscription-status-row");
-const subscriptionHeader = document.querySelector<HTMLElement>(".subscription-card-header");
+const subscriptionHeader = document.querySelector<HTMLElement>("#subscription-status-row .subscription-card-header");
+const infoCard = document.querySelector<HTMLElement>("#profile-info-card");
+const infoHeader = document.querySelector<HTMLElement>("#profile-info-card .subscription-card-header");
 let image: File;
 
-if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader) {
+if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader || !infoCard || !infoHeader) {
     console.error("One or more profile panel elements are missing.");
     throw new Error("Profile panel initialization failed.");
 }
 
-// Expand/collapse subscription card
-function toggleSubscriptionCard(){
-    const cardEl = subscriptionCard as HTMLElement;
-    const content = document.querySelector<HTMLElement>('#subscription-card-content');
+// Smooth expand/collapse helper
+function toggleCard(cardEl: HTMLElement, contentSelector: string){
+    const content = document.querySelector<HTMLElement>(contentSelector);
     if (!content) {
         cardEl.classList.toggle('collapsed');
         return;
@@ -52,8 +53,21 @@ function toggleSubscriptionCard(){
     }
 }
 
-const headerEl = subscriptionHeader as HTMLElement;
-headerEl.addEventListener('click', toggleSubscriptionCard);
+const subHeaderEl = subscriptionHeader as HTMLElement;
+subHeaderEl.addEventListener('click', () => toggleCard(subscriptionCard as HTMLElement, '#subscription-card-content'));
+
+const infoHeaderEl = infoHeader as HTMLElement;
+infoHeaderEl.addEventListener('click', () => toggleCard(infoCard as HTMLElement, '#profile-info-content'));
+
+// Initialize collapsed states' inline heights to 0 to avoid flash
+const subContent = document.querySelector<HTMLElement>('#subscription-card-content');
+if ((subscriptionCard as HTMLElement).classList.contains('collapsed') && subContent) {
+    subContent.style.height = '0px';
+}
+const infoContent = document.querySelector<HTMLElement>('#profile-info-content');
+if ((infoCard as HTMLElement).classList.contains('collapsed') && infoContent) {
+    infoContent.style.height = '0px';
+}
 
 pfpChangeButton.addEventListener("click", async () => {
     const tempInput: HTMLInputElement = document.createElement("input");
