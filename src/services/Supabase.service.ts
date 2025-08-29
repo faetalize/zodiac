@@ -71,6 +71,21 @@ supabase.auth.onAuthStateChange((event, session) => {
         if (periodEndEl) {
             periodEndEl.textContent = '—';
         }
+
+        // Treat signed-out as Free tier for settings UI
+        const apiKeyInput = document.querySelector<HTMLInputElement>('#apiKeyInput');
+        const noNeedMsg = document.querySelector<HTMLElement>('#apiKeyNoNeedMsg');
+        const orDivider = document.querySelector<HTMLElement>('#or-divider');
+        const upgradeBtn = document.querySelector<HTMLButtonElement>('#btn-show-subscription-options');
+        const apiKeyError = document.querySelector<HTMLElement>('.api-key-error');
+        if (apiKeyInput) {
+            apiKeyInput.disabled = false;
+            apiKeyInput.classList.remove('api-key-invalid', 'api-key-valid');
+        }
+        if (apiKeyError) apiKeyError.classList.add('hidden');
+        if (noNeedMsg) noNeedMsg.classList.add('hidden');
+        if (orDivider) orDivider.classList.remove('hidden');
+        if (upgradeBtn) upgradeBtn.classList.remove('hidden');
         supabase.removeAllChannels();
     }
 });
@@ -269,6 +284,26 @@ export async function updateSubscriptionUI(): Promise<void> {
                 };
             }
         }
+
+        // Toggle Settings section based on subscription tier
+        const apiKeyInput = document.querySelector<HTMLInputElement>('#apiKeyInput');
+        const noNeedMsg = document.querySelector<HTMLElement>('#apiKeyNoNeedMsg');
+        const orDivider = document.querySelector<HTMLElement>('#or-divider');
+        const upgradeBtn = document.querySelector<HTMLButtonElement>('#btn-show-subscription-options');
+        const apiKeyError = document.querySelector<HTMLElement>('.api-key-error');
+
+        const isSubscribed = tier === 'pro' || tier === 'max';
+        if (apiKeyInput) {
+            apiKeyInput.disabled = isSubscribed;
+            if (isSubscribed) {
+                // Clear error/validation visuals
+                apiKeyInput.classList.remove('api-key-invalid');
+                if (apiKeyError) apiKeyError.classList.add('hidden');
+            }
+        }
+        if (noNeedMsg) noNeedMsg.classList.toggle('hidden', !isSubscribed);
+        if (orDivider) orDivider.classList.toggle('hidden', isSubscribed);
+        if (upgradeBtn) upgradeBtn.classList.toggle('hidden', isSubscribed);
     } catch (err) {
         console.error('Error updating subscription UI:', err);
     }

@@ -261,6 +261,18 @@ form {
     }
 }
 
+/* Compact group wrapper for API key input and small status/hint */
+.api-key-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.hint {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
 .stepper {
     display: flex;
     flex-direction: column;
@@ -363,7 +375,7 @@ form {
     transition: all 0.2s;
 }
 
-#btn-subscribe-to-pro {
+#btn-show-subscription-options {
     width: fit-content;
     align-self: center;
     /* gradient */
@@ -372,11 +384,11 @@ form {
     color: white;
 }
 
-#btn-subscribe-to-pro:hover {
+#btn-show-subscription-options:hover {
     filter: brightness(0.9);
 }
 
-#btn-subscribe-to-pro:active {
+#btn-show-subscription-options:active {
     filter: brightness(0.8);
 }
 

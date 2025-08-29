@@ -96,22 +96,25 @@
 
                 <div class="sidebar-section hidden">
                     <h3>API Key</h3>
-                    <div class="api-key">
-                        <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
-                            class="input-field"></input>
-                        <button class="material-symbols-outlined btn-textual"
-                            onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')">
-                            help
-                        </button>
+                    <div class="api-key-group">
+                        <div class="api-key">
+                            <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
+                                class="input-field"></input>
+                            <button class="material-symbols-outlined btn-textual"
+                                onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')">
+                                help
+                            </button>
+                        </div>
+                        <div class="api-key-error hidden">
+                            <span class="material-symbols-outlined">error</span> Invalid API Key
+                        </div>
+                        <div id="apiKeyNoNeedMsg" class="hint hidden">No API key required, enjoy!</div>
                     </div>
-                    <div class="api-key-error hidden">
-                        <span class="material-symbols-outlined">error</span> Invalid API Key
-                    </div>
-                    <div style="
+                    <div id="or-divider" style="
                         text-align: center;
                         font-weight: 800;
                         text-transform: uppercase;">or</div>
-                    <button id="btn-subscribe-to-pro">Subscribe to Pro</button>
+                    <button id="btn-show-subscription-options">Upgrade</button>
                     <h3>Generation Settings</h3>
                     <div class="generation-settings">
                         <div>
