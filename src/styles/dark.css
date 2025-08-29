@@ -95,9 +95,15 @@
         color: #b6ebfb;
     }
 
-    /* Disable hover effect for subscription badge */
-    #subscription-badge:hover {
-        background-color: inherit;
+    /* Keep subscription badge background unchanged on hover */
+    #subscription-badge.badge-tier-free:hover {
+        background-color: #253a5c !important;
+    }
+    #subscription-badge.badge-tier-pro:hover {
+        background-color: #164321 !important;
+    }
+    #subscription-badge.badge-tier-max:hover {
+        background-color: #3a255c !important;
     }
 
     /* Subscription badge tiers */
