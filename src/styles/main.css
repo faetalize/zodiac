@@ -819,17 +819,20 @@ form {
     font-size: 0.95rem;
 }
 
-/* Collapsed state hides details with transition */
+/* Collapsible details with smooth height transition */
 .subscription-card-details{
     overflow: hidden;
-    max-height: 500px; /* expanded baseline */
-    opacity: 1;
-    transition: max-height 0.2s ease, opacity 0.2s ease;
+    height: 0;
+    opacity: 0;
+    transition: height 0.22s ease-in-out, opacity 0.18s ease-in-out;
 }
 
-#subscription-status-row.collapsed .subscription-card-details{
-    max-height: 0;
-    opacity: 0;
+#subscription-status-row:not(.collapsed) .subscription-card-details{
+    opacity: 1;
+}
+
+#subscription-status-row.collapsed{
+    gap: 0;
 }
 
 /* Balanced padding when collapsed so header looks centered */

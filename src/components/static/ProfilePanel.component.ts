@@ -19,7 +19,37 @@ if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveBut
 // Expand/collapse subscription card
 function toggleSubscriptionCard(){
     const cardEl = subscriptionCard as HTMLElement;
-    const isCollapsed = cardEl.classList.toggle('collapsed');
+    const content = document.querySelector<HTMLElement>('#subscription-card-content');
+    if (!content) {
+        cardEl.classList.toggle('collapsed');
+        return;
+    }
+
+    const isCollapsed = cardEl.classList.contains('collapsed');
+    if (isCollapsed) {
+        // Expand
+        content.style.height = '0px';
+        cardEl.classList.remove('collapsed');
+        requestAnimationFrame(() => {
+            content.style.height = content.scrollHeight + 'px';
+        });
+        const onEnd = () => {
+            content.style.height = 'auto';
+            content.removeEventListener('transitionend', onEnd);
+        };
+        content.addEventListener('transitionend', onEnd);
+    } else {
+        // Collapse
+        const currentHeight = content.scrollHeight;
+        content.style.height = currentHeight + 'px';
+        void content.offsetHeight; // force reflow
+        content.style.height = '0px';
+        const onEnd = () => {
+            cardEl.classList.add('collapsed');
+            content.removeEventListener('transitionend', onEnd);
+        };
+        content.addEventListener('transitionend', onEnd);
+    }
 }
 
 const headerEl = subscriptionHeader as HTMLElement;
