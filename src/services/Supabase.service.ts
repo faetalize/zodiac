@@ -53,7 +53,9 @@ supabase.auth.onAuthStateChange((event, session) => {
         });
         // reset subscription UI
         const badge = document.querySelector<HTMLElement>('#subscription-badge');
-        const manageBtn = document.querySelector<HTMLAnchorElement>('#btn-manage-subscription');
+        const manageBtn = document.querySelector<HTMLButtonElement>('#btn-manage-subscription');
+        const tierEl = document.querySelector<HTMLElement>('#subscription-tier-text');
+        const periodEndEl = document.querySelector<HTMLElement>('#subscription-period-end');
         if (badge) {
             badge.textContent = 'Free';
             badge.classList.remove('badge-tier-pro', 'badge-tier-max');
@@ -61,7 +63,13 @@ supabase.auth.onAuthStateChange((event, session) => {
         }
         if (manageBtn) {
             manageBtn.classList.add('hidden');
-            manageBtn.removeAttribute('href');
+            manageBtn.onclick = null;
+        }
+        if (tierEl) {
+            tierEl.textContent = 'Free';
+        }
+        if (periodEndEl) {
+            periodEndEl.textContent = '—';
         }
         supabase.removeAllChannels();
     }
@@ -226,10 +234,30 @@ export async function updateSubscriptionUI(): Promise<void> {
 
         const badge = document.querySelector<HTMLElement>('#subscription-badge');
         const manageBtn = document.querySelector<HTMLButtonElement>('#btn-manage-subscription');
+        const tierEl = document.querySelector<HTMLElement>('#subscription-tier-text');
+        const periodEndEl = document.querySelector<HTMLElement>('#subscription-period-end');
+        const tierLabel = tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : 'Max';
+        let periodEndLabel = '—';
+        const rawEnd = sub?.current_period_end ?? null;
+        if (rawEnd) {
+            const asNumber = typeof rawEnd === 'string' ? Number(rawEnd) : Number(rawEnd);
+            // If value looks like seconds, convert; if already ms, keep
+            const ms = asNumber < 1e12 ? asNumber * 1000 : asNumber;
+            const d = new Date(ms);
+            if (!isNaN(d.getTime())) {
+                periodEndLabel = d.toLocaleString();
+            }
+        }
         if (badge) {
-            badge.textContent = tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : 'Max';
+            badge.textContent = tierLabel;
             badge.classList.remove('badge-tier-free', 'badge-tier-pro', 'badge-tier-max');
             badge.classList.add(`badge-tier-${tier}`);
+        }
+        if (tierEl) {
+            tierEl.textContent = tierLabel;
+        }
+        if (periodEndEl) {
+            periodEndEl.textContent = periodEndLabel;
         }
         if (manageBtn) {
             if (tier === 'free') {

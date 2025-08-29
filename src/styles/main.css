@@ -774,13 +774,42 @@ form {
     width: 100%;
 }
 
-/* Subscription status row */
+/* Subscription card */
 #subscription-status-row{
     display: flex;
-    gap: 0.75rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: -0.25rem;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    border: 1px solid transparent; /* themed */
+}
+
+.subscription-card-header{
+    display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: -0.25rem;
+    padding: 0.75rem 1rem 0.25rem 1rem;
+}
+
+.subscription-card-body{
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0 1rem 0.75rem 1rem;
+}
+
+.subscription-row{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.subscription-card-footer{
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.5rem 1rem 0.75rem 1rem;
 }
 
 #subscription-badge{

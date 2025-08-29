@@ -137,6 +137,15 @@
         border: 1px solid #cbdbf0;
     }
 
+    /* Subscription card theming (light) */
+    #subscription-status-row{
+        background-color: #e8f1ff;
+        border-color: #cbdbf0;
+    }
+    .subscription-card-header{ background-color: transparent; }
+    .subscription-card-body{ background-color: transparent; }
+    .subscription-card-footer{ background-color: transparent; }
+
     :has(>#messageInput:focus-visible) {
         border: 1px solid #8f9eb3;
     }

@@ -389,8 +389,23 @@
                     <button id="btn-change-pfp" class="btn-textual material-symbols-outlined">edit</button>
                 </div>
                 <div id="subscription-status-row" class="logged-in-component hidden">
-                    <span id="subscription-badge" class="badge">Free</span>
-                    <button id="btn-manage-subscription" class="btn-neutral">Manage Subscription</button>
+                    <div class="subscription-card-header">
+                        <h3 style="margin:0;">Subscription</h3>
+                        <span id="subscription-badge" class="badge">Free</span>
+                    </div>
+                    <div class="subscription-card-body">
+                        <div class="subscription-row">
+                            <span class="setting-label">Current tier</span>
+                            <span id="subscription-tier-text">Free</span>
+                        </div>
+                        <div class="subscription-row">
+                            <span class="setting-label">Current period end</span>
+                            <span id="subscription-period-end">—</span>
+                        </div>
+                    </div>
+                    <div class="subscription-card-footer">
+                        <button id="btn-manage-subscription" class="btn-neutral">Manage Subscription</button>
+                    </div>
                 </div>
                 <input type="text" id="profile-preferred-name" placeholder="Preferred Name" class="input-field">
                 <textarea id="profile-system-prompt" placeholder="System Prompt Addition" class="input-field"

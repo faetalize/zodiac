@@ -6,7 +6,7 @@ const preferredNameInput = document.querySelector("#profile-preferred-name");
 const systemPromptAddition = document.querySelector("#profile-system-prompt");
 const saveButton = document.querySelector("#btn-profile-save");
 const subscriptionBadge = document.querySelector<HTMLElement>("#subscription-badge");
-const manageSubscriptionBtn = document.querySelector<HTMLAnchorElement>("#btn-manage-subscription");
+const manageSubscriptionBtn = document.querySelector<HTMLButtonElement>("#btn-manage-subscription");
 let image: File;
 
 if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn) {
