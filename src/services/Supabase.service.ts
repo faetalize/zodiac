@@ -238,14 +238,12 @@ export async function updateSubscriptionUI(): Promise<void> {
         const periodEndEl = document.querySelector<HTMLElement>('#subscription-period-end');
         const tierLabel = tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : 'Max';
         let periodEndLabel = '—';
+        console.log("Subscription data:", sub);
         const rawEnd = sub?.current_period_end ?? null;
         if (rawEnd) {
-            const asNumber = typeof rawEnd === 'string' ? Number(rawEnd) : Number(rawEnd);
-            // If value looks like seconds, convert; if already ms, keep
-            const ms = asNumber < 1e12 ? asNumber * 1000 : asNumber;
-            const d = new Date(ms);
+            const d = new Date(rawEnd as string);
             if (!isNaN(d.getTime())) {
-                periodEndLabel = d.toLocaleString();
+                periodEndLabel = d.toLocaleDateString();
             }
         }
         if (badge) {
