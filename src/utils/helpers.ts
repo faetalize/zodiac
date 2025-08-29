@@ -13,7 +13,7 @@ export function hideElement(element: HTMLElement) {
     element.style.transition = 'opacity 0.2s';
     element.style.opacity = '0';
     setTimeout(function () {
-        element.style.display = 'none';
+        hideWithClass(element);
     }, 200);
 }
 
@@ -26,11 +26,12 @@ export function showElement(element: HTMLElement, wait: boolean) {
         timeToWait = 200;
     }
     setTimeout(function () {
-        element.style.display = 'flex';
-        element.style.opacity = '0';  //required as certain elements arent opacity 0 despite being hidden
+        showWithClass(element);
         element.style.transition = 'opacity 0.2s';
+        element.style.opacity = '0';  //required as certain elements arent opacity 0 despite being hidden
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
+                console.log("Showing element:", element);
                 element.style.opacity = '1';
             });
         });
@@ -56,7 +57,7 @@ export function lightenCard(element: HTMLElement) {
     element.style.backgroundImage = `url('${elementBackgroundImageURL}')`;
 }
 
-export function getVersion(){
+export function getVersion() {
     return "0.9.9";
 }
 
@@ -64,27 +65,27 @@ export function getSanitized(string: string) {
     return DOMPurify.sanitize(string.trim());
 }
 
-function getUnescaped(innerHTML: string){
+function getUnescaped(innerHTML: string) {
     return innerHTML.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 }
 
-function getMdNewLined(innerHTML: string){
+function getMdNewLined(innerHTML: string) {
     //replace <br> with \n
     //also collapse multiple newlines into one
     return innerHTML.replace(/<br>/g, "\n").replace(/\n{2,}/g, "\n");
 }
 
-export function getEncoded(innerHTML: string){
+export function getEncoded(innerHTML: string) {
     return getUnescaped(getMdNewLined(innerHTML)).trim();
 }
 
-export function getDecoded(encoded: string){
+export function getDecoded(encoded: string) {
     //reescape, convert to md
-    return marked.parse(encoded.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"), {breaks: true});
+    return marked.parse(encoded.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"), { breaks: true });
 }
 
-export function messageContainerScrollToBottom(){
-    if(!getSettings().autoscroll){
+export function messageContainerScrollToBottom() {
+    if (!getSettings().autoscroll) {
         return;
     }
     const container = document.querySelector(".message-container");
@@ -121,23 +122,23 @@ export function fuzzySearch(searchTerm: string, target: string): number | null {
 
     const search = searchTerm.toLowerCase();
     const text = target.toLowerCase();
-    
+
     // Exact match gets highest score
     if (text === search) {
         return 1;
     }
-    
+
     // Contains search term gets high score
     if (text.includes(search)) {
         return 0.8 + (0.2 * (search.length / text.length));
     }
-    
+
     // Fuzzy matching - check if all characters in search term appear in order
     let searchIndex = 0;
     let matchedChars = 0;
     let consecutiveMatches = 0;
     let maxConsecutiveMatches = 0;
-    
+
     for (let i = 0; i < text.length && searchIndex < search.length; i++) {
         if (text[i] === search[searchIndex]) {
             matchedChars++;
@@ -148,12 +149,12 @@ export function fuzzySearch(searchTerm: string, target: string): number | null {
             consecutiveMatches = 0;
         }
     }
-    
+
     // All characters must be found in order
     if (searchIndex < search.length) {
         return null;
     }
-    
+
     // Calculate score based on:
     // - Percentage of characters matched
     // - Longest consecutive match sequence
@@ -161,7 +162,7 @@ export function fuzzySearch(searchTerm: string, target: string): number | null {
     const charMatchRatio = matchedChars / search.length;
     const consecutiveBonus = maxConsecutiveMatches / search.length;
     const lengthPenalty = search.length / text.length;
-    
+
     return (charMatchRatio * 0.4) + (consecutiveBonus * 0.4) + (lengthPenalty * 0.2);
 }
 
@@ -188,4 +189,15 @@ export async function confirmDialogDanger(message: string): Promise<boolean> {
             resolve(false);
         };
     });
+}
+
+// Class-based visibility helpers
+function hideWithClass(element: HTMLElement | null) {
+    if (!element) return;
+    element.classList.add('hidden');
+}
+
+function showWithClass(element: HTMLElement | null) {
+    if (!element) return;
+    element.classList.remove('hidden');
 }

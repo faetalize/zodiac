@@ -35,6 +35,7 @@ hideSidebarButton.addEventListener("click", () => {
     helpers.hideElement(sidebar);
 });
 showSidebarButton.addEventListener("click", () => {
+    sidebar.style.display = "flex";
     helpers.showElement(sidebar, false);
 });
 clearAllPersonalitiesButton.addEventListener("click", async () => {

@@ -54,7 +54,7 @@
                 <button id="btn-login" class="logged-out-component"  >
                     Login
                 </button>
-                <img class="user-avatar logged-in-component" id="user-profile"
+                <img class="user-avatar logged-in-component hidden" id="user-profile"
                     src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==">
             </div>
             <div class="navbar" data-target-id="sidebar-content">
@@ -82,7 +82,7 @@
                     </div>
                 </div>
 
-                <div class="sidebar-section" id="personalitySection">
+                <div class="sidebar-section hidden" id="personalitySection">
                     <div class="btn-array">
                         <button id="btn-import-personality">
                             <span class="material-symbols-outlined">upload</span>Import
@@ -94,7 +94,7 @@
                     <div id="personalitiesDiv"></div>
                 </div>
 
-                <div class="sidebar-section">
+                <div class="sidebar-section hidden">
                     <h3>API Key</h3>
                     <div class="api-key">
                         <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
@@ -104,7 +104,7 @@
                             help
                         </button>
                     </div>
-                    <div class="api-key-error">
+                    <div class="api-key-error hidden">
                         <span class="material-symbols-outlined">error</span> Invalid API Key
                     </div>
                     <div style="
@@ -251,12 +251,12 @@
         </div>
     </div>
 
-    <div class="overlay">
+    <div class="overlay hidden" id="overlay">
         <div class="header">
             <button class="btn-textual" id="btn-hide-overlay">BACK</button>
         </div>
         <div class="overlay-content">
-            <form id="form-add-personality">
+            <form id="form-add-personality" class="hidden">
                 <div class="stepper first-step" id="stepper-add-personality">
                     <div class="stepper-content">
                         <div class="step active">
@@ -331,7 +331,7 @@
                 </div>
             </form>
 
-            <div id="whats-new">
+            <div id="whats-new" class="hidden">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
                     <li>Fixed bug that caused spontaneous chat deletion</li>
@@ -341,7 +341,7 @@
                 </ul>
             </div>
 
-            <div id="login-register-tabs">
+            <div id="login-register-tabs" class="hidden">
                 <div class="navbar" data-target-id="login-register-container">
                     <div class="navbar-tab active">Login</div>
                     <div class="navbar-tab">Register</div>
@@ -351,14 +351,14 @@
                     <div id="login">
                         <input type="text" id="email" placeholder="Email" class="input-field" autocomplete="off">
                         <input type="password" id="password" placeholder="Password" class="input-field">
-                        <div id="login-error" class="error-message">
+                        <div id="login-error" class="error-message hidden">
                             <span class="material-symbols-outlined">error</span>
                             <span id="login-error-message">Invalid email or password</span>
                         </div>
                         <button id="btn-login-submit">Login</button>
 
                     </div>
-                    <div id="register">
+                    <div id="register" class="hidden">
                         <input type="text" id="register-email" placeholder="Email" class="input-field">
                         <input type="password" id="register-password" placeholder="Password" class="input-field">
                         <input type="password" id="register-password-confirm" placeholder="Confirm Password"
@@ -370,7 +370,7 @@
                                     href="terms-of-service.html">terms</a> and <a href="privacy-policy.html">privacy
                                     policy</a></label>
                         </div>
-                        <div id="register-error" class="error-message">
+                        <div id="register-error" class="error-message hidden">
                             <span class="material-symbols-outlined">error</span> <span
                                 id="register-error-message">Registration failed, please try again</span>
                         </div>
@@ -381,12 +381,16 @@
                 </div>
             </div>
 
-            <div id="profile">
+            <div id="profile" class="hidden">
                 <h1>Profile</h1>
                 <div id="profile-pfp-edit">
                     <img src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
                         alt="Profile Picture" id="profile-pfp">
                     <button id="btn-change-pfp" class="btn-textual material-symbols-outlined">edit</button>
+                </div>
+                <div id="subscription-status-row" class="logged-in-component hidden">
+                    <span id="subscription-badge" class="badge">Free</span>
+                    <button id="btn-manage-subscription" class="btn-neutral">Manage Subscription</button>
                 </div>
                 <input type="text" id="profile-preferred-name" placeholder="Preferred Name" class="input-field">
                 <textarea id="profile-system-prompt" placeholder="System Prompt Addition" class="input-field"
@@ -395,7 +399,7 @@
                 <button id="btn-profile-logout" class="btn-danger">Log Out</button>
             </div>
 
-            <div id="form-subscription">
+            <div id="form-subscription" class="hidden">
                 <h3>Pick a Subscription</h3>
                 <div class="btn-array">
                     <button type="button" id="btn-subscribe-free" class="btn-neutral btn-subscription-choice">

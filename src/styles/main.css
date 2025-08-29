@@ -30,6 +30,10 @@
     scrollbar-width: thin;
 }
 
+.hidden {
+    display: none !important;
+}
+
 img {
     opacity: 0;
 }
@@ -127,7 +131,7 @@ form {
 }
 
 #login-register-tabs {
-    display: none;
+    display: flex;
     flex-direction: column;
     transition: height 0.2s ease-in-out;
     height: 32rem;
@@ -141,20 +145,12 @@ form {
 }
 
 #register {
-    display: none;
+    display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
-#login-error {
-    display: none;
 
-}
-
-#register-error {
-    display: none;
-
-}
 
 .error-message {
     display: flex;
@@ -164,13 +160,13 @@ form {
 }
 
 #form-add-personality {
-    display: none;
+    display: flex;
     width: 28rem;
     height: 28rem;
 }
 
 #form-subscription {
-    display: none;
+    display: flex;
     flex-direction: column;
     max-width: 52rem;
     width: 100%;
@@ -248,18 +244,6 @@ form {
     max-height: 100%;
 }
 
-.logged-in-component {
-    display: none;
-}
-
-.logged-out-component {
-    display: block;
-}
-
-/* all but the first sidebarcontet */
-.sidebar-section:not(:first-child) {
-    display: none;
-}
 
 .api-key {
     display: flex;
@@ -344,8 +328,8 @@ form {
 }
 
 .overlay {
+    display: flex;
     flex-direction: column;
-    display: none;
     position: fixed;
     opacity: 0;
     top: 0;
@@ -359,7 +343,6 @@ form {
 }
 
 #whats-new {
-    display: none;
     flex-direction: column;
     max-width: 80%;
     width: 32rem;
@@ -777,8 +760,8 @@ form {
 
 
 #profile {
+    display: flex;
     width: 24rem;
-    display: none;
     flex-direction: column;
     align-items: center;
     gap: 1rem;
@@ -789,6 +772,22 @@ form {
     box-sizing: border-box;
     flex-shrink: 0;
     width: 100%;
+}
+
+/* Subscription status row */
+#subscription-status-row{
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: -0.25rem;
+}
+
+#subscription-badge{
+    text-transform: uppercase;
+    user-select: none;
+    cursor: default;
+    flex-shrink: 0;
 }
 
 #profile-pfp-edit {
@@ -833,6 +832,14 @@ form {
 
 #btn-profile-save {
     width: 100%;
+}
+
+#btn-manage-subscription{
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    flex-shrink: 0;
+    font-size: 0.8rem;
 }
 
 #personalitiesDiv {
@@ -1241,7 +1248,7 @@ input[name="currentChat"][value="none"] {
 
 
 .api-key-error {
-    display: none;
+    display: flex;
     align-items: center;
     gap: 4px;
     font-size: 0.8rem;
@@ -1312,6 +1319,7 @@ input[name="currentChat"][value="none"] {
         position: fixed;
         border-radius: 0;
         display: none;
+        opacity: 0;
     }
 
     .navbar {

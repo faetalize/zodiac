@@ -5,9 +5,11 @@ const pfpChangeButton = document.querySelector("#btn-change-pfp");
 const preferredNameInput = document.querySelector("#profile-preferred-name");
 const systemPromptAddition = document.querySelector("#profile-system-prompt");
 const saveButton = document.querySelector("#btn-profile-save");
+const subscriptionBadge = document.querySelector<HTMLElement>("#subscription-badge");
+const manageSubscriptionBtn = document.querySelector<HTMLAnchorElement>("#btn-manage-subscription");
 let image: File;
 
-if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton) {
+if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn) {
     console.error("One or more profile panel elements are missing.");
     throw new Error("Profile panel initialization failed.");
 }

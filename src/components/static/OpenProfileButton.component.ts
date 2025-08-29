@@ -1,4 +1,5 @@
 import * as overlayService from '../../services/Overlay.service';
+import * as supabaseService from '../../services/Supabase.service';
 
 const openProfileButton = document.querySelector("#user-profile");
 if (!openProfileButton) {
@@ -6,6 +7,6 @@ if (!openProfileButton) {
     throw new Error("Open profile button not found in the document");
 }
 
-openProfileButton.addEventListener("click", () => {
-   overlayService.show("profile");
+openProfileButton.addEventListener("click", async () => {
+    overlayService.show("profile");
 });

@@ -95,6 +95,28 @@
         color: #b6ebfb;
     }
 
+    /* Disable hover effect for subscription badge */
+    #subscription-badge:hover {
+        background-color: inherit;
+    }
+
+    /* Subscription badge tiers */
+    .badge-tier-free {
+        background-color: #253a5c;
+        border-color: rgba(35, 108, 119, 0.508);
+        color: #b6ebfb;
+    }
+    .badge-tier-pro {
+        background-color: #164321;
+        border-color: #1f6b31;
+        color: #b7f5c8;
+    }
+    .badge-tier-max {
+        background-color: #3a255c;
+        border-color: #6c4fb0;
+        color: #e3d3ff;
+    }
+
     .input-radio-currentchat:checked+label {
         background-color: #0f4c84b2;
         color: #bcdbf7;

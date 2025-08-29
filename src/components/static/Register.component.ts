@@ -29,19 +29,19 @@ registerSubmit.addEventListener("click", async (e) => {
 
     if (!email || !password) {
         errorMessage.textContent = "Email and password are required";
-        registerError.style.display = "flex";
+        registerError.classList.remove("hidden");
         return;
     }
 
     if (password !== passwordConfirm) {
         errorMessage.textContent = "Passwords do not match";
-        registerError.style.display = "flex";
+        registerError.classList.remove("hidden");
         return;
     }
 
     if (!termsAccepted) {
         errorMessage.textContent = "You must accept the terms and conditions";
-        registerError.style.display = "flex";
+        registerError.classList.remove("hidden");
         return;
     }
 
@@ -50,10 +50,10 @@ registerSubmit.addEventListener("click", async (e) => {
     } catch (error) {
         console.error("Error creating account:", (error as Error).message);
         errorMessage.textContent = (error as Error).message;
-        registerError.style.display = "flex";
+        registerError.classList.remove("hidden");
         return;
     }
 
     overlayService.closeOverlay();
-    registerError.style.display = "none";
+    registerError.classList.add("hidden");
 });

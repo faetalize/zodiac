@@ -24,17 +24,17 @@ loginSubmit.addEventListener("click", async (e) => {
     
     if (!email || !password) {
         errorMessage.textContent = "Email and password are required";
-        loginError.style.display = "flex";
+        loginError.classList.remove("hidden");
         return;
     }
 
     try {
         await supabaseService.login(email, password);
         overlayService.closeOverlay();
-        loginError.style.display = "none";
+        loginError.classList.add("hidden");
     } catch (error) {
         console.error("Login error:", error);
         errorMessage.textContent = (error as Error).message;
-        loginError.style.display = "flex";
+        loginError.classList.remove("hidden");
     }
 });

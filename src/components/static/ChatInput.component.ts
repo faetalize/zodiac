@@ -66,16 +66,16 @@ const setupBottomBar = async () => {
     if (personality) {
         messageInput.setAttribute("placeholder", `Send a message to ${personality.name}`);
         if (personality.roleplayEnabled) {
-            roleplayActionsMenu.style.display = "block";
+            roleplayActionsMenu.classList.remove("hidden");
         }
         else {
-            roleplayActionsMenu.style.display = "none";
+            roleplayActionsMenu.classList.add("hidden");
         }
         if (personality.internetEnabled) {
-            internetSearchToggle.style.display = "block";
+            internetSearchToggle.classList.remove("hidden");
         }
         else {
-            internetSearchToggle.style.display = "none";
+            internetSearchToggle.classList.add("hidden");
         }
     }
     else {

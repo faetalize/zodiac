@@ -18,11 +18,11 @@ apiKeyInput?.addEventListener("input", () => {
             });
             apiKeyInput.classList.add("api-key-valid");
             apiKeyInput.classList.remove("api-key-invalid");
-            document.querySelector<HTMLElement>(".api-key-error")!.style.display = "none";
+            document.querySelector<HTMLElement>(".api-key-error")!.classList.add("hidden");
         } catch (error) {
             apiKeyInput.classList.add("api-key-invalid");
             apiKeyInput.classList.remove("api-key-valid");
-            document.querySelector<HTMLElement>(".api-key-error")!.style.display = "flex";
+            document.querySelector<HTMLElement>(".api-key-error")!.classList.remove("hidden");
         }
     }, 2000);
 });
