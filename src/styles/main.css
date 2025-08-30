@@ -828,6 +828,31 @@ form {
     user-select: none;
 }
 
+/* Expand/collapse chevron indicator on card headers */
+.subscription-card-header{
+    position: relative;
+    padding-left: 2.25rem; /* make room for chevron */
+}
+
+.subscription-card-header::before{
+    content: 'expand_more';
+    font-family: 'Material Symbols Outlined';
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%) rotate(0deg);
+    transition: transform 0.2s ease-in-out;
+    font-size: 1.25rem;
+    line-height: 1;
+    opacity: 0.8;
+}
+
+/* Collapsed state rotates chevron to point right */
+#subscription-status-row.collapsed .subscription-card-header::before,
+.profile-card.collapsed .subscription-card-header::before{
+    transform: translateY(-50%) rotate(-90deg);
+}
+
 .subscription-card-body{
     display: flex;
     flex-direction: column;
