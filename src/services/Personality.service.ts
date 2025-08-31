@@ -193,7 +193,7 @@ export function generateCard(personality: Personality, id: number) {
     }
     if (editButton) {
         editButton.addEventListener("click", async () => {
-            overlayService.showEditPersonalityForm(personality);
+            overlayService.showEditPersonalityForm(personality, id);
         });
     }
     return card;
