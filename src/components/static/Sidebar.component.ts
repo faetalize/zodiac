@@ -84,7 +84,7 @@ importPersonalityButton.addEventListener("click", () => {
         const reader = new FileReader();
         reader.onload = function (e) {
             const personality = JSON.parse(e.target?.result?.toString() || '{}');
-            personalityService.add(personality);
+            personalityService.add(personality, personality?.id);
         };
         reader.readAsText(file);
     });

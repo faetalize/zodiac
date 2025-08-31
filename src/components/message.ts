@@ -47,7 +47,7 @@ export const messageElement = async (
     }
     //model message
     else {
-        const personality: Personality = await personalityService.get(message.personalityid) || personalityService.getDefault();
+    const personality: Personality = await personalityService.get(String(message.personalityid)) || personalityService.getDefault();
         messageElement.classList.add("message-model");
             const rawInitial = message.parts[0].text || "";
             const initialHtml = helpers.getDecoded(rawInitial) || "";

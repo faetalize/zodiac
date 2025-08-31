@@ -21,7 +21,7 @@ export function showAddPersonalityForm() {
     showElement(personalityForm, false);
 }
 
-export function showEditPersonalityForm(personality: Personality, id?: number) {
+export function showEditPersonalityForm(personality: Personality, id?: string) {
     //populate the form with the personality data
     for (const key in personality) {
         

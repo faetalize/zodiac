@@ -59,11 +59,11 @@ form.submit = () => {
         }
 
         //handle both edit and add cases
-        const id = Number(data.get('id'));
-        if (id) {
+        const idRaw = data.get('id');
+        const id = typeof idRaw === 'string' ? idRaw : '';
+        if (id && id.trim().length > 0) {
             personalityService.edit(id, personality);
-        }
-        else {
+        } else {
             personalityService.add(personality);
         }
 

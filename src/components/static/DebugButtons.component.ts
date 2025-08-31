@@ -67,7 +67,7 @@ generateRandomChatsButton.addEventListener("click", async () => {
             randomConversation.push({
                 role: "model",
                 parts: [{ text: modelText }],
-                personalityid: -1
+                personalityid: "-1"
             });
         }
         chatService.addChat(title, randomConversation);

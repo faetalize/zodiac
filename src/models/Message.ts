@@ -4,6 +4,6 @@ export interface Message {
         text: string;
         attachments?: FileList;
     }>;
-    personalityid?: number;
+    personalityid?: string;
     groundingContent?: string;
 }

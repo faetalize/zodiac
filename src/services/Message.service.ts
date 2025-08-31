@@ -18,10 +18,7 @@ export async function send(msg: string) {
     const selectedPersonalityId = (() => {
         const checked = document.querySelector<HTMLInputElement>("input[name='personality']:checked");
         const parentId = checked?.parentElement?.id ?? "";
-        const parts = parentId.split("-");
-        const idPart = parts.length > 1 ? parts[1] : undefined;
-        const parsed = idPart ? parseInt(idPart, 10) : NaN;
-        return Number.isFinite(parsed) ? parsed : -1;
+        return parentId.startsWith("personality-") ? parentId.slice("personality-".length) : "-1";
     })();
     const isInternetSearchEnabled = document.querySelector<HTMLButtonElement>("#btn-internet")?.classList.contains("btn-toggled");
     const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");

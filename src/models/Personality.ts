@@ -11,5 +11,5 @@ export interface Personality {
 }
 
 export interface DbPersonality extends Personality {
-    id: number;
+    id: string;
 }

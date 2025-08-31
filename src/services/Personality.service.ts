@@ -1,10 +1,11 @@
 import * as overlayService from "./Overlay.service";
 import { Db, db } from "./Db.service";
 import { Personality } from "../models/Personality";
+import { v4 as uuidv4 } from 'uuid';
 
 export async function initialize() {
     //default personality setup
-    const defaultPersonalityCard = insert(getDefault(), -1);
+    const defaultPersonalityCard = insert(getDefault(), "-1");
     if (!defaultPersonalityCard) {
         console.error("Default personality failed to insert");
         return
@@ -17,7 +18,7 @@ export async function initialize() {
     if (personalitiesArray) {
         for (let personality of personalitiesArray) {
             const { id: id , ...personalityData } = personality; // Destructure to exclude 'id'
-            insert(personalityData, id);
+            insert(personalityData, String(id));
         }
     }
 
@@ -27,11 +28,12 @@ export async function initialize() {
 }
 
 export async function getSelected(): Promise<Personality | undefined> {
-    const selectedID = document.querySelector("input[name='personality']:checked")?.parentElement?.id.split("-")[1];
+    const parentId = document.querySelector("input[name='personality']:checked")?.parentElement?.id;
+    const selectedID = parentId?.startsWith("personality-") ? parentId.slice("personality-".length) : undefined;
     if (!selectedID) {
         return getDefault();
     }
-    return await get(parseInt(selectedID));
+    return await get(selectedID);
 }
 
 export function getDefault(): Personality {
@@ -48,8 +50,8 @@ export function getDefault(): Personality {
     };
 }
 
-export async function get(id: number): Promise<Personality> {
-    if (id < 0) {
+export async function get(id: string): Promise<Personality> {
+    if (id === "-1") {
         return getDefault();
     }
     const personality = await db?.personalities.get(id);
@@ -67,14 +69,14 @@ export async function getAll() {
     return personalities;
 }
 
-export async function remove(id: number) {
-    if (id < 0) {
+export async function remove(id: string) {
+    if (id === "-1") {
         return;
     }
     await db.personalities.delete(id);
 }
 
-function insert(personality: Personality, id: number) {
+function insert(personality: Personality, id: string) {
     const personalitiesDiv = document.querySelector("#personalitiesDiv");
     if (!personalitiesDiv) {
         return
@@ -84,9 +86,11 @@ function insert(personality: Personality, id: number) {
     return card;
 }
 
-export function share(personality: Personality) {
+export function share(personality: Personality & { id?: string }, explicitId?: string) {
     //export personality to a string
-    const personalityString = JSON.stringify(personality, null, 2)
+    const id = explicitId && explicitId !== "-1" ? explicitId : undefined;
+    const payload = id ? { id, ...personality } : { ...personality };
+    const personalityString = JSON.stringify(payload, null, 2)
     //download
     const element = document.createElement('a');
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(personalityString));
@@ -126,8 +130,9 @@ export async function removeAll() {
     }
 }
 
-export async function add(personality: Personality) {
-    const id = await db.personalities.add(structuredClone(personality));
+export async function add(personality: Personality, explicitId?: string) {
+    const id = explicitId && explicitId !== "-1" ? explicitId : uuidv4();
+    await db.personalities.add({ id, ...structuredClone(personality) } as any);
     insert(personality, id);
 
     // Move the add card to be the last element
@@ -137,20 +142,20 @@ export async function add(personality: Personality) {
     }
 }
 
-export async function edit(id: number, personality: Personality) {
+export async function edit(id: string, personality: Personality) {
     const element = document.querySelector(`#personality-${id}`);
 
-    await db.personalities.update(id, {...personality});
+    await db.personalities.update(id, { ...personality });
 
     //reselect the personality if it was selected prior
     element?.replaceWith(generateCard(personality, id));
     document.querySelector(`#personality-${id}`)?.querySelector("input")?.click();
 }
 
-export function generateCard(personality: Personality, id: number) {
+export function generateCard(personality: Personality, id: string) {
     const card = document.createElement("label");
     card.classList.add("card-personality");
-    if (id && id !== -1) {
+    if (id && id !== "-1") {
         card.id = `personality-${id}`;
     }
     card.innerHTML = `
@@ -177,7 +182,7 @@ export function generateCard(personality: Personality, id: number) {
     const input = card.querySelector("input");
 
     shareButton?.addEventListener("click", () => {
-        share(personality);
+        share(personality, id);
     });
     if (deleteButton) {
         deleteButton.addEventListener("click", () => {
@@ -185,7 +190,7 @@ export function generateCard(personality: Personality, id: number) {
             if (input?.checked) {
                 ((document.querySelector("#personalitiesDiv")?.firstElementChild) as HTMLElement).click();
             }
-            if (id && id != -1) {
+            if (id && id != "-1") {
                 remove(id);
             }
             card.remove();
