@@ -49,6 +49,9 @@ export const messageElement = async (
     else {
         const personality: Personality = await personalityService.get(message.personalityid) || personalityService.getDefault();
         messageElement.classList.add("message-model");
+            const rawInitial = message.parts[0].text || "";
+            const initialHtml = helpers.getDecoded(rawInitial) || "";
+            const isLoading = rawInitial.trim().length === 0;
         messageElement.innerHTML =
             `<div class="message-header">
             <img class="pfp" src="${personality.image}" loading="lazy"></img>
@@ -61,7 +64,10 @@ export const messageElement = async (
             </div>
         </div>
         <div class="message-role-api" style="display: none;">${message.role}</div>
-        <div class="message-text">${helpers.getDecoded(message.parts[0].text) || ""}</div>
+            <div class="message-text${isLoading ? ' is-loading' : ''}">
+                <span class="message-spinner"></span>
+                <div class="message-text-content">${initialHtml}</div>
+        </div>
         <div class="message-grounding-rendered-content"></div>`;
         if (message.groundingContent) {
             const shadow = messageElement.querySelector<HTMLElement>(".message-grounding-rendered-content")!.attachShadow({ mode: "open" });
@@ -81,7 +87,7 @@ export const messageElement = async (
 function setupMessageEditing(messageElement: HTMLElement) {
     const editButton = messageElement.querySelector<HTMLButtonElement>(".btn-edit");
     const saveButton = messageElement.querySelector<HTMLButtonElement>(".btn-save");
-    const messageText = messageElement.querySelector<HTMLElement>(".message-text");
+    const messageText = messageElement.querySelector<HTMLElement>(".message-text-content") || messageElement.querySelector<HTMLElement>(".message-text");
 
     if (!editButton || !saveButton || !messageText) return;
     // Handle edit button click
@@ -169,7 +175,7 @@ function setupMessageRegeneration(messageElement: HTMLElement) {
 function setupMessageClipboard(messageElement: HTMLElement) {
     const clipboardButton = messageElement.querySelector(".btn-clipboard");
     clipboardButton?.addEventListener("click", async () => {
-        const messageContent = messageElement.querySelector<HTMLDivElement>(".message-text");
+    const messageContent = messageElement.querySelector<HTMLDivElement>(".message-text-content") || messageElement.querySelector<HTMLDivElement>(".message-text");
         await navigator.clipboard.writeText(await parserService.parseHtmlToMarkdown(messageContent!) || "");
         clipboardButton.innerHTML = "check";
         setTimeout(() => {

@@ -6,8 +6,9 @@ const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
 const temperatureInput = document.querySelector("#temperature") as HTMLInputElement;
 const modelSelect = document.querySelector("#selectedModel") as HTMLSelectElement;
 const autoscrollToggle = document.querySelector("#autoscroll") as HTMLInputElement;
+const streamResponsesToggle = document.querySelector("#streamResponses") as HTMLInputElement;
 
-if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !autoscrollToggle) {
+if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !autoscrollToggle || !streamResponsesToggle) {
     throw new Error("One or more settings elements are missing in the DOM.");
 }
 
@@ -18,6 +19,7 @@ export function initialize() {
     temperatureInput.addEventListener("input", saveSettings);
     modelSelect.addEventListener("change", saveSettings);
     autoscrollToggle.addEventListener("change", saveSettings);
+    streamResponsesToggle.addEventListener("change", saveSettings);
 }
 
 export function loadSettings() {
@@ -26,6 +28,8 @@ export function loadSettings() {
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || "70";
     modelSelect.value = localStorage.getItem("model") || "gemini-2.5-flash";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
+    // Default ON when not set
+    streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";
 }
 
 export function saveSettings() {
@@ -34,6 +38,7 @@ export function saveSettings() {
     localStorage.setItem("TEMPERATURE", temperatureInput.value);
     localStorage.setItem("model", modelSelect.value);
     localStorage.setItem("autoscroll", autoscrollToggle.checked.toString());
+    localStorage.setItem("streamResponses", streamResponsesToggle.checked.toString());
 }
 
 export function getSettings() {
@@ -49,6 +54,7 @@ export function getSettings() {
         ],
         model: modelSelect.value,
         autoscroll: autoscrollToggle.checked,
+    streamResponses: streamResponsesToggle.checked,
     }
 }
 

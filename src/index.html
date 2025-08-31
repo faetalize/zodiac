@@ -28,7 +28,7 @@
 
 <body>
     <div class="container">
-        <div id="dialog">
+        <div id="dialog" class="dialog hidden">
             <div id="dialog-message"></div>
             <div id="dialog-buttons" class="btn-array">
                 <button class="btn-danger" id="btn-dialog-ok">OK</button>
@@ -184,6 +184,11 @@
                         <div style="display: flex; gap: 0.25rem; align-items: center;">
                             <input id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
                             <label for="autoscroll">Autoscroll</label>
+                        </div>
+                        <!-- stream responses toggle -->
+                        <div style="display: flex; gap: 0.25rem; align-items: center; margin-top: 0.5rem;">
+                            <input id="streamResponses" type="checkbox" name="streamResponsesEnabled" checked></input>
+                            <label for="streamResponses">Stream Responses</label>
                         </div>
                     </div>
                     <h3>Data Management</h3>

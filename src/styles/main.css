@@ -420,13 +420,61 @@ form {
     margin-top: 1rem;
 }
 
-.message-text p {
-    white-space: pre-wrap;
+/* Inline spinner inside message-text */
+.message-text {
+    position: relative;
+}
+.message-text .message-spinner {
+    display: none;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    border: 3px solid currentColor;
+    border-top-color: transparent;
+    animation: rotate 1s linear infinite;
+}
+.message-text.is-loading .message-spinner {
+    display: inline-block;
+}
+.message-text .message-text-content {
+    opacity: 1;
+    transition: opacity 0.25s ease-in-out;
+}
+.message-text.is-loading .message-text-content {
+    opacity: 0;
+}
+
+/* Loading overlay for non-stream model responses */
+.message-loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.25s ease-in-out;
+    z-index: 1;
+}
+
+.loading-spinner {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    border: 3px solid currentColor;
+    border-top-color: transparent;
+    animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .message {
     border-radius: 1rem;
     padding: 1rem;
+    position: relative;
 }
 
 .message-failure {
@@ -1363,12 +1411,12 @@ input[name="currentChat"][value="none"] {
 
 
 #dialog {
+    display: flex;
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 99;
-    display: none;
     flex-direction: column;
     gap: 2rem;
     width: 25rem;

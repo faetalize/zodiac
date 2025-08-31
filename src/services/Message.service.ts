@@ -11,18 +11,35 @@ import { clearAttachmentPreviews } from "../components/static/AttachmentPreview.
 import { Message } from "../models/Message";
 import { messageElement } from "../components/message";
 import { isImageModeActive } from "../components/static/ImageButton.component";
-import { Buffer } from "buffer/";
 
 export async function send(msg: string) {
     const settings = settingsService.getSettings();
     const selectedPersonality = await personalityService.getSelected();
-    const selectedPersonalityId = parseInt(document.querySelector("input[name='personality']:checked")?.parentElement?.id.split("-")[1]!) || -1;
+    const selectedPersonalityId = (() => {
+        const checked = document.querySelector<HTMLInputElement>("input[name='personality']:checked");
+        const parentId = checked?.parentElement?.id ?? "";
+        const parts = parentId.split("-");
+        const idPart = parts.length > 1 ? parts[1] : undefined;
+        const parsed = idPart ? parseInt(idPart, 10) : NaN;
+        return Number.isFinite(parsed) ? parsed : -1;
+    })();
     const isInternetSearchEnabled = document.querySelector<HTMLButtonElement>("#btn-internet")?.classList.contains("btn-toggled");
-    const attachments = document.querySelector<HTMLInputElement>("#attachments");
-    const attachmentFiles = structuredClone(attachments?.files) || new DataTransfer().files;
+    const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
+    if (!attachmentsInput) {
+        console.error("Missing #attachments input in the DOM");
+        throw new Error("Missing DOM element");
+    }
+    //structuredClone is unreliable for FileList
+    const attachmentFiles: FileList = (() => {
+        const dt = new DataTransfer();
+        for (const f of Array.from(attachmentsInput.files || [])) {
+            dt.items.add(f);
+        }
+        return dt.files;
+    })();
 
-    attachments!.value = ""; // Clear attachments input after sending
-    attachments!.files = new DataTransfer().files; // Reset the FileList
+    attachmentsInput.value = ""; // Clear attachments input after sending
+    attachmentsInput.files = new DataTransfer().files; // Reset the FileList
     clearAttachmentPreviews(); // Clear attachment previews
 
     const imageGenerationMode = isImageModeActive();
@@ -62,7 +79,7 @@ export async function send(msg: string) {
                 safetyFilterLevel: SafetyFilterLevel.BLOCK_LOW_AND_ABOVE,
             },
         });
-        if(!response.generatedImages){
+        if (!response.generatedImages) {
             alert("Image generation failed");
             return;
         }
@@ -74,11 +91,6 @@ export async function send(msg: string) {
     }
 
 
-    //handling user's message
-    const message: Message = {
-        role: "user",
-        parts: [{ text: msg, attachments: attachmentFiles }],
-    }
 
 
 
@@ -113,9 +125,6 @@ export async function send(msg: string) {
         const id = await chatsService.addChat(title);
         (document.querySelector(`#chat${id}`) as HTMLElement)?.click();
     }
-
-
-
 
     // Add chat history
     const currentChat = await chatsService.getCurrentChat(db);
@@ -162,12 +171,16 @@ export async function send(msg: string) {
         });
     }));
 
-    //insert user's message
+    //insert user's message element
+    const message: Message = {
+        role: "user",
+        parts: [{ text: msg, attachments: attachmentFiles }],
+    }
     const userMessageElement = await insertMessageV2(message);
     helpers.messageContainerScrollToBottom();
 
-    let stream: AsyncGenerator<GenerateContentResponse>;
-    stream = await chat.sendMessageStream({
+    //user message for model
+    const messagePayload = {
         message: [
             {
                 text: msg,
@@ -177,7 +190,7 @@ export async function send(msg: string) {
                 return createPartFromUri(file.uri!, file.mimeType!);
             }),
         ],
-    });
+    };
 
     //insert model message placeholder
     const responseElement = await insertMessageV2({
@@ -186,33 +199,51 @@ export async function send(msg: string) {
         personalityid: selectedPersonalityId,
         groundingContent: "",
     });
-
     const messageContent = responseElement.querySelector(".message-text")!;
     const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
-    //process the stream
     let rawText = "";
-    let groundingRenderedContentFromStream = "";
-    // In the new API, we receive an iterable stream
-    for await (const chunk of stream) {
-        // The chunks will have text property that contains content
-        if (chunk && chunk.text) {
-            rawText += chunk.text;
-            messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-            helpers.messageContainerScrollToBottom();
+    let groundingContent = "";
+    if (settings.streamResponses) {
+        let stream: AsyncGenerator<GenerateContentResponse>;
+        stream = await chat.sendMessageStream(messagePayload);
+        // In the new API, we receive an iterable stream
+        for await (const chunk of stream) {
+            // The chunks will have text property that contains content
+            if (chunk && chunk.text) {
+                rawText += chunk.text;
+                messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                helpers.messageContainerScrollToBottom();
+            }
+            if (chunk.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) {
+                groundingContent = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
+                // Ensure a single shadow DOM root and update content
+                const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
+                shadow.innerHTML = groundingContent;
+                const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
+                if (carousel) carousel.style.scrollbarWidth = "unset";
+            }
         }
-        if (chunk.candidates && chunk.candidates[0].groundingMetadata && chunk.candidates[0].groundingMetadata.searchEntryPoint?.renderedContent) {
-            groundingRenderedContentFromStream = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
-            // Create a shadow DOM for the grounding rendered content
-            const shadow = groundingRendered.attachShadow({ mode: "open" });
-            shadow.innerHTML = groundingRenderedContentFromStream;
-            shadow.querySelector<HTMLDivElement>(".carousel")!.style.scrollbarWidth = "unset";
+        hljs.highlightAll();
+    } else {
+        const response = await chat.sendMessage(messagePayload);
+        if (response && response.text) {
+            rawText = response.text;
         }
+        if (response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) {
+            groundingContent = response.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
+            const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
+            shadow.innerHTML = groundingContent;
+            const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
+            if (carousel) carousel.style.scrollbarWidth = "unset";
+        }
+        messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+        hljs.highlightAll();
     }
-    hljs.highlightAll();
+
     helpers.messageContainerScrollToBottom();
     //save chat history and settings
     currentChat.content.push({ role: "user", parts: [{ text: msg, attachments: attachmentFiles }] });
-    currentChat.content.push({ role: "model", personalityid: selectedPersonalityId, parts: [{ text: rawText }], groundingContent: groundingRenderedContentFromStream || "" });
+    currentChat.content.push({ role: "model", personalityid: selectedPersonalityId, parts: [{ text: rawText }], groundingContent: groundingContent || "" });
     await db.chats.put(currentChat);
     settingsService.saveSettings();
     return userMessageElement;
