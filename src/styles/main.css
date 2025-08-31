@@ -95,7 +95,7 @@ button:focus {
     outline: none;
 }
 
-input:disabled{
+input:disabled {
     filter: blur(2px);
 }
 
@@ -424,6 +424,7 @@ form {
 .message-text {
     position: relative;
 }
+
 .message-text .message-spinner {
     display: none;
     width: 1rem;
@@ -433,13 +434,16 @@ form {
     border-top-color: transparent;
     animation: rotate 1s linear infinite;
 }
+
 .message-text.is-loading .message-spinner {
     display: inline-block;
 }
+
 .message-text .message-text-content {
     opacity: 1;
     transition: opacity 0.25s ease-in-out;
 }
+
 .message-text.is-loading .message-text-content {
     opacity: 0;
 }
@@ -467,8 +471,13 @@ form {
 }
 
 @keyframes rotate {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .message {
@@ -769,11 +778,11 @@ form {
     overflow: hidden;
 }
 
-#btn-image.btn-toggled #image-generation-label{
+#btn-image.btn-toggled #image-generation-label {
     width: 100%;
 }
 
-#btn-image{
+#btn-image {
     display: flex;
     width: fit-content;
     align-items: start;
@@ -842,32 +851,34 @@ form {
 }
 
 /* Generic profile cards */
-.profile-card{
+.profile-card {
     border-radius: 0.75rem;
-    border: 1px solid transparent; /* themed */
+    border: 1px solid transparent;
+    /* themed */
     overflow: hidden;
 }
 
-.profile-card .subscription-card-body{
+.profile-card .subscription-card-body {
     gap: 0.6rem;
 }
 
 /* Subscription card */
-#subscription-status-row{
+#subscription-status-row {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     margin-top: -0.25rem;
     border-radius: 0.75rem;
     overflow: hidden;
-    border: 1px solid transparent; /* themed */
+    border: 1px solid transparent;
+    /* themed */
 }
 
-#subscription-status-row.collapsed{
-   gap: 0;
+#subscription-status-row.collapsed {
+    gap: 0;
 }
 
-.subscription-card-header{
+.subscription-card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -877,12 +888,13 @@ form {
 }
 
 /* Expand/collapse chevron indicator on card headers */
-.subscription-card-header{
+.subscription-card-header {
     position: relative;
-    padding-left: 2.25rem; /* make room for chevron */
+    padding-left: 2.25rem;
+    /* make room for chevron */
 }
 
-.subscription-card-header::before{
+.subscription-card-header::before {
     content: 'expand_more';
     font-family: 'Material Symbols Outlined';
     position: absolute;
@@ -897,11 +909,11 @@ form {
 
 /* Collapsed state rotates chevron to point right */
 #subscription-status-row.collapsed .subscription-card-header::before,
-.profile-card.collapsed .subscription-card-header::before{
+.profile-card.collapsed .subscription-card-header::before {
     transform: translateY(-50%) rotate(-90deg);
 }
 
-.subscription-card-body{
+.subscription-card-body {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
@@ -909,14 +921,14 @@ form {
     font-size: 0.95rem;
 }
 
-.subscription-row{
+.subscription-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
 }
 
-.subscription-card-footer{
+.subscription-card-footer {
     display: flex;
     justify-content: flex-end;
     padding: 0.5rem 1rem 0.75rem 1rem;
@@ -924,7 +936,7 @@ form {
 }
 
 /* Collapsible details with smooth height transition */
-.subscription-card-details{
+.subscription-card-details {
     overflow: hidden;
     height: 0;
     transition: height 0.22s ease-in-out;
@@ -932,7 +944,7 @@ form {
 }
 
 
-#subscription-badge{
+#subscription-badge {
     text-transform: uppercase;
     user-select: none;
     cursor: default;
@@ -983,7 +995,7 @@ form {
     width: 100%;
 }
 
-#btn-manage-subscription{
+#btn-manage-subscription {
     padding: 0.4rem 0.75rem;
     border-radius: 0.5rem;
     font-weight: 600;
@@ -1305,7 +1317,9 @@ input[name="currentChat"][value="none"] {
     margin-left: auto;
 }
 
-
+#mainContent .header {
+    display: none;
+}
 
 .generation-settings {
     display: flex;
@@ -1491,6 +1505,7 @@ input[name="currentChat"][value="none"] {
     }
 
     #mainContent .header {
+        display: flex;
         padding: 2rem;
         border-bottom: 1px solid #aaaaaa45;
     }
