@@ -65,26 +65,79 @@ export async function send(msg: string) {
     };
 
     if (imageGenerationMode) {
-        const response = await ai.models.generateImages({
-            model: 'models/imagen-4.0-ultra-generate-001',
-            prompt: msg,
-            config: {
-                numberOfImages: 1,
-                outputMimeType: 'image/jpeg',
-                personGeneration: PersonGeneration.ALLOW_ALL,
-                aspectRatio: '1:1',
-                safetyFilterLevel: SafetyFilterLevel.BLOCK_LOW_AND_ABOVE,
-            },
-        });
-        if (!response.generatedImages) {
-            alert("Image generation failed");
-            return;
+        // Ensure chat exists before adding messages
+        if (!await chatsService.getCurrentChat(db)) {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
+            });
+            const title = response.text || "";
+            const id = await chatsService.addChat(title);
+            (document.querySelector(`#chat${id}`) as HTMLElement)?.click();
         }
-        const b64 = response.generatedImages[0].image?.imageBytes;
-        const imageElement = document.createElement("img");
-        imageElement.src = `data:image/jpeg;base64,${b64}`;
-        document.body.appendChild(imageElement);
-        return;
+
+        // Insert the user's prompt as a user message
+        const userMsg: Message = {
+            role: "user",
+            parts: [{ text: msg, attachments: new DataTransfer().files }],
+        };
+        const userElm = await insertMessageV2(userMsg);
+        helpers.messageContainerScrollToBottom();
+
+        // Prepare a placeholder model message (no text yet, will attach image when ready)
+        const modelPlaceholder: Message = {
+            role: "model",
+            parts: [{ text: "" }],
+            personalityid: selectedPersonalityId,
+        };
+        const modelElm = await insertMessageV2(modelPlaceholder);
+        const messageContent = modelElm.querySelector(".message-text")!;
+
+        try {
+            const response = await ai.models.generateImages({
+                model: 'models/imagen-4.0-ultra-generate-001',
+                prompt: msg,
+                config: {
+                    numberOfImages: 1,
+                    outputMimeType: 'image/jpeg',
+                    personGeneration: PersonGeneration.ALLOW_ALL,
+                    aspectRatio: '1:1',
+                    safetyFilterLevel: SafetyFilterLevel.BLOCK_LOW_AND_ABOVE,
+                },
+            });
+
+            if (!response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
+                alert("Image generation failed");
+                return userElm;
+            }
+
+            const b64 = response.generatedImages[0].image.imageBytes;
+            // Update the placeholder element with the image via re-render
+            const modelMessage: Message = {
+                role: "model",
+                parts: [{ text: "" }],
+                personalityid: selectedPersonalityId,
+                generatedImages: [{ mimeType: 'image/jpeg', base64: b64 }],
+            };
+
+            const newElm = await messageElement(modelMessage);
+            modelElm.replaceWith(newElm);
+            helpers.messageContainerScrollToBottom();
+
+            // Persist to DB
+            const currentChatImg = await chatsService.getCurrentChat(db);
+            if (currentChatImg) {
+                currentChatImg.content.push(userMsg);
+                currentChatImg.content.push(modelMessage);
+                await db.chats.put(currentChatImg);
+            }
+            settingsService.saveSettings();
+            return userElm;
+        } catch (error) {
+            console.error(error);
+            alert("Image generation failed: " + error);
+            return userElm;
+        }
     }
 
 
@@ -196,7 +249,7 @@ export async function send(msg: string) {
         personalityid: selectedPersonalityId,
         groundingContent: "",
     });
-    const messageContent = responseElement.querySelector(".message-text")!;
+    const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
     const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
     let rawText = "";
     let groundingContent = "";
@@ -208,6 +261,7 @@ export async function send(msg: string) {
             // The chunks will have text property that contains content
             if (chunk && chunk.text) {
                 rawText += chunk.text;
+                responseElement.querySelector(".message-text")?.classList.remove("is-loading");
                 messageContent.innerHTML = await parseMarkdownToHtml(rawText);
                 helpers.messageContainerScrollToBottom();
             }
@@ -223,7 +277,7 @@ export async function send(msg: string) {
         hljs.highlightAll();
     } else {
         const response = await chat.sendMessage(messagePayload);
-        if (response && response.text) {
+    if (response && response.text) {
             rawText = response.text;
         }
         if (response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) {
@@ -233,7 +287,8 @@ export async function send(msg: string) {
             const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
             if (carousel) carousel.style.scrollbarWidth = "unset";
         }
-        messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+    responseElement.querySelector(".message-text")?.classList.remove("is-loading");
+    messageContent.innerHTML = await parseMarkdownToHtml(rawText);
         hljs.highlightAll();
     }
 

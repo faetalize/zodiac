@@ -1,3 +1,8 @@
+export interface GeneratedImage {
+    mimeType: string;
+    base64: string; // raw base64 bytes without data: prefix
+}
+
 export interface Message {
     role: "user" | "model";
     parts: Array<{
@@ -6,4 +11,6 @@ export interface Message {
     }>;
     personalityid?: string;
     groundingContent?: string;
+    // Optional AI-generated images for model responses
+    generatedImages?: GeneratedImage[];
 }

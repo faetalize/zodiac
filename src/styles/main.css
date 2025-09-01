@@ -460,6 +460,23 @@ form {
     opacity: 0;
 }
 
+/* Generated images in assistant messages */
+.message-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    max-width: 100%;
+}
+
+.message-images .generated-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    object-fit: contain;
+}
+
 /* Loading overlay for non-stream model responses */
 .message-loading-overlay {
     position: absolute;

@@ -51,7 +51,9 @@ export const messageElement = async (
         messageElement.classList.add("message-model");
             const rawInitial = message.parts[0].text || "";
             const initialHtml = helpers.getDecoded(rawInitial) || "";
-            const isLoading = rawInitial.trim().length === 0;
+            // If we already have generated images, don't show loading spinner even if text is empty
+            const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
+            const isLoading = rawInitial.trim().length === 0 && !hasImages;
         messageElement.innerHTML =
             `<div class="message-header">
             <img class="pfp" src="${personality.image}" loading="lazy"></img>
@@ -67,6 +69,9 @@ export const messageElement = async (
             <div class="message-text${isLoading ? ' is-loading' : ''}">
                 <span class="message-spinner"></span>
                 <div class="message-text-content">${initialHtml}</div>
+        </div>
+        <div class="message-images">
+            ${hasImages ? message.generatedImages!.map(img => `<img class="generated-image" src="data:${img.mimeType};base64,${img.base64}" loading="lazy" />`).join("") : ""}
         </div>
         <div class="message-grounding-rendered-content"></div>`;
         if (message.groundingContent) {
