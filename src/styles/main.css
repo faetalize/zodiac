@@ -154,6 +154,18 @@ form {
     gap: 1rem;
 }
 
+/* Align register terms toggle with its label */
+.register-terms-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.register-terms-row label {
+    padding: 0;
+    line-height: 1.2rem;
+}
+
 
 
 .error-message {
