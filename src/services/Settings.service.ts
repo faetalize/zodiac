@@ -1,4 +1,4 @@
-import { HarmBlockThreshold, HarmCategory } from "@google/genai";
+import { ContentUnion, HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
@@ -58,7 +58,7 @@ export function getSettings() {
     }
 }
 
-export async function getSystemPrompt() {
+export async function getSystemPrompt() : Promise<ContentUnion> {
     const userProfile = await supabaseService.getUserProfile();
     const systemPrompt = "If needed, format your answer using markdown. " +
         "Today's date is " + new Date().toDateString() + ". " +
@@ -77,5 +77,12 @@ export async function getSystemPrompt() {
         "0 requires you to be non-sensual. Total aversion to flirting or sexuality. If this is combined with an aggressiveness level of 0, you may not reject the user's advances (dictated by aggressiveness), but you do not reciprocate or enjoy them (dictated by sensuality). " +
         userProfile.systemPromptAddition + " " +
         "End of system prompt.";
-    return systemPrompt;
+    return {
+        parts: [
+            {
+                text: systemPrompt,
+            }
+        ],
+        role: "user"
+    };
 }
