@@ -95,7 +95,7 @@ export async function send(msg: string) {
         const userElm = await insertMessageV2(userMsg);
         helpers.messageContainerScrollToBottom();
 
-        // Prepare a placeholder model message (no text yet, will attach image when ready)
+    // Prepare a placeholder model message (no text yet, will attach image when ready)
         const modelPlaceholder: Message = {
             role: "model",
             parts: [{ text: "" }],
@@ -104,13 +104,6 @@ export async function send(msg: string) {
         const modelElm = await insertMessageV2(modelPlaceholder);
         const messageContent = modelElm.querySelector(".message-text")!;
         
-        // Persist the placeholder messages immediately so reload sees them
-        const chatForPersist = await chatsService.getCurrentChat(db);
-        if (chatForPersist) {
-            chatForPersist.content.push(userMsg);
-            chatForPersist.content.push(modelPlaceholder);
-            await db.chats.put(chatForPersist);
-        }
 
         try {
             const response = await ai.models.generateImages({
@@ -143,17 +136,11 @@ export async function send(msg: string) {
             modelElm.replaceWith(newElm);
             helpers.messageContainerScrollToBottom();
 
-            // Persist to DB: replace last model placeholder with final image message
+            // Persist to DB only after successful generation (mirror non-image path)
             const currentChatImg = await chatsService.getCurrentChat(db);
             if (currentChatImg) {
-                // Ensure the placeholder we added is the last entry and replace it
-                const idx = currentChatImg.content.length - 1;
-                if (idx >= 0 && currentChatImg.content[idx].role === 'model') {
-                    currentChatImg.content[idx] = modelMessage;
-                } else {
-                    // Fallback: append if structure changed
-                    currentChatImg.content.push(modelMessage);
-                }
+                currentChatImg.content.push(userMsg);
+                currentChatImg.content.push(modelMessage);
                 await db.chats.put(currentChatImg);
             }
             settingsService.saveSettings();
@@ -161,6 +148,8 @@ export async function send(msg: string) {
         } catch (error) {
             console.error(error);
             alert("Image generation failed: " + error);
+            // Remove the model placeholder since we didn't persist anything
+            try { modelElm.remove(); } catch { /* noop */ }
             return userElm;
         }
     }
