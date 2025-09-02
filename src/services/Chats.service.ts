@@ -155,7 +155,6 @@ export function newChat() {
 }
 
 export async function loadChat(chatID: number, db: Db) {
-    console.log("Loading chat with ID:", chatID);
     try {
         if (!chatID || !messageContainer) {
             console.error("Chat ID is null or message container not found");
