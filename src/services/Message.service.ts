@@ -73,7 +73,18 @@ export async function send(msg: string) {
             });
             const title = response.text || "";
             const id = await chatsService.addChat(title);
-            (document.querySelector(`#chat${id}`) as HTMLElement)?.click();
+            // Explicitly load and select the newly created chat to avoid race conditions
+            await chatsService.loadChat(id, db);
+            const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
+            if (chatInput) chatInput.checked = true;
+        }
+
+        // Re-fetch current chat after potential creation and load
+        const ensureChat = await chatsService.getCurrentChat(db);
+        if (!ensureChat) {
+            console.error("Failed to get or create current chat for image generation");
+            alert("Unable to create a new chat. Please try again.");
+            return;
         }
 
         // Insert the user's prompt as a user message
@@ -92,6 +103,14 @@ export async function send(msg: string) {
         };
         const modelElm = await insertMessageV2(modelPlaceholder);
         const messageContent = modelElm.querySelector(".message-text")!;
+        
+        // Persist the placeholder messages immediately so reload sees them
+        const chatForPersist = await chatsService.getCurrentChat(db);
+        if (chatForPersist) {
+            chatForPersist.content.push(userMsg);
+            chatForPersist.content.push(modelPlaceholder);
+            await db.chats.put(chatForPersist);
+        }
 
         try {
             const response = await ai.models.generateImages({
@@ -124,11 +143,17 @@ export async function send(msg: string) {
             modelElm.replaceWith(newElm);
             helpers.messageContainerScrollToBottom();
 
-            // Persist to DB
+            // Persist to DB: replace last model placeholder with final image message
             const currentChatImg = await chatsService.getCurrentChat(db);
             if (currentChatImg) {
-                currentChatImg.content.push(userMsg);
-                currentChatImg.content.push(modelMessage);
+                // Ensure the placeholder we added is the last entry and replace it
+                const idx = currentChatImg.content.length - 1;
+                if (idx >= 0 && currentChatImg.content[idx].role === 'model') {
+                    currentChatImg.content[idx] = modelMessage;
+                } else {
+                    // Fallback: append if structure changed
+                    currentChatImg.content.push(modelMessage);
+                }
                 await db.chats.put(currentChatImg);
             }
             settingsService.saveSettings();
@@ -139,10 +164,6 @@ export async function send(msg: string) {
             return userElm;
         }
     }
-
-
-
-
 
     //initlialize chat history
     const history: Content[] = [
