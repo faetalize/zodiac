@@ -50,8 +50,8 @@ sendMessageButton.addEventListener("click", async () => {
         if (userMessageElement) {
             (userMessageElement as HTMLElement).classList.add("message-failure");
         }
-        alert("Error, please report this to the developer. You might need to restart the page to continue normal usage: " + JSON.parse(error));
-        console.log(error);
+        alert("Error, please report this to the developer. You might need to restart the page to continue normal usage: " + error);
+        console.error(error);
         return;
     }
 });
