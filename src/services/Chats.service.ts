@@ -158,16 +158,13 @@ export async function loadChat(chatID: number, db: Db) {
     try {
         if (!chatID || !messageContainer) {
             console.error("Chat ID is null or message container not found");
-            return;
+            throw new Error("Chat ID is null or message container not found");
         }
-        const currentChat = await getCurrentChat(db);
-        if (currentChat) {
-            messageContainer.innerHTML = ""; // Clear existing messages
-            document.querySelector("#chat-title")!.textContent = currentChat.title;
-        }
+        messageContainer.innerHTML = ""; // Clear existing messages
         const chat = await db.chats.get(chatID);
+        document.querySelector("#chat-title")!.textContent = chat?.title || "";
         for (const msg of chat?.content || []) {
-           await messageService.insertMessageV2(msg);
+            await messageService.insertMessageV2(msg);
         }
         // Always scroll to bottom when loading a chat
         messageContainer.scrollTo({
@@ -175,6 +172,7 @@ export async function loadChat(chatID: number, db: Db) {
             behavior: 'instant'
         });
         hljs.highlightAll();
+        return chat;
     }
     catch (error) {
         alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);

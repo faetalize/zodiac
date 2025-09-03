@@ -11,15 +11,12 @@ import { clearAttachmentPreviews } from "../components/static/AttachmentPreview.
 import { Message } from "../models/Message";
 import { messageElement } from "../components/message";
 import { isImageModeActive } from "../components/static/ImageButton.component";
+import { Chat, DbChat } from "../models/Chat";
 
 export async function send(msg: string) {
     const settings = settingsService.getSettings();
     const selectedPersonality = await personalityService.getSelected();
-    const selectedPersonalityId = (() => {
-        const checked = document.querySelector<HTMLInputElement>("input[name='personality']:checked");
-        const parentId = checked?.parentElement?.id ?? "";
-        return parentId.startsWith("personality-") ? parentId.slice("personality-".length) : "-1";
-    })();
+    const selectedPersonalityId = getSelectedPersonalityId();
     const isInternetSearchEnabled = document.querySelector<HTMLButtonElement>("#btn-internet")?.classList.contains("btn-toggled");
     const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
     if (!attachmentsInput) {
@@ -38,8 +35,6 @@ export async function send(msg: string) {
     attachmentsInput.value = ""; // Clear attachments input after sending
     attachmentsInput.files = new DataTransfer().files; // Reset the FileList
     clearAttachmentPreviews(); // Clear attachment previews
-
-    const imageGenerationMode = isImageModeActive();
 
     if (!selectedPersonality) {
         return;
@@ -64,46 +59,24 @@ export async function send(msg: string) {
         tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined
     };
 
-    if (imageGenerationMode) {
-        // Ensure chat exists before adding messages
-        if (!await chatsService.getCurrentChat(db)) {
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
-            });
-            const title = response.text || "";
-            const id = await chatsService.addChat(title);
-            // Explicitly load and select the newly created chat to avoid race conditions
-            await chatsService.loadChat(id, db);
-            const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
-            if (chatInput) chatInput.checked = true;
-        }
+    const currentChat = await createChatIfAbsent(ai, msg);
+    if (!currentChat) {
+        console.error("No current chat found");
+        return;
+    }
+    
+    //insert user's message element
+    const userMessage: Message = { role: "user", parts: [{ text: msg, attachments: attachmentFiles }] };
+    const userMessageElement = await insertMessageV2(userMessage);
+    helpers.messageContainerScrollToBottom();
 
-        // Re-fetch current chat after potential creation and load
-        const ensureChat = await chatsService.getCurrentChat(db);
-        if (!ensureChat) {
-            console.error("Failed to get or create current chat for image generation");
-            alert("Unable to create a new chat. Please try again.");
-            return;
-        }
-
-        // Insert the user's prompt as a user message
-        const userMsg: Message = {
-            role: "user",
-            parts: [{ text: msg, attachments: new DataTransfer().files }],
-        };
+    if (isImageModeActive()) {
+        const userMsg: Message = { role: "user", parts: [{ text: msg, attachments: new DataTransfer().files }] };
         const userElm = await insertMessageV2(userMsg);
         helpers.messageContainerScrollToBottom();
 
-    // Prepare a placeholder model message (no text yet, will attach image when ready)
-        const modelPlaceholder: Message = {
-            role: "model",
-            parts: [{ text: "" }],
-            personalityid: selectedPersonalityId,
-        };
-        const modelElm = await insertMessageV2(modelPlaceholder);
-        const messageContent = modelElm.querySelector(".message-text")!;
-        
+        // Prepare a placeholder model message (no text yet, will attach image when ready)
+        const modelElm = await insertMessageV2(createModelPlaceholder(selectedPersonalityId));
 
         try {
             const response = await ai.models.generateImages({
@@ -120,6 +93,7 @@ export async function send(msg: string) {
 
             if (!response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
                 alert("Image generation failed");
+                try { modelElm.remove(); } catch (e) { /* noop */ }
                 return userElm;
             }
 
@@ -137,86 +111,20 @@ export async function send(msg: string) {
             helpers.messageContainerScrollToBottom();
 
             // Persist to DB only after successful generation (mirror non-image path)
-            const currentChatImg = await chatsService.getCurrentChat(db);
-            if (currentChatImg) {
-                currentChatImg.content.push(userMsg);
-                currentChatImg.content.push(modelMessage);
-                await db.chats.put(currentChatImg);
-            }
+            await persistUserAndModel(userMsg, modelMessage);
             settingsService.saveSettings();
             return userElm;
         } catch (error) {
             console.error(error);
             alert("Image generation failed: " + error);
             // Remove the model placeholder since we didn't persist anything
-            try { modelElm.remove(); } catch { /* noop */ }
+            try { modelElm.remove(); } catch (e) { /* noop */ }
             return userElm;
         }
     }
 
-    //initlialize chat history
-    const history: Content[] = [
-        {
-            role: "user",
-            parts: [{ text: `Personality Name: ${selectedPersonality.name}, Personality Description: ${selectedPersonality.description}, Personality Prompt: ${selectedPersonality.prompt}. Your level of aggression is ${selectedPersonality.aggressiveness} out of 3. Your sensuality is ${selectedPersonality.sensuality} out of 3.` }]
-        },
-        {
-            role: "model",
-            parts: [{ text: "Very well, from now on, I will be acting as the personality you have chosen" }]
-        }
-    ];
 
-    if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0) {
-        history.push(
-            ...selectedPersonality.toneExamples.map((toneExample) => {
-                return { role: "model", parts: [{ text: toneExample }] }
-            })
-        );
-    }
-
-
-    //new chat creation
-    if (!await chatsService.getCurrentChat(db)) {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
-        });
-        const title = response.text || "";
-        const id = await chatsService.addChat(title);
-        (document.querySelector(`#chat${id}`) as HTMLElement)?.click();
-    }
-
-    // Add chat history
-    const currentChat = await chatsService.getCurrentChat(db);
-    if (!currentChat) {
-        console.error("No current chat found");
-        return;
-    }
-    history.push(
-        ...await Promise.all(currentChat.content.map(async (dbMessage: Message) => {
-            const genAiMessage: Content = {
-                role: dbMessage.role,
-                parts: (await Promise.all(dbMessage.parts.map(async (part) => {
-                    const text = part.text || "";
-                    const attachments = part.attachments || [];
-                    const parts: Part[] = [{ text: text }];
-                    // if (attachments && attachments.length > 0) {
-                    //     for (const attachment of attachments) {
-                    //         parts.push({
-                    //             inlineData: {
-                    //                 //attachment is of File, we need to convert it to base64
-                    //                 data: await helpers.fileToBase64(attachment),
-                    //                 mimeType: attachment.type || "application/octet-stream",
-                    //             }
-                    //         });
-                    //     }
-                    // }
-                    return parts;
-                }))).flat()
-            }
-            return genAiMessage;
-        }))
-    );
+    const history: Content[] = await buildHistory(selectedPersonality, currentChat);
 
     // Create chat session
     const chat = ai.chats.create({
@@ -231,13 +139,7 @@ export async function send(msg: string) {
         });
     }));
 
-    //insert user's message element
-    const message: Message = {
-        role: "user",
-        parts: [{ text: msg, attachments: attachmentFiles }],
-    }
-    const userMessageElement = await insertMessageV2(message);
-    helpers.messageContainerScrollToBottom();
+    
 
     //user message for model
     const messagePayload = {
@@ -253,60 +155,60 @@ export async function send(msg: string) {
     };
 
     //insert model message placeholder
-    const responseElement = await insertMessageV2({
-        role: "model",
-        parts: [{ text: "" }],
-        personalityid: selectedPersonalityId,
-        groundingContent: "",
-    });
+    const responseElement = await insertMessageV2(createModelPlaceholder(selectedPersonalityId, ""));
     const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
     const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
     let rawText = "";
     let groundingContent = "";
-    if (settings.streamResponses) {
-        let stream: AsyncGenerator<GenerateContentResponse>;
-        stream = await chat.sendMessageStream(messagePayload);
-        // In the new API, we receive an iterable stream
-        for await (const chunk of stream) {
-            // The chunks will have text property that contains content
-            if (chunk && chunk.text) {
-                rawText += chunk.text;
-                responseElement.querySelector(".message-text")?.classList.remove("is-loading");
-                messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-                helpers.messageContainerScrollToBottom();
+    try {
+        if (settings.streamResponses) {
+            let stream: AsyncGenerator<GenerateContentResponse>;
+            stream = await chat.sendMessageStream(messagePayload);
+            for await (const chunk of stream) {
+                if (chunk && chunk.text) {
+                    rawText += chunk.text;
+                    responseElement.querySelector(".message-text")?.classList.remove("is-loading");
+                    messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                    helpers.messageContainerScrollToBottom();
+                }
+                if (chunk.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) {
+                    groundingContent = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
+                    const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
+                    shadow.innerHTML = groundingContent;
+                    const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
+                    if (carousel) carousel.style.scrollbarWidth = "unset";
+                }
             }
-            if (chunk.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) {
-                groundingContent = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
-                // Ensure a single shadow DOM root and update content
+            hljs.highlightAll();
+        } else {
+            const response = await chat.sendMessage(messagePayload);
+            if (response && response.text) {
+                rawText = response.text;
+            }
+            if (response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) {
+                groundingContent = response.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
                 const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
                 shadow.innerHTML = groundingContent;
                 const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
                 if (carousel) carousel.style.scrollbarWidth = "unset";
             }
+            responseElement.querySelector(".message-text")?.classList.remove("is-loading");
+            messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+            hljs.highlightAll();
         }
-        hljs.highlightAll();
-    } else {
-        const response = await chat.sendMessage(messagePayload);
-    if (response && response.text) {
-            rawText = response.text;
-        }
-        if (response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) {
-            groundingContent = response.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
-            const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
-            shadow.innerHTML = groundingContent;
-            const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
-            if (carousel) carousel.style.scrollbarWidth = "unset";
-        }
-    responseElement.querySelector(".message-text")?.classList.remove("is-loading");
-    messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-        hljs.highlightAll();
+    } catch (err) {
+        console.error(err);
+        // Clean up placeholder if something goes wrong to avoid stuck spinner
+        try { responseElement.remove(); } catch { /* noop */ }
+        return userMessageElement;
     }
 
     helpers.messageContainerScrollToBottom();
-    //save chat history and settings
-    currentChat.content.push({ role: "user", parts: [{ text: msg, attachments: attachmentFiles }] });
-    currentChat.content.push({ role: "model", personalityid: selectedPersonalityId, parts: [{ text: rawText }], groundingContent: groundingContent || "" });
-    await db.chats.put(currentChat);
+    //save chat history and settings (persist after success only)
+    await persistUserAndModel(
+        userMessage,
+        { role: "model", personalityid: selectedPersonalityId, parts: [{ text: rawText }], groundingContent: groundingContent || "" }
+    );
     settingsService.saveSettings();
     return userMessageElement;
 }
@@ -346,4 +248,79 @@ export async function insertMessageV2(message: Message) {
     }
     helpers.messageContainerScrollToBottom();
     return messageElm;
+}
+
+// -------------------- Internal helpers --------------------
+function getSelectedPersonalityId(): string {
+    const checked = document.querySelector<HTMLInputElement>("input[name='personality']:checked");
+    const parentId = checked?.parentElement?.id ?? "";
+    return parentId.startsWith("personality-") ? parentId.slice("personality-".length) : "-1";
+}
+
+async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat> {
+    const currentChat = await chatsService.getCurrentChat(db);
+    if (currentChat) { return currentChat; }
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
+    });
+    const title = response.text || "";
+    const id = await chatsService.addChat(title);
+    const chat = await chatsService.loadChat(id, db);
+    const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
+    if (chatInput) chatInput.checked = true;
+    return chat!;
+}
+
+
+function createModelPlaceholder(personalityid: string, groundingContent?: string): Message {
+    const m: Message = { role: "model", parts: [{ text: "" }], personalityid };
+    if (groundingContent !== undefined) (m as any).groundingContent = groundingContent;
+    return m;
+}
+
+async function persistUserAndModel(user: Message, model: Message): Promise<void> {
+    const chat = await chatsService.getCurrentChat(db);
+    if (!chat) return;
+    chat.content.push(user);
+    chat.content.push(model);
+    await db.chats.put(chat);
+}
+
+async function buildHistory(selectedPersonality: Awaited<ReturnType<typeof personalityService.getSelected>>, currentChat: Chat): Promise<Content[]> {
+    const history: Content[] = [
+        {
+            role: "user",
+            parts: [{ text: `Personality Name: ${selectedPersonality!.name}, Personality Description: ${selectedPersonality!.description}, Personality Prompt: ${selectedPersonality!.prompt}. Your level of aggression is ${selectedPersonality!.aggressiveness} out of 3. Your sensuality is ${selectedPersonality!.sensuality} out of 3.` }]
+        },
+        { role: "model", parts: [{ text: "Very well, from now on, I will be acting as the personality you have chosen" }] }
+    ];
+    if (selectedPersonality?.toneExamples && selectedPersonality.toneExamples.length > 0) {
+        history.push(...selectedPersonality.toneExamples.map((toneExample) => ({ role: "model", parts: [{ text: toneExample }] })));
+    }
+    const past = await Promise.all(currentChat.content.map(async (dbMessage: Message) => {
+        const genAiMessage: Content = {
+            role: dbMessage.role,
+            parts: ((await Promise.all(dbMessage.parts.map(async (part) => {
+                const text = part.text || "";
+                const attachments = part.attachments || [];
+                const parts: Part[] = [{ text }];
+                // if (attachments && attachments.length > 0) {
+                //     for (const attachment of attachments) {
+                //         parts.push({
+                //             inlineData: {
+                //                 //attachment is of File, we need to convert it to base64
+                //                 data: await helpers.fileToBase64(attachment),
+                //                 mimeType: attachment.type || "application/octet-stream",
+                //             }
+                //         });
+                //     }
+                // }
+                return parts;
+            })))).flat()
+        };
+        return genAiMessage;
+    }));
+    history.push(...past);
+    return history;
 }
