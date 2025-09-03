@@ -47,7 +47,6 @@ export async function send(msg: string) {
         return;
     }
 
-
     //model setup
     const ai = new GoogleGenAI({ apiKey: settings.apiKey });
     const config: GenerateContentConfig = {
@@ -64,63 +63,48 @@ export async function send(msg: string) {
         console.error("No current chat found");
         return;
     }
-    
+
     //insert user's message element
     const userMessage: Message = { role: "user", parts: [{ text: msg, attachments: attachmentFiles }] };
     const userMessageElement = await insertMessageV2(userMessage);
     helpers.messageContainerScrollToBottom();
 
     if (isImageModeActive()) {
-        const userMsg: Message = { role: "user", parts: [{ text: msg, attachments: new DataTransfer().files }] };
-        const userElm = await insertMessageV2(userMsg);
+        // Prepare a placeholder model message (no text yet, will attach image when ready)
+        const modelElm = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId));
+        const response = await ai.models.generateImages({
+            model: 'models/imagen-4.0-ultra-generate-001',
+            prompt: msg,
+            config: {
+                numberOfImages: 1,
+                outputMimeType: 'image/jpeg',
+                personGeneration: PersonGeneration.ALLOW_ALL,
+                aspectRatio: '1:1',
+                safetyFilterLevel: SafetyFilterLevel.BLOCK_LOW_AND_ABOVE,
+            },
+        });
+
+        if (!response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
+            alert("Image generation failed");
+            try { modelElm.remove(); } catch (e) { /* noop */ }
+            return userMessageElement;
+        }
+
+        const b64 = response.generatedImages[0].image.imageBytes;
+        // Update the placeholder element with the image via re-render
+        const modelMessage: Message = {
+            role: "model",
+            parts: [{ text: "" }],
+            personalityid: selectedPersonalityId,
+            generatedImages: [{ mimeType: 'image/jpeg', base64: b64 }],
+        };
+
+        const newElm = await messageElement(modelMessage);
+        modelElm.replaceWith(newElm);
         helpers.messageContainerScrollToBottom();
 
-        // Prepare a placeholder model message (no text yet, will attach image when ready)
-        const modelElm = await insertMessageV2(createModelPlaceholder(selectedPersonalityId));
-
-        try {
-            const response = await ai.models.generateImages({
-                model: 'models/imagen-4.0-ultra-generate-001',
-                prompt: msg,
-                config: {
-                    numberOfImages: 1,
-                    outputMimeType: 'image/jpeg',
-                    personGeneration: PersonGeneration.ALLOW_ALL,
-                    aspectRatio: '1:1',
-                    safetyFilterLevel: SafetyFilterLevel.BLOCK_LOW_AND_ABOVE,
-                },
-            });
-
-            if (!response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
-                alert("Image generation failed");
-                try { modelElm.remove(); } catch (e) { /* noop */ }
-                return userElm;
-            }
-
-            const b64 = response.generatedImages[0].image.imageBytes;
-            // Update the placeholder element with the image via re-render
-            const modelMessage: Message = {
-                role: "model",
-                parts: [{ text: "" }],
-                personalityid: selectedPersonalityId,
-                generatedImages: [{ mimeType: 'image/jpeg', base64: b64 }],
-            };
-
-            const newElm = await messageElement(modelMessage);
-            modelElm.replaceWith(newElm);
-            helpers.messageContainerScrollToBottom();
-
-            // Persist to DB only after successful generation (mirror non-image path)
-            await persistUserAndModel(userMsg, modelMessage);
-            settingsService.saveSettings();
-            return userElm;
-        } catch (error) {
-            console.error(error);
-            alert("Image generation failed: " + error);
-            // Remove the model placeholder since we didn't persist anything
-            try { modelElm.remove(); } catch (e) { /* noop */ }
-            return userElm;
-        }
+        await persistUserAndModel(userMessage, modelMessage);
+        return userMessageElement;
     }
 
 
@@ -139,7 +123,7 @@ export async function send(msg: string) {
         });
     }));
 
-    
+
 
     //user message for model
     const messagePayload = {
@@ -155,7 +139,7 @@ export async function send(msg: string) {
     };
 
     //insert model message placeholder
-    const responseElement = await insertMessageV2(createModelPlaceholder(selectedPersonalityId, ""));
+    const responseElement = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId, ""));
     const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
     const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
     let rawText = "";
@@ -209,7 +193,6 @@ export async function send(msg: string) {
         userMessage,
         { role: "model", personalityid: selectedPersonalityId, parts: [{ text: rawText }], groundingContent: groundingContent || "" }
     );
-    settingsService.saveSettings();
     return userMessageElement;
 }
 
@@ -273,7 +256,7 @@ async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat>
 }
 
 
-function createModelPlaceholder(personalityid: string, groundingContent?: string): Message {
+function createModelPlaceholderMessage(personalityid: string, groundingContent?: string): Message {
     const m: Message = { role: "model", parts: [{ text: "" }], personalityid };
     if (groundingContent !== undefined) (m as any).groundingContent = groundingContent;
     return m;
