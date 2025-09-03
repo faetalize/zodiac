@@ -1,11 +1,22 @@
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
 import { User } from "../models/User";
 
-export const supabase = createClient('https://hglcltvwunzynnzduauy.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ');
+export const SUPABASE_URL = 'https://hglcltvwunzynnzduauy.supabase.co';
+export const supabase = createClient(SUPABASE_URL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ');
+
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+        return { Authorization: `Bearer ${session.access_token}` };
+    }
+    return {};
+}
 
 supabase.auth.onAuthStateChange((event, session) => {
     //on login
     if (event === 'SIGNED_IN') {
+    // notify listeners immediately
+    try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: true } })); } catch {}
         //on profile change
         supabase.channel("profile_updates").on(
             'postgres_changes',
@@ -41,10 +52,11 @@ supabase.auth.onAuthStateChange((event, session) => {
                 }
                 document.querySelector<HTMLInputElement>("#profile-preferred-name")!.value = profile.preferredName;
                 document.querySelector<HTMLTextAreaElement>("#profile-system-prompt")!.defaultValue = profile.systemPromptAddition;
-                updateSubscriptionUI();
+        updateSubscriptionUI(); // will dispatch subscription-updated
             }
         );
     } else if (event === 'SIGNED_OUT') {
+    try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: false } })); } catch {}
         document.querySelectorAll('.logged-out-component').forEach(el => {
             (el as HTMLElement).classList.remove('hidden');
         });
@@ -87,6 +99,8 @@ supabase.auth.onAuthStateChange((event, session) => {
         if (orDivider) orDivider.classList.remove('hidden');
         if (upgradeBtn) upgradeBtn.classList.remove('hidden');
         supabase.removeAllChannels();
+    // Treat as free tier for any listeners
+    try { window.dispatchEvent(new CustomEvent('subscription-updated', { detail: { tier: 'free' } })); } catch {}
     }
 });
 
@@ -293,17 +307,15 @@ export async function updateSubscriptionUI(): Promise<void> {
         const apiKeyError = document.querySelector<HTMLElement>('.api-key-error');
 
         const isSubscribed = tier === 'pro' || tier === 'max';
-        if (apiKeyInput) {
-            apiKeyInput.disabled = isSubscribed;
-            if (isSubscribed) {
-                // Clear error/validation visuals
+            // Leave API key input enable/disable and hint visibility to the API key component based on route
+            if (apiKeyInput && isSubscribed) {
                 apiKeyInput.classList.remove('api-key-invalid');
                 if (apiKeyError) apiKeyError.classList.add('hidden');
             }
-        }
-        if (noNeedMsg) noNeedMsg.classList.toggle('hidden', !isSubscribed);
         if (orDivider) orDivider.classList.toggle('hidden', isSubscribed);
         if (upgradeBtn) upgradeBtn.classList.toggle('hidden', isSubscribed);
+    // Notify listeners so UI can react without reload
+    try { window.dispatchEvent(new CustomEvent('subscription-updated', { detail: { tier } })); } catch {}
     } catch (err) {
         console.error('Error updating subscription UI:', err);
     }

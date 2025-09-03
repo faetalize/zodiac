@@ -7,7 +7,6 @@ const temperatureInput = document.querySelector("#temperature") as HTMLInputElem
 const modelSelect = document.querySelector("#selectedModel") as HTMLSelectElement;
 const autoscrollToggle = document.querySelector("#autoscroll") as HTMLInputElement;
 const streamResponsesToggle = document.querySelector("#streamResponses") as HTMLInputElement;
-
 if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !autoscrollToggle || !streamResponsesToggle) {
     throw new Error("One or more settings elements are missing in the DOM.");
 }
@@ -54,12 +53,28 @@ export function getSettings() {
         ],
         model: modelSelect.value,
         autoscroll: autoscrollToggle.checked,
-    streamResponses: streamResponsesToggle.checked,
+        streamResponses: streamResponsesToggle.checked,
+        useEdgeFunction: (localStorage.getItem("useEdgeFunction") ?? "false") === "true",
     }
 }
 
-export async function getSystemPrompt() : Promise<ContentUnion> {
-    const userProfile = await supabaseService.getUserProfile();
+export function setUseEdgeFunction(enabled: boolean) {
+    localStorage.setItem("useEdgeFunction", enabled ? "true" : "false");
+}
+
+export function getUseEdgeFunction(): boolean {
+    return (localStorage.getItem("useEdgeFunction") ?? "false") === "true";
+}
+
+export async function getSystemPrompt(): Promise<ContentUnion> {
+    let userProfile;
+    try {
+
+        userProfile = await supabaseService.getUserProfile();
+
+    } catch (error) {
+        userProfile = { systemPromptAddition: "" };
+    }
     const systemPrompt = "If needed, format your answer using markdown. " +
         "Today's date is " + new Date().toDateString() + ". " +
         "You are to act as the personality dictated by the user. " +

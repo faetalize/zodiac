@@ -12,6 +12,7 @@ import { Message } from "../models/Message";
 import { messageElement } from "../components/message";
 import { isImageModeActive } from "../components/static/ImageButton.component";
 import { Chat, DbChat } from "../models/Chat";
+import { getSubscriptionTier, getUserSubscription, type SubscriptionTier, SUPABASE_URL, getAuthHeaders } from "./Supabase.service";
 
 export async function send(msg: string) {
     const settings = settingsService.getSettings();
@@ -39,7 +40,11 @@ export async function send(msg: string) {
     if (!selectedPersonality) {
         return;
     }
-    if (settings.apiKey === "") {
+    // Determine subscription tier to decide backend route
+    // Toggle is authoritative: choose Edge Function only when enabled.
+    const useEdge = !!(settings as any).useEdgeFunction;
+
+    if (!useEdge && settings.apiKey === "") {
         alert("Please enter an API key");
         return;
     }
@@ -47,7 +52,7 @@ export async function send(msg: string) {
         return;
     }
 
-    //model setup
+    //model setup (local SDK only for Free tier)
     const ai = new GoogleGenAI({ apiKey: settings.apiKey });
     const config: GenerateContentConfig = {
         maxOutputTokens: parseInt(settings.maxTokens),
@@ -110,20 +115,128 @@ export async function send(msg: string) {
 
     const history: Content[] = await buildHistory(selectedPersonality, currentChat);
 
-    // Create chat session
-    const chat = ai.chats.create({
-        model: settings.model,
-        history: history,
-        config: config,
-    });
+    // If Pro/Max, call Supabase Edge Function; else use SDK directly
+    if (useEdge) {
+        //insert model message placeholder
+        const responseElement = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId, ""));
+        const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
+        const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
+        let rawText = "";
+        let groundingContent = "";
+
+        try {
+            const hasFiles = (attachmentFiles?.length ?? 0) > 0;
+            const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+            // Build request
+            let res: Response;
+            if (hasFiles) {
+                const form = new FormData();
+                form.append('message', msg);
+                form.append('settings', JSON.stringify({
+                    model: settings.model,
+                    maxOutputTokens: settings.maxTokens,
+                    temperature: settings.temperature,
+                    instructions: await settingsService.getSystemPrompt(),
+                    safetySettings: settings.safetySettings,
+                    googleSearch: isInternetSearchEnabled,
+                    streamResponse: settings.streamResponses
+                }));
+                form.append('history', JSON.stringify(history));
+                for (const f of Array.from(attachmentFiles || [])) form.append('files', f);
+                res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: await getAuthHeaders(),
+                    body: form,
+                });
+            } else {
+                res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        ...(await getAuthHeaders()),
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: msg,
+                        settings: {
+                            model: settings.model,
+                            maxOutputTokens: settings.maxTokens,
+                            temperature: settings.temperature,
+                            instructions: await settingsService.getSystemPrompt(),
+                            safetySettings: settings.safetySettings,
+                            googleSearch: isInternetSearchEnabled,
+                            streamResponse: settings.streamResponses
+                        },
+                        history
+                    })
+                });
+            }
+
+            if (!res.ok) throw new Error(`Edge function error: ${res.status}`);
+
+            if (settings.streamResponses) {
+                // SSE parse
+                const reader = res.body!.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    let idx;
+                    while ((idx = buffer.indexOf('\n\n')) !== -1) {
+                        const eventBlock = buffer.slice(0, idx);
+                        buffer = buffer.slice(idx + 2);
+                        if (!eventBlock) continue;
+                        if (eventBlock.startsWith(':')) continue; // comment
+                        const lines = eventBlock.split('\n');
+                        let eventName = 'message';
+                        let data = '';
+                        for (const line of lines) {
+                            if (line.startsWith('event: ')) eventName = line.slice(7).trim();
+                            else if (line.startsWith('data: ')) data += line.slice(6);
+                        }
+                        if (eventName === 'error') throw new Error(data);
+                        if (eventName === 'done') break;
+                        if (data) {
+                            try {
+                                const payload = JSON.parse(data);
+                                if (payload.text) {
+                                    rawText += payload.text;
+                                    responseElement.querySelector('.message-text')?.classList.remove('is-loading');
+                                    messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                                    helpers.messageContainerScrollToBottom();
+                                }
+                            } catch {}
+                        }
+                    }
+                }
+                hljs.highlightAll();
+            } else {
+                const json = await res.json();
+                if (json && json.text) rawText = json.text;
+                responseElement.querySelector('.message-text')?.classList.remove('is-loading');
+                messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                hljs.highlightAll();
+            }
+        } catch (err) {
+            console.error(err);
+            try { responseElement.remove(); } catch {}
+            return userMessageElement;
+        }
+
+        helpers.messageContainerScrollToBottom();
+        await persistUserAndModel(
+            userMessage,
+            { role: "model", personalityid: selectedPersonalityId, parts: [{ text: rawText }], groundingContent: groundingContent || "" }
+        );
+        return userMessageElement;
+    }
 
     const uploadedFiles = await Promise.all(Array.from(attachmentFiles || []).map(async (file) => {
         return await ai.files.upload({
             file: file,
         });
     }));
-
-
 
     //user message for model
     const messagePayload = {
@@ -147,6 +260,7 @@ export async function send(msg: string) {
     try {
         if (settings.streamResponses) {
             let stream: AsyncGenerator<GenerateContentResponse>;
+            const chat = ai.chats.create({ model: settings.model, history, config });
             stream = await chat.sendMessageStream(messagePayload);
             for await (const chunk of stream) {
                 if (chunk && chunk.text) {
@@ -165,6 +279,7 @@ export async function send(msg: string) {
             }
             hljs.highlightAll();
         } else {
+            const chat = ai.chats.create({ model: settings.model, history, config });
             const response = await chat.sendMessage(messagePayload);
             if (response && response.text) {
                 rawText = response.text;
