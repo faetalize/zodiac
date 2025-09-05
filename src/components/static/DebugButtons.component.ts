@@ -3,12 +3,27 @@ import * as personalityService from "../../services/Personality.service"
 import { Message } from "../../models/Message";
 import { Personality } from "../../models/Personality";
 
+// Only enable debug UI when running on localhost
+const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+
+const debugSection = document.querySelector<HTMLDivElement>("#debug-section");
 const generateRandomChatsButton = document.querySelector<HTMLButtonElement>("#btn-debug-chats");
 const generateRandomPersonalitiesButton = document.querySelector<HTMLButtonElement>("#btn-debug-personalities");
 
-if (!generateRandomChatsButton || !generateRandomPersonalitiesButton) {
-    console.error("Debug buttons not found");
-    throw new Error("DebugButtons component is not properly initialized.");
+if (!isLocalhost) {
+    // Hide debug UI entirely in non-local environments
+    if (debugSection) {
+        debugSection.classList.add("hidden");
+    }
+} else {
+    // Ensure required buttons exist in localhost
+    if (debugSection) {
+        debugSection.classList.remove("hidden");
+    }
+    if (!generateRandomChatsButton || !generateRandomPersonalitiesButton) {
+        console.error("Debug buttons not found");
+        throw new Error("DebugButtons component is not properly initialized.");
+    }
 }
 
 
@@ -50,7 +65,8 @@ const modelMessages = [
     "I'd love to hear more about that"
 ];
 
-generateRandomChatsButton.addEventListener("click", async () => {
+// Register listeners only in localhost
+if (isLocalhost && generateRandomChatsButton) generateRandomChatsButton.addEventListener("click", async () => {
     titles.forEach((title) => {
         const randomConversation: Message[] = [];
 
@@ -132,7 +148,7 @@ const toneExampleSets = [
     ["What an intriguing possibility!", "Let's explore uncharted territory...", "Adventure awaits in this concept!"]
 ];
 
-generateRandomPersonalitiesButton.addEventListener("click", async () => {
+if (isLocalhost && generateRandomPersonalitiesButton) generateRandomPersonalitiesButton.addEventListener("click", async () => {
     // Generate 10 random personalities
     for (let i = 0; i < 10; i++) {
         const randomPersonality: Personality = {

@@ -74,7 +74,7 @@
                         </button>
                     </div>
 
-                    <input type="text" id="chat-search-input" class="input-field" placeholder="Search chats..." style="margin-block: 0.5rem;">
+                    <input type="text" id="chat-search-input" class="input-field" placeholder="Search chats...">
 
                     <input type="radio" name="currentChat" value="none" checked>
                     <div id="chatHistorySection">
@@ -109,11 +109,13 @@
                             <span class="material-symbols-outlined">error</span> Invalid API Key
                         </div>
                         <div id="apiKeyNoNeedMsg" class="hint hidden">No API key required, enjoy!</div>
+                        <!-- Pro/Max route toggle -->
+                        <span id="use-api-key-wrap" style="display: none; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                            <input type="checkbox" id="use-api-key">
+                            <label for="use-api-key">Use your own API Key</label>
+                        </span>
                     </div>
-                    <div id="or-divider" style="
-                        text-align: center;
-                        font-weight: 800;
-                        text-transform: uppercase;">or</div>
+                    <div id="or-divider" style="text-align: center; font-weight: 800; text-transform: uppercase;">or</div>
                     <button id="btn-show-subscription-options">Upgrade</button>
                     <h3>Generation Settings</h3>
                     <div class="generation-settings">
@@ -180,12 +182,10 @@
                     </div>
                     <h3>User Experience</h3>
                     <div>
-                        <!-- autoscroll toggle -->
                         <div style="display: flex; gap: 0.25rem; align-items: center;">
                             <input id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
                             <label for="autoscroll">Autoscroll</label>
                         </div>
-                        <!-- stream responses toggle -->
                         <div style="display: flex; gap: 0.25rem; align-items: center; margin-top: 0.5rem;">
                             <input id="streamResponses" type="checkbox" name="streamResponsesEnabled" checked></input>
                             <label for="streamResponses">Stream Responses</label>
@@ -213,11 +213,13 @@
                             <span class="paypal-logo1">Pay</span><span class="paypal-logo2">Pal</span>
                         </a>
                     </div>
-                    <h3>Debug</h3>
-                    <div class="btn-array-vertical">
-                        <button id="btn-debug-chats">Generate 10 Random Chats</button>
-                        <button id="btn-debug-personalities">Generate 10 Random Personalities</button>
-                        <button id="btn-debug-option-3">Debug Option 3</button>
+                    <div id="debug-section" class="hidden">
+                        <h3>Debug</h3>
+                        <div class="btn-array-vertical">
+                            <button id="btn-debug-chats">Generate 10 Random Chats</button>
+                            <button id="btn-debug-personalities">Generate 10 Random Personalities</button>
+                            <button id="btn-debug-option-3">Debug Option 3</button>
+                        </div>
                     </div>
 
                 </div>
