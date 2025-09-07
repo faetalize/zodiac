@@ -51,7 +51,7 @@
                     <div id="gemini-pro-branding">Gemini 2.5</div>
                 </div>
 
-                <button id="btn-login" class="logged-out-component"  >
+                <button id="btn-login" class="logged-out-component">
                     Login
                 </button>
                 <img class="user-avatar logged-in-component hidden" id="user-profile"
@@ -110,12 +110,14 @@
                         </div>
                         <div id="apiKeyNoNeedMsg" class="hint hidden">No API key required, enjoy!</div>
                         <!-- Pro/Max route toggle -->
-                        <span id="use-api-key-wrap" style="display: none; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                        <span id="use-api-key-wrap"
+                            style="display: none; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
                             <input type="checkbox" id="use-api-key">
                             <label for="use-api-key">Use your own API Key</label>
                         </span>
                     </div>
-                    <div id="or-divider" style="text-align: center; font-weight: 800; text-transform: uppercase;">or</div>
+                    <div id="or-divider" style="text-align: center; font-weight: 800; text-transform: uppercase;">or
+                    </div>
                     <button id="btn-show-subscription-options">Upgrade</button>
                     <h3>Generation Settings</h3>
                     <div class="generation-settings">
@@ -193,7 +195,6 @@
                     </div>
                     <h3>Data Management</h3>
                     <div class="btn-array-vertical">
-                        <button id="btn-online-sync">Sync Online</button>
                         <button id="btn-bulk-import-chats">Bulk Import Chats</button>
                         <button id="btn-export-all-chats">Export All Chats</button>
                         <button id="btn-clear-all-data" class="btn-danger">Wipe Everything</button>
@@ -213,13 +214,11 @@
                             <span class="paypal-logo1">Pay</span><span class="paypal-logo2">Pal</span>
                         </a>
                     </div>
-                    <div id="debug-section" class="hidden">
-                        <h3>Debug</h3>
-                        <div class="btn-array-vertical">
-                            <button id="btn-debug-chats">Generate 10 Random Chats</button>
-                            <button id="btn-debug-personalities">Generate 10 Random Personalities</button>
-                            <button id="btn-debug-option-3">Debug Option 3</button>
-                        </div>
+                    <h3>Debug</h3>
+                    <div class="btn-array-vertical">
+                        <button id="btn-debug-chats">Generate 10 Random Chats</button>
+                        <button id="btn-debug-personalities">Generate 10 Random Personalities</button>
+                        <button id="btn-debug-option-3">Debug Option 3</button>
                     </div>
 
                 </div>
@@ -234,29 +233,30 @@
 
         <div id="mainContent">
             <div class="header">
-            <button class="material-symbols-outlined btn-textual" id="btn-show-sidebar">
-                menu
-            </button>
-            <div id="chat-title"></div>
+                <button class="material-symbols-outlined btn-textual" id="btn-show-sidebar">
+                    menu
+                </button>
+                <div id="chat-title"></div>
             </div>
             <div class="message-container"></div>
             <div id="message-box">
-            <span contenteditable placeholder="Send a message to" id="messageInput" class="input-field"></span>
-            <div id="attachment-preview" class="attachment-preview-container">
-                <input type="file" name="attachments" id="attachments">
-            </div>
-            <div id="message-box-buttons">
-                <button type="button" class="btn-textual material-symbols-outlined"
-                id="btn-attach">attach_file</button>
-                <button type="button" class="btn-textual material-symbols-outlined"
-                id="btn-internet">language</button>
-                <button type="button" class="btn-textual material-symbols-outlined"
-                id="btn-roleplay">pan_tool</button>
-                <button type="button" class="btn-textual material-symbols-outlined" 
-                id="btn-image"><div>image</div> <div id="image-generation-label">Image Generation</div></button>
-                <button type="submit" class="btn-textual material-symbols-outlined" 
-                id="btn-send">send</button>
-            </div>
+                <span contenteditable placeholder="Send a message to" id="messageInput" class="input-field"></span>
+                <div id="attachment-preview" class="attachment-preview-container">
+                    <input type="file" name="attachments" id="attachments">
+                </div>
+                <div id="message-box-buttons">
+                    <button type="button" class="btn-textual material-symbols-outlined"
+                        id="btn-attach">attach_file</button>
+                    <button type="button" class="btn-textual material-symbols-outlined"
+                        id="btn-internet">language</button>
+                    <button type="button" class="btn-textual material-symbols-outlined"
+                        id="btn-roleplay">pan_tool</button>
+                    <button type="button" class="btn-textual material-symbols-outlined" id="btn-image">
+                        <div>image</div>
+                        <div id="image-generation-label">Image Generation</div>
+                    </button>
+                    <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
+                </div>
             </div>
         </div>
     </div>
@@ -425,9 +425,10 @@
                     </div>
                     <div id="profile-info-content" class="subscription-card-details">
                         <div class="subscription-card-body">
-                            <input type="text" id="profile-preferred-name" placeholder="Preferred Name" class="input-field">
-                            <textarea id="profile-system-prompt" placeholder="System Prompt Addition" class="input-field"
-                                style="height: 5rem; resize:vertical"></textarea>
+                            <input type="text" id="profile-preferred-name" placeholder="Preferred Name"
+                                class="input-field">
+                            <textarea id="profile-system-prompt" placeholder="System Prompt Addition"
+                                class="input-field" style="height: 5rem; resize:vertical"></textarea>
                         </div>
                     </div>
                 </div>

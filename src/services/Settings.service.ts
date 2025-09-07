@@ -1,5 +1,6 @@
 import { ContentUnion, HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
+import { get } from "./Stepper.service";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
@@ -54,7 +55,7 @@ export function getSettings() {
         model: modelSelect.value,
         autoscroll: autoscrollToggle.checked,
         streamResponses: streamResponsesToggle.checked,
-        useEdgeFunction: (localStorage.getItem("useEdgeFunction") ?? "false") === "true",
+        useEdgeFunction: getUseEdgeFunction(),
     }
 }
 

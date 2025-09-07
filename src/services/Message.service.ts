@@ -1,5 +1,5 @@
 //handles sending messages to the api
-import { Content, GenerateContentConfig, GenerateContentResponse, GoogleGenAI, Part, PersonGeneration, SafetyFilterLevel, createPartFromUri } from "@google/genai"
+import { Content, GenerateContentConfig, GenerateContentResponse, GenerateImagesResponse, GoogleGenAI, Part, PersonGeneration, SafetyFilterLevel, createPartFromUri } from "@google/genai"
 import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
@@ -42,7 +42,7 @@ export async function send(msg: string) {
     }
     // Determine subscription tier to decide backend route
     // Toggle is authoritative: choose Edge Function only when enabled.
-    const useEdge = !!(settings as any).useEdgeFunction;
+    const useEdge = settings.useEdgeFunction;
 
     if (!useEdge && settings.apiKey === "") {
         alert("Please enter an API key");
@@ -77,7 +77,7 @@ export async function send(msg: string) {
     if (isImageModeActive()) {
         // Prepare a placeholder model message (no text yet, will attach image when ready)
         const modelElm = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId));
-        const response = await ai.models.generateImages({
+        const payload = {
             model: 'models/imagen-4.0-ultra-generate-001',
             prompt: msg,
             config: {
@@ -87,10 +87,28 @@ export async function send(msg: string) {
                 aspectRatio: '1:1',
                 safetyFilterLevel: SafetyFilterLevel.BLOCK_LOW_AND_ABOVE,
             },
-        });
+        };
+        let response;
+        if (useEdge) {
+            const endpoint = `${SUPABASE_URL}/functions/v1/handle-max-request`;
+            //basically we make an imagen request but to the edge function instead, with the same params as the non-edge
+            response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    ...(await getAuthHeaders()),
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload)
+            });
+            response = (await response.json()) as GenerateImagesResponse;
+        }
+        else {
+            response = await ai.models.generateImages(payload);
+        }
 
         if (!response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
-            alert("Image generation failed");
+            const extraMessage = (response?.generatedImages?.[0]?.raiFilteredReason);
+            alert("Image generation failed" + (extraMessage ? `: ${extraMessage}` : ""));
             try { modelElm.remove(); } catch (e) { /* noop */ }
             return userMessageElement;
         }
@@ -206,7 +224,7 @@ export async function send(msg: string) {
                                     messageContent.innerHTML = await parseMarkdownToHtml(rawText);
                                     helpers.messageContainerScrollToBottom();
                                 }
-                            } catch {}
+                            } catch { }
                         }
                     }
                 }
@@ -220,7 +238,7 @@ export async function send(msg: string) {
             }
         } catch (err) {
             console.error(err);
-            try { responseElement.remove(); } catch {}
+            try { responseElement.remove(); } catch { }
             return userMessageElement;
         }
 

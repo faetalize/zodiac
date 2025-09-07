@@ -21,7 +21,7 @@ button.addEventListener("click", async () => {
             throw new Error(error.message || "Stripe checkout failed");
         }
 
-        const url = JSON.parse(data as string)?.url;
+        const url = data.url;
         if (!url) {
             console.error("Stripe returned no URL", data);
             throw new Error("No checkout URL returned");

@@ -19,7 +19,7 @@ if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveBut
 }
 
 // Smooth expand/collapse helper
-function toggleCard(cardEl: HTMLElement, contentSelector: string){
+function toggleCard(cardEl: HTMLElement, contentSelector: string) {
     const content = document.querySelector<HTMLElement>(contentSelector);
     if (!content) {
         cardEl.classList.toggle('collapsed');
@@ -91,10 +91,39 @@ saveButton.addEventListener("click", async () => {
     const preferredName = (preferredNameInput as HTMLInputElement).value;
     const systemPrompt = (systemPromptAddition as HTMLTextAreaElement).value;
     if (image) {
-        console.log("Uploading new profile picture...");
+        //resize image on client side to 200 x 200 max
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(image);
+        await img.decode();
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            console.error("Failed to get canvas context");
+            return;
+        }
+        const maxSize = 200;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+            if (width > maxSize) {
+                height = Math.round((height *= maxSize / width));
+                width = maxSize;
+            }
+        } else {
+            if (height > maxSize) {
+                width = Math.round((width *= maxSize / height));
+                height = maxSize;
+            }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        const resizedBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+        const resizedFile = new File([resizedBlob!], "profile_picture.jpeg", { type: 'image/jpeg' });
         let imageURL;
         try {
-            imageURL = await supabaseService.uploadPfpToSupabase(image);
+            imageURL = await supabaseService.uploadPfpToSupabase(resizedFile);
+            imageURL = "https://hglcltvwunzynnzduauy.supabase.co/storage/v1/object/public/" + imageURL;
             const user: User = {
                 preferredName,
                 systemPromptAddition: systemPrompt,

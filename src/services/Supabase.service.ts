@@ -1,5 +1,6 @@
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
 import { User } from "../models/User";
+import { refreshSwitch } from '../components/static/ApiKeyInput.component';
 
 export const SUPABASE_URL = 'https://hglcltvwunzynnzduauy.supabase.co';
 export const supabase = createClient(SUPABASE_URL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ');
@@ -15,26 +16,9 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
 supabase.auth.onAuthStateChange((event, session) => {
     //on login
     if (event === 'SIGNED_IN') {
-    // notify listeners immediately
-    try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: true } })); } catch {}
+        // notify listeners immediately
+        try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: true } })); } catch { }
         //on profile change
-        supabase.channel("profile_updates").on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'profiles' },
-            async (payload) => {
-                const newProfile = payload.new as User;
-                const avatar_url = (payload.new as User).avatar;
-                if (avatar_url) {
-                    const tempURL = await getTempPfpUrl(avatar_url);
-                    document.querySelector("#profile-pfp")?.setAttribute("src", tempURL);
-                    document.querySelector("#user-profile")?.setAttribute("src", tempURL);
-
-                }
-                document.querySelector<HTMLInputElement>("#profile-preferred-name")!.value = newProfile.preferredName;
-                document.querySelector<HTMLTextAreaElement>("#profile-system-prompt")!.defaultValue = newProfile.systemPromptAddition;
-            }
-        ).subscribe();
-
         document.querySelectorAll('.logged-in-component').forEach(el => {
             (el as HTMLElement).classList.remove('hidden');
         });
@@ -45,18 +29,17 @@ supabase.auth.onAuthStateChange((event, session) => {
         getUserProfile().then(
             (profile) => {
                 if (profile.avatar) {
-                    getTempPfpUrl(profile.avatar).then((url) => {
-                        document.querySelector("#profile-pfp")?.setAttribute("src", url);
-                        document.querySelector("#user-profile")?.setAttribute("src", url);
-                    });
+                    document.querySelector("#profile-pfp")?.setAttribute("src", profile.avatar);
+                    document.querySelector("#user-profile")?.setAttribute("src", profile.avatar);
                 }
                 document.querySelector<HTMLInputElement>("#profile-preferred-name")!.value = profile.preferredName;
                 document.querySelector<HTMLTextAreaElement>("#profile-system-prompt")!.defaultValue = profile.systemPromptAddition;
-        updateSubscriptionUI(); // will dispatch subscription-updated
+                updateSubscriptionUI(); // will dispatch subscription-updated
             }
         );
+        refreshSwitch();
     } else if (event === 'SIGNED_OUT') {
-    try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: false } })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: false } })); } catch { }
         document.querySelectorAll('.logged-out-component').forEach(el => {
             (el as HTMLElement).classList.remove('hidden');
         });
@@ -98,9 +81,8 @@ supabase.auth.onAuthStateChange((event, session) => {
         if (noNeedMsg) noNeedMsg.classList.add('hidden');
         if (orDivider) orDivider.classList.remove('hidden');
         if (upgradeBtn) upgradeBtn.classList.remove('hidden');
-        supabase.removeAllChannels();
-    // Treat as free tier for any listeners
-    try { window.dispatchEvent(new CustomEvent('subscription-updated', { detail: { tier: 'free' } })); } catch {}
+        // Treat as free tier for any listeners
+        try { window.dispatchEvent(new CustomEvent('subscription-updated', { detail: { tier: 'free' } })); } catch { }
     }
 });
 
@@ -156,8 +138,7 @@ export async function uploadPfpToSupabase(file: File) {
         console.error("Upload error:", error.message);
         throw new Error(error.message);
     }
-
-    return data.path;
+    return data.fullPath;
 }
 
 export async function updateUser(user: User) {
@@ -180,16 +161,6 @@ export async function getUserProfile() {
         throw new Error(error.message);
     }
     return data as User;
-}
-
-export async function getTempPfpUrl(path: string) {
-    //signed
-    const { data, error } = await supabase.storage.from('profile_pictures').createSignedUrl(path, 3600);
-    if (error) {
-        console.error("Get temporary profile picture URL error:", error.message);
-        throw new Error(error.message);
-    }
-    return data.signedUrl;
 }
 
 // Subscription helpers
@@ -303,15 +274,15 @@ export async function updateSubscriptionUI(): Promise<void> {
         const apiKeyError = document.querySelector<HTMLElement>('.api-key-error');
 
         const isSubscribed = tier === 'pro' || tier === 'max';
-            // Leave API key input enable/disable and hint visibility to the API key component based on route
-            if (apiKeyInput && isSubscribed) {
-                apiKeyInput.classList.remove('api-key-invalid');
-                if (apiKeyError) apiKeyError.classList.add('hidden');
-            }
+        // Leave API key input enable/disable and hint visibility to the API key component based on route
+        if (apiKeyInput && isSubscribed) {
+            apiKeyInput.classList.remove('api-key-invalid');
+            if (apiKeyError) apiKeyError.classList.add('hidden');
+        }
         if (orDivider) orDivider.classList.toggle('hidden', isSubscribed);
         if (upgradeBtn) upgradeBtn.classList.toggle('hidden', isSubscribed);
-    // Notify listeners so UI can react without reload
-    try { window.dispatchEvent(new CustomEvent('subscription-updated', { detail: { tier } })); } catch {}
+        // Notify listeners so UI can react without reload
+        try { window.dispatchEvent(new CustomEvent('subscription-updated', { detail: { tier } })); } catch { }
     } catch (err) {
         console.error('Error updating subscription UI:', err);
     }

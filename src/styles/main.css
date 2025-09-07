@@ -832,6 +832,12 @@ form {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    min-height: 0; /* allow inner scroll areas to size correctly in flex */
+}
+
+/* Ensure collapsible cards in the Settings sidebar don't shrink; let container scroll */
+.sidebar-section .profile-card {
+    flex-shrink: 0;
 }
 
 
@@ -1044,6 +1050,9 @@ form {
 #sidebar-content {
     min-height: 0;
     padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto; /* occupy remaining height in sidebar */
 }
 
 #btn-show-sidebar {
