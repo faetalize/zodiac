@@ -1,4 +1,4 @@
-import { getUseEdgeFunction } from "../../services/Settings.service";
+import { getUseMaxEndpoint } from "../../services/Settings.service";
 import { getSubscriptionTier, getUserSubscription, type SubscriptionTier } from "../../services/Supabase.service";
 
 const imageButton = document.querySelector<HTMLButtonElement>("#btn-image");
@@ -15,7 +15,7 @@ async function updateImageButtonState() {
     try {
         const sub = await getUserSubscription();
         const tier: SubscriptionTier = getSubscriptionTier(sub);
-        const useEdge = getUseEdgeFunction();
+        const useEdge = getUseMaxEndpoint();
         
         // For Pro users, image generation is only available when using API key (not Edge Function)
         if (tier === 'pro') {
@@ -71,7 +71,7 @@ window.addEventListener('storage', (e) => {
 });
 
 // Also need to listen for settings changes from the ApiKeyInput component
-// Create a custom event listener for when useEdgeFunction changes
+// Create a custom event listener for when useMaxEndpoint changes
 window.addEventListener('edge-function-changed', () => {
     updateImageButtonState();
 });

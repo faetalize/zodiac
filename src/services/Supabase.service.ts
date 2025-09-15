@@ -172,6 +172,7 @@ export interface UserSubscription {
     status: string;
     price_id: string | null;
     current_period_end?: string | number | null;
+    remaining_image_generations?: number | null;
     [key: string]: unknown;
 }
 
@@ -185,7 +186,7 @@ export async function getUserSubscription(): Promise<UserSubscription | null> {
     if (!currentUser) return null;
     const { data, error } = await supabase
         .from('user_subscriptions')
-        .select('user_id,status,price_id,current_period_end')
+        .select('user_id,status,price_id,current_period_end,remaining_image_generations')
         .eq('user_id', currentUser.id)
         .order('current_period_end', { ascending: false })
         .limit(1)
@@ -232,9 +233,9 @@ export async function updateSubscriptionUI(): Promise<void> {
         const manageBtn = document.querySelector<HTMLButtonElement>('#btn-manage-subscription');
         const tierEl = document.querySelector<HTMLElement>('#subscription-tier-text');
         const periodEndEl = document.querySelector<HTMLElement>('#subscription-period-end');
+        const remainingGenerationsEl = document.querySelector<HTMLElement>('#subscription-remaining-generations');
         const tierLabel = tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : 'Max';
         let periodEndLabel = '—';
-        console.log("Subscription data:", sub);
         const rawEnd = sub?.current_period_end ?? null;
         if (rawEnd) {
             const d = new Date(rawEnd as string);
@@ -252,6 +253,9 @@ export async function updateSubscriptionUI(): Promise<void> {
         }
         if (periodEndEl) {
             periodEndEl.textContent = periodEndLabel;
+        }
+        if (remainingGenerationsEl) {
+            remainingGenerationsEl.textContent = sub?.remaining_image_generations != null ? String(sub.remaining_image_generations) : '—';
         }
         if (manageBtn) {
             if (tier === 'free') {

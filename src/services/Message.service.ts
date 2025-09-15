@@ -42,9 +42,9 @@ export async function send(msg: string) {
     }
     // Determine subscription tier to decide backend route
     // Toggle is authoritative: choose Edge Function only when enabled.
-    const useEdge = settings.useEdgeFunction;
+    const maxEndpointUsed = settings.useMaxEndpoint;
 
-    if (!useEdge && settings.apiKey === "") {
+    if (!maxEndpointUsed && settings.apiKey === "") {
         alert("Please enter an API key");
         return;
     }
@@ -77,21 +77,24 @@ export async function send(msg: string) {
     if (isImageModeActive()) {
         // Prepare a placeholder model message (no text yet, will attach image when ready)
         const modelElm = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId));
+
         const payload = {
-            model: 'models/imagen-4.0-ultra-generate-001',
+            model: settings.imageModel || "models/imagen-4.0-ultra-generate-001",
             prompt: msg,
             config: {
                 numberOfImages: 1,
                 outputMimeType: 'image/jpeg',
-                personGeneration: PersonGeneration.ALLOW_ALL,
+                personGeneration: PersonGeneration.ALLOW_ADULT,
                 aspectRatio: '1:1',
                 safetyFilterLevel: SafetyFilterLevel.BLOCK_LOW_AND_ABOVE,
             },
         };
         let response;
-        if (useEdge) {
+        let b64: string;
+        let returnedMimeType: string;
+        if (maxEndpointUsed) {
             const endpoint = `${SUPABASE_URL}/functions/v1/handle-max-request`;
-            //basically we make an imagen request but to the edge function instead, with the same params as the non-edge
+            //basically we make an image gen request but to the edge function instead, with the same params as the non-edge
             response = await fetch(endpoint, {
                 method: "POST",
                 headers: {
@@ -100,26 +103,37 @@ export async function send(msg: string) {
                 },
                 body: JSON.stringify(payload)
             });
-            response = (await response.json()) as GenerateImagesResponse;
+            //case: fail
+            if (!response.ok) {
+                const error = (await response.json()).error;
+                alert("Image generation failed: " + error);
+                modelElm.remove();
+                return userMessageElement;
+            }
+            // the edge function returns an image directly (binary body)
+            const arrayBuf = await response.arrayBuffer();
+            b64 = await helpers.arrayBufferToBase64(arrayBuf);
+            // prefer server-provided content type
+            returnedMimeType = response.headers.get('Content-Type') || "image/png";
         }
         else {
             response = await ai.models.generateImages(payload);
+            if (!response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
+                const extraMessage = (response?.generatedImages?.[0]?.raiFilteredReason);
+                alert("Image generation failed" + (extraMessage ? `: ${extraMessage}` : ""));
+                modelElm.remove();
+                return userMessageElement;
+            }
+            b64 = response.generatedImages[0].image.imageBytes
+            returnedMimeType = response.generatedImages[0].image.mimeType || "image/png";
         }
 
-        if (!response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
-            const extraMessage = (response?.generatedImages?.[0]?.raiFilteredReason);
-            alert("Image generation failed" + (extraMessage ? `: ${extraMessage}` : ""));
-            try { modelElm.remove(); } catch (e) { /* noop */ }
-            return userMessageElement;
-        }
-
-        const b64 = response.generatedImages[0].image.imageBytes;
         // Update the placeholder element with the image via re-render
         const modelMessage: Message = {
             role: "model",
             parts: [{ text: "" }],
             personalityid: selectedPersonalityId,
-            generatedImages: [{ mimeType: 'image/jpeg', base64: b64 }],
+            generatedImages: [{ mimeType: returnedMimeType, base64: b64 }],
         };
 
         const newElm = await messageElement(modelMessage);
@@ -134,7 +148,7 @@ export async function send(msg: string) {
     const history: Content[] = await buildHistory(selectedPersonality, currentChat);
 
     // If Pro/Max, call Supabase Edge Function; else use SDK directly
-    if (useEdge) {
+    if (maxEndpointUsed) {
         //insert model message placeholder
         const responseElement = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId, ""));
         const messageContent = responseElement.querySelector(".message-text .message-text-content")!;

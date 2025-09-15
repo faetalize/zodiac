@@ -8,3 +8,4 @@ if (!button) {
 // Ensure it stays disabled and clearly labeled as coming soon
 button.disabled = true;
 button.title = button.title || "Coming soon";
+button.textContent = "Coming Soon";

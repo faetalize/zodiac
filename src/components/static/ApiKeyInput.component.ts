@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { getUseEdgeFunction, setUseEdgeFunction } from "../../services/Settings.service";
+import { getUseMaxEndpoint, setUseMaxEndpoint  } from "../../services/Settings.service";
 import * as settingsService from "../../services/Settings.service";
 import { getSubscriptionTier, getUserSubscription, type SubscriptionTier } from "../../services/Supabase.service";
 
@@ -11,7 +11,7 @@ export function updateApiKeyInputState() {
     const settings = settingsService.getSettings();
 
     if (apiKeyInput) {
-        if (settings.useEdgeFunction) {
+        if (settings.useMaxEndpoint) {
             apiKeyInput.disabled = true;
             apiKeyInput.placeholder = "API key not needed when using Edge Function";
         } else {
@@ -34,7 +34,7 @@ export async function refreshSwitch() {
         const sub = await getUserSubscription();
         const tier: SubscriptionTier = getSubscriptionTier(sub);
         const toggle = ensureToggle();
-        const useEdge = getUseEdgeFunction();
+        const useEdge = getUseMaxEndpoint();
         console.log(tier)
         const isEligible = tier === 'pro' || tier === 'max';
         // Visibility: only for logged-in Pro/Max
@@ -49,7 +49,7 @@ export async function refreshSwitch() {
         // Toggle reflects current route: checked => local API key
         toggle.checked = !useEdge;
         toggle.onchange = () => {
-            setUseEdgeFunction(!toggle.checked);
+            setUseMaxEndpoint(!toggle.checked);
             refreshSwitch();
             // Dispatch custom event for other components to listen to
             window.dispatchEvent(new CustomEvent('edge-function-changed'));
@@ -63,15 +63,13 @@ export async function refreshSwitch() {
         // Logged out: ensure API key input is enabled and force local route
         if (apiKeyInput) apiKeyInput.disabled = false;
         // Force switch to local API key when logged out
-        setUseEdgeFunction(false);
+        setUseMaxEndpoint(false);
     }
 }
-
-refreshSwitch();
 window.addEventListener('auth-state-changed', () => {
     getUserSubscription().then((sub) => {
         if (getSubscriptionTier(sub) === 'free') {
-            setUseEdgeFunction(false);
+            setUseMaxEndpoint(false);
         }
     });
     refreshSwitch();
@@ -98,7 +96,7 @@ apiKeyInput?.addEventListener("input", () => {
             apiKeyInput.classList.remove("api-key-invalid");
             document.querySelector<HTMLElement>(".api-key-error")!.classList.add("hidden");
             // If the user typed a valid key, auto-switch to local key route
-            setUseEdgeFunction(false);
+            setUseMaxEndpoint(false);
             refreshSwitch();
         } catch (error) {
             apiKeyInput.classList.add("api-key-invalid");

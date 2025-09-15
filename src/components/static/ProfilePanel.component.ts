@@ -8,9 +8,9 @@ const saveButton = document.querySelector("#btn-profile-save");
 const subscriptionBadge = document.querySelector<HTMLElement>("#subscription-badge");
 const manageSubscriptionBtn = document.querySelector<HTMLButtonElement>("#btn-manage-subscription");
 const subscriptionCard = document.querySelector<HTMLElement>("#subscription-status-row");
-const subscriptionHeader = document.querySelector<HTMLElement>("#subscription-status-row .subscription-card-header");
+const subscriptionHeader = document.querySelector<HTMLElement>("#subscription-status-row .collapsible-card-header");
 const infoCard = document.querySelector<HTMLElement>("#profile-info-card");
-const infoHeader = document.querySelector<HTMLElement>("#profile-info-card .subscription-card-header");
+const infoHeader = document.querySelector<HTMLElement>("#profile-info-card .collapsible-card-header");
 let image: File;
 
 if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader || !infoCard || !infoHeader) {

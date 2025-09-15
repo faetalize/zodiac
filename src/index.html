@@ -136,6 +136,20 @@
                             </select>
                         </div>
                         <div>
+                            <label class="setting-label" for="selectedImageModel"><span
+                                    class="material-symbols-outlined">image</span>Image Model
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Choose the image generation model. Available models depend on your subscription tier and API key usage.">
+                                    info
+                                </span> </label>
+                            <select id="selectedImageModel" class="input-field">
+                                <option value="models/imagen-4.0-ultra-generate-001" selected="true">Imagen 4 Ultra
+                                </option>
+                                <option value="models/illustrious">Illustrious (Uncensored)</option>
+                            </select>
+                        </div>
+                        <div>
                             <label class="setting-label" for="maxTokens"><span
                                     class="material-symbols-outlined">generating_tokens</span><span>
                                     Max Output
@@ -344,8 +358,15 @@
             <div id="whats-new" class="hidden">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li>Fixed bug that caused spontaneous chat deletion</li>
-                    <li>Data management features added: you can now backup/restore your chats</li>
+                    <li>Experimental: Image generation. If you have billing enabled on Google Cloud, you can use imagen 4 Ultra image
+                        generation. If you want uncensored image models (Illustrious SDXL), subscribe to Max tier on Zodiac (900 monthly image generations)</li>
+                        <li>Incoming: Pay-per-use image generation, if you want to use it without a subscription.</li>
+                    <li>Added a Pro tier for people not willing to use their own API keys for added privacy - (unlimited
+                        monthly usage)</li>
+                    <li>Chats are now filterable</li>
+                    <li>You can export and import your chats</li>
+                    <li>You can now customize your profile to give extra instructions to the model (requires an account)
+                    </li>
                     <li>Visit my discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
                 </ul>
@@ -399,7 +420,7 @@
                     <button id="btn-change-pfp" class="btn-textual material-symbols-outlined">edit</button>
                 </div>
                 <div id="subscription-status-row" class="logged-in-component hidden collapsed">
-                    <div class="subscription-card-header">
+                    <div class="collapsible-card-header">
                         <h3 style="margin:0;">Subscription</h3>
                         <span id="subscription-badge" class="badge">Free</span>
                     </div>
@@ -413,6 +434,11 @@
                                 <span class="setting-label">Renewal date</span>
                                 <span id="subscription-period-end">—</span>
                             </div>
+
+                            <div class="subscription-row">
+                                <span class="setting-label">Image generation credits</span>
+                                <span id="subscription-remaining-generations">—</span>
+                            </div>
                         </div>
                         <div class="subscription-card-footer">
                             <button id="btn-manage-subscription">Manage Subscription</button>
@@ -420,7 +446,7 @@
                     </div>
                 </div>
                 <div id="profile-info-card" class="profile-card collapsed">
-                    <div class="subscription-card-header">
+                    <div class="collapsible-card-header">
                         <h3 style="margin:0;">Info</h3>
                     </div>
                     <div id="profile-info-content" class="subscription-card-details">
@@ -437,107 +463,101 @@
             </div>
 
             <div id="form-subscription" class="hidden">
-                <h3>Pick a Subscription</h3>
-                <div class="btn-array">
-                    <button type="button" id="btn-subscribe-free" class="btn-neutral btn-subscription-choice">
-                        <div class="tier-content">
-                            <h1>Free</h1>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Online
-                                    sync</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Sync
-                                    includes: up to 10 chats, unlimited personalities</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Access to
-                                    personality marketplace</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Bring your
-                                    own API key</span>
-                            </div>
+                <div class="subscription-header">
+                    <h1>Choose Your Plan</h1>
+                </div>
+                <div class="subscription-grid">
+                    <div class="subscription-card subscription-card-free">
+                        <div class="subscription-card-header">
+                            <div class="tier-badge tier-badge-free">Free</div>
                             <div class="tier-price">
-                                <span class="material-symbols-outlined">attach_money</span>
-                                <span>Free</span>
+                                <span class="price-amount">$0</span>
+                                <span class="price-period">/month</span>
                             </div>
                         </div>
-                    </button>
-                    <button type="button" id="btn-subscribe-pro" class="btn-neutral btn-subscription-choice">
-                        <div id="best-value">
-                            <span>Best Value</span>
+                        <div class="subscription-card-body">
+                            <div class="tier-description">Get started with AI conversations</div>
+                            <ul class="features-list">
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Bring your own API key</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Personality marketplace access</span>
+                                </li>
+                            </ul>
                         </div>
-                        <div class="tier-content">
-                            <h1>Pro</h1>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Everything
-                                    from Free...</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">You don't
-                                    need an API key</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Unlimited
-                                    Flash and Pro models with FULL token context limits</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">No rate
-                                    limiting</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Unlimited
-                                    chat and personalities sync</span>
-                            </div>
+                    </div>
+
+                    <div class="subscription-card subscription-card-pro subscription-card-popular">
+                        <div class="popular-badge">Most Popular</div>
+                        <div class="subscription-card-header">
+                            <div class="tier-badge tier-badge-pro">Pro</div>
                             <div class="tier-price">
-                                <span class="material-symbols-outlined">attach_money</span>
-                                <span>14.99/month</span>
+                                <span class="price-amount">$14.99</span>
+                                <span class="price-period">/month</span>
                             </div>
                         </div>
-                    </button>
-                    <button type="button" id="btn-subscribe-max" class="btn-neutral btn-subscription-choice" disabled>
-                        <div class="tier-content">
-                            <h1>Max</h1>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Everything
-                                    from Pro...</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">
-                                    Image Generation</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">30 Image
-                                    generations per day</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Coming
-                                    soon</span>
-                            </div>
-                            <!-- price -->
+                        <div class="subscription-card-body">
+                            <div class="tier-description">For unlimited access</div>
+                            <ul class="features-list">
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Everything in Free</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">No API key required</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Unlimited Flash & Pro models</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Full token context limits</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">No rate limiting</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <button type="button" id="btn-subscribe-pro" class="subscription-cta subscription-cta-pro">
+                            Upgrade to Pro
+                        </button>
+                    </div>
+
+                    <div class="subscription-card subscription-card-max">
+                        <div class="subscription-card-header">
+                            <div class="tier-badge tier-badge-max">Max</div>
                             <div class="tier-price">
-                                <span class="material-symbols-outlined">attach_money</span>
-                                <span>29.99/month</span>
+                                <span class="price-amount">$29.99</span>
+                                <span class="price-period">/month</span>
                             </div>
-
-
                         </div>
-                    </button>
-
+                        <div class="subscription-card-body">
+                            <div class="tier-description">Image Generation</div>
+                            <ul class="features-list">
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Everything in Pro</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Imagen 4, sdxl and nano-banana models</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">30 images per day</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <button type="button" id="btn-subscribe-max" class="subscription-cta subscription-cta-max">
+                            Get Max Plan
+                        </button>
+                    </div>
                 </div>
             </div>
 

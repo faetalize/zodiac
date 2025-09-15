@@ -274,4 +274,49 @@
         cursor: not-allowed;
     }
 
+    /* Modern subscription cards dark theme */
+    .subscription-card {
+        background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+        border-color: #374151;
+        color: #e4e4e4;
+    }
+
+    .subscription-card:hover {
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+
+    .subscription-card-popular {
+        border-color: #667eea;
+        box-shadow: 0 15px 50px rgba(102, 126, 234, 0.3);
+    }
+
+    .subscription-card-popular:hover {
+        box-shadow: 0 25px 70px rgba(102, 126, 234, 0.4);
+    }
+
+    .subscription-header h1 {
+        background: linear-gradient(135deg, #8b92ff 0%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .tier-badge-free {
+        color: #9ca3af;
+    }
+
+    .tier-badge-pro {
+        background: linear-gradient(135deg, #8b92ff 0%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .tier-badge-max {
+        background: linear-gradient(135deg, #fb7185 0%, #f472b6 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
 }

@@ -6,9 +6,10 @@ const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
 const temperatureInput = document.querySelector("#temperature") as HTMLInputElement;
 const modelSelect = document.querySelector("#selectedModel") as HTMLSelectElement;
+const imageModelSelect = document.querySelector("#selectedImageModel") as HTMLSelectElement;
 const autoscrollToggle = document.querySelector("#autoscroll") as HTMLInputElement;
 const streamResponsesToggle = document.querySelector("#streamResponses") as HTMLInputElement;
-if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !autoscrollToggle || !streamResponsesToggle) {
+if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle) {
     throw new Error("One or more settings elements are missing in the DOM.");
 }
 
@@ -18,6 +19,7 @@ export function initialize() {
     maxTokensInput.addEventListener("input", saveSettings);
     temperatureInput.addEventListener("input", saveSettings);
     modelSelect.addEventListener("change", saveSettings);
+    imageModelSelect.addEventListener("change", saveSettings);
     autoscrollToggle.addEventListener("change", saveSettings);
     streamResponsesToggle.addEventListener("change", saveSettings);
 }
@@ -27,6 +29,7 @@ export function loadSettings() {
     maxTokensInput.value = localStorage.getItem("maxTokens") || "1000";
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || "70";
     modelSelect.value = localStorage.getItem("model") || "gemini-2.5-flash";
+    imageModelSelect.value = localStorage.getItem("imageModel") || "models/imagen-4.0-ultra-generate-001";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
     // Default ON when not set
     streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";
@@ -37,6 +40,7 @@ export function saveSettings() {
     localStorage.setItem("maxTokens", maxTokensInput.value);
     localStorage.setItem("TEMPERATURE", temperatureInput.value);
     localStorage.setItem("model", modelSelect.value);
+    localStorage.setItem("imageModel", imageModelSelect.value);
     localStorage.setItem("autoscroll", autoscrollToggle.checked.toString());
     localStorage.setItem("streamResponses", streamResponsesToggle.checked.toString());
 }
@@ -53,18 +57,19 @@ export function getSettings() {
             { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
         ],
         model: modelSelect.value,
+        imageModel: imageModelSelect.value,
         autoscroll: autoscrollToggle.checked,
         streamResponses: streamResponsesToggle.checked,
-        useEdgeFunction: getUseEdgeFunction(),
+        useMaxEndpoint: getUseMaxEndpoint(),
     }
 }
 
-export function setUseEdgeFunction(enabled: boolean) {
-    localStorage.setItem("useEdgeFunction", enabled ? "true" : "false");
+export function setUseMaxEndpoint(enabled: boolean) {
+    localStorage.setItem("useMaxEndpoint", enabled ? "true" : "false");
 }
 
-export function getUseEdgeFunction(): boolean {
-    return (localStorage.getItem("useEdgeFunction") ?? "false") === "true";
+export function getUseMaxEndpoint(): boolean {
+    return (localStorage.getItem("useMaxEndpoint") ?? "false") === "true";
 }
 
 export async function getSystemPrompt(): Promise<ContentUnion> {

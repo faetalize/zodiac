@@ -58,7 +58,7 @@ export function lightenCard(element: HTMLElement) {
 }
 
 export function getVersion() {
-    return "0.9.9";
+    return "1.0.0";
 }
 
 export function getSanitized(string: string) {
@@ -106,6 +106,19 @@ export async function fileToBase64(file: File): Promise<string> {
             reject(error);
         };
     });
+}
+
+// Safely convert an ArrayBuffer to a base64 string (without data: prefix)
+export async function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
+    const blob = new Blob([buffer]);
+    const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+    const commaIdx = dataUrl.indexOf(',');
+    return commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
 }
 
 /**
