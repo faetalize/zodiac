@@ -61,10 +61,10 @@ export async function send(msg: string) {
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain",
         tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
-        thinkingConfig: {
+        thinkingConfig: settings.enableThinking ? {
             includeThoughts: true,
-            thinkingBudget: 1000
-        }
+            thinkingBudget: settings.thinkingBudget
+        } : undefined
     };
 
     const currentChat = await createChatIfAbsent(ai, msg);
@@ -92,22 +92,22 @@ export async function send(msg: string) {
             thinkingWrapper.className = 'message-thinking';
             const toggleBtn = document.createElement('button');
             toggleBtn.className = 'thinking-toggle btn-textual';
-            toggleBtn.setAttribute('aria-expanded','false');
+            toggleBtn.setAttribute('aria-expanded', 'false');
             toggleBtn.textContent = 'Show reasoning';
             thinkingContentElm = document.createElement('div');
             thinkingContentElm.className = 'thinking-content';
-            thinkingContentElm.setAttribute('hidden','');
+            thinkingContentElm.setAttribute('hidden', '');
             thinkingWrapper.append(toggleBtn, thinkingContentElm);
             header?.insertAdjacentElement('afterend', thinkingWrapper);
             // toggle behavior
             toggleBtn.addEventListener('click', () => {
                 const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
                 if (expanded) {
-                    toggleBtn.setAttribute('aria-expanded','false');
+                    toggleBtn.setAttribute('aria-expanded', 'false');
                     toggleBtn.textContent = 'Show reasoning';
-                    thinkingContentElm?.setAttribute('hidden','');
+                    thinkingContentElm?.setAttribute('hidden', '');
                 } else {
-                    toggleBtn.setAttribute('aria-expanded','true');
+                    toggleBtn.setAttribute('aria-expanded', 'true');
                     toggleBtn.textContent = 'Hide reasoning';
                     thinkingContentElm?.removeAttribute('hidden');
                 }
@@ -191,6 +191,11 @@ export async function send(msg: string) {
     // If Pro/Max, call Supabase Edge Function; else use SDK directly
     if (maxEndpointUsed) {
         try {
+            const payloadSettings = {
+                model: settings.model,
+                streamResponses: settings.streamResponses,
+                ...config,
+            }
             const hasFiles = (attachmentFiles?.length ?? 0) > 0;
             const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
             // Build request
@@ -198,10 +203,7 @@ export async function send(msg: string) {
             if (hasFiles) {
                 const form = new FormData();
                 form.append('message', msg);
-                form.append('settings', JSON.stringify({
-                    model: settings.model,
-                    ...config,
-                }));
+                form.append('settings', JSON.stringify(payloadSettings));
                 form.append('history', JSON.stringify(history));
                 for (const f of Array.from(attachmentFiles || [])) {
                     form.append('files', f);
@@ -220,10 +222,7 @@ export async function send(msg: string) {
                     },
                     body: JSON.stringify({
                         message: msg,
-                        settings: {
-                            model: settings.model,
-                            ...config,
-                        },
+                        settings: payloadSettings,
                         history
                     })
                 });
@@ -256,6 +255,7 @@ export async function send(msg: string) {
                         if (eventName === 'error') throw new Error(data);
                         if (eventName === 'done') break;
                         if (data) {
+                            console.log(data);
                             const payload = JSON.parse(data);
                             if (payload) {
                                 for (const part of payload.candidates?.[0]?.content?.parts || []) { // thinking block

@@ -10,7 +10,10 @@ const modelSelect = document.querySelector("#selectedModel") as HTMLSelectElemen
 const imageModelSelect = document.querySelector("#selectedImageModel") as HTMLSelectElement;
 const autoscrollToggle = document.querySelector("#autoscroll") as HTMLInputElement;
 const streamResponsesToggle = document.querySelector("#streamResponses") as HTMLInputElement;
-if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle) {
+const enableThinkingSelect = document.querySelector("#enableThinkingSelect") as HTMLSelectElement;
+const thinkingRequiredHint = document.querySelector("#thinking-required-hint") as HTMLElement | null;
+const thinkingBudgetInput = document.querySelector("#thinkingBudget") as HTMLInputElement;
+if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput) {
     throw new Error("One or more settings elements are missing in the DOM.");
 }
 
@@ -23,6 +26,12 @@ export function initialize() {
     imageModelSelect.addEventListener("change", saveSettings);
     autoscrollToggle.addEventListener("change", saveSettings);
     streamResponsesToggle.addEventListener("change", saveSettings);
+    enableThinkingSelect.addEventListener("change", saveSettings);
+    thinkingBudgetInput.addEventListener("input", saveSettings);
+
+    // Enforce pro model rules at init
+    enforceProModelThinkingRule();
+    modelSelect.addEventListener("change", enforceProModelThinkingRule);
 }
 
 export function loadSettings() {
@@ -34,6 +43,11 @@ export function loadSettings() {
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
     // Default ON when not set
     streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";
+    const enableThinkingStored = localStorage.getItem("enableThinking");
+    const enableThinking = (enableThinkingStored ?? "true") === "true";
+    enableThinkingSelect.value = enableThinking ? 'enabled' : 'disabled';
+    thinkingBudgetInput.value = localStorage.getItem("thinkingBudget") || "500";
+    enforceProModelThinkingRule();
 }
 
 export function saveSettings() {
@@ -44,6 +58,8 @@ export function saveSettings() {
     localStorage.setItem("imageModel", imageModelSelect.value);
     localStorage.setItem("autoscroll", autoscrollToggle.checked.toString());
     localStorage.setItem("streamResponses", streamResponsesToggle.checked.toString());
+    localStorage.setItem("enableThinking", (enableThinkingSelect.value === 'enabled').toString());
+    localStorage.setItem("thinkingBudget", thinkingBudgetInput.value);
 }
 
 export function getSettings() {
@@ -61,6 +77,8 @@ export function getSettings() {
         imageModel: imageModelSelect.value,
         autoscroll: autoscrollToggle.checked,
         streamResponses: streamResponsesToggle.checked,
+        enableThinking: enableThinkingSelect.value === 'enabled',
+        thinkingBudget: parseInt(thinkingBudgetInput.value, 10),
         useMaxEndpoint: getUseMaxEndpoint(),
     }
 }
@@ -72,6 +90,45 @@ export function setUseMaxEndpoint(enabled: boolean) {
 export function getUseMaxEndpoint(): boolean {
     return (localStorage.getItem("useMaxEndpoint") ?? "false") === "true";
 }
+
+function enforceProModelThinkingRule() {
+    const isPro = modelSelect.value.includes("pro");
+    if (isPro) {
+        enableThinkingSelect.value = 'enabled';
+        enableThinkingSelect.disabled = true;
+        if (thinkingRequiredHint) thinkingRequiredHint.style.display = 'block';
+        localStorage.setItem("enableThinking", "true");
+    } else {
+        enableThinkingSelect.disabled = false;
+        if (thinkingRequiredHint) thinkingRequiredHint.style.display = 'none';
+    }
+    enforceBudgetSync();
+}
+
+// When thinking is disabled, force budget to 0 (persist). When enabled and budget is 0 but user previously had a stored non-zero value, keep current unless user changes.
+let lastNonZeroBudget: number | null = null;
+function enforceBudgetSync() {
+    const enabled = enableThinkingSelect.value === 'enabled';
+    const currentVal = parseInt(thinkingBudgetInput.value || '0', 10);
+    if (enabled) {
+        // Restore last non-zero if we auto-zeroed before
+        if (currentVal === 0 && lastNonZeroBudget && lastNonZeroBudget > 0) {
+            thinkingBudgetInput.value = String(lastNonZeroBudget);
+            localStorage.setItem('thinkingBudget', thinkingBudgetInput.value);
+        }
+    } else {
+        if (currentVal !== 0) {
+            lastNonZeroBudget = currentVal; // remember what user had
+        }
+        thinkingBudgetInput.value = '0';
+        localStorage.setItem('thinkingBudget', '0');
+    }
+}
+
+// Hook into saveSettings side-effect via Mutation: wrap original listener? Simpler: add dedicated listener.
+enableThinkingSelect?.addEventListener('change', () => {
+    enforceBudgetSync();
+});
 
 export async function getSystemPrompt(): Promise<ContentUnion> {
     let userProfile: User;

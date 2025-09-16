@@ -777,6 +777,17 @@ form {
 
 .message-thinking .thinking-content { font-family: inherit; }
 
+/* Settings specific */
+.setting-toggle-row {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    margin-top: 0.25rem;
+}
+
+/* Thinking required hint (Pro) */
+#thinking-required-hint { font-style: italic; }
+
 /* Generated images in assistant messages */
 .message-images {
     display: flex;
