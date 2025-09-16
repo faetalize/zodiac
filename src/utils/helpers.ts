@@ -31,7 +31,6 @@ export function showElement(element: HTMLElement, wait: boolean) {
         element.style.opacity = '0';  //required as certain elements arent opacity 0 despite being hidden
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
-                console.log("Showing element:", element);
                 element.style.opacity = '1';
             });
         });
