@@ -81,7 +81,15 @@ export const messageElement = async (
                 <div class="message-text-content">${initialHtml}</div>
         </div>
         <div class="message-images">
-            ${hasImages ? message.generatedImages!.map(img => `<img class="generated-image" src="data:${img.mimeType};base64,${img.base64}" loading="lazy" />`).join("") : ""}
+            ${hasImages ? message.generatedImages!.map((img, idx) => `
+                <div class="generated-image-wrapper" data-index="${idx}">
+                    <img class="generated-image" src="data:${img.mimeType};base64,${img.base64}" loading="lazy" />
+                    <div class="generated-image-overlay">
+                        <button class="btn-textual btn-image-action btn-download material-symbols-outlined" title="Download">download</button>
+                        <button class="btn-textual btn-image-action btn-expand material-symbols-outlined" title="Expand">open_in_full</button>
+                    </div>
+                </div>
+            `).join("") : ""}
         </div>
         <div class="message-grounding-rendered-content"></div>`;
         if (hasThinking) {
@@ -110,6 +118,7 @@ export const messageElement = async (
     setupMessageRegeneration(messageElement);
     setupMessageClipboard(messageElement);
     setupMessageEditing(messageElement);
+    setupGeneratedImageInteractions(messageElement);
 
     return messageElement;
 
@@ -232,4 +241,76 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
         console.error("Error updating message in database:", error);
         alert("Failed to save your edited message. Please try again.");
     }
+}
+
+// Adds overlay button interactions (download + expand) & a lightweight lightbox
+function setupGeneratedImageInteractions(root: HTMLElement) {
+    const wrappers = root.querySelectorAll<HTMLElement>(".generated-image-wrapper");
+    if (!wrappers.length) return;
+
+    wrappers.forEach(wrap => {
+        const img = wrap.querySelector<HTMLImageElement>(".generated-image");
+        const downloadBtn = wrap.querySelector<HTMLButtonElement>(".btn-download");
+        const expandBtn = wrap.querySelector<HTMLButtonElement>(".btn-expand");
+        if (!img) return;
+
+        downloadBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            try {
+                const a = document.createElement('a');
+                a.href = img.src;
+                // attempt to infer extension from mime
+                const ext = (img.src.match(/data:(.*?);/)?.[1] || 'image/png').split('/')[1];
+                a.download = `zodiac-image-${Date.now()}.${ext}`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } catch (err) { console.error('Download failed', err); }
+        });
+
+        const openLightbox = () => {
+            const existing = document.querySelector('.lightbox');
+            if (existing) existing.remove();
+            const overlay = document.createElement('div');
+            overlay.className = 'lightbox';
+            overlay.innerHTML = `
+                <div class="lightbox-backdrop"></div>
+                <div class="lightbox-content" role="dialog" aria-modal="true">
+                    <button class="lightbox-close material-symbols-outlined" aria-label="Close">close</button>
+                    <img class="lightbox-image" src="${img.src}" />
+                </div>`;
+            document.body.appendChild(overlay);
+
+            const remove = () => overlay.remove();
+            overlay.querySelector('.lightbox-backdrop')?.addEventListener('click', remove);
+            overlay.querySelector('.lightbox-close')?.addEventListener('click', remove);
+            document.addEventListener('keydown', function escListener(ev) {
+                if (ev.key === 'Escape') { remove(); document.removeEventListener('keydown', escListener); }
+            });
+
+            // Dynamically adjust sizing to ensure containment within viewport preserving aspect
+            const lightboxImg = overlay.querySelector<HTMLImageElement>('.lightbox-image');
+            function fit() {
+                if (!lightboxImg || !lightboxImg.naturalWidth) return;
+                const vw = window.innerWidth * 0.95;
+                const vh = window.innerHeight * 0.95;
+                const { naturalWidth: iw, naturalHeight: ih } = lightboxImg;
+                const ratio = Math.min(vw / iw, vh / ih, 1);
+                lightboxImg.style.width = Math.round(iw * ratio) + 'px';
+                lightboxImg.style.height = Math.round(ih * ratio) + 'px';
+            }
+            if (lightboxImg?.complete) {
+                fit();
+            } else {
+                lightboxImg?.addEventListener('load', fit, { once: true });
+            }
+            window.addEventListener('resize', fit, { passive: true });
+            // Cleanup resize listener when closed
+            overlay.addEventListener('remove', () => window.removeEventListener('resize', fit));
+        }
+
+        expandBtn?.addEventListener('click', (e) => { e.stopPropagation(); openLightbox(); });
+        // also click image to expand
+        img.addEventListener('click', openLightbox);
+    });
 }

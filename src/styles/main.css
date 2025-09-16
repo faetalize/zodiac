@@ -805,6 +805,110 @@ form {
     object-fit: contain;
 }
 
+/* Wrapper + overlay controls for generated images */
+.generated-image-wrapper {
+    position: relative;
+    display: inline-flex;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    cursor: zoom-in;
+    background: #00000018;
+}
+
+.generated-image-wrapper .generated-image { transition: transform 0.25s ease; }
+.generated-image-wrapper:hover .generated-image { transform: scale(1.015); }
+
+.generated-image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    padding: 0.35rem 0.4rem;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 80%, rgba(0,0,0,0) 100%);
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.generated-image-wrapper:hover .generated-image-overlay,
+.generated-image-wrapper:focus-within .generated-image-overlay { opacity: 1; }
+
+.btn-image-action {
+    color: #fff;
+    background: rgba(255,255,255,0.08) !important;
+    backdrop-filter: blur(4px) saturate(140%);
+    -webkit-backdrop-filter: blur(4px) saturate(140%);
+    border-radius: 0.4rem;
+    padding: 0.15rem 0.35rem;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.btn-image-action:hover { background: rgba(255,255,255,0.18) !important; }
+.btn-image-action:active { background: rgba(255,255,255,0.28) !important; }
+
+/* Lightbox (shared theme colors will adjust via dark/light styles for bg tokens) */
+.lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.lightbox-content {
+    position: relative;
+    width: auto;
+    height: auto;
+    max-width: 95vw;
+    max-height: 95vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.25s ease;
+    overflow: hidden;
+}
+
+/* Constrain by both viewport dimensions; maintain aspect via object-fit */
+.lightbox-image {
+    width: 100%;
+    height: 100%;
+    max-width: 95vw;
+    max-height: 95vh;
+    object-fit: contain;
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 40px -4px rgba(0,0,0,0.6);
+    display: block;
+}
+
+.lightbox-close {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    background: rgba(0,0,0,0.6) !important;
+    color: #fff !important;
+    border-radius: 0.5rem;
+    padding: 0.35rem;
+    cursor: pointer;
+}
+.lightbox-close:hover { background: rgba(0,0,0,0.75) !important; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(.97); }
+    to { opacity: 1; transform: scale(1); }
+}
+
 /* Loading overlay for non-stream model responses */
 .message-loading-overlay {
     position: absolute;
