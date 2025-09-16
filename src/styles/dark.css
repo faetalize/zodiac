@@ -319,4 +319,18 @@
         background-clip: text;
     }
 
+    /* Chat actions dropdown (dark theme explicit) */
+    .chat-actions-menu {
+        --chat-actions-menu-bg: rgba(20,25,32,0.92);
+        border: 1px solid #ffffff18;
+        box-shadow: 0 6px 22px -4px rgba(0,0,0,0.6), 0 2px 8px -2px rgba(0,0,0,0.5);
+        color: #e4e4e4;
+    }
+    .chat-actions-item:hover, .chat-actions-item:focus-visible {
+        background: #ffffff12;
+    }
+    .chat-actions-item:active {
+        background: #ffffff1e;
+    }
+
 }

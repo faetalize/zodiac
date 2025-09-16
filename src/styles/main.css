@@ -1074,7 +1074,6 @@ form {
 }
 
 .title-chat {
-    flex-grow: 1;
     text-wrap: nowrap;
     max-width: 100%;
 }
@@ -1177,7 +1176,6 @@ form {
 
 .sidebar-section {
     overflow-y: auto;
-    scrollbar-gutter: stable;
     margin-bottom: 1rem;
     height: 100%;
     display: flex;
@@ -1501,6 +1499,7 @@ form {
     flex-direction: column;
     gap: 8px;
     overflow: auto;
+    flex-grow: 1;
 }
 
 .credits {
