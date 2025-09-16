@@ -60,7 +60,11 @@ export async function send(msg: string) {
         systemInstruction: await settingsService.getSystemPrompt(),
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain",
-        tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined
+        tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
+        thinkingConfig: {
+            includeThoughts: true,
+            thinkingBudget: -1
+        }
     };
 
     const currentChat = await createChatIfAbsent(ai, msg);
@@ -74,10 +78,12 @@ export async function send(msg: string) {
     const userMessageElement = await insertMessageV2(userMessage);
     helpers.messageContainerScrollToBottom();
 
-    if (isImageModeActive()) {
-        // Prepare a placeholder model message (no text yet, will attach image when ready)
-        const modelElm = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId));
+    //insert model message placeholder
+    const responseElement = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId, ""));
+    const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
+    const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
 
+    if (isImageModeActive()) {
         const payload = {
             model: settings.imageModel || "models/imagen-4.0-ultra-generate-001",
             prompt: msg,
@@ -107,7 +113,7 @@ export async function send(msg: string) {
             if (!response.ok) {
                 const error = (await response.json()).error;
                 alert("Image generation failed: " + error);
-                modelElm.remove();
+                responseElement.remove();
                 return userMessageElement;
             }
             // the edge function returns an image directly (binary body)
@@ -121,7 +127,7 @@ export async function send(msg: string) {
             if (!response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
                 const extraMessage = (response?.generatedImages?.[0]?.raiFilteredReason);
                 alert("Image generation failed" + (extraMessage ? `: ${extraMessage}` : ""));
-                modelElm.remove();
+                responseElement.remove();
                 return userMessageElement;
             }
             b64 = response.generatedImages[0].image.imageBytes
@@ -137,25 +143,20 @@ export async function send(msg: string) {
         };
 
         const newElm = await messageElement(modelMessage);
-        modelElm.replaceWith(newElm);
+        responseElement.replaceWith(newElm);
         helpers.messageContainerScrollToBottom();
 
         await persistUserAndModel(userMessage, modelMessage);
         return userMessageElement;
     }
 
-
     const history: Content[] = await buildHistory(selectedPersonality, currentChat);
+    let thinking = "";
+    let rawText = "";
+    let groundingContent = "";
 
     // If Pro/Max, call Supabase Edge Function; else use SDK directly
     if (maxEndpointUsed) {
-        //insert model message placeholder
-        const responseElement = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId, ""));
-        const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
-        const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
-        let rawText = "";
-        let groundingContent = "";
-
         try {
             const hasFiles = (attachmentFiles?.length ?? 0) > 0;
             const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
@@ -166,15 +167,12 @@ export async function send(msg: string) {
                 form.append('message', msg);
                 form.append('settings', JSON.stringify({
                     model: settings.model,
-                    maxOutputTokens: settings.maxTokens,
-                    temperature: settings.temperature,
-                    instructions: await settingsService.getSystemPrompt(),
-                    safetySettings: settings.safetySettings,
-                    googleSearch: isInternetSearchEnabled,
-                    streamResponse: settings.streamResponses
+                    ...config,
                 }));
                 form.append('history', JSON.stringify(history));
-                for (const f of Array.from(attachmentFiles || [])) form.append('files', f);
+                for (const f of Array.from(attachmentFiles || [])) {
+                    form.append('files', f);
+                }
                 res = await fetch(endpoint, {
                     method: 'POST',
                     headers: await getAuthHeaders(),
@@ -191,12 +189,7 @@ export async function send(msg: string) {
                         message: msg,
                         settings: {
                             model: settings.model,
-                            maxOutputTokens: settings.maxTokens,
-                            temperature: settings.temperature,
-                            instructions: await settingsService.getSystemPrompt(),
-                            safetySettings: settings.safetySettings,
-                            googleSearch: isInternetSearchEnabled,
-                            streamResponse: settings.streamResponses
+                            ...config,
                         },
                         history
                     })
@@ -219,7 +212,7 @@ export async function send(msg: string) {
                         const eventBlock = buffer.slice(0, idx);
                         buffer = buffer.slice(idx + 2);
                         if (!eventBlock) continue;
-                        if (eventBlock.startsWith(':')) continue; // comment
+                        if (eventBlock.startsWith(':')) continue;
                         const lines = eventBlock.split('\n');
                         let eventName = 'message';
                         let data = '';
@@ -230,25 +223,48 @@ export async function send(msg: string) {
                         if (eventName === 'error') throw new Error(data);
                         if (eventName === 'done') break;
                         if (data) {
-                            try {
-                                const payload = JSON.parse(data);
-                                if (payload.text) {
+                            const payload = JSON.parse(data);
+                            if (payload) {
+                                for (const part of payload.candidates?.[0]?.content?.parts || []) { // thinking block
+                                    thinking += part.thought ? part.text : "";
+                                }
+                                if (payload.text) { // direct text
                                     rawText += payload.text;
                                     responseElement.querySelector('.message-text')?.classList.remove('is-loading');
                                     messageContent.innerHTML = await parseMarkdownToHtml(rawText);
                                     helpers.messageContainerScrollToBottom();
                                 }
-                            } catch { }
+                                if (payload.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
+                                    groundingContent = payload.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
+                                    const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
+                                    shadow.innerHTML = groundingContent;
+                                    const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
+                                    if (carousel) carousel.style.scrollbarWidth = "unset";
+                                }
+                            }
                         }
                     }
                 }
-                hljs.highlightAll();
             } else {
                 const json = await res.json();
-                if (json && json.text) rawText = json.text;
+                if (json) {
+                    for (const part of json.candidates?.[0]?.content?.parts || []) { // thinking block
+                        thinking += part.thought ? part.text : "";
+                    }
+                    if (json.text) { // direct text
+                        rawText = json.text;
+                    }
+                    if (json.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
+                        groundingContent = json.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
+                        const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
+                        shadow.innerHTML = groundingContent;
+                        const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
+                        if (carousel) carousel.style.scrollbarWidth = "unset";
+                    }
+                }
                 responseElement.querySelector('.message-text')?.classList.remove('is-loading');
                 messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-                hljs.highlightAll();
+
             }
         } catch (err) {
             console.error(err);
@@ -256,85 +272,86 @@ export async function send(msg: string) {
             return userMessageElement;
         }
 
-        helpers.messageContainerScrollToBottom();
-        await persistUserAndModel(
-            userMessage,
-            { role: "model", personalityid: selectedPersonalityId, parts: [{ text: rawText }], groundingContent: groundingContent || "" }
-        );
-        return userMessageElement;
-    }
+    } else { //free user, use local sdk
+        //upload attachments and get their URIs
+        const uploadedFiles = await Promise.all(Array.from(attachmentFiles || []).map(async (file) => {
+            return await ai.files.upload({
+                file: file,
+            });
+        }));
 
-    const uploadedFiles = await Promise.all(Array.from(attachmentFiles || []).map(async (file) => {
-        return await ai.files.upload({
-            file: file,
-        });
-    }));
+        //user message for model
+        const messagePayload = {
+            message: [
+                {
+                    text: msg,
+                },
+                //for each file in attachments.files, we add it to the message
+                ...uploadedFiles.map((file) => {
+                    return createPartFromUri(file.uri!, file.mimeType!);
+                }),
+            ],
+        };
 
-    //user message for model
-    const messagePayload = {
-        message: [
-            {
-                text: msg,
-            },
-            //for each file in attachments.files, we add it to the message
-            ...uploadedFiles.map((file) => {
-                return createPartFromUri(file.uri!, file.mimeType!);
-            }),
-        ],
-    };
-
-    //insert model message placeholder
-    const responseElement = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId, ""));
-    const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
-    const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
-    let rawText = "";
-    let groundingContent = "";
-    try {
-        if (settings.streamResponses) {
-            let stream: AsyncGenerator<GenerateContentResponse>;
-            const chat = ai.chats.create({ model: settings.model, history, config });
-            stream = await chat.sendMessageStream(messagePayload);
-            for await (const chunk of stream) {
-                if (chunk && chunk.text) {
-                    rawText += chunk.text;
-                    responseElement.querySelector(".message-text")?.classList.remove("is-loading");
-                    messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-                    helpers.messageContainerScrollToBottom();
+        //insert model message placeholder
+        try {
+            if (settings.streamResponses) {
+                let stream: AsyncGenerator<GenerateContentResponse>;
+                const chat = ai.chats.create({ model: settings.model, history, config });
+                stream = await chat.sendMessageStream(messagePayload);
+                for await (const chunk of stream) {
+                    if (chunk) {
+                        for (const part of chunk.candidates?.[0]?.content?.parts || []) { // thinking block
+                            thinking += part.thought ? part.text : "";
+                        }
+                        if (chunk.text) { // direct text
+                            rawText += chunk.text;
+                            responseElement.querySelector(".message-text")?.classList.remove("is-loading");
+                            messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                            helpers.messageContainerScrollToBottom();
+                        }
+                        if (chunk.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
+                            groundingContent = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
+                            const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
+                            shadow.innerHTML = groundingContent;
+                            const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
+                            if (carousel) carousel.style.scrollbarWidth = "unset";
+                        }
+                    }
                 }
-                if (chunk.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) {
-                    groundingContent = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
-                    const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
-                    shadow.innerHTML = groundingContent;
-                    const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
-                    if (carousel) carousel.style.scrollbarWidth = "unset";
+            } else {
+                const chat = ai.chats.create({ model: settings.model, history, config });
+                const response = await chat.sendMessage(messagePayload);
+                if (response) {
+                    for (const part of response.candidates?.[0]?.content?.parts || []) { // thinking block
+                        thinking += part.thought ? part.text : "";
+                    }
+                    if (response.text) { // direct text
+                        rawText = response.text;
+                        responseElement.querySelector(".message-text")?.classList.remove("is-loading");
+                        messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                    }
+                    if (response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
+                        groundingContent = response.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
+                        const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
+                        shadow.innerHTML = groundingContent;
+                        const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
+                        if (carousel) carousel.style.scrollbarWidth = "unset";
+                    }
                 }
             }
-            hljs.highlightAll();
-        } else {
-            const chat = ai.chats.create({ model: settings.model, history, config });
-            const response = await chat.sendMessage(messagePayload);
-            if (response && response.text) {
-                rawText = response.text;
-            }
-            if (response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) {
-                groundingContent = response.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
-                const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
-                shadow.innerHTML = groundingContent;
-                const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
-                if (carousel) carousel.style.scrollbarWidth = "unset";
-            }
-            responseElement.querySelector(".message-text")?.classList.remove("is-loading");
-            messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-            hljs.highlightAll();
+        } catch (err) {
+            console.error(err);
+            // Clean up placeholder if something goes wrong to avoid stuck spinner
+            try { responseElement.remove(); } catch { /* noop */ }
+            return userMessageElement;
         }
-    } catch (err) {
-        console.error(err);
-        // Clean up placeholder if something goes wrong to avoid stuck spinner
-        try { responseElement.remove(); } catch { /* noop */ }
-        return userMessageElement;
     }
 
+    //finalize
+    hljs.highlightAll();
     helpers.messageContainerScrollToBottom();
+
     //save chat history and settings (persist after success only)
     await persistUserAndModel(
         userMessage,
@@ -366,7 +383,6 @@ export async function regenerate(responseElement: HTMLElement) {
         }
         attachmentsInput.files = dataTransfer.files;
     }
-    console.log("about to send!", message.parts[0].text || "");
     await send(message.parts[0].text || "");
 }
 

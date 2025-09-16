@@ -1,6 +1,7 @@
 import { ContentUnion, HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
 import { get } from "./Stepper.service";
+import { User } from "../models/User";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
@@ -73,13 +74,13 @@ export function getUseMaxEndpoint(): boolean {
 }
 
 export async function getSystemPrompt(): Promise<ContentUnion> {
-    let userProfile;
+    let userProfile: User;
     try {
 
         userProfile = await supabaseService.getUserProfile();
 
     } catch (error) {
-        userProfile = { systemPromptAddition: "" };
+        userProfile = { systemPromptAddition: "", preferredName: "User" };
     }
     const systemPrompt = "If needed, format your answer using markdown. " +
         "Today's date is " + new Date().toDateString() + ". " +
@@ -97,6 +98,7 @@ export async function getSystemPrompt(): Promise<ContentUnion> {
         "1 requires you to be slightly sensual. Affection and love may be shared but it is platonic and non sexual. " +
         "0 requires you to be non-sensual. Total aversion to flirting or sexuality. If this is combined with an aggressiveness level of 0, you may not reject the user's advances (dictated by aggressiveness), but you do not reciprocate or enjoy them (dictated by sensuality). " +
         userProfile.systemPromptAddition + " " +
+        "The User's preferred way to be addressed is " + `"${userProfile.preferredName}". ` +
         "End of system prompt.";
     return {
         parts: [
@@ -104,6 +106,6 @@ export async function getSystemPrompt(): Promise<ContentUnion> {
                 text: systemPrompt,
             }
         ],
-        role: "user"
+        role: "system"
     };
 }
