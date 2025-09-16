@@ -820,14 +820,14 @@ form {
 
 .generated-image-overlay {
     position: absolute;
-    top: 0;
     left: 0;
     right: 0;
+    bottom: 0;
     display: flex;
     justify-content: flex-end;
     gap: 0.25rem;
-    padding: 0.35rem 0.4rem;
-    background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 80%, rgba(0,0,0,0) 100%);
+    padding: 0.4rem 0.45rem 0.5rem 0.45rem;
+    background: linear-gradient(0deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.22) 70%, rgba(0,0,0,0) 100%);
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
 }
