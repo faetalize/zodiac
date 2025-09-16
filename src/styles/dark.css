@@ -333,4 +333,13 @@
         background: #ffffff1e;
     }
 
+    /* Thinking section theming */
+    .message-thinking {
+        --thinking-border: #3a648b;
+        --thinking-bg: #000000;
+    }
+    .message-thinking pre {
+        background: var(--thinking-bg);
+    }
+
 }

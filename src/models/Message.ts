@@ -13,4 +13,6 @@ export interface Message {
     groundingContent?: string;
     // Optional AI-generated images for model responses
     generatedImages?: GeneratedImage[];
+    // Optional chain-of-thought / reasoning text (not part of visible answer by default)
+    thinking?: string;
 }

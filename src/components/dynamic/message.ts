@@ -13,6 +13,11 @@ export const messageElement = async (
 ) => {
     const messageElement = document.createElement("div");
     messageElement.classList.add("message");
+    // NOTE: Thinking (chain-of-thought) is optionally provided by the backend
+    // and stored in message.thinking. It is rendered inside a collapsible
+    // region so it does not overwhelm the main answer. We do not parse it
+    // as Markdown (only escaped) to reduce any accidental HTML injection and
+    // keep its raw reasoning form.
     //user message
     if (!message.personalityid) {
         messageElement.innerHTML =
@@ -54,6 +59,7 @@ export const messageElement = async (
             // If we already have generated images, don't show loading spinner even if text is empty
             const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
             const isLoading = rawInitial.trim().length === 0 && !hasImages;
+        const hasThinking = !!message.thinking && message.thinking.trim().length > 0;
         messageElement.innerHTML =
             `<div class="message-header">
             <img class="pfp" src="${personality.image}" loading="lazy"></img>
@@ -66,6 +72,10 @@ export const messageElement = async (
             </div>
         </div>
         <div class="message-role-api" style="display: none;">${message.role}</div>
+        ${hasThinking ? `<div class="message-thinking">` +
+            `<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
+            `<div class="thinking-content" hidden>${message.thinking || ''}</div>` +
+        `</div>` : ''}
             <div class="message-text${isLoading ? ' is-loading' : ''}">
                 <span class="message-spinner"></span>
                 <div class="message-text-content">${initialHtml}</div>
@@ -74,6 +84,22 @@ export const messageElement = async (
             ${hasImages ? message.generatedImages!.map(img => `<img class="generated-image" src="data:${img.mimeType};base64,${img.base64}" loading="lazy" />`).join("") : ""}
         </div>
         <div class="message-grounding-rendered-content"></div>`;
+        if (hasThinking) {
+            const toggle = messageElement.querySelector<HTMLButtonElement>('.thinking-toggle');
+            const content = messageElement.querySelector<HTMLElement>('.thinking-content');
+            toggle?.addEventListener('click', () => {
+                const expanded = toggle.getAttribute('aria-expanded') === 'true';
+                if (expanded) {
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.textContent = 'Show reasoning';
+                    content?.setAttribute('hidden', '');
+                } else {
+                    toggle.setAttribute('aria-expanded', 'true');
+                    toggle.textContent = 'Hide reasoning';
+                    content?.removeAttribute('hidden');
+                }
+            });
+        }
         if (message.groundingContent) {
             const shadow = messageElement.querySelector<HTMLElement>(".message-grounding-rendered-content")!.attachShadow({ mode: "open" });
             shadow.innerHTML = message.groundingContent;

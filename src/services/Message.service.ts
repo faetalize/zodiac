@@ -63,7 +63,7 @@ export async function send(msg: string) {
         tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
         thinkingConfig: {
             includeThoughts: true,
-            thinkingBudget: -1
+            thinkingBudget: 1000
         }
     };
 
@@ -81,6 +81,39 @@ export async function send(msg: string) {
     //insert model message placeholder
     const responseElement = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId, ""));
     const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
+    let thinkingWrapper = responseElement.querySelector<HTMLElement>(".message-thinking");
+    let thinkingContentElm = responseElement.querySelector<HTMLElement>(".thinking-content");
+
+    function ensureThinkingElements(): void {
+        if (!thinkingWrapper) {
+            // Insert just after header (before .message-text)
+            const header = responseElement.querySelector('.message-header');
+            thinkingWrapper = document.createElement('div');
+            thinkingWrapper.className = 'message-thinking';
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thinking-toggle btn-textual';
+            toggleBtn.setAttribute('aria-expanded','false');
+            toggleBtn.textContent = 'Show reasoning';
+            thinkingContentElm = document.createElement('div');
+            thinkingContentElm.className = 'thinking-content';
+            thinkingContentElm.setAttribute('hidden','');
+            thinkingWrapper.append(toggleBtn, thinkingContentElm);
+            header?.insertAdjacentElement('afterend', thinkingWrapper);
+            // toggle behavior
+            toggleBtn.addEventListener('click', () => {
+                const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                if (expanded) {
+                    toggleBtn.setAttribute('aria-expanded','false');
+                    toggleBtn.textContent = 'Show reasoning';
+                    thinkingContentElm?.setAttribute('hidden','');
+                } else {
+                    toggleBtn.setAttribute('aria-expanded','true');
+                    toggleBtn.textContent = 'Hide reasoning';
+                    thinkingContentElm?.removeAttribute('hidden');
+                }
+            });
+        }
+    }
     const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
 
     if (isImageModeActive()) {
@@ -226,7 +259,11 @@ export async function send(msg: string) {
                             const payload = JSON.parse(data);
                             if (payload) {
                                 for (const part of payload.candidates?.[0]?.content?.parts || []) { // thinking block
-                                    thinking += part.thought ? part.text : "";
+                                    if (part.thought && part.text) {
+                                        thinking += part.text;
+                                        ensureThinkingElements();
+                                        if (thinkingContentElm) thinkingContentElm.textContent = thinking;
+                                    }
                                 }
                                 if (payload.text) { // direct text
                                     rawText += payload.text;
@@ -249,8 +286,11 @@ export async function send(msg: string) {
                 const json = await res.json();
                 if (json) {
                     for (const part of json.candidates?.[0]?.content?.parts || []) { // thinking block
-                        thinking += part.thought ? part.text : "";
+                        if (part.thought && part.text) {
+                            thinking += part.text;
+                        }
                     }
+                    if (thinking) { ensureThinkingElements(); if (thinkingContentElm) thinkingContentElm.textContent = thinking; }
                     if (json.text) { // direct text
                         rawText = json.text;
                     }
@@ -302,7 +342,7 @@ export async function send(msg: string) {
                 for await (const chunk of stream) {
                     if (chunk) {
                         for (const part of chunk.candidates?.[0]?.content?.parts || []) { // thinking block
-                            thinking += part.thought ? part.text : "";
+                            if (part.thought && part.text) { thinking += part.text; ensureThinkingElements(); if (thinkingContentElm) thinkingContentElm.textContent = thinking; }
                         }
                         if (chunk.text) { // direct text
                             rawText += chunk.text;
@@ -324,8 +364,11 @@ export async function send(msg: string) {
                 const response = await chat.sendMessage(messagePayload);
                 if (response) {
                     for (const part of response.candidates?.[0]?.content?.parts || []) { // thinking block
-                        thinking += part.thought ? part.text : "";
+                        if (part.thought && part.text) {
+                            thinking += part.text;
+                        }
                     }
+                    if (thinking) { ensureThinkingElements(); if (thinkingContentElm) thinkingContentElm.textContent = thinking; }
                     if (response.text) { // direct text
                         rawText = response.text;
                         responseElement.querySelector(".message-text")?.classList.remove("is-loading");
@@ -355,7 +398,7 @@ export async function send(msg: string) {
     //save chat history and settings (persist after success only)
     await persistUserAndModel(
         userMessage,
-        { role: "model", personalityid: selectedPersonalityId, parts: [{ text: rawText }], groundingContent: groundingContent || "" }
+        { role: "model", personalityid: selectedPersonalityId, parts: [{ text: rawText }], groundingContent: groundingContent || "", thinking: thinking || undefined }
     );
     return userMessageElement;
 }

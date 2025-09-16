@@ -84,6 +84,16 @@ export function getDecoded(encoded: string) {
     return marked.parse(encoded.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"), { breaks: true });
 }
 
+// Basic HTML escape for displaying raw reasoning/thinking safely inside <code> blocks
+export function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 export function messageContainerScrollToBottom() {
     if (!getSettings().autoscroll) {
         return;

@@ -746,6 +746,37 @@ form {
     opacity: 0;
 }
 
+/* Reasoning / thinking collapsible section (revised) */
+/* Revised thinking section (now above main text, plain text) */
+.message-thinking {
+    margin-top: 1rem;
+    border-left: 3px solid var(--thinking-border, currentColor);
+    padding: 0.4rem 0.6rem 0.4rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    opacity: 0.85;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--thinking-bg, rgba(0,0,0,0.04));
+    border-radius: 0.4rem;
+}
+
+.message-thinking .thinking-toggle {
+    align-self: flex-start;
+    padding: 0.5rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.8;
+}
+
+.message-thinking .thinking-toggle:hover { opacity: 0.95; }
+
+.message-thinking .thinking-content { font-family: inherit; }
+
 /* Generated images in assistant messages */
 .message-images {
     display: flex;
