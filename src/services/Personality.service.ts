@@ -1,5 +1,5 @@
 import * as overlayService from "./Overlay.service";
-import { Db, db } from "./Db.service";
+import {  db } from "./Db.service";
 import { Personality } from "../models/Personality";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -11,15 +11,35 @@ export async function initialize() {
         return
     }
     defaultPersonalityCard.querySelector(".btn-edit-card")?.remove(); // Remove edit button from default personality
-    defaultPersonalityCard.querySelector("input")?.click();
 
     //load all personalities from local storage
     const personalitiesArray = await getAll();
     if (personalitiesArray) {
         for (let personality of personalitiesArray) {
-            const { id: id , ...personalityData } = personality; // Destructure to exclude 'id'
+            const { id: id, ...personalityData } = personality; // Destructure to exclude 'id'
             insert(personalityData, String(id));
         }
+    }
+
+    // After loading, restore last selected personality (if present and still existing)
+    try {
+        const lastId = getLastSelectedPersonalityId();
+        if (lastId) {
+            if (lastId === "-1") {
+                // First child is default card
+                defaultPersonalityCard.querySelector("input")?.click();
+            } else {
+                const input = document.querySelector<HTMLInputElement>(`#personality-${lastId} input[name='personality']`);
+                if (input) {
+                    input.click();
+                }
+            }
+        }
+        else {
+            defaultPersonalityCard.querySelector("input")?.click();
+        }
+    } catch (e) {
+        console.warn("Failed to restore last selected personality", e);
     }
 
     // Add the "Create New" card at the end
@@ -201,6 +221,28 @@ export function generateCard(personality: Personality, id: string) {
             overlayService.showEditPersonalityForm(personality, id);
         });
     }
+    // Persist selection when user changes personality
+    if (input) {
+        input.addEventListener("change", () => {
+            if (input.checked) {
+                setLastSelectedPersonalityId(id || "-1");
+            }
+        });
+    }
     return card;
+}
+
+// -------------------- Persistence helpers --------------------
+function setLastSelectedPersonalityId(id: string) {
+    try {
+        console.log("Persisting last selected personality id:", id);
+        localStorage.setItem("lastSelectedPersonalityId", id);
+    } catch { /* ignore quota / privacy mode errors */ }
+}
+
+function getLastSelectedPersonalityId(): string | null {
+    try {
+        return localStorage.getItem("lastSelectedPersonalityId");
+    } catch { return null; }
 }
 

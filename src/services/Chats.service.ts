@@ -103,7 +103,7 @@ function insertChatEntry(chat: DbChat) {
     const editItem = document.createElement("button");
     editItem.classList.add("chat-actions-item");
     editItem.setAttribute("role", "menuitem");
-    editItem.textContent = "Edit title";
+    editItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">edit</span><span>Edit title</span>`;
     editItem.addEventListener("click", (e) => {
         e.stopPropagation();
         closeMenu();
@@ -128,14 +128,24 @@ function insertChatEntry(chat: DbChat) {
     const deleteItem = document.createElement("button");
     deleteItem.classList.add("chat-actions-item");
     deleteItem.setAttribute("role", "menuitem");
-    deleteItem.textContent = "Delete";
+    deleteItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">delete</span><span>Delete</span>`;
     deleteItem.addEventListener("click", (e) => {
         e.stopPropagation();
         closeMenu();
         deleteChat(chat.id, db);
     });
+    // export single chat
+    const exportItem = document.createElement("button");
+    exportItem.classList.add("chat-actions-item");
+    exportItem.setAttribute("role", "menuitem");
+    exportItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">share</span><span>Export</span>`;
+    exportItem.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        closeMenu();
+        await exportChat(chat.id);
+    });
 
-    menu.append(editItem, deleteItem);
+    menu.append(editItem, exportItem, deleteItem);
     actionsWrapper.append(actionsButton, menu);
 
     // close on outside click
@@ -272,6 +282,27 @@ export async function editChat(id: number, title: string) {
         await db.chats.put(chat);
         initialize();
     }
+}
+
+export async function exportChat(id: number): Promise<void> {
+    const chat = await db.chats.get(id);
+    if (!chat) {
+        console.error("Chat not found for export", id);
+        return;
+    }
+    // Exclude the id so imported chats get a new one (mirrors exportAllChats behavior)
+    const { id: _omit, ...rest } = chat as DbChat & { id: number };
+    const blob = new Blob([JSON.stringify(rest, null, 2)], { type: 'application/json' });
+    // Derive a safe filename from the chat title
+    const safeTitle = (chat.title || 'chat').toLowerCase().replace(/[^a-z0-9-_]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = `${safeTitle || 'chat'}_export.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 export async function exportAllChats(): Promise<void> {

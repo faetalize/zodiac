@@ -957,6 +957,7 @@ form {
 }
 
 .chat-actions-item {
+    justify-content: flex-start;
     background: transparent;
     border: none;
     text-align: left;
@@ -969,6 +970,12 @@ form {
     gap: 0.5rem;
     align-items: center;
     white-space: nowrap;
+}
+
+.chat-actions-item .chat-action-icon {
+    font-size: 1rem;
+    line-height: 1;
+    opacity: 0.85;
 }
 
 .chat-actions-item:hover, .chat-actions-item:focus-visible {
