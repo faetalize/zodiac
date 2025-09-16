@@ -1883,6 +1883,10 @@ input[name="currentChat"][value="none"] {
     background-color: #00000049;
 }
 
+.uxtoggle{
+    justify-self: end;
+}
+
 
 @media (min-width: 1032px) {
     .sidebar {

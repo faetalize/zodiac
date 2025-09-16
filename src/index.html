@@ -168,21 +168,28 @@
                             <label class="setting-label" for="enableThinkingSelect">
                                 <span class="material-symbols-outlined">psychology</span>
                                 <span>Thinking</span>
-                                <span class="material-symbols-outlined tooltip" style="font-size: 0.885rem; opacity: 0.6; cursor:default" info="Controls whether the model includes internal reasoning (thoughts). Required for Pro model and automatically enabled there.">info</span>
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Controls whether the model includes internal reasoning (thoughts). Required for Pro model and automatically enabled there.">info</span>
                             </label>
                             <select id="enableThinkingSelect" class="input-field">
                                 <option value="enabled" selected>Enabled</option>
                                 <option value="disabled">Disabled</option>
                             </select>
-                            <div id="thinking-required-hint" class="hint" style="display:none; margin-top:0.25rem; font-size:0.7rem; opacity:0.7; margin-left: 0.2rem;">Required for Pro</div>
+                            <div id="thinking-required-hint" class="hint"
+                                style="display:none; margin-top:0.25rem; font-size:0.7rem; opacity:0.7; margin-left: 0.2rem;">
+                                Required for Pro</div>
                         </div>
                         <div>
                             <label class="setting-label" for="thinkingBudget">
                                 <span class="material-symbols-outlined">speed</span>
                                 <span>Thinking Budget</span>
-                                <span class="material-symbols-outlined tooltip" style="font-size: 0.885rem; opacity: 0.6; cursor:default" info="Number of output tokens allocated for the model's internal reasoning. Higher values may improve quality but increase latency. Set to -1 to enable dynamic thinking budget.">info</span>
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Number of output tokens allocated for the model's internal reasoning. Higher values may improve quality but increase latency. Set to -1 to enable dynamic thinking budget.">info</span>
                             </label>
-                            <input type="number" id="thinkingBudget" class="input-field" min="-1" max="200000" value="500">
+                            <input type="number" id="thinkingBudget" class="input-field" min="-1" max="200000"
+                                value="500">
                         </div>
                         <div>
                             <label class="setting-label" for="safetySettings"><span class="material-symbols-outlined">
@@ -218,13 +225,16 @@
                     </div>
                     <h3>User Experience</h3>
                     <div>
-                        <div style="display: flex; gap: 0.25rem; align-items: center;">
-                            <input id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
+                        <div
+                            style="display: flex; gap: 0.25rem; align-items: center; width: 100%; justify-content: space-between;">
                             <label for="autoscroll">Autoscroll</label>
+                            <input class="uxtoggle" id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
                         </div>
-                        <div style="display: flex; gap: 0.25rem; align-items: center; margin-top: 0.5rem;">
-                            <input id="streamResponses" type="checkbox" name="streamResponsesEnabled" checked></input>
+                        <div
+                            style="display: flex; gap: 0.25rem; align-items: center; margin-top: 0.5rem; width: 100%; justify-content: space-between;">
                             <label for="streamResponses">Stream Responses</label>
+                            <input class="uxtoggle" id="streamResponses" type="checkbox" name="streamResponsesEnabled"
+                                checked></input>
                         </div>
                     </div>
                     <h3>Data Management</h3>
@@ -378,9 +388,11 @@
             <div id="whats-new" class="hidden">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li>Experimental: Image generation. If you have billing enabled on Google Cloud, you can use imagen 4 Ultra image
-                        generation. If you want uncensored image models (Illustrious SDXL), subscribe to Max tier on Zodiac (900 monthly image generations)</li>
-                        <li>Incoming: Pay-per-use image generation, if you want to use it without a subscription.</li>
+                    <li>Experimental: Image generation. If you have billing enabled on Google Cloud, you can use imagen
+                        4 Ultra image
+                        generation. If you want uncensored image models (Illustrious SDXL), subscribe to Max tier on
+                        Zodiac (900 monthly image generations)</li>
+                    <li>Incoming: Pay-per-use image generation, if you want to use it without a subscription.</li>
                     <li>Added a Pro tier for people not willing to use their own API keys for added privacy - (unlimited
                         monthly usage)</li>
                     <li>Chats are now filterable</li>
