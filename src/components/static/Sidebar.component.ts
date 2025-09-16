@@ -69,8 +69,7 @@ bulkImportChatsButton.addEventListener("click", () => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.addEventListener('change', async () => {
-        const file = fileInput.files![0];
-        await chatsService.importChats(file);
+        await chatsService.importChats(fileInput.files!);
     });
     fileInput.click();
     fileInput.remove();

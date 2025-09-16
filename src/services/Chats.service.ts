@@ -319,12 +319,14 @@ export async function exportAllChats(): Promise<void> {
     URL.revokeObjectURL(url);
 }
 
-export async function importChats(file: File): Promise<void> {
+export async function importChats(files: FileList): Promise<void> {
     const reader = new FileReader();
     reader.addEventListener('load', async (event) => {
         const content = event.target?.result as string;
         try {
-            const chats: Chat[] = JSON.parse(content);
+            const chatOrChats = JSON.parse(content);
+            //check if it's iterable
+            const chats: Chat[] = Array.isArray(chatOrChats) ? chatOrChats : [chatOrChats]; //wrap single chat in array
             for (const chat of chats) {
                 //we insert the chat with a new ID
                 await db.chats.add(chat);
@@ -335,5 +337,9 @@ export async function importChats(file: File): Promise<void> {
             alert("Failed to import chats. Please ensure the file is in the correct format.");
         }
     });
-    reader.readAsText(file);
+    for (const file of files) {
+        reader.readAsText(file);
+    }
+
+
 }
