@@ -57,21 +57,56 @@ function insertChatEntry(chat: DbChat) {
     chatIcon.classList.add("material-symbols-outlined");
     chatIcon.textContent = "chat_bubble";
 
-    // delete button
-    const deleteEntryButton = document.createElement("button");
-    deleteEntryButton.classList.add("btn-textual", "material-symbols-outlined");
-    deleteEntryButton.textContent = "delete";
-    deleteEntryButton.addEventListener("click", (e) => {
-        e.stopPropagation(); //so we don't activate the radio button
-        deleteChat(chat.id, db);
+    // actions dropdown (ellipsis + menu)
+    const actionsWrapper = document.createElement("div");
+    actionsWrapper.classList.add("chat-actions-wrapper");
+
+    const actionsButton = document.createElement("button");
+    actionsButton.classList.add("btn-textual", "material-symbols-outlined", "chat-actions-button");
+    actionsButton.setAttribute("aria-haspopup", "true");
+    actionsButton.setAttribute("aria-expanded", "false");
+    actionsButton.setAttribute("title", "Chat actions");
+    actionsButton.textContent = "more_vert"; // material icon for vertical ellipsis
+
+    const menu = document.createElement("div");
+    menu.classList.add("chat-actions-menu");
+    menu.setAttribute("role", "menu");
+
+    function closeMenu() {
+        if (actionsWrapper.classList.contains("open")) {
+            actionsWrapper.classList.remove("open");
+            actionsButton.setAttribute("aria-expanded", "false");
+        }
+    }
+
+    function openMenu() {
+        if (!actionsWrapper.classList.contains("open")) {
+            // close other open menus
+            document.querySelectorAll('.chat-actions-wrapper.open').forEach(el => {
+                if (el !== actionsWrapper) el.classList.remove('open');
+            });
+            actionsWrapper.classList.add("open");
+            actionsButton.setAttribute("aria-expanded", "true");
+        }
+    }
+
+    actionsButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!actionsWrapper.classList.contains("open")) {
+            openMenu();
+        } else {
+            closeMenu();
+        }
     });
 
-    //edit button
-    const editEntryButton = document.createElement("button");
-    editEntryButton.classList.add("btn-textual", "material-symbols-outlined", "edit-chat-button");
-    editEntryButton.textContent = "edit";
-    editEntryButton.addEventListener("click", (e) => {
-        e.stopPropagation(); //so we don't activate the radio button
+    // Menu items
+    const editItem = document.createElement("button");
+    editItem.classList.add("chat-actions-item");
+    editItem.setAttribute("role", "menuitem");
+    editItem.textContent = "Edit title";
+    editItem.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeMenu();
         chatLabelText.setAttribute("contenteditable", "true");
         chatLabelText.focus();
         document.execCommand("selectAll", false);
@@ -88,13 +123,58 @@ function insertChatEntry(chat: DbChat) {
                 chatLabelText.blur();
             }
         });
+    });
 
+    const deleteItem = document.createElement("button");
+    deleteItem.classList.add("chat-actions-item");
+    deleteItem.setAttribute("role", "menuitem");
+    deleteItem.textContent = "Delete";
+    deleteItem.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeMenu();
+        deleteChat(chat.id, db);
+    });
+
+    menu.append(editItem, deleteItem);
+    actionsWrapper.append(actionsButton, menu);
+
+    // close on outside click
+    document.addEventListener("click", (e) => {
+        if (!actionsWrapper.contains(e.target as Node)) {
+            closeMenu();
+        }
+    });
+
+    // keyboard accessibility
+    actionsButton.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            closeMenu();
+            actionsButton.blur();
+        } else if ((e.key === "Enter" || e.key === " ") && !actionsWrapper.classList.contains("open")) {
+            openMenu();
+        } else if (e.key === "ArrowDown") {
+            openMenu();
+            (menu.querySelector("button") as HTMLButtonElement)?.focus();
+        }
+    });
+    menu.addEventListener("keydown", (e) => {
+        const items = Array.from(menu.querySelectorAll<HTMLButtonElement>("button.chat-actions-item"));
+        const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+        if (e.key === "Escape") {
+            closeMenu();
+            actionsButton.focus();
+        } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            items[(currentIndex + 1) % items.length].focus();
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            items[(currentIndex - 1 + items.length) % items.length].focus();
+        }
     });
 
     chatLabel.append(chatIcon);
     chatLabel.append(chatLabelText);
-    chatLabel.append(editEntryButton);
-    chatLabel.append(deleteEntryButton);
+    chatLabel.append(actionsWrapper);
 
     chatRadioButton.addEventListener("change", async () => {
         await loadChat(chat.id, db);
