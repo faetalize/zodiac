@@ -1,12 +1,12 @@
-import { Message } from "../models/Message";
-import { Personality } from "../models/Personality";
-import { db } from "../services/Db.service";
+import { Message } from "../../models/Message";
+import { Personality } from "../../models/Personality";
+import { db } from "../../services/Db.service";
 import hljs from 'highlight.js';
-import * as helpers from "../utils/helpers";
-import * as personalityService from "../services/Personality.service";
-import * as messageService from "../services/Message.service";
-import * as parserService from "../services/Parser.service";
-import * as chatsService from "../services/Chats.service";
+import * as helpers from "../../utils/helpers";
+import * as personalityService from "../../services/Personality.service";
+import * as messageService from "../../services/Message.service";
+import * as parserService from "../../services/Parser.service";
+import * as chatsService from "../../services/Chats.service";
 
 export const messageElement = async (
     message: Message

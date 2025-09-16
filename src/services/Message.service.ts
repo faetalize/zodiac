@@ -9,7 +9,7 @@ import { db } from "./Db.service";
 import { parseMarkdownToHtml } from "./Parser.service";
 import { clearAttachmentPreviews } from "../components/static/AttachmentPreview.component";
 import { Message } from "../models/Message";
-import { messageElement } from "../components/message";
+import { messageElement } from "../components/dynamic/message";
 import { isImageModeActive } from "../components/static/ImageButton.component";
 import { Chat, DbChat } from "../models/Chat";
 import { getSubscriptionTier, getUserSubscription, type SubscriptionTier, SUPABASE_URL, getAuthHeaders } from "./Supabase.service";
