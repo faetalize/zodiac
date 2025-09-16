@@ -255,7 +255,6 @@ export async function send(msg: string) {
                         if (eventName === 'error') throw new Error(data);
                         if (eventName === 'done') break;
                         if (data) {
-                            console.log(data);
                             const payload = JSON.parse(data);
                             if (payload) {
                                 for (const part of payload.candidates?.[0]?.content?.parts || []) { // thinking block
@@ -264,12 +263,11 @@ export async function send(msg: string) {
                                         ensureThinkingElements();
                                         if (thinkingContentElm) thinkingContentElm.textContent = thinking;
                                     }
-                                }
-                                if (payload.text) { // direct text
-                                    rawText += payload.text;
-                                    responseElement.querySelector('.message-text')?.classList.remove('is-loading');
-                                    messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-                                    helpers.messageContainerScrollToBottom();
+                                    else if (part.text) { // direct text
+                                        rawText += part.text;
+                                        responseElement.querySelector('.message-text')?.classList.remove('is-loading');
+                                        messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                                    }
                                 }
                                 if (payload.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
                                     groundingContent = payload.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
@@ -278,6 +276,8 @@ export async function send(msg: string) {
                                     const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
                                     if (carousel) carousel.style.scrollbarWidth = "unset";
                                 }
+
+                                helpers.messageContainerScrollToBottom();
                             }
                         }
                     }
@@ -348,7 +348,6 @@ export async function send(msg: string) {
                             rawText += chunk.text;
                             responseElement.querySelector(".message-text")?.classList.remove("is-loading");
                             messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-                            helpers.messageContainerScrollToBottom();
                         }
                         if (chunk.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
                             groundingContent = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
@@ -357,6 +356,8 @@ export async function send(msg: string) {
                             const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
                             if (carousel) carousel.style.scrollbarWidth = "unset";
                         }
+
+                        helpers.messageContainerScrollToBottom();
                     }
                 }
             } else {
