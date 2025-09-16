@@ -235,7 +235,6 @@ export function generateCard(personality: Personality, id: string) {
 // -------------------- Persistence helpers --------------------
 function setLastSelectedPersonalityId(id: string) {
     try {
-        console.log("Persisting last selected personality id:", id);
         localStorage.setItem("lastSelectedPersonalityId", id);
     } catch { /* ignore quota / privacy mode errors */ }
 }
