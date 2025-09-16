@@ -21,7 +21,7 @@ export function showAddPersonalityForm() {
     showElement(personalityForm, false);
 }
 
-export function showEditPersonalityForm(personality: Personality) {
+export function showEditPersonalityForm(personality: Personality, id?: string) {
     //populate the form with the personality data
     for (const key in personality) {
         
@@ -49,6 +49,11 @@ export function showEditPersonalityForm(personality: Personality) {
         if (input.type === 'checkbox') {
             input.checked = Boolean(personality[key as keyof Personality]);
         }
+    }
+    // set hidden id field so submit can determine edit vs add
+    const idInput = personalityForm.querySelector<HTMLInputElement>('input[name="id"]');
+    if (idInput) {
+        idInput.value = id !== undefined ? String(id) : '';
     }
     showElement(overlay, false);
     showElement(personalityForm, false);

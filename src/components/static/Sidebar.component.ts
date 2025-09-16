@@ -3,6 +3,7 @@ import * as overlayService from "../../services/Overlay.service";
 import * as personalityService from "../../services/Personality.service";
 import * as chatsService from "../../services/Chats.service";
 import { db } from "../../services/Db.service";
+import "./ChatSearch.component";
 
 const hideSidebarButton = document.querySelector("#btn-hide-sidebar");
 const showSidebarButton = document.querySelector("#btn-show-sidebar");
@@ -15,8 +16,6 @@ const importPersonalityButton = document.querySelector("#btn-import-personality"
 const clearAllDataButton = document.querySelector("#btn-clear-all-data");
 const bulkImportChatsButton = document.querySelector("#btn-bulk-import-chats");
 const exportAllChatsButton = document.querySelector("#btn-export-all-chats");
-const loginButton = document.querySelector("#btn-login");
-
 
 if (!sidebar ||
     !hideSidebarButton ||
@@ -36,6 +35,7 @@ hideSidebarButton.addEventListener("click", () => {
     helpers.hideElement(sidebar);
 });
 showSidebarButton.addEventListener("click", () => {
+    sidebar.style.display = "flex";
     helpers.showElement(sidebar, false);
 });
 clearAllPersonalitiesButton.addEventListener("click", async () => {
@@ -61,11 +61,6 @@ newChatButton.addEventListener("click", () => {
     chatsService.newChat();
 });
 
-loginButton?.addEventListener("click", ()=>{
-    return;
-    overlayService.show("login-register-tabs");
-})
-
 exportAllChatsButton.addEventListener("click", async () => {
     await chatsService.exportAllChats();
 });
@@ -74,8 +69,7 @@ bulkImportChatsButton.addEventListener("click", () => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.addEventListener('change', async () => {
-        const file = fileInput.files![0];
-        await chatsService.importChats(file);
+        await chatsService.importChats(fileInput.files!);
     });
     fileInput.click();
     fileInput.remove();
@@ -89,7 +83,7 @@ importPersonalityButton.addEventListener("click", () => {
         const reader = new FileReader();
         reader.onload = function (e) {
             const personality = JSON.parse(e.target?.result?.toString() || '{}');
-            personalityService.add(personality);
+            personalityService.add(personality, personality?.id);
         };
         reader.readAsText(file);
     });

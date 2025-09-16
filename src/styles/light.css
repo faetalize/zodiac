@@ -1,6 +1,6 @@
 /* Light theme styles */
 @media (prefers-color-scheme: light) {
-    :focus-visible{
+    :focus-visible {
         border: 1px solid #8f9eb3;
         outline: none;
     }
@@ -37,8 +37,9 @@
     .btn-textual {
         color: #0a0a0a;
     }
+
     .btn-toggled {
-        background: #7e9bceb0 !important;
+        background: #a0bcebb0 !important;
     }
 
     .btn-textual:hover {
@@ -85,6 +86,34 @@
         background-color: #80bef4;
     }
 
+    /* Keep subscription badge background unchanged on hover */
+    #subscription-badge.badge-tier-free:hover {
+        background-color: #9cc2ea !important;
+    }
+    #subscription-badge.badge-tier-pro:hover {
+        background-color: #bdecc9 !important;
+    }
+    #subscription-badge.badge-tier-max:hover {
+        background-color: #dbc9ff !important;
+    }
+
+    /* Subscription badge tiers */
+    .badge-tier-free {
+        background-color: #9cc2ea;
+        border-color: rgba(27, 104, 123, 0.508);
+        color: #34545c;
+    }
+    .badge-tier-pro {
+        background-color: #bdecc9;
+        border-color: #3aa35a9c;
+        color: #174224;
+    }
+    .badge-tier-max {
+        background-color: #dbc9ff;
+        border-color: #8e6aff91;
+        color: #2f1a62;
+    }
+
     .input-radio-currentchat:checked+label {
         background-color: #9dbfeaa6;
     }
@@ -107,6 +136,20 @@
         background-color: #dfeeff !important;
         border: 1px solid #cbdbf0;
     }
+
+    /* Subscription card theming (light) */
+    #subscription-status-row{
+        background-color: #e8f1ff;
+        border-color: #cbdbf0;
+    }
+    /* Info profile card (light) */
+    #profile-info-card{
+        background-color: #e8f1ff;
+        border-color: #cbdbf0;
+    }
+    .subscription-card-header{ background-color: transparent; }
+    .subscription-card-body{ background-color: transparent; }
+    .subscription-card-footer{ background-color: transparent; }
 
     :has(>#messageInput:focus-visible) {
         border: 1px solid #8f9eb3;
@@ -147,11 +190,140 @@
         outline: 1px solid #00000030
     }
 
-    #dialog{
+    #dialog {
         background-color: #971c1c;
     }
 
     #dialog-message {
         color: #ffe3e3;
     }
+
+    #user-profile {
+        filter: invert(1);
+    }
+
+    #user-profile[src]:not([src=""]):not([src="undefined"]):not([src="null"]):not([src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="]){
+        filter: invert(0);
+    }
+
+    /* Toggle Switch Styles for Light Theme */
+    input[type="checkbox"] {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        width: 3rem;
+        height: 1.5rem;
+        border-radius: 0.75rem;
+        background-color: #c2c2c2;
+        border: 2px solid #a8a8a8;
+        position: relative;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        outline: none;
+    }
+
+    input[type="checkbox"]:focus-visible {
+        box-shadow: 0 0 0 2px #8f9eb3;
+        border-color: #8f9eb3;
+    }
+
+    input[type="checkbox"]::before {
+        content: '';
+        position: absolute;
+        width: 1.1rem;
+        height: 1.1rem;
+        border-radius: 50%;
+        background-color: #ffffff;
+        left: 0.1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    input[type="checkbox"]:checked {
+        background-color: #4c7cbe;
+        border-color: #3c66a1;
+    }
+
+    input[type="checkbox"]:checked::before {
+        left: 1.7rem;
+        background-color: #ffffff;
+    }
+
+    input[type="checkbox"]:hover {
+        background-color: #b8b8b8;
+    }
+
+    input[type="checkbox"]:checked:hover {
+        background-color: #3c66a1;
+    }
+
+    input[type="checkbox"]:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    /* Modern subscription cards light theme */
+    .subscription-card {
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        border-color: #e5e7eb;
+        color: #111827;
+    }
+
+    .subscription-card:hover {
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    }
+
+    .subscription-card-popular {
+        border-color: #667eea;
+        box-shadow: 0 15px 50px rgba(102, 126, 234, 0.2);
+    }
+
+    .subscription-card-popular:hover {
+        box-shadow: 0 25px 70px rgba(102, 126, 234, 0.3);
+    }
+
+    .tier-description {
+        color: #6b7280;
+    }
+
+    .price-period {
+        color: #6b7280;
+    }
+
+    /* Chat actions dropdown (light theme overrides) */
+    .chat-actions-wrapper .chat-actions-button {
+        color: #0a0a0a;
+    }
+    .chat-actions-wrapper.open .chat-actions-button {
+        text-shadow: 0 0 4px #ffffffaa;
+    }
+    .chat-actions-menu {
+        --chat-actions-menu-bg: rgba(255,255,255,0.95);
+        border: 1px solid rgba(0,0,0,0.1);
+        box-shadow: 0 4px 18px -4px rgba(0,0,0,0.25), 0 2px 6px -1px rgba(0,0,0,0.15);
+        backdrop-filter: blur(8px) saturate(180%);
+        -webkit-backdrop-filter: blur(8px) saturate(180%);
+        color: #1f2937;
+    }
+    .chat-actions-item {
+        color: #1f2937;
+    }
+    .chat-actions-item:hover, .chat-actions-item:focus-visible {
+        background: rgba(0,0,0,0.07);
+    }
+    .chat-actions-item:active {
+        background: rgba(0,0,0,0.12);
+    }
+
+    /* Thinking section theming */
+    .message-thinking {
+        --thinking-border: #4c7cbe;
+        --thinking-bg: #ffffffcc;
+    }
+    .message-thinking pre {
+        background: var(--thinking-bg);
+    }
+
 }

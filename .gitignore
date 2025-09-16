@@ -139,3 +139,9 @@ node_modules
 #live-server
 .vite
 .vite/*
+.github/copilot-instructions.md
+supabase
+supabase/*
+supabase/functions
+supabase/functions/*
+deno.lock

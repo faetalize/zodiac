@@ -1,12 +1,19 @@
-import { HarmBlockThreshold, HarmCategory } from "@google/genai";
+import { ContentUnion, HarmBlockThreshold, HarmCategory } from "@google/genai";
+import * as supabaseService from "./Supabase.service";
+import { get } from "./Stepper.service";
+import { User } from "../models/User";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
 const temperatureInput = document.querySelector("#temperature") as HTMLInputElement;
 const modelSelect = document.querySelector("#selectedModel") as HTMLSelectElement;
+const imageModelSelect = document.querySelector("#selectedImageModel") as HTMLSelectElement;
 const autoscrollToggle = document.querySelector("#autoscroll") as HTMLInputElement;
-
-if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !autoscrollToggle) {
+const streamResponsesToggle = document.querySelector("#streamResponses") as HTMLInputElement;
+const enableThinkingSelect = document.querySelector("#enableThinkingSelect") as HTMLSelectElement;
+const thinkingRequiredHint = document.querySelector("#thinking-required-hint") as HTMLElement | null;
+const thinkingBudgetInput = document.querySelector("#thinkingBudget") as HTMLInputElement;
+if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput) {
     throw new Error("One or more settings elements are missing in the DOM.");
 }
 
@@ -16,7 +23,15 @@ export function initialize() {
     maxTokensInput.addEventListener("input", saveSettings);
     temperatureInput.addEventListener("input", saveSettings);
     modelSelect.addEventListener("change", saveSettings);
+    imageModelSelect.addEventListener("change", saveSettings);
     autoscrollToggle.addEventListener("change", saveSettings);
+    streamResponsesToggle.addEventListener("change", saveSettings);
+    enableThinkingSelect.addEventListener("change", saveSettings);
+    thinkingBudgetInput.addEventListener("input", saveSettings);
+
+    // Enforce pro model rules at init
+    enforceProModelThinkingRule();
+    modelSelect.addEventListener("change", enforceProModelThinkingRule);
 }
 
 export function loadSettings() {
@@ -24,7 +39,15 @@ export function loadSettings() {
     maxTokensInput.value = localStorage.getItem("maxTokens") || "1000";
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || "70";
     modelSelect.value = localStorage.getItem("model") || "gemini-2.5-flash";
+    imageModelSelect.value = localStorage.getItem("imageModel") || "models/imagen-4.0-ultra-generate-001";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
+    // Default ON when not set
+    streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";
+    const enableThinkingStored = localStorage.getItem("enableThinking");
+    const enableThinking = (enableThinkingStored ?? "true") === "true";
+    enableThinkingSelect.value = enableThinking ? 'enabled' : 'disabled';
+    thinkingBudgetInput.value = localStorage.getItem("thinkingBudget") || "500";
+    enforceProModelThinkingRule();
 }
 
 export function saveSettings() {
@@ -32,7 +55,11 @@ export function saveSettings() {
     localStorage.setItem("maxTokens", maxTokensInput.value);
     localStorage.setItem("TEMPERATURE", temperatureInput.value);
     localStorage.setItem("model", modelSelect.value);
+    localStorage.setItem("imageModel", imageModelSelect.value);
     localStorage.setItem("autoscroll", autoscrollToggle.checked.toString());
+    localStorage.setItem("streamResponses", streamResponsesToggle.checked.toString());
+    localStorage.setItem("enableThinking", (enableThinkingSelect.value === 'enabled').toString());
+    localStorage.setItem("thinkingBudget", thinkingBudgetInput.value);
 }
 
 export function getSettings() {
@@ -47,11 +74,71 @@ export function getSettings() {
             { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
         ],
         model: modelSelect.value,
+        imageModel: imageModelSelect.value,
         autoscroll: autoscrollToggle.checked,
+        streamResponses: streamResponsesToggle.checked,
+        enableThinking: enableThinkingSelect.value === 'enabled',
+        thinkingBudget: parseInt(thinkingBudgetInput.value, 10),
+        useMaxEndpoint: getUseMaxEndpoint(),
     }
 }
 
-export function getSystemPrompt() {
+export function setUseMaxEndpoint(enabled: boolean) {
+    localStorage.setItem("useMaxEndpoint", enabled ? "true" : "false");
+}
+
+export function getUseMaxEndpoint(): boolean {
+    return (localStorage.getItem("useMaxEndpoint") ?? "false") === "true";
+}
+
+function enforceProModelThinkingRule() {
+    const isPro = modelSelect.value.includes("pro");
+    if (isPro) {
+        enableThinkingSelect.value = 'enabled';
+        enableThinkingSelect.disabled = true;
+        if (thinkingRequiredHint) thinkingRequiredHint.style.display = 'block';
+        localStorage.setItem("enableThinking", "true");
+    } else {
+        enableThinkingSelect.disabled = false;
+        if (thinkingRequiredHint) thinkingRequiredHint.style.display = 'none';
+    }
+    enforceBudgetSync();
+}
+
+// When thinking is disabled, force budget to 0 (persist). When enabled and budget is 0 but user previously had a stored non-zero value, keep current unless user changes.
+let lastNonZeroBudget: number | null = null;
+function enforceBudgetSync() {
+    const enabled = enableThinkingSelect.value === 'enabled';
+    const currentVal = parseInt(thinkingBudgetInput.value || '0', 10);
+    if (enabled) {
+        // Restore last non-zero if we auto-zeroed before
+        if (currentVal === 0 && lastNonZeroBudget && lastNonZeroBudget > 0) {
+            thinkingBudgetInput.value = String(lastNonZeroBudget);
+            localStorage.setItem('thinkingBudget', thinkingBudgetInput.value);
+        }
+    } else {
+        if (currentVal !== 0) {
+            lastNonZeroBudget = currentVal; // remember what user had
+        }
+        thinkingBudgetInput.value = '0';
+        localStorage.setItem('thinkingBudget', '0');
+    }
+}
+
+// Hook into saveSettings side-effect via Mutation: wrap original listener? Simpler: add dedicated listener.
+enableThinkingSelect?.addEventListener('change', () => {
+    enforceBudgetSync();
+});
+
+export async function getSystemPrompt(): Promise<ContentUnion> {
+    let userProfile: User;
+    try {
+
+        userProfile = await supabaseService.getUserProfile();
+
+    } catch (error) {
+        userProfile = { systemPromptAddition: "", preferredName: "User" };
+    }
     const systemPrompt = "If needed, format your answer using markdown. " +
         "Today's date is " + new Date().toDateString() + ". " +
         "You are to act as the personality dictated by the user. " +
@@ -66,7 +153,16 @@ export function getSystemPrompt() {
         "3 requires you to be very sensual. You must be flirtatious and suggestive. Most of the time, you are the one to initiate sexual topics or actions. " +
         "2 requires you to be moderately sensual. You may flirt and be suggestive. Do not initiate sexual topics unless the user does so, after which you may be open to discussing them. " +
         "1 requires you to be slightly sensual. Affection and love may be shared but it is platonic and non sexual. " +
-        "0 requires you to be non-sensual. Total aversion to flirting or sexuality. If aggressiveness is 0, you may not reject the user's advances, but you do not reciprocate or enjoy them. " +
+        "0 requires you to be non-sensual. Total aversion to flirting or sexuality. If this is combined with an aggressiveness level of 0, you may not reject the user's advances (dictated by aggressiveness), but you do not reciprocate or enjoy them (dictated by sensuality). " +
+        userProfile.systemPromptAddition + " " +
+        "The User's preferred way to be addressed is " + `"${userProfile.preferredName}". ` +
         "End of system prompt.";
-    return systemPrompt;
+    return {
+        parts: [
+            {
+                text: systemPrompt,
+            }
+        ],
+        role: "system"
+    };
 }

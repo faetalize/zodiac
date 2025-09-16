@@ -47,12 +47,11 @@ sendMessageButton.addEventListener("click", async () => {
         messageInput.innerHTML = "";
         userMessageElement = await messageService.send(message);
     } catch (error: any) {
-        (userMessageElement as HTMLElement).classList.add("message-failure");
-        if ((error as any).status === 429) {
-            alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");
-            return;
+        if (userMessageElement) {
+            (userMessageElement as HTMLElement).classList.add("message-failure");
         }
-        alert("Error, please report this to the developer. You might need to restart the page to continue normal usage.");
+        alert("Error, please report this to the developer. You might need to restart the page to continue normal usage: " + error);
+        console.error(error);
         return;
     }
 });
@@ -63,16 +62,16 @@ const setupBottomBar = async () => {
     if (personality) {
         messageInput.setAttribute("placeholder", `Send a message to ${personality.name}`);
         if (personality.roleplayEnabled) {
-            roleplayActionsMenu.style.display = "block";
+            roleplayActionsMenu.classList.remove("hidden");
         }
         else {
-            roleplayActionsMenu.style.display = "none";
+            roleplayActionsMenu.classList.add("hidden");
         }
         if (personality.internetEnabled) {
-            internetSearchToggle.style.display = "block";
+            internetSearchToggle.classList.remove("hidden");
         }
         else {
-            internetSearchToggle.style.display = "none";
+            internetSearchToggle.classList.add("hidden");
         }
     }
     else {

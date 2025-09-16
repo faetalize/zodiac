@@ -2,6 +2,8 @@ import * as messageService from "./Message.service"
 import * as helpers from "../utils/helpers"
 import { Db, db } from "./Db.service";
 import { Chat, DbChat } from "../models/Chat";
+import { Message } from "../models/Message";
+import hljs from "highlight.js";
 const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
 const chatHistorySection = document.querySelector<HTMLDivElement>("#chatHistorySection");
 const sidebar = document.querySelector<HTMLDivElement>(".sidebar");
@@ -45,6 +47,7 @@ function insertChatEntry(chat: DbChat) {
 
     // chat title
     const chatLabelText = document.createElement("span");
+    chatLabelText.classList.add("chat-title-text");
     chatLabelText.style.overflow = "hidden";
     chatLabelText.style.textOverflow = "ellipsis";
     chatLabelText.textContent = chat.title;
@@ -54,21 +57,56 @@ function insertChatEntry(chat: DbChat) {
     chatIcon.classList.add("material-symbols-outlined");
     chatIcon.textContent = "chat_bubble";
 
-    // delete button
-    const deleteEntryButton = document.createElement("button");
-    deleteEntryButton.classList.add("btn-textual", "material-symbols-outlined");
-    deleteEntryButton.textContent = "delete";
-    deleteEntryButton.addEventListener("click", (e) => {
-        e.stopPropagation(); //so we don't activate the radio button
-        deleteChat(chat.id, db);
+    // actions dropdown (ellipsis + menu)
+    const actionsWrapper = document.createElement("div");
+    actionsWrapper.classList.add("chat-actions-wrapper");
+
+    const actionsButton = document.createElement("button");
+    actionsButton.classList.add("btn-textual", "material-symbols-outlined", "chat-actions-button");
+    actionsButton.setAttribute("aria-haspopup", "true");
+    actionsButton.setAttribute("aria-expanded", "false");
+    actionsButton.setAttribute("title", "Chat actions");
+    actionsButton.textContent = "more_vert"; // material icon for vertical ellipsis
+
+    const menu = document.createElement("div");
+    menu.classList.add("chat-actions-menu");
+    menu.setAttribute("role", "menu");
+
+    function closeMenu() {
+        if (actionsWrapper.classList.contains("open")) {
+            actionsWrapper.classList.remove("open");
+            actionsButton.setAttribute("aria-expanded", "false");
+        }
+    }
+
+    function openMenu() {
+        if (!actionsWrapper.classList.contains("open")) {
+            // close other open menus
+            document.querySelectorAll('.chat-actions-wrapper.open').forEach(el => {
+                if (el !== actionsWrapper) el.classList.remove('open');
+            });
+            actionsWrapper.classList.add("open");
+            actionsButton.setAttribute("aria-expanded", "true");
+        }
+    }
+
+    actionsButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!actionsWrapper.classList.contains("open")) {
+            openMenu();
+        } else {
+            closeMenu();
+        }
     });
 
-    //edit button
-    const editEntryButton = document.createElement("button");
-    editEntryButton.classList.add("btn-textual", "material-symbols-outlined", "edit-chat-button");
-    editEntryButton.textContent = "edit";
-    editEntryButton.addEventListener("click", (e) => {
-        e.stopPropagation(); //so we don't activate the radio button
+    // Menu items
+    const editItem = document.createElement("button");
+    editItem.classList.add("chat-actions-item");
+    editItem.setAttribute("role", "menuitem");
+    editItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">edit</span><span>Edit title</span>`;
+    editItem.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeMenu();
         chatLabelText.setAttribute("contenteditable", "true");
         chatLabelText.focus();
         document.execCommand("selectAll", false);
@@ -85,13 +123,68 @@ function insertChatEntry(chat: DbChat) {
                 chatLabelText.blur();
             }
         });
+    });
 
+    const deleteItem = document.createElement("button");
+    deleteItem.classList.add("chat-actions-item");
+    deleteItem.setAttribute("role", "menuitem");
+    deleteItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">delete</span><span>Delete</span>`;
+    deleteItem.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeMenu();
+        deleteChat(chat.id, db);
+    });
+    // export single chat
+    const exportItem = document.createElement("button");
+    exportItem.classList.add("chat-actions-item");
+    exportItem.setAttribute("role", "menuitem");
+    exportItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">share</span><span>Export</span>`;
+    exportItem.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        closeMenu();
+        await exportChat(chat.id);
+    });
+
+    menu.append(editItem, exportItem, deleteItem);
+    actionsWrapper.append(actionsButton, menu);
+
+    // close on outside click
+    document.addEventListener("click", (e) => {
+        if (!actionsWrapper.contains(e.target as Node)) {
+            closeMenu();
+        }
+    });
+
+    // keyboard accessibility
+    actionsButton.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            closeMenu();
+            actionsButton.blur();
+        } else if ((e.key === "Enter" || e.key === " ") && !actionsWrapper.classList.contains("open")) {
+            openMenu();
+        } else if (e.key === "ArrowDown") {
+            openMenu();
+            (menu.querySelector("button") as HTMLButtonElement)?.focus();
+        }
+    });
+    menu.addEventListener("keydown", (e) => {
+        const items = Array.from(menu.querySelectorAll<HTMLButtonElement>("button.chat-actions-item"));
+        const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+        if (e.key === "Escape") {
+            closeMenu();
+            actionsButton.focus();
+        } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            items[(currentIndex + 1) % items.length].focus();
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            items[(currentIndex - 1 + items.length) % items.length].focus();
+        }
     });
 
     chatLabel.append(chatIcon);
     chatLabel.append(chatLabelText);
-    chatLabel.append(editEntryButton);
-    chatLabel.append(deleteEntryButton);
+    chatLabel.append(actionsWrapper);
 
     chatRadioButton.addEventListener("change", async () => {
         await loadChat(chat.id, db);
@@ -104,11 +197,11 @@ function insertChatEntry(chat: DbChat) {
     }
 }
 
-export async function addChat(title: string, db: Db) {
+export async function addChat(title: string, content?: Message[]) {
     const chat: Chat = {
         title: title,
         timestamp: Date.now(),
-        content: []
+        content: content || []
     };
     const id = await db.chats.put(chat);
     insertChatEntry({ ...chat, id });
@@ -144,6 +237,7 @@ export function newChat() {
         return;
     }
     messageContainer.innerHTML = "";
+    document.querySelector("#chat-title")!.textContent = "";
     const checkedInput = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
     if (checkedInput) {
         checkedInput.checked = false;
@@ -151,25 +245,24 @@ export function newChat() {
 }
 
 export async function loadChat(chatID: number, db: Db) {
-    console.log("Loading chat with ID:", chatID);
     try {
         if (!chatID || !messageContainer) {
             console.error("Chat ID is null or message container not found");
-            return;
+            throw new Error("Chat ID is null or message container not found");
         }
-        const currentChat = await getCurrentChat(db);
-        if (currentChat) {
-            messageContainer.innerHTML = ""; // Clear existing messages
-        }
+        messageContainer.innerHTML = ""; // Clear existing messages
         const chat = await db.chats.get(chatID);
+        document.querySelector("#chat-title")!.textContent = chat?.title || "";
         for (const msg of chat?.content || []) {
-           await messageService.insertMessageV2(msg);
+            await messageService.insertMessageV2(msg);
         }
         // Always scroll to bottom when loading a chat
         messageContainer.scrollTo({
             top: messageContainer.scrollHeight,
             behavior: 'instant'
         });
+        hljs.highlightAll();
+        return chat;
     }
     catch (error) {
         alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
@@ -191,6 +284,27 @@ export async function editChat(id: number, title: string) {
     }
 }
 
+export async function exportChat(id: number): Promise<void> {
+    const chat = await db.chats.get(id);
+    if (!chat) {
+        console.error("Chat not found for export", id);
+        return;
+    }
+    // Exclude the id so imported chats get a new one (mirrors exportAllChats behavior)
+    const { id: _omit, ...rest } = chat as DbChat & { id: number };
+    const blob = new Blob([JSON.stringify(rest, null, 2)], { type: 'application/json' });
+    // Derive a safe filename from the chat title
+    const safeTitle = (chat.title || 'chat').toLowerCase().replace(/[^a-z0-9-_]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = `${safeTitle || 'chat'}_export.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 export async function exportAllChats(): Promise<void> {
     const chats = await getAllChats(db);
     //we remove the id
@@ -205,12 +319,14 @@ export async function exportAllChats(): Promise<void> {
     URL.revokeObjectURL(url);
 }
 
-export async function importChats(file: File): Promise<void> {
+export async function importChats(files: FileList): Promise<void> {
     const reader = new FileReader();
     reader.addEventListener('load', async (event) => {
         const content = event.target?.result as string;
         try {
-            const chats: Chat[] = JSON.parse(content);
+            const chatOrChats = JSON.parse(content);
+            //check if it's iterable
+            const chats: Chat[] = Array.isArray(chatOrChats) ? chatOrChats : [chatOrChats]; //wrap single chat in array
             for (const chat of chats) {
                 //we insert the chat with a new ID
                 await db.chats.add(chat);
@@ -221,5 +337,9 @@ export async function importChats(file: File): Promise<void> {
             alert("Failed to import chats. Please ensure the file is in the correct format.");
         }
     });
-    reader.readAsText(file);
+    for (const file of files) {
+        reader.readAsText(file);
+    }
+
+
 }

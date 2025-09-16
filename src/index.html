@@ -28,7 +28,7 @@
 
 <body>
     <div class="container">
-        <div id="dialog">
+        <div id="dialog" class="dialog hidden">
             <div id="dialog-message"></div>
             <div id="dialog-buttons" class="btn-array">
                 <button class="btn-danger" id="btn-dialog-ok">OK</button>
@@ -51,10 +51,10 @@
                     <div id="gemini-pro-branding">Gemini 2.5</div>
                 </div>
 
-                <button id="btn-login" class="logged-out-component tooltip"  info="Logins are currently disabled, but will be enabled in v1.0!" >
+                <button id="btn-login" class="logged-out-component">
                     Login
                 </button>
-                <img class="user-avatar logged-in-component" id="user-profile"
+                <img class="user-avatar logged-in-component hidden" id="user-profile"
                     src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==">
             </div>
             <div class="navbar" data-target-id="sidebar-content">
@@ -74,13 +74,15 @@
                         </button>
                     </div>
 
+                    <input type="text" id="chat-search-input" class="input-field" placeholder="Search chats...">
+
                     <input type="radio" name="currentChat" value="none" checked>
                     <div id="chatHistorySection">
 
                     </div>
                 </div>
 
-                <div class="sidebar-section" id="personalitySection">
+                <div class="sidebar-section hidden" id="personalitySection">
                     <div class="btn-array">
                         <button id="btn-import-personality">
                             <span class="material-symbols-outlined">upload</span>Import
@@ -92,24 +94,31 @@
                     <div id="personalitiesDiv"></div>
                 </div>
 
-                <div class="sidebar-section">
+                <div class="sidebar-section hidden">
                     <h3>API Key</h3>
-                    <div class="api-key">
-                        <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
-                            class="input-field"></input>
-                        <button class="material-symbols-outlined btn-textual"
-                            onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')">
-                            help
-                        </button>
+                    <div class="api-key-group">
+                        <div class="api-key">
+                            <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
+                                class="input-field"></input>
+                            <button class="material-symbols-outlined btn-textual"
+                                onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')">
+                                help
+                            </button>
+                        </div>
+                        <div class="api-key-error hidden">
+                            <span class="material-symbols-outlined">error</span> Invalid API Key
+                        </div>
+                        <div id="apiKeyNoNeedMsg" class="hint hidden">No API key required, enjoy!</div>
+                        <!-- Pro/Max route toggle -->
+                        <span id="use-api-key-wrap"
+                            style="display: none; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                            <input type="checkbox" id="use-api-key">
+                            <label for="use-api-key">Use your own API Key</label>
+                        </span>
                     </div>
-                    <div class="api-key-error">
-                        <span class="material-symbols-outlined">error</span> Invalid API Key
+                    <div id="or-divider" style="text-align: center; font-weight: 800; text-transform: uppercase;">or
                     </div>
-                    <div style="
-                        text-align: center;
-                        font-weight: 800;
-                        text-transform: uppercase;">or</div>
-                    <button id="btn-subscribe-to-pro">Subscribe to Pro</button>
+                    <button id="btn-show-subscription-options">Upgrade</button>
                     <h3>Generation Settings</h3>
                     <div class="generation-settings">
                         <div>
@@ -127,6 +136,20 @@
                             </select>
                         </div>
                         <div>
+                            <label class="setting-label" for="selectedImageModel"><span
+                                    class="material-symbols-outlined">image</span>Image Model
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Choose the image generation model. Available models depend on your subscription tier and API key usage.">
+                                    info
+                                </span> </label>
+                            <select id="selectedImageModel" class="input-field">
+                                <option value="models/imagen-4.0-ultra-generate-001" selected="true">Imagen 4 Ultra
+                                </option>
+                                <option value="models/illustrious">Illustrious (Uncensored)</option>
+                            </select>
+                        </div>
+                        <div>
                             <label class="setting-label" for="maxTokens"><span
                                     class="material-symbols-outlined">generating_tokens</span><span>
                                     Max Output
@@ -140,6 +163,33 @@
                             </label>
                             <input type="number" id="maxTokens" class="input-field" min="1" max="1000000"
                                 value="1000"></input>
+                        </div>
+                        <div>
+                            <label class="setting-label" for="enableThinkingSelect">
+                                <span class="material-symbols-outlined">psychology</span>
+                                <span>Thinking</span>
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Controls whether the model includes internal reasoning (thoughts). Required for Pro model and automatically enabled there.">info</span>
+                            </label>
+                            <select id="enableThinkingSelect" class="input-field">
+                                <option value="enabled" selected>Enabled</option>
+                                <option value="disabled">Disabled</option>
+                            </select>
+                            <div id="thinking-required-hint" class="hint"
+                                style="display:none; margin-top:0.25rem; font-size:0.7rem; opacity:0.7; margin-left: 0.2rem;">
+                                Required for Pro</div>
+                        </div>
+                        <div>
+                            <label class="setting-label" for="thinkingBudget">
+                                <span class="material-symbols-outlined">speed</span>
+                                <span>Thinking Budget</span>
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Number of output tokens allocated for the model's internal reasoning. Higher values may improve quality but increase latency. Set to -1 to enable dynamic thinking budget.">info</span>
+                            </label>
+                            <input type="number" id="thinkingBudget" class="input-field" min="-1" max="200000"
+                                value="500">
                         </div>
                         <div>
                             <label class="setting-label" for="safetySettings"><span class="material-symbols-outlined">
@@ -175,15 +225,20 @@
                     </div>
                     <h3>User Experience</h3>
                     <div>
-                        <!-- autoscroll toggle -->
-                        <div style="display: flex; gap: 0.25rem; align-items: center;">
-                            <input id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
+                        <div
+                            style="display: flex; gap: 0.25rem; align-items: center; width: 100%; justify-content: space-between;">
                             <label for="autoscroll">Autoscroll</label>
+                            <input class="uxtoggle" id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
+                        </div>
+                        <div
+                            style="display: flex; gap: 0.25rem; align-items: center; margin-top: 0.5rem; width: 100%; justify-content: space-between;">
+                            <label for="streamResponses">Stream Responses</label>
+                            <input class="uxtoggle" id="streamResponses" type="checkbox" name="streamResponsesEnabled"
+                                checked></input>
                         </div>
                     </div>
                     <h3>Data Management</h3>
                     <div class="btn-array-vertical">
-                        <button id="btn-online-sync">Sync Online</button>
                         <button id="btn-bulk-import-chats">Bulk Import Chats</button>
                         <button id="btn-export-all-chats">Export All Chats</button>
                         <button id="btn-clear-all-data" class="btn-danger">Wipe Everything</button>
@@ -203,15 +258,17 @@
                             <span class="paypal-logo1">Pay</span><span class="paypal-logo2">Pal</span>
                         </a>
                     </div>
+                    <h3>Debug</h3>
+                    <div class="btn-array-vertical">
+                        <button id="btn-debug-chats">Generate 10 Random Chats</button>
+                        <button id="btn-debug-personalities">Generate 10 Random Personalities</button>
+                        <button id="btn-debug-option-3">Debug Option 3</button>
+                    </div>
 
                 </div>
             </div>
 
-
             <div class="credits">
-
-
-
                 <a href="https://github.com/faetalize/zodiac">Source Code</a>
                 <a href="terms-of-service.html">Terms of Service</a>
                 <a href="privacy-policy.html">Privacy Policy</a>
@@ -223,6 +280,7 @@
                 <button class="material-symbols-outlined btn-textual" id="btn-show-sidebar">
                     menu
                 </button>
+                <div id="chat-title"></div>
             </div>
             <div class="message-container"></div>
             <div id="message-box">
@@ -237,18 +295,22 @@
                         id="btn-internet">language</button>
                     <button type="button" class="btn-textual material-symbols-outlined"
                         id="btn-roleplay">pan_tool</button>
+                    <button type="button" class="btn-textual material-symbols-outlined" id="btn-image">
+                        <div>image</div>
+                        <div id="image-generation-label">Image Generation</div>
+                    </button>
                     <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="overlay">
+    <div class="overlay hidden" id="overlay">
         <div class="header">
             <button class="btn-textual" id="btn-hide-overlay">BACK</button>
         </div>
         <div class="overlay-content">
-            <form id="form-add-personality">
+            <form id="form-add-personality" class="hidden">
                 <div class="stepper first-step" id="stepper-add-personality">
                     <div class="stepper-content">
                         <div class="step active">
@@ -323,17 +385,28 @@
                 </div>
             </form>
 
-            <div id="whats-new">
+            <div id="whats-new" class="hidden">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li>Fixed bug that caused spontaneous chat deletion</li>
-                    <li>Data management features added: you can now backup/restore your chats</li>
+                    <li>Experimental: Image generation. If you have billing enabled on Google Cloud, you can use imagen
+                        4 Ultra image
+                        generation. If you want uncensored image models (Illustrious SDXL), subscribe to Max tier on
+                        Zodiac (900 monthly image generations)</li>
+                    <li>Incoming: Pay-per-use image generation, if you want to use it without a subscription (coming in 1.1)</li>
+                    <li>Added a Pro tier for people not willing to use their own API keys for added privacy - (unlimited
+                        monthly usage, no quotas, no limits)</li>
+                    <li>Max tier now available with 900 monthly image generations, as well as everything from Pro</li>
+                    <li>Enabled reasoning/thinking</li>
+                    <li>Chats are now filterable</li>
+                    <li>You can export and import your chats individually</li>
+                    <li>You can now customize your profile to give extra instructions to the model (requires an account)
+                    </li>
                     <li>Visit my discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
                 </ul>
             </div>
 
-            <div id="login-register-tabs">
+            <div id="login-register-tabs" class="hidden">
                 <div class="navbar" data-target-id="login-register-container">
                     <div class="navbar-tab active">Login</div>
                     <div class="navbar-tab">Register</div>
@@ -343,26 +416,26 @@
                     <div id="login">
                         <input type="text" id="email" placeholder="Email" class="input-field" autocomplete="off">
                         <input type="password" id="password" placeholder="Password" class="input-field">
-                        <div id="login-error" class="error-message">
+                        <div id="login-error" class="error-message hidden">
                             <span class="material-symbols-outlined">error</span>
                             <span id="login-error-message">Invalid email or password</span>
                         </div>
                         <button id="btn-login-submit">Login</button>
 
                     </div>
-                    <div id="register">
+                    <div id="register" class="hidden">
                         <input type="text" id="register-email" placeholder="Email" class="input-field">
                         <input type="password" id="register-password" placeholder="Password" class="input-field">
                         <input type="password" id="register-password-confirm" placeholder="Confirm Password"
                             class="input-field">
 
-                        <div>
+                        <div class="register-terms-row">
                             <input type="checkbox" name="terms" id="register-terms">
                             <label for="register-terms" class="input-field">By registering, you agree to the <a
                                     href="terms-of-service.html">terms</a> and <a href="privacy-policy.html">privacy
                                     policy</a></label>
                         </div>
-                        <div id="register-error" class="error-message">
+                        <div id="register-error" class="error-message hidden">
                             <span class="material-symbols-outlined">error</span> <span
                                 id="register-error-message">Registration failed, please try again</span>
                         </div>
@@ -373,122 +446,152 @@
                 </div>
             </div>
 
-            <div id="profile">
+            <div id="profile" class="hidden">
                 <h1>Profile</h1>
                 <div id="profile-pfp-edit">
                     <img src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
                         alt="Profile Picture" id="profile-pfp">
                     <button id="btn-change-pfp" class="btn-textual material-symbols-outlined">edit</button>
                 </div>
-                <input type="text" id="profile-preferred-name" placeholder="Preferred Name" class="input-field">
-                <textarea id="profile-system-prompt" placeholder="System Prompt Addition" class="input-field"
-                    style="height: 5rem; resize:vertical"></textarea>
+                <div id="subscription-status-row" class="logged-in-component hidden collapsed">
+                    <div class="collapsible-card-header">
+                        <h3 style="margin:0;">Subscription</h3>
+                        <span id="subscription-badge" class="badge">Free</span>
+                    </div>
+                    <div id="subscription-card-content" class="subscription-card-details">
+                        <div class="subscription-card-body">
+                            <div class="subscription-row">
+                                <span class="setting-label">Current tier</span>
+                                <span id="subscription-tier-text">Free</span>
+                            </div>
+                            <div class="subscription-row">
+                                <span class="setting-label">Renewal date</span>
+                                <span id="subscription-period-end">—</span>
+                            </div>
+
+                            <div class="subscription-row">
+                                <span class="setting-label">Image generation credits</span>
+                                <span id="subscription-remaining-generations">—</span>
+                            </div>
+                        </div>
+                        <div class="subscription-card-footer">
+                            <button id="btn-manage-subscription">Manage Subscription</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="profile-info-card" class="profile-card collapsed">
+                    <div class="collapsible-card-header">
+                        <h3 style="margin:0;">Info</h3>
+                    </div>
+                    <div id="profile-info-content" class="subscription-card-details">
+                        <div class="subscription-card-body">
+                            <input type="text" id="profile-preferred-name" placeholder="Preferred Name"
+                                class="input-field">
+                            <textarea id="profile-system-prompt" placeholder="System Prompt Addition"
+                                class="input-field" style="height: 5rem; resize:vertical"></textarea>
+                        </div>
+                    </div>
+                </div>
                 <button id="btn-profile-save">Save</button>
                 <button id="btn-profile-logout" class="btn-danger">Log Out</button>
             </div>
 
-            <div id="form-subscription">
-                <h3>Pick a Subscription</h3>
-                <div class="btn-array">
-                    <button type="button" id="btn-subscribe-free" class="btn-neutral btn-subscription-choice">
-                        <div class="tier-content">
-                            <h1>Free</h1>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Online
-                                    sync</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Sync
-                                    includes: up to 10 chats, unlimited personalities</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Access to
-                                    personality marketplace</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Bring your
-                                    own API key</span>
-                            </div>
+            <div id="form-subscription" class="hidden">
+                <div class="subscription-header">
+                    <h1>Choose Your Plan</h1>
+                </div>
+                <div class="subscription-grid">
+                    <div class="subscription-card subscription-card-free">
+                        <div class="subscription-card-header">
+                            <div class="tier-badge tier-badge-free">Free</div>
                             <div class="tier-price">
-                                <span class="material-symbols-outlined">attach_money</span>
-                                <span>Free</span>
+                                <span class="price-amount">$0</span>
+                                <span class="price-period">/month</span>
                             </div>
                         </div>
-                    </button>
-                    <button type="button" id="btn-subscribe-pro" class="btn-neutral btn-subscription-choice">
-                        <div id="best-value">
-                            <span>Best Value</span>
+                        <div class="subscription-card-body">
+                            <div class="tier-description">Get started with AI conversations</div>
+                            <ul class="features-list">
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Bring your own API key</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Personality marketplace access</span>
+                                </li>
+                            </ul>
                         </div>
-                        <div class="tier-content">
-                            <h1>Pro</h1>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Everything
-                                    from Free...</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">You don't
-                                    need an API key</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Unlimited
-                                    Flash and Pro models with FULL token context limits</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">No rate
-                                    limiting</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Unlimited
-                                    chat and personalities sync</span>
-                            </div>
+                    </div>
+
+                    <div class="subscription-card subscription-card-pro subscription-card-popular">
+                        <div class="popular-badge">Most Popular</div>
+                        <div class="subscription-card-header">
+                            <div class="tier-badge tier-badge-pro">Pro</div>
                             <div class="tier-price">
-                                <span class="material-symbols-outlined">attach_money</span>
-                                <span>14.99/month</span>
+                                <span class="price-amount">$14.99</span>
+                                <span class="price-period">/month</span>
                             </div>
                         </div>
-                    </button>
-                    <button type="button" id="btn-subscribe-max" class="btn-neutral btn-subscription-choice" disabled>
-                        <div class="tier-content">
-                            <h1>Max</h1>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Everything
-                                    from Pro...</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">
-                                    Image Generation</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">30 Image
-                                    generations per day</span>
-                            </div>
-                            <div class="selling-point">
-                                <span class="material-symbols-outlined">check_circle</span> <span
-                                    class="selling-point-text">Coming
-                                    soon</span>
-                            </div>
-                            <!-- price -->
+                        <div class="subscription-card-body">
+                            <div class="tier-description">For unlimited access</div>
+                            <ul class="features-list">
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Everything in Free</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">No API key required</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Unlimited Flash & Pro models</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Full token context limits</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">No rate limiting</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <button type="button" id="btn-subscribe-pro" class="subscription-cta subscription-cta-pro">
+                            Upgrade to Pro
+                        </button>
+                    </div>
+
+                    <div class="subscription-card subscription-card-max">
+                        <div class="subscription-card-header">
+                            <div class="tier-badge tier-badge-max">Max</div>
                             <div class="tier-price">
-                                <span class="material-symbols-outlined">attach_money</span>
-                                <span>29.99/month</span>
+                                <span class="price-amount">$29.99</span>
+                                <span class="price-period">/month</span>
                             </div>
-
-
                         </div>
-                    </button>
-
+                        <div class="subscription-card-body">
+                            <div class="tier-description">Image Generation</div>
+                            <ul class="features-list">
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Everything in Pro</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Imagen 4, sdxl and nano-banana models</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">30 images per day</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <button type="button" id="btn-subscribe-max" class="subscription-cta subscription-cta-max">
+                            Get Max Plan
+                        </button>
+                    </div>
                 </div>
             </div>
 

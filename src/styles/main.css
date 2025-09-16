@@ -30,6 +30,10 @@
     scrollbar-width: thin;
 }
 
+.hidden {
+    display: none !important;
+}
+
 img {
     opacity: 0;
 }
@@ -42,6 +46,7 @@ img[src]:not([src=""]):not([src="undefined"]):not([src="null"]) {
 body {
     font-family: 'Noto Sans', sans-serif;
     overflow: hidden;
+    font-optical-sizing: auto;
     margin: 0;
 }
 
@@ -90,7 +95,16 @@ button:focus {
     outline: none;
 }
 
-#btn-whatsnew{
+input:disabled {
+    filter: blur(2px);
+}
+
+select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#btn-whatsnew {
     justify-self: center;
 }
 
@@ -125,53 +139,392 @@ form {
     max-height: 100%;
 }
 
-#login-register-tabs{
-    display: none;
+#login-register-tabs {
+    display: flex;
     flex-direction: column;
     transition: height 0.2s ease-in-out;
+    height: 32rem;
+    width: 32rem;
 }
 
-#login{
+#login {
     display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
-#register{
-    display: none;
+#register {
+    display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
-#login-error{
-    display: none;
-
+/* Align register terms toggle with its label */
+.register-terms-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-#register-error{
-    display: none;
-
+.register-terms-row label {
+    padding: 0;
+    line-height: 1.2rem;
 }
 
-.error-message{
-    display:flex;
+
+
+.error-message {
+    display: flex;
     align-items: center;
     gap: 0.5rem;
     color: #df0707;
 }
 
 #form-add-personality {
-    display: none;
+    display: flex;
     width: 28rem;
     height: 28rem;
 }
 
 #form-subscription {
-    display: none;
-    flex-direction:column;
-    max-width: 52rem;
+    display: flex;
+    flex-direction: column;
+    max-width: 80rem;
     width: 100%;
+    gap: 2rem;
 }
+
+.subscription-header {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.subscription-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.subscription-header p {
+    font-size: 1.1rem;
+    opacity: 0.8;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.subscription-grid {
+    display: grid;
+    /* Default to three columns where space allows */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2rem;
+    align-items: start;
+}
+
+/* Prevent partial wrapping: go from horizontal (3 cols) to vertical (1 col) at a sensible breakpoint */
+@media (max-width: 1100px) {
+    .subscription-grid {
+        grid-template-columns: 1fr;
+        /* Slightly larger gap to keep breathing room in stacked mode */
+        gap: 5rem;
+    }
+
+    /* Avoid the hover lift collapsing the visual gap between stacked cards */
+    .subscription-card:hover {
+        transform: none !important;
+        /* Keep original shadow to avoid jarring effect */
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Override popular card hover shadow too */
+    .subscription-card-popular:hover {
+        box-shadow: 0 15px 50px rgba(102, 126, 234, 0.2);
+    }
+
+}
+
+.subscription-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 1.5rem;
+    padding: 2rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+    border: 2px solid transparent;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.subscription-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.subscription-card-popular {
+    border: 2px solid #667eea;
+    box-shadow: 0 15px 50px rgba(102, 126, 234, 0.2);
+}
+
+.subscription-card-popular:hover {
+    box-shadow: 0 25px 70px rgba(102, 126, 234, 0.3);
+}
+
+.popular-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+
+.subscription-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.tier-badge {
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.tier-badge-free {
+    color: #6b7280;
+}
+
+.tier-badge-pro {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.tier-badge-max {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.tier-price {
+    text-align: right;
+}
+
+.price-amount {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.price-period {
+    font-size: 1rem;
+    opacity: 0.7;
+    font-weight: 500;
+}
+
+.subscription-card-body {
+    flex-grow: 1;
+    margin-bottom: 2rem;
+}
+
+.tier-description {
+    font-size: 1rem;
+    opacity: 0.8;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+}
+
+.features-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.feature-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border-radius: 50%;
+    font-size: 0.75rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.feature-text {
+    line-height: 1.4;
+}
+
+.subscription-cta {
+    width: 100%;
+    padding: 1rem 2rem;
+    border-radius: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: auto;
+}
+
+.subscription-cta-free {
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+    color: white;
+}
+
+.subscription-cta-free:hover {
+    background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+    transform: translateY(-2px);
+}
+
+.subscription-cta-pro {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+.subscription-cta-pro:hover {
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+    box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+    transform: translateY(-2px);
+}
+
+.subscription-cta-max {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    box-shadow: 0 8px 25px rgba(245, 87, 108, 0.3);
+}
+
+.subscription-cta-max:hover {
+    background: linear-gradient(135deg, #ec4899 0%, #ef4444 100%);
+    box-shadow: 0 12px 35px rgba(245, 87, 108, 0.4);
+    transform: translateY(-2px);
+}
+
+.subscription-cta:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%) !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.subscription-cta:disabled:hover {
+    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%) !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* Premium polish for subscription UI: typography, rhythm, and subtle effects */
+.subscription-header h1 {
+    font-family: 'gt-america', 'Noto Sans', sans-serif;
+    letter-spacing: -0.02em;
+}
+
+.subscription-grid {
+    align-items: stretch; /* ensure cards align in height */
+}
+
+.subscription-card {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    /* smoother elevation */
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.subscription-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.18);
+}
+
+.subscription-card-header {
+    margin-bottom: 1.75rem;
+}
+
+.tier-badge {
+    font-family: 'gt-america', 'Noto Sans', sans-serif;
+    letter-spacing: 0.08em;
+    font-weight: 800;
+}
+
+.tier-price .price-amount {
+    font-family: 'gt-america', 'Noto Sans', sans-serif;
+    font-variant-numeric: tabular-nums lining-nums;
+    letter-spacing: -0.01em;
+}
+
+.tier-price .price-period {
+    letter-spacing: 0.02em;
+}
+
+.tier-description {
+    font-size: 1.02rem;
+}
+
+.features-list {
+    gap: 0.85rem;
+}
+
+.feature-item {
+    font-size: 1rem;
+}
+
+.feature-icon {
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.subscription-cta {
+    letter-spacing: 0.06em;
+}
+
+.subscription-cta:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35), 0 0 0 6px rgba(102, 126, 234, 0.35);
+}
+
+/* Dark theme adaptations */
+.subscription-card-free {
+    background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+}
+
+.subscription-card-pro {
+    background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+}
+
+.subscription-card-max {
+    background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+}
+
 
 .overlay-content {
     display: flex;
@@ -179,82 +532,22 @@ form {
     justify-content: center;
     align-items: center;
     flex-grow: 1;
-    overflow: hidden;
+    /* Allow vertical scrolling when content exceeds viewport */
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Ensure flex child can shrink for overflow */
+    min-height: 0;
     padding: 1rem;
     box-sizing: border-box;
 }
 
-.tier-content{
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 25rem;
-    gap: 0.5rem;
-}
+/* Removed old subscription styles - replaced with modern design */
 
-.selling-point{
-    display:flex;
-    gap: 0.5rem;
-    background-color: #00000021;
-    padding: 0.5rem;
-    border-radius: 0.5rem;
-}
-
-.selling-point span{
-    text-align: left;
-}
-
-.tier-price{
-    display: flex;
-    align-self: center;
-    margin-top: auto;
-    padding: 1rem;
-    font-size: large;
-}
-
-
-.btn-subscription-choice:disabled{
-    background-color: #f0f0f0;
-    color: #727272;
-    cursor: not-allowed;
-}
-
-.btn-subscription-choice h1{
-    margin: 0;
-    padding: 1rem;
-    text-align: start;
-}
-
-#btn-subscribe-pro{
-    border: 4px solid #13ac27;
-    position: relative;
-}
-
-#best-value{
-    position: absolute;
-    top: -0.75rem;
-    right: 0.75rem;
-    background: #13ac27;
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.5rem;
-}
-
-.overlay-content > * {
+.overlay-content>* {
     max-width: 100%;
     max-height: 100%;
 }
 
-.logged-in-component {
-    display: none;
-}
-.logged-out-component {
-    display: block;
-}
-/* all but the first sidebarcontet */
-.sidebar-section:not(:first-child) {
-    display: none;
-}
 
 .api-key {
     display: flex;
@@ -270,6 +563,18 @@ form {
         opacity: 1;
         font-weight: 200;
     }
+}
+
+/* Compact group wrapper for API key input and small status/hint */
+.api-key-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.hint {
+    font-size: 0.85rem;
+    opacity: 0.7;
 }
 
 .stepper {
@@ -313,7 +618,7 @@ form {
     display: block;
 }
 
-.policy{
+.policy {
     overflow: auto;
     margin-left: auto;
     margin-right: auto;
@@ -339,8 +644,8 @@ form {
 }
 
 .overlay {
+    display: flex;
     flex-direction: column;
-    display: none;
     position: fixed;
     opacity: 0;
     top: 0;
@@ -354,7 +659,6 @@ form {
 }
 
 #whats-new {
-    display: none;
     flex-direction: column;
     max-width: 80%;
     width: 32rem;
@@ -375,7 +679,7 @@ form {
     transition: all 0.2s;
 }
 
-#btn-subscribe-to-pro{
+#btn-show-subscription-options {
     width: fit-content;
     align-self: center;
     /* gradient */
@@ -384,11 +688,11 @@ form {
     color: white;
 }
 
-#btn-subscribe-to-pro:hover {
+#btn-show-subscription-options:hover {
     filter: brightness(0.9);
 }
 
-#btn-subscribe-to-pro:active {
+#btn-show-subscription-options:active {
     filter: brightness(0.8);
 }
 
@@ -397,13 +701,13 @@ form {
 }
 
 
-.selling-point-text{
-    margin-top: 4px;
-}
+/* Removed old subscription text styles */
+
 .message-container {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    scrollbar-gutter: stable;
     gap: 1rem;
     padding-bottom: 1.5rem;
     flex-grow: 1;
@@ -414,13 +718,233 @@ form {
     margin-top: 1rem;
 }
 
-.message-text p {
+/* Inline spinner inside message-text */
+.message-text {
+    position: relative;
+}
+
+.message-text .message-spinner {
+    display: none;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    border: 3px solid currentColor;
+    border-top-color: transparent;
+    animation: rotate 1s linear infinite;
+}
+
+.message-text.is-loading .message-spinner {
+    display: inline-block;
+}
+
+.message-text .message-text-content {
+    opacity: 1;
+    transition: opacity 0.25s ease-in-out;
+}
+
+.message-text.is-loading .message-text-content {
+    opacity: 0;
+}
+
+/* Reasoning / thinking collapsible section (revised) */
+/* Revised thinking section (now above main text, plain text) */
+.message-thinking {
+    margin-top: 1rem;
+    border-left: 3px solid var(--thinking-border, currentColor);
+    padding: 0.4rem 0.6rem 0.4rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    opacity: 0.85;
     white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--thinking-bg, rgba(0,0,0,0.04));
+    border-radius: 0.4rem;
+}
+
+.message-thinking .thinking-toggle {
+    align-self: flex-start;
+    padding: 0.5rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.8;
+}
+
+.message-thinking .thinking-toggle:hover { opacity: 0.95; }
+
+.message-thinking .thinking-content { font-family: inherit; }
+
+/* Settings specific */
+.setting-toggle-row {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    margin-top: 0.25rem;
+}
+
+/* Thinking required hint (Pro) */
+#thinking-required-hint { font-style: italic; }
+
+/* Generated images in assistant messages */
+.message-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    max-width: 100%;
+}
+
+.message-images .generated-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    object-fit: contain;
+}
+
+/* Wrapper + overlay controls for generated images */
+.generated-image-wrapper {
+    position: relative;
+    display: inline-flex;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    cursor: zoom-in;
+    background: #00000018;
+}
+
+.generated-image-wrapper .generated-image { transition: transform 0.25s ease; }
+.generated-image-wrapper:hover .generated-image { transform: scale(1.015); }
+
+.generated-image-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    padding: 0.4rem 0.45rem 0.5rem 0.45rem;
+    background: linear-gradient(0deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.22) 70%, rgba(0,0,0,0) 100%);
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.generated-image-wrapper:hover .generated-image-overlay,
+.generated-image-wrapper:focus-within .generated-image-overlay { opacity: 1; }
+
+.btn-image-action {
+    color: #fff;
+    background: rgba(255,255,255,0.08) !important;
+    backdrop-filter: blur(4px) saturate(140%);
+    -webkit-backdrop-filter: blur(4px) saturate(140%);
+    border-radius: 0.4rem;
+    padding: 0.15rem 0.35rem;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.btn-image-action:hover { background: rgba(255,255,255,0.18) !important; }
+.btn-image-action:active { background: rgba(255,255,255,0.28) !important; }
+
+/* Lightbox (shared theme colors will adjust via dark/light styles for bg tokens) */
+.lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.lightbox-content {
+    position: relative;
+    width: auto;
+    height: auto;
+    max-width: 95vw;
+    max-height: 95vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.25s ease;
+    overflow: hidden;
+}
+
+/* Constrain by both viewport dimensions; maintain aspect via object-fit */
+.lightbox-image {
+    width: 100%;
+    height: 100%;
+    max-width: 95vw;
+    max-height: 95vh;
+    object-fit: contain;
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 40px -4px rgba(0,0,0,0.6);
+    display: block;
+}
+
+.lightbox-close {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    background: rgba(0,0,0,0.6) !important;
+    color: #fff !important;
+    border-radius: 0.5rem;
+    padding: 0.35rem;
+    cursor: pointer;
+}
+.lightbox-close:hover { background: rgba(0,0,0,0.75) !important; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(.97); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Loading overlay for non-stream model responses */
+.message-loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.25s ease-in-out;
+    z-index: 1;
+}
+
+.loading-spinner {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    border: 3px solid currentColor;
+    border-top-color: transparent;
+    animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .message {
     border-radius: 1rem;
     padding: 1rem;
+    position: relative;
 }
 
 .message-failure {
@@ -494,6 +1018,78 @@ form {
     border-radius: 0.5rem;
     cursor: pointer;
 
+}
+
+/* Chat actions (ellipsis dropdown) */
+.chat-actions-wrapper {
+    margin-left: auto; /* push to right */
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.chat-actions-button {
+    padding: 0.15rem;
+    line-height: 1;
+}
+
+.chat-actions-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--chat-actions-menu-bg, rgba(0,0,0,0.8));
+    backdrop-filter: blur(6px) saturate(150%);
+    -webkit-backdrop-filter: blur(6px) saturate(150%);
+    border: 1px solid #ffffff22;
+    padding: 0.25rem;
+    border-radius: 0.4rem;
+    min-width: 8rem;
+    box-shadow: 0 4px 12px -2px #00000054;
+    z-index: 20;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s linear;
+}
+
+.chat-actions-wrapper.open > .chat-actions-menu {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.chat-actions-item {
+    justify-content: flex-start;
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.3rem;
+    font: inherit;
+    cursor: pointer;
+    color: inherit;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.chat-actions-item .chat-action-icon {
+    font-size: 1rem;
+    line-height: 1;
+    opacity: 0.85;
+}
+
+.chat-actions-item:hover, .chat-actions-item:focus-visible {
+    background: #ffffff18;
+    outline: none;
+}
+
+.chat-title-text {
+    flex: 1 1 auto;
+    min-width: 0; /* allow ellipsis */
 }
 
 .label-currentchat * {
@@ -631,11 +1227,11 @@ form {
 }
 
 .title-chat {
-    flex-grow: 1;
     text-wrap: nowrap;
     max-width: 100%;
 }
-#title-div{
+
+#title-div {
     margin-right: auto;
 }
 
@@ -687,6 +1283,10 @@ form {
 
 }
 
+#chat-title {
+    font-size: 1.2rem;
+}
+
 .sidebar {
     position: sticky;
     top: 1rem;
@@ -702,6 +1302,25 @@ form {
     z-index: 1;
 }
 
+#image-generation-label {
+    font-family: 'Noto Sans', sans-serif;
+    width: 0;
+    font-size: 0.875rem;
+    transition: width 0.2s ease;
+    overflow: hidden;
+}
+
+#btn-image.btn-toggled #image-generation-label {
+    width: 100%;
+}
+
+#btn-image {
+    display: flex;
+    width: fit-content;
+    align-items: start;
+    justify-content: start;
+}
+
 #zodiac-branding {
     display: flex;
     align-items: center;
@@ -715,10 +1334,17 @@ form {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    min-height: 0;
+    /* allow inner scroll areas to size correctly in flex */
+}
+
+/* Ensure collapsible cards in the Settings sidebar don't shrink; let container scroll */
+.sidebar-section .profile-card {
+    flex-shrink: 0;
 }
 
 
-#user-profile{
+#user-profile {
     width: 2rem;
     height: 2rem;
     border-radius: 50%;
@@ -735,7 +1361,7 @@ form {
     filter: brightness(0.9);
 }
 
-#user-profile:active{
+#user-profile:active {
     filter: brightness(0.8);
 }
 
@@ -744,22 +1370,126 @@ form {
     background-image: none;
 }
 
-#profile{
-    height: unset;
-    display: none;
+
+
+#profile {
+    display: flex;
+    width: 24rem;
     flex-direction: column;
     align-items: center;
     gap: 1rem;
     overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 
-#profile > *{
+#profile>* {
     box-sizing: border-box;
     flex-shrink: 0;
     width: 100%;
 }
 
-#profile-pfp-edit{
+/* Generic profile cards */
+.profile-card {
+    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    /* themed */
+    overflow: hidden;
+}
+
+.profile-card .subscription-card-body {
+    gap: 0.6rem;
+}
+
+/* Subscription card */
+#subscription-status-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: -0.25rem;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    border: 1px solid transparent;
+    /* themed */
+}
+
+#subscription-status-row.collapsed {
+    gap: 0;
+}
+
+.collapsible-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem 0.75rem 1rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Expand/collapse chevron indicator on card headers */
+.collapsible-card-header {
+    position: relative;
+    padding-left: 2.25rem;
+    /* make room for chevron */
+}
+
+.collapsible-card-header::before {
+    content: 'expand_more';
+    font-family: 'Material Symbols Outlined';
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%) rotate(0deg);
+    transition: transform 0.2s ease-in-out;
+    font-size: 1.25rem;
+    line-height: 1;
+    opacity: 0.8;
+}
+
+/* Collapsed state rotates chevron to point right */
+#subscription-status-row.collapsed .collapsible-card-header::before,
+.profile-card.collapsed .collapsible-card-header::before {
+    transform: translateY(-50%) rotate(-90deg);
+}
+
+.subscription-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0 1rem 0.75rem 1rem;
+    font-size: 0.95rem;
+}
+
+.subscription-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.subscription-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.5rem 1rem 0.75rem 1rem;
+    font-size: 0.95rem;
+}
+
+/* Collapsible details with smooth height transition */
+.subscription-card-details {
+    overflow: hidden;
+    height: 0;
+    transition: height 0.22s ease-in-out;
+    will-change: height;
+}
+
+
+#subscription-badge {
+    text-transform: uppercase;
+    user-select: none;
+    cursor: default;
+    flex-shrink: 0;
+}
+
+#profile-pfp-edit {
     position: relative;
     display: flex;
     justify-content: center;
@@ -774,14 +1504,14 @@ form {
 #btn-change-pfp {
     position: absolute;
     top: 0;
-    left:0;
+    left: 0;
     width: 100%;
     height: 100%;
     font-size: xx-large;
     border-radius: 50%;
 }
 
-#profile-pfp{
+#profile-pfp {
     width: 80%;
     height: 80%;
     object-fit: cover;
@@ -799,9 +1529,19 @@ form {
     border-radius: 50%;
 }
 
-#btn-profile-save{
+#btn-profile-save {
     width: 100%;
 }
+
+#btn-manage-subscription {
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    width: 100%;
+}
+
 #personalitiesDiv {
     display: flex;
     flex-direction: column;
@@ -813,6 +1553,10 @@ form {
 #sidebar-content {
     min-height: 0;
     padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    /* occupy remaining height in sidebar */
 }
 
 #btn-show-sidebar {
@@ -908,6 +1652,7 @@ form {
     flex-direction: column;
     gap: 8px;
     overflow: auto;
+    flex-grow: 1;
 }
 
 .credits {
@@ -1115,7 +1860,9 @@ input[name="currentChat"][value="none"] {
     margin-left: auto;
 }
 
-
+#mainContent .header {
+    display: none;
+}
 
 .generation-settings {
     display: flex;
@@ -1134,12 +1881,12 @@ input[name="currentChat"][value="none"] {
     }
 }
 
-#attachments{
+#attachments {
     display: none;
 }
 
-.attachment-preview-container{
-    display:flex;
+.attachment-preview-container {
+    display: flex;
     gap: 0.5rem;
     padding: 0.5rem;
     align-items: center;
@@ -1151,7 +1898,7 @@ input[name="currentChat"][value="none"] {
     padding: 0;
 }
 
-.attachment-details{
+.attachment-details {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
@@ -1169,7 +1916,7 @@ input[name="currentChat"][value="none"] {
     opacity: 0.8;
 }
 
-.attachment-container{
+.attachment-container {
     position: relative;
     display: flex;
     align-items: center;
@@ -1187,11 +1934,11 @@ input[name="currentChat"][value="none"] {
     filter: blur(0.5px);
 }
 
-.attachment-icon{
+.attachment-icon {
     padding: 12px;
 }
 
-.btn-remove-attachment{
+.btn-remove-attachment {
     position: absolute;
     top: 2px;
     right: 2px;
@@ -1208,7 +1955,7 @@ input[name="currentChat"][value="none"] {
 
 
 .api-key-error {
-    display: none;
+    display: flex;
     align-items: center;
     gap: 4px;
     font-size: 0.8rem;
@@ -1220,13 +1967,13 @@ input[name="currentChat"][value="none"] {
 }
 
 
-#dialog{
+#dialog {
+    display: flex;
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 99;
-    display:none;
     flex-direction: column;
     gap: 2rem;
     width: 25rem;
@@ -1235,15 +1982,20 @@ input[name="currentChat"][value="none"] {
     overflow: hidden;
 }
 
-#dialog-message{
+#dialog-message {
     flex-grow: 1;
     padding: 2rem 2rem 0 2rem;
     overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 
-#dialog-buttons{
+#dialog-buttons {
     padding: 1.5rem;
     background-color: #00000049;
+}
+
+.uxtoggle{
+    justify-self: end;
 }
 
 
@@ -1279,6 +2031,7 @@ input[name="currentChat"][value="none"] {
         position: fixed;
         border-radius: 0;
         display: none;
+        opacity: 0;
     }
 
     .navbar {
@@ -1299,6 +2052,7 @@ input[name="currentChat"][value="none"] {
     }
 
     #mainContent .header {
+        display: flex;
         padding: 2rem;
         border-bottom: 1px solid #aaaaaa45;
     }

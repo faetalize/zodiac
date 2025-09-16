@@ -1,18 +1,23 @@
-import { Message } from "../models/Message";
-import { Personality } from "../models/Personality";
-import { db } from "../services/Db.service";
+import { Message } from "../../models/Message";
+import { Personality } from "../../models/Personality";
+import { db } from "../../services/Db.service";
 import hljs from 'highlight.js';
-import * as helpers from "../utils/helpers";
-import * as personalityService from "../services/Personality.service";
-import * as messageService from "../services/Message.service";
-import * as parserService from "../services/Parser.service";
-import * as chatsService from "../services/Chats.service";
+import * as helpers from "../../utils/helpers";
+import * as personalityService from "../../services/Personality.service";
+import * as messageService from "../../services/Message.service";
+import * as parserService from "../../services/Parser.service";
+import * as chatsService from "../../services/Chats.service";
 
 export const messageElement = async (
     message: Message
 ) => {
     const messageElement = document.createElement("div");
     messageElement.classList.add("message");
+    // NOTE: Thinking (chain-of-thought) is optionally provided by the backend
+    // and stored in message.thinking. It is rendered inside a collapsible
+    // region so it does not overwhelm the main answer. We do not parse it
+    // as Markdown (only escaped) to reduce any accidental HTML injection and
+    // keep its raw reasoning form.
     //user message
     if (!message.personalityid) {
         messageElement.innerHTML =
@@ -47,8 +52,14 @@ export const messageElement = async (
     }
     //model message
     else {
-        const personality: Personality = await personalityService.get(message.personalityid) || personalityService.getDefault();
+    const personality: Personality = await personalityService.get(String(message.personalityid)) || personalityService.getDefault();
         messageElement.classList.add("message-model");
+            const rawInitial = message.parts[0].text || "";
+            const initialHtml = helpers.getDecoded(rawInitial) || "";
+            // If we already have generated images, don't show loading spinner even if text is empty
+            const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
+            const isLoading = rawInitial.trim().length === 0 && !hasImages;
+        const hasThinking = !!message.thinking && message.thinking.trim().length > 0;
         messageElement.innerHTML =
             `<div class="message-header">
             <img class="pfp" src="${personality.image}" loading="lazy"></img>
@@ -61,8 +72,42 @@ export const messageElement = async (
             </div>
         </div>
         <div class="message-role-api" style="display: none;">${message.role}</div>
-        <div class="message-text">${helpers.getDecoded(message.parts[0].text) || ""}</div>
+        ${hasThinking ? `<div class="message-thinking">` +
+            `<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
+            `<div class="thinking-content" hidden>${message.thinking || ''}</div>` +
+        `</div>` : ''}
+            <div class="message-text${isLoading ? ' is-loading' : ''}">
+                <span class="message-spinner"></span>
+                <div class="message-text-content">${initialHtml}</div>
+        </div>
+        <div class="message-images">
+            ${hasImages ? message.generatedImages!.map((img, idx) => `
+                <div class="generated-image-wrapper" data-index="${idx}">
+                    <img class="generated-image" src="data:${img.mimeType};base64,${img.base64}" loading="lazy" />
+                    <div class="generated-image-overlay">
+                        <button class="btn-textual btn-image-action btn-download material-symbols-outlined" title="Download">download</button>
+                        <button class="btn-textual btn-image-action btn-expand material-symbols-outlined" title="Expand">open_in_full</button>
+                    </div>
+                </div>
+            `).join("") : ""}
+        </div>
         <div class="message-grounding-rendered-content"></div>`;
+        if (hasThinking) {
+            const toggle = messageElement.querySelector<HTMLButtonElement>('.thinking-toggle');
+            const content = messageElement.querySelector<HTMLElement>('.thinking-content');
+            toggle?.addEventListener('click', () => {
+                const expanded = toggle.getAttribute('aria-expanded') === 'true';
+                if (expanded) {
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.textContent = 'Show reasoning';
+                    content?.setAttribute('hidden', '');
+                } else {
+                    toggle.setAttribute('aria-expanded', 'true');
+                    toggle.textContent = 'Hide reasoning';
+                    content?.removeAttribute('hidden');
+                }
+            });
+        }
         if (message.groundingContent) {
             const shadow = messageElement.querySelector<HTMLElement>(".message-grounding-rendered-content")!.attachShadow({ mode: "open" });
             shadow.innerHTML = message.groundingContent;
@@ -73,6 +118,7 @@ export const messageElement = async (
     setupMessageRegeneration(messageElement);
     setupMessageClipboard(messageElement);
     setupMessageEditing(messageElement);
+    setupGeneratedImageInteractions(messageElement);
 
     return messageElement;
 
@@ -81,7 +127,7 @@ export const messageElement = async (
 function setupMessageEditing(messageElement: HTMLElement) {
     const editButton = messageElement.querySelector<HTMLButtonElement>(".btn-edit");
     const saveButton = messageElement.querySelector<HTMLButtonElement>(".btn-save");
-    const messageText = messageElement.querySelector<HTMLElement>(".message-text");
+    const messageText = messageElement.querySelector<HTMLElement>(".message-text-content") || messageElement.querySelector<HTMLElement>(".message-text");
 
     if (!editButton || !saveButton || !messageText) return;
     // Handle edit button click
@@ -169,7 +215,7 @@ function setupMessageRegeneration(messageElement: HTMLElement) {
 function setupMessageClipboard(messageElement: HTMLElement) {
     const clipboardButton = messageElement.querySelector(".btn-clipboard");
     clipboardButton?.addEventListener("click", async () => {
-        const messageContent = messageElement.querySelector<HTMLDivElement>(".message-text");
+    const messageContent = messageElement.querySelector<HTMLDivElement>(".message-text-content") || messageElement.querySelector<HTMLDivElement>(".message-text");
         await navigator.clipboard.writeText(await parserService.parseHtmlToMarkdown(messageContent!) || "");
         clipboardButton.innerHTML = "check";
         setTimeout(() => {
@@ -195,4 +241,76 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
         console.error("Error updating message in database:", error);
         alert("Failed to save your edited message. Please try again.");
     }
+}
+
+// Adds overlay button interactions (download + expand) & a lightweight lightbox
+function setupGeneratedImageInteractions(root: HTMLElement) {
+    const wrappers = root.querySelectorAll<HTMLElement>(".generated-image-wrapper");
+    if (!wrappers.length) return;
+
+    wrappers.forEach(wrap => {
+        const img = wrap.querySelector<HTMLImageElement>(".generated-image");
+        const downloadBtn = wrap.querySelector<HTMLButtonElement>(".btn-download");
+        const expandBtn = wrap.querySelector<HTMLButtonElement>(".btn-expand");
+        if (!img) return;
+
+        downloadBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            try {
+                const a = document.createElement('a');
+                a.href = img.src;
+                // attempt to infer extension from mime
+                const ext = (img.src.match(/data:(.*?);/)?.[1] || 'image/png').split('/')[1];
+                a.download = `zodiac-image-${Date.now()}.${ext}`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } catch (err) { console.error('Download failed', err); }
+        });
+
+        const openLightbox = () => {
+            const existing = document.querySelector('.lightbox');
+            if (existing) existing.remove();
+            const overlay = document.createElement('div');
+            overlay.className = 'lightbox';
+            overlay.innerHTML = `
+                <div class="lightbox-backdrop"></div>
+                <div class="lightbox-content" role="dialog" aria-modal="true">
+                    <button class="lightbox-close material-symbols-outlined" aria-label="Close">close</button>
+                    <img class="lightbox-image" src="${img.src}" />
+                </div>`;
+            document.body.appendChild(overlay);
+
+            const remove = () => overlay.remove();
+            overlay.querySelector('.lightbox-backdrop')?.addEventListener('click', remove);
+            overlay.querySelector('.lightbox-close')?.addEventListener('click', remove);
+            document.addEventListener('keydown', function escListener(ev) {
+                if (ev.key === 'Escape') { remove(); document.removeEventListener('keydown', escListener); }
+            });
+
+            // Dynamically adjust sizing to ensure containment within viewport preserving aspect
+            const lightboxImg = overlay.querySelector<HTMLImageElement>('.lightbox-image');
+            function fit() {
+                if (!lightboxImg || !lightboxImg.naturalWidth) return;
+                const vw = window.innerWidth * 0.95;
+                const vh = window.innerHeight * 0.95;
+                const { naturalWidth: iw, naturalHeight: ih } = lightboxImg;
+                const ratio = Math.min(vw / iw, vh / ih, 1);
+                lightboxImg.style.width = Math.round(iw * ratio) + 'px';
+                lightboxImg.style.height = Math.round(ih * ratio) + 'px';
+            }
+            if (lightboxImg?.complete) {
+                fit();
+            } else {
+                lightboxImg?.addEventListener('load', fit, { once: true });
+            }
+            window.addEventListener('resize', fit, { passive: true });
+            // Cleanup resize listener when closed
+            overlay.addEventListener('remove', () => window.removeEventListener('resize', fit));
+        }
+
+        expandBtn?.addEventListener('click', (e) => { e.stopPropagation(); openLightbox(); });
+        // also click image to expand
+        img.addEventListener('click', openLightbox);
+    });
 }
