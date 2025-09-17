@@ -5,20 +5,22 @@ import { Personality } from "../../models/Personality";
 
 // Only enable debug UI when running on localhost
 const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+console.log("Is localhost:", isLocalhost);
+console.log("Hostname:", window.location.hostname);
 
-const debugSection = document.querySelector<HTMLDivElement>("#debug-section");
+const debugElements = document.querySelectorAll<HTMLDivElement>(".debug");
 const generateRandomChatsButton = document.querySelector<HTMLButtonElement>("#btn-debug-chats");
 const generateRandomPersonalitiesButton = document.querySelector<HTMLButtonElement>("#btn-debug-personalities");
 
 if (!isLocalhost) {
     // Hide debug UI entirely in non-local environments
-    if (debugSection) {
-        debugSection.classList.add("hidden");
+    if (debugElements) {
+        debugElements.forEach(element => element.classList.add("hidden"));
     }
 } else {
     // Ensure required buttons exist in localhost
-    if (debugSection) {
-        debugSection.classList.remove("hidden");
+    if (debugElements) {
+        debugElements.forEach(element => element.classList.remove("hidden"));
     }
     if (!generateRandomChatsButton || !generateRandomPersonalitiesButton) {
         console.error("Debug buttons not found");
@@ -92,7 +94,7 @@ if (isLocalhost && generateRandomChatsButton) generateRandomChatsButton.addEvent
 
 // Random personality data arrays
 const personalityNames = [
-    "Sage", "Echo", "Nova", "Pixel", "Cipher", "Whisper", "Quantum", "Iris", 
+    "Sage", "Echo", "Nova", "Pixel", "Cipher", "Whisper", "Quantum", "Iris",
     "Zephyr", "Mystique", "Phoenix", "Oracle", "Nebula", "Vortex", "Seraph"
 ];
 
@@ -162,7 +164,7 @@ if (isLocalhost && generateRandomPersonalitiesButton) generateRandomPersonalitie
             roleplayEnabled: Math.random() > 0.7,
             toneExamples: toneExampleSets[Math.floor(Math.random() * toneExampleSets.length)]
         };
-        
+
         await personalityService.add(randomPersonality);
     }
 });
