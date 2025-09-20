@@ -16,7 +16,7 @@ button.addEventListener("click", async () => {
 
         const { data, error } = await supabase.functions.invoke("stripe", {
             method: "POST",
-            body: JSON.stringify({ purchaseType: "pro_subscription" })
+            body: JSON.stringify({ purchaseType: "pro_monthly" })
         });
 
         if (error) {
