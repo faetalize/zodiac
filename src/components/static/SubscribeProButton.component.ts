@@ -14,7 +14,10 @@ button.addEventListener("click", async () => {
         // Optionally close the overlay to avoid double clicks during redirect
         overlayService.closeOverlay();
 
-        const { data, error } = await supabase.functions.invoke("stripe");
+        const { data, error } = await supabase.functions.invoke("stripe", {
+            method: "POST",
+            body: JSON.stringify({ purchaseType: "pro_subscription" })
+        });
 
         if (error) {
             console.error("Stripe checkout creation failed:", error);
