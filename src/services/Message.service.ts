@@ -41,10 +41,9 @@ export async function send(msg: string) {
         return;
     }
     // Determine subscription tier to decide backend route
-    // Toggle is authoritative: choose Edge Function only when enabled.
-    const maxEndpointUsed = settings.useMaxEndpoint;
+    const isPremiumEndpointPreferred = await getSubscriptionTier(await getUserSubscription()) === 'pro' || await getSubscriptionTier(await getUserSubscription()) === 'max';
 
-    if (!maxEndpointUsed && settings.apiKey === "") {
+    if (!isPremiumEndpointPreferred && settings.apiKey === "") {
         alert("Please enter an API key");
         return;
     }
@@ -131,7 +130,7 @@ export async function send(msg: string) {
         let response;
         let b64: string;
         let returnedMimeType: string;
-        if (maxEndpointUsed) {
+        if (isPremiumEndpointPreferred) {
             const endpoint = `${SUPABASE_URL}/functions/v1/handle-max-request`;
             //basically we make an image gen request but to the edge function instead, with the same params as the non-edge
             response = await fetch(endpoint, {
@@ -189,7 +188,7 @@ export async function send(msg: string) {
     let groundingContent = "";
 
     // If Pro/Max, call Supabase Edge Function; else use SDK directly
-    if (maxEndpointUsed) {
+    if (isPremiumEndpointPreferred) {
         try {
             const payloadSettings = {
                 model: settings.model,

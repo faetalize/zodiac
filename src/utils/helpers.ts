@@ -6,7 +6,7 @@ import { getSettings } from '../services/Settings.service';
 
 // Description: This file contains helper functions that are used throughout the application.
 
-export function hideElement(element: HTMLElement) {
+export function hideElement(element: HTMLElement, nowait?: boolean) {
     if (!element) {
         return;
     }
@@ -14,7 +14,7 @@ export function hideElement(element: HTMLElement) {
     element.style.opacity = '0';
     setTimeout(function () {
         hideWithClass(element);
-    }, 200);
+    }, nowait ? 0 : 200);
 }
 
 export function showElement(element: HTMLElement, wait: boolean) {

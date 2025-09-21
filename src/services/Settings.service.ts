@@ -1,6 +1,5 @@
 import { ContentUnion, HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
-import { get } from "./Stepper.service";
 import { User } from "../models/User";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
@@ -79,16 +78,7 @@ export function getSettings() {
         streamResponses: streamResponsesToggle.checked,
         enableThinking: enableThinkingSelect.value === 'enabled',
         thinkingBudget: parseInt(thinkingBudgetInput.value, 10),
-        useMaxEndpoint: getUseMaxEndpoint(),
     }
-}
-
-export function setUseMaxEndpoint(enabled: boolean) {
-    localStorage.setItem("useMaxEndpoint", enabled ? "true" : "false");
-}
-
-export function getUseMaxEndpoint(): boolean {
-    return (localStorage.getItem("useMaxEndpoint") ?? "false") === "true";
 }
 
 function enforceProModelThinkingRule() {

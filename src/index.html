@@ -109,12 +109,6 @@
                             <span class="material-symbols-outlined">error</span> Invalid API Key
                         </div>
                         <div id="apiKeyNoNeedMsg" class="hint hidden">No API key required, enjoy!</div>
-                        <!-- Pro/Max route toggle -->
-                        <span id="use-api-key-wrap"
-                            style="display: none; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
-                            <input type="checkbox" id="use-api-key">
-                            <label for="use-api-key">Use your own API Key</label>
-                        </span>
                     </div>
                     <div id="or-divider" style="text-align: center; font-weight: 800; text-transform: uppercase;">or
                     </div>
@@ -258,8 +252,8 @@
                             <span class="paypal-logo1">Pay</span><span class="paypal-logo2">Pal</span>
                         </a>
                     </div>
-                    <h3>Debug</h3>
-                    <div class="btn-array-vertical">
+                    <h3 class="debug">Debug</h3>
+                    <div class="btn-array-vertical debug">
                         <button id="btn-debug-chats">Generate 10 Random Chats</button>
                         <button id="btn-debug-personalities">Generate 10 Random Personalities</button>
                         <button id="btn-debug-option-3">Debug Option 3</button>
@@ -392,7 +386,8 @@
                         4 Ultra image
                         generation. If you want uncensored image models (Illustrious SDXL), subscribe to Max tier on
                         Zodiac (900 monthly image generations)</li>
-                    <li>Incoming: Pay-per-use image generation, if you want to use it without a subscription (coming in 1.1)</li>
+                    <li>Incoming: Pay-per-use image generation, if you want to use it without a subscription (coming in
+                        1.1)</li>
                     <li>Added a Pro tier for people not willing to use their own API keys for added privacy - (unlimited
                         monthly usage, no quotas, no limits)</li>
                     <li>Max tier now available with 900 monthly image generations, as well as everything from Pro</li>
@@ -465,7 +460,7 @@
                                 <span id="subscription-tier-text">Free</span>
                             </div>
                             <div class="subscription-row">
-                                <span class="setting-label">Renewal date</span>
+                                <span class="setting-label" id="subscription-renewal-date-label">Renewal date</span>
                                 <span id="subscription-period-end">—</span>
                             </div>
 
@@ -475,6 +470,7 @@
                             </div>
                         </div>
                         <div class="subscription-card-footer">
+                            <button id="btn-top-up-credits">Get More Image Credits</button>
                             <button id="btn-manage-subscription">Manage Subscription</button>
                         </div>
                     </div>
@@ -592,6 +588,35 @@
                             Get Max Plan
                         </button>
                     </div>
+                </div>
+            </div>
+
+            <div id="form-top-up-imagecredits" class="hidden">
+                <div class="subscription-header">
+                    <h1>Top-Up Image Credits</h1>
+                </div>
+                <div class="btn-array-vertical">
+                    <button id="btn-top-up-10">
+                        <div class="top-up-info">
+                            <div class="top-up-credits">10 Credits</div>
+                            <div class="top-up-subtitle">equivalent to 10 image generations</div>
+                        </div>
+                        <div class="top-up-price">$1</div>
+                    </button>
+                    <button id="btn-top-up-75">
+                        <div class="top-up-info">
+                            <div class="top-up-credits">75 Credits</div>
+                            <div class="top-up-subtitle">equivalent to 75 image generations</div>
+                        </div>
+                        <div class="top-up-price">$5</div>
+                    </button>
+                    <button id="btn-top-up-300">
+                        <div class="top-up-info">
+                            <div class="top-up-credits">300 Credits</div>
+                            <div class="top-up-subtitle">equivalent to 300 image generations</div>
+                        </div>
+                        <div class="top-up-price">$10</div>
+                    </button>
                 </div>
             </div>
 

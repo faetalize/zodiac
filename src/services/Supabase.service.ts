@@ -1,6 +1,5 @@
 import { createClient, RealtimeChannel } from '@supabase/supabase-js'
 import { User } from "../models/User";
-import { refreshSwitch } from '../components/static/ApiKeyInput.component';
 
 export const SUPABASE_URL = 'https://hglcltvwunzynnzduauy.supabase.co';
 export const supabase = createClient(SUPABASE_URL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ');
@@ -37,7 +36,6 @@ supabase.auth.onAuthStateChange((event, session) => {
                 updateSubscriptionUI(); // will dispatch subscription-updated
             }
         );
-        refreshSwitch();
     } else if (event === 'SIGNED_OUT') {
         try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: false } })); } catch { }
         document.querySelectorAll('.logged-out-component').forEach(el => {
@@ -121,6 +119,10 @@ export async function logout() {
 
 export async function getCurrentUser() {
     const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) {
+        console.error("Get current user error:", error.message);
+        throw new Error(error.message);
+    }
     return user;
 }
 
@@ -164,7 +166,7 @@ export async function getUserProfile() {
 }
 
 // Subscription helpers
-export type SubscriptionTier = 'free' | 'pro' | 'max';
+export type SubscriptionTier = 'free' | 'pro' | 'max' | 'canceled';
 
 export interface UserSubscription {
     id: string;
@@ -173,6 +175,8 @@ export interface UserSubscription {
     price_id: string | null;
     current_period_end?: string | number | null;
     remaining_image_generations?: number | null;
+    cancel_at_period_end?: boolean | null;
+    stripe_customer_id?: string | null;
     [key: string]: unknown;
 }
 
@@ -186,7 +190,7 @@ export async function getUserSubscription(): Promise<UserSubscription | null> {
     if (!currentUser) return null;
     const { data, error } = await supabase
         .from('user_subscriptions')
-        .select('user_id,status,price_id,current_period_end,remaining_image_generations')
+        .select('user_id,status,price_id,current_period_end,remaining_image_generations, cancel_at_period_end, stripe_customer_id')
         .eq('user_id', currentUser.id)
         .order('current_period_end', { ascending: false })
         .limit(1)
@@ -202,6 +206,9 @@ export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionT
     // treat non-active as free
     if (!sub || !sub.status || !['active', 'trialing', 'past_due', 'canceled'].includes(String(sub.status))) {
         return 'free';
+    }
+    if (['canceled', 'incomplete_expired', 'unpaid'].includes(String(sub.status))) {
+        return 'canceled';
     }
     switch (sub.price_id) {
         case 'price_1S0heGGiJrKwXclR69Ku7XEc':
@@ -229,12 +236,14 @@ export async function updateSubscriptionUI(): Promise<void> {
         const tier = getSubscriptionTier(sub);
         const portalUrl = getBillingPortalUrlWithEmail(email);
 
+        const cancelAtPeriodEnd = sub?.cancel_at_period_end;
         const badge = document.querySelector<HTMLElement>('#subscription-badge');
         const manageBtn = document.querySelector<HTMLButtonElement>('#btn-manage-subscription');
         const tierEl = document.querySelector<HTMLElement>('#subscription-tier-text');
         const periodEndEl = document.querySelector<HTMLElement>('#subscription-period-end');
         const remainingGenerationsEl = document.querySelector<HTMLElement>('#subscription-remaining-generations');
-        const tierLabel = tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : 'Max';
+        const tierLabel = tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : tier === 'max' ? 'Max' : 'Canceled';
+        const subscriptionrenewalDateLabel = document.querySelector<HTMLElement>('#subscription-renewal-date-label');
         let periodEndLabel = '—';
         const rawEnd = sub?.current_period_end ?? null;
         if (rawEnd) {
@@ -263,10 +272,28 @@ export async function updateSubscriptionUI(): Promise<void> {
                 manageBtn.onclick = null;
             } else {
                 manageBtn.classList.remove('hidden');
-                manageBtn.onclick = (e) => {
+                manageBtn.onclick = async (e) => {
                     e.preventDefault();
-                    window.open(portalUrl, '_blank', 'noopener');
+                    console.log('Opening billing portal for user:', email, "with stripe customer ID:", sub?.stripe_customer_id);
+                    console.log(sub)
+                    const { data } = await supabase.functions.invoke("return-stripe-customer-portal", {
+                        method: 'POST',
+                        body: JSON.stringify({ stripeCustomerId: sub?.stripe_customer_id }) // assuming user_id maps to stripe customer ID
+                    });
+                    if (data) {
+                        window.open(data.url, '_blank', 'noopener');
+                    } else {
+                        console.error('Failed to retrieve billing portal URL');
+                    }
                 };
+            }
+        }
+        if (subscriptionrenewalDateLabel) {
+            if (tier === 'canceled' || cancelAtPeriodEnd) {
+                subscriptionrenewalDateLabel.textContent = 'Will end on';
+            }
+            else {
+                subscriptionrenewalDateLabel.textContent = 'Renewal date';
             }
         }
 
@@ -289,5 +316,25 @@ export async function updateSubscriptionUI(): Promise<void> {
         try { window.dispatchEvent(new CustomEvent('subscription-updated', { detail: { tier } })); } catch { }
     } catch (err) {
         console.error('Error updating subscription UI:', err);
+    }
+}
+
+/**
+ * Determines if image generation is available based on subscription and settings.
+ * This matches the same logic used for image button visibility.
+ */
+export async function isImageGenerationAvailable(): Promise<boolean> {
+    try {
+        const sub = await getUserSubscription();
+        const tier = getSubscriptionTier(sub);
+        if (!sub) return true; // free tier, assume available (with API key)
+        if (tier === 'canceled') return true; // treat as free tier, assume available (with API key)
+        if ((tier === 'pro' || tier === 'max') && sub?.remaining_image_generations && sub?.remaining_image_generations > 0) {
+            return true;
+        }
+        return false;
+    } catch {
+        // If not logged in or error, assume available (probably Free tier with API key)
+        return true;
     }
 }

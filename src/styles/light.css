@@ -326,4 +326,26 @@
         background: var(--thinking-bg);
     }
 
+    /* Top-up buttons (light theme) */
+    #form-top-up-imagecredits .btn-array-vertical > button {
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        border-color: #e5e7eb;
+        color: #1f2937;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+    #form-top-up-imagecredits .btn-array-vertical > button:hover {
+        box-shadow: 0 6px 18px rgba(0,0,0,0.10);
+        transform: translateY(-1px);
+        background: linear-gradient(145deg, #ffffff 0%, #eef2f7 100%);
+        border-color: #d1d5db;
+    }
+    #form-top-up-imagecredits .btn-array-vertical > button:active {
+        transform: translateY(0);
+        box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+        background: linear-gradient(145deg, #f9fafb 0%, #eef2f7 100%);
+    }
+    #form-top-up-imagecredits .top-up-price { color: #111827; }
+    #form-top-up-imagecredits .top-up-credits { color: #111827; }
+    #form-top-up-imagecredits .top-up-subtitle { color: #6b7280; }
+
 }
