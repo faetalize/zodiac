@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  zodiac-dev:
+    build:
+      context: .
+      target: development
+    container_name: zodiac-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:ro
+      - ./package.json:/app/package.json:ro
+      - ./package-lock.json:/app/package-lock.json:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./vite.config.js:/app/vite.config.js:ro
+      # Named volume for node_modules to avoid sync issues
+      - node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY:-}
+    networks:
+      - zodiac-network
+    command: npm run devlocal
+
+volumes:
+  node_modules:
+
+networks:
+  zodiac-network:
+    driver: bridge
