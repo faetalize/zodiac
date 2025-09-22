@@ -24,8 +24,8 @@
     "devlocal": "vite --host",
     "build": "vite build",
     "preview": "vite preview",
-    "docker:dev": "docker-compose up -d",
-    "docker:prod": "docker-compose -f docker-compose.prod.yml up -d",
+    "docker:dev": "docker compose up -d",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up -d",
     "docker:build": "docker build -t zodiac:latest --target production ."
   }
 }

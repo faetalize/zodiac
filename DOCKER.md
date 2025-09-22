@@ -18,10 +18,10 @@ Run the development container with hot-reload:
 npm run docker:dev
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Stop the container
-docker-compose down
+docker compose down
 ```
 
 Access the application at http://localhost:5173
@@ -38,7 +38,7 @@ npm run docker:build
 npm run docker:prod
 
 # Stop the container
-docker-compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml down
 ```
 
 Access the application at http://localhost
@@ -111,7 +111,7 @@ If you encounter permission issues with Docker:
 
 ```bash
 # Run with sudo (Linux)
-sudo docker-compose up -d
+sudo docker compose up -d
 
 # Or add your user to the docker group
 sudo usermod -aG docker $USER
@@ -122,7 +122,7 @@ sudo usermod -aG docker $USER
 To rebuild without cache:
 
 ```bash
-docker-compose build --no-cache
+docker compose build --no-cache
 docker build --no-cache -t zodiac:latest --target production .
 ```
 
@@ -132,13 +132,13 @@ View detailed logs for debugging:
 
 ```bash
 # All container logs
-docker-compose logs
+docker compose logs
 
 # Follow log output
-docker-compose logs -f
+docker compose logs -f
 
 # Specific service logs
-docker-compose logs zodiac-dev
+docker compose logs zodiac-dev
 ```
 
 ## Advanced Usage
@@ -162,10 +162,10 @@ docker build \
 docker ps
 
 # Stop all containers
-docker-compose down
+docker compose down
 
 # Remove volumes (clean slate)
-docker-compose down -v
+docker compose down -v
 
 # View container resource usage
 docker stats
