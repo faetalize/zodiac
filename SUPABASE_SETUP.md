@@ -137,7 +137,10 @@ USING (bucket_id = 'profile_pictures');
 
 1. Go to **Authentication** → **Providers**
 2. Ensure **Email** is enabled (should be by default)
-3. Configure email settings as needed
+3. **Disable email confirmation for smoother UX** (recommended):
+   - In the Email provider settings, turn OFF **"Confirm email"**
+   - This allows users to sign up and start using the app immediately
+   - No email verification required
 
 ### 3. Configure Environment Variables
 
