@@ -179,15 +179,6 @@ Visit `http://localhost:5173` and you're ready to go!
    - Click "Save API Key"
 3. **Start Chatting**: You can now start conversations with Gemini!
 
-### Features Available
-
-- **Multiple Chats**: Create and manage multiple conversation threads
-- **Personalities**: Create custom AI personalities with specific behaviors
-- **Profile Customization**: Upload avatar, set preferred name, add system prompts
-- **Image Generation**: Generate images using Google's AI (requires API key)
-- **Attachments**: Attach images and files to your messages
-- **Search**: Search through your chat history
-
 ## Docker Deployment
 
 ### Development with Docker
@@ -216,36 +207,6 @@ npm run docker:prod
 npm run docker:prod:stop
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-**"User not found" error**
-- Make sure you're logged in
-- Check that the profiles table was created correctly
-- Verify RLS policies are in place
-
-**Profile picture upload fails**
-- Verify the storage bucket is set to public
-- Check that storage policies are configured
-- Ensure file is under 5MB and correct format
-
-**Cannot save API key**
-- Clear browser cache/cookies
-- Try in incognito mode
-- Check browser console for errors
-
-**Authentication not working**
-- Verify email provider is enabled in Supabase
-- Check that your Supabase URL and anon key are correct
-- Ensure you're using the anon key, not the service_role key
-
-### Getting Help
-
-- Check the [GitHub Issues](https://github.com/faetalize/zodiac/issues)
-- Review Supabase logs in your project dashboard
-- Enable debug mode by setting `VITE_ENABLE_DEBUG=true` in `.env`
-
 ## Optional: Using Subscription Features
 
 The app includes subscription features for Pro/Max tiers. These require Stripe integration and are optional. Without setup:
@@ -260,23 +221,3 @@ To enable subscriptions, you'll need to:
 4. Add the `user_subscriptions` table
 
 Most users can skip this and use the app with their own API keys.
-
-## Security Notes
-
-- **Never commit** your `.env` file to git (it's already in .gitignore)
-- The anon key is safe for frontend use (it's meant to be public)
-- Never use the service_role key in frontend code
-- Always use environment variables for credentials
-- Enable RLS (Row Level Security) on all tables
-
-## Updates
-
-To update to the latest version:
-
-```bash
-git pull origin main
-npm install
-npm run build
-```
-
-Always check the repository's release notes for breaking changes.
