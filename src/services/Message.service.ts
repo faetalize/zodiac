@@ -63,10 +63,13 @@ export async function send(msg: string) {
         thinkingConfig: settings.enableThinking ? {
             includeThoughts: true,
             thinkingBudget: settings.thinkingBudget
-        } : undefined
+        } : {
+            includeThoughts: false,
+            thinkingBudget: 0
+        }
     };
 
-    const currentChat = await createChatIfAbsent(ai, msg);
+    const currentChat = isPremiumEndpointPreferred ? await createChatIfAbsentPremium(msg) : await createChatIfAbsent(ai, msg);
     if (!currentChat) {
         console.error("No current chat found");
         return;
@@ -453,7 +456,7 @@ async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat>
         model: 'gemini-2.0-flash',
         contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
     });
-    const title = response.text || "";
+    const title = response.text || "Default Chat";
     const id = await chatsService.addChat(title);
     const chat = await chatsService.loadChat(id, db);
     const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
@@ -512,4 +515,37 @@ async function buildHistory(selectedPersonality: Awaited<ReturnType<typeof perso
     }));
     history.push(...past);
     return history;
+}
+
+async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
+    const currentChat = await chatsService.getCurrentChat(db);
+    if (currentChat) { return currentChat; }
+    const payloadSettings = {
+        model: "gemini-2.0-flash",
+        streamResponses: false,
+        generate: true,
+    }
+    const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            ...(await getAuthHeaders()),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            message: `You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: ${userMessage}`,
+            settings: payloadSettings,
+            history: []
+        })
+    });
+    if (!response.ok) {
+        throw new Error(`Edge function error: ${response.status}`);
+    }
+    const json = await response.json();
+    const title = json.text || "Default Chat";
+    const id = await chatsService.addChat(title);
+    const chat = await chatsService.loadChat(id, db);
+    const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
+    if (chatInput) chatInput.checked = true;
+    return chat!;
 }

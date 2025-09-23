@@ -1,4 +1,4 @@
-import { createClient, RealtimeChannel } from '@supabase/supabase-js'
+import { createClient, RealtimeChannel, Session } from '@supabase/supabase-js'
 import { User } from "../models/User";
 
 export const SUPABASE_URL = 'https://hglcltvwunzynnzduauy.supabase.co';
@@ -14,9 +14,7 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
 
 supabase.auth.onAuthStateChange((event, session) => {
     //on login
-    if (event === 'SIGNED_IN') {
-        // notify listeners immediately
-        try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: true } })); } catch { }
+    if (event === 'SIGNED_IN' && session) {
         //on profile change
         document.querySelectorAll('.logged-in-component').forEach(el => {
             (el as HTMLElement).classList.remove('hidden');
@@ -33,9 +31,17 @@ supabase.auth.onAuthStateChange((event, session) => {
                 }
                 document.querySelector<HTMLInputElement>("#profile-preferred-name")!.value = profile.preferredName;
                 document.querySelector<HTMLTextAreaElement>("#profile-system-prompt")!.defaultValue = profile.systemPromptAddition;
-                updateSubscriptionUI(); // will dispatch subscription-updated
+                getUserSubscription(session).then((sub) => {
+                    // notify listeners
+                    try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: true, session, subscription: sub } })); } catch { }
+                    updateSubscriptionUI(session, sub); // will dispatch subscription-updated
+                });
+
             }
         );
+
+
+
     } else if (event === 'SIGNED_OUT') {
         try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: false } })); } catch { }
         document.querySelectorAll('.logged-out-component').forEach(el => {
@@ -185,8 +191,8 @@ export async function getCurrentUserEmail(): Promise<string | null> {
     return user?.email ?? null;
 }
 
-export async function getUserSubscription(): Promise<UserSubscription | null> {
-    const currentUser = await getCurrentUser();
+export async function getUserSubscription(session?: Session): Promise<UserSubscription | null> {
+    const currentUser = session?.user || await getCurrentUser();
     if (!currentUser) return null;
     const { data, error } = await supabase
         .from('user_subscriptions')
@@ -227,14 +233,10 @@ export function getBillingPortalUrlWithEmail(email: string | null): string {
     return `${base}?prefilled_email=${param}`;
 }
 
-export async function updateSubscriptionUI(): Promise<void> {
+export async function updateSubscriptionUI(session: Session | null, sub: UserSubscription | null): Promise<void> {
     try {
-        const [sub, email] = await Promise.all([
-            getUserSubscription(),
-            getCurrentUserEmail()
-        ]);
+        const email = session?.user.email ?? await getCurrentUserEmail();
         const tier = getSubscriptionTier(sub);
-        const portalUrl = getBillingPortalUrlWithEmail(email);
 
         const cancelAtPeriodEnd = sub?.cancel_at_period_end;
         const badge = document.querySelector<HTMLElement>('#subscription-badge');
@@ -336,5 +338,30 @@ export async function isImageGenerationAvailable(): Promise<boolean> {
     } catch {
         // If not logged in or error, assume available (probably Free tier with API key)
         return true;
+    }
+}
+
+export async function refreshAll() {
+    refreshProfile();
+    refreshSubscription();
+}
+
+
+export async function refreshProfile() {
+    try {
+        const profile = await getUserProfile();
+        window.dispatchEvent(new CustomEvent('profile-refreshed', { detail: { user: profile } }));
+    } catch (error) {
+        console.error('Error refreshing profile:', error);
+    }
+}
+
+export async function refreshSubscription() {
+    try {
+        const subscriptionDetails = await getUserSubscription();
+        if (!subscriptionDetails) return;
+        window.dispatchEvent(new CustomEvent('subscription-refreshed', { detail: { subDetails: subscriptionDetails } }));
+    } catch (error) {
+        console.error('Error refreshing subscription:', error);
     }
 }

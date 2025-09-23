@@ -1,5 +1,4 @@
 import { GoogleGenAI } from "@google/genai";
-import * as settingsService from "../../services/Settings.service";
 import { getSubscriptionTier, getUserSubscription, type SubscriptionTier } from "../../services/Supabase.service";
 
 const apiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
@@ -13,29 +12,28 @@ if (!apiKeyInput || !apiKeyGroup || !noNeedMsg) {
 
 
 
-window.addEventListener('auth-state-changed', () => {
-    getUserSubscription().then((sub) => {
-        if (!sub) {
-            // Not logged in - do nothing
-            return;
-        }
-        else {
-            // we blur/disable the api key input if we're on pro/max
-            const tier: SubscriptionTier = getSubscriptionTier(sub);
-            if (tier === 'pro' || tier === 'max') {
-                if (apiKeyInput) {
-                    apiKeyInput.disabled = true;
-                    apiKeyInput.placeholder = "API key not needed when using Edge Function";
-                    // Clear any existing error states
-                    apiKeyInput.classList.remove('api-key-invalid');
-                    document.querySelector<HTMLElement>(".api-key-error")?.classList.add('hidden');
-                }
-                if (noNeedMsg) {
-                    noNeedMsg.classList.remove('hidden');   
-                }
+window.addEventListener('auth-state-changed', (event: CustomEventInit) => {
+    const { subscription: sub } = event.detail;
+    if (!sub) {
+        // no subscription info, do nothing
+        return;
+    }
+    else {
+        // we blur/disable the api key input if we're on pro/max
+        const tier: SubscriptionTier = getSubscriptionTier(sub);
+        if (tier === 'pro' || tier === 'max') {
+            if (apiKeyInput) {
+                apiKeyInput.disabled = true;
+                apiKeyInput.placeholder = "API key not needed when using Edge Function";
+                // Clear any existing error states
+                apiKeyInput.classList.remove('api-key-invalid');
+                document.querySelector<HTMLElement>(".api-key-error")?.classList.add('hidden');
+            }
+            if (noNeedMsg) {
+                noNeedMsg.classList.remove('hidden');
             }
         }
-    });
+    }
 });
 
 
