@@ -130,20 +130,6 @@
                             </select>
                         </div>
                         <div>
-                            <label class="setting-label" for="selectedImageModel"><span
-                                    class="material-symbols-outlined">image</span>Image Model
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="Choose the image generation model. Available models depend on your subscription tier and API key usage.">
-                                    info
-                                </span> </label>
-                            <select id="selectedImageModel" class="input-field">
-                                <option value="models/imagen-4.0-ultra-generate-001" selected="true">Imagen 4 Ultra
-                                </option>
-                                <option value="models/illustrious">Illustrious (Uncensored)</option>
-                            </select>
-                        </div>
-                        <div>
                             <label class="setting-label" for="maxTokens"><span
                                     class="material-symbols-outlined">generating_tokens</span><span>
                                     Max Output
@@ -170,8 +156,7 @@
                                 <option value="enabled" selected>Enabled</option>
                                 <option value="disabled">Disabled</option>
                             </select>
-                            <div id="thinking-required-hint" class="hint"
-                                style="display:none">
+                            <div id="thinking-required-hint" class="hint" style="display:none">
                                 Required when using Pro model</div>
                         </div>
                         <div>
@@ -215,6 +200,50 @@
                                 <input type="range" min="20" max="200" id="temperature" class="slider">
                                 <label id="label-temperature">0</label>
                             </div>
+                        </div>
+                    </div>
+                    <h3>Image Settings</h3>
+                    <div class="generation-settings">
+                        <div>
+                            <label class="setting-label" for="selectedImageModel"><span
+                                    class="material-symbols-outlined">image</span>Image Model
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Image generation models allow you to generate images from text prompts.">
+                                    info
+                                </span> </label>
+                            <select id="selectedImageModel" class="input-field">
+                                <option value="models/imagen-4.0-ultra-generate-001" selected="true">Imagen 4 Ultra
+                                </option>
+                                <option value="models/illustrious">Illustrious (Uncensored - Anime)</option>
+                                <option value="models/biglust">Biglust XL (Uncensored - Realism)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="setting-label" for="selectedImageEditingModel"><span
+                                    class="material-symbols-outlined">imagesearch_roller</span>Image Editing Model
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="Editing models allow you to edit images to add details, remove objects, or make other modifications.">
+                                    info
+                                </span> </label>
+                            <select id="selectedImageEditingModel" class="input-field">
+                                <option value="models/qwen-image-edit" selected="true">Qwen Image Edit
+                                </option>
+                                <option value="models/seadream-4.0-edit">Seadream 4.0 Edit</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="setting-label" for="">
+                                <span class="material-symbols-outlined">style</span>
+                                <span>LoRAs</span>
+                                <span class="material-symbols-outlined tooltip"
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="LoRAs are small models that can be applied on top of the base model to change its style or introduce new concepts.">
+                                    info
+                                </span>
+                            </label>
+
                         </div>
                     </div>
                     <h3>User Experience</h3>
