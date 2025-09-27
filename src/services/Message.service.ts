@@ -325,7 +325,6 @@ export async function send(msg: string) {
                 file: file,
             });
         }));
-
         //user message for model
         const messagePayload = {
             message: [
