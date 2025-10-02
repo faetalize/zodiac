@@ -1,11 +1,20 @@
 import * as overlayService from "../../services/Overlay.service";
 import { supabase } from "../../services/Supabase.service";
+import * as supabaseService from "../../services/Supabase.service";
 
 const topUpButton = document.querySelector<HTMLButtonElement>("#btn-top-up-credits");
 const topUp10Button = document.querySelector<HTMLButtonElement>("#btn-top-up-10");
 const topUp75Button = document.querySelector<HTMLButtonElement>("#btn-top-up-75");
 const topUp300Button = document.querySelector<HTMLButtonElement>("#btn-top-up-300");
 
+//if no subscription, hide the top up button
+const subscription = await supabaseService.getUserSubscription();
+
+if (!subscription) {
+    if (topUpButton) {
+        topUpButton.style.display = "none";
+    }
+}
 if (!topUpButton || !topUp10Button || !topUp75Button || !topUp300Button) {
     console.error("One or more Top-Up buttons not found");
     throw new Error("One or more Top-Up buttons not found");
