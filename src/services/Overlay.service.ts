@@ -6,7 +6,7 @@ const overlay = document.querySelector<HTMLElement>(".overlay")!;
 const overlayItems = overlay.querySelector<HTMLElement>(".overlay-content")!.children;
 const personalityForm = document.querySelector<HTMLElement>("#form-add-personality")!;
 
-export function showEditChatTitleForm(){
+export function showEditChatTitleForm() {
     const editChatTitleForm = document.querySelector<HTMLElement>("#form-edit-chat-title");
     if (!editChatTitleForm) {
         console.error("Edit chat title form not found");
@@ -24,7 +24,7 @@ export function showAddPersonalityForm() {
 export function showEditPersonalityForm(personality: Personality, id?: string) {
     //populate the form with the personality data
     for (const key in personality) {
-        
+
         if (key === 'toneExamples') {
             for (const [index, tone] of personality.toneExamples.entries()) {
                 if (index === 0) {
@@ -65,11 +65,9 @@ export function showChangelog() {
     showElement(whatsNew, false);
 }
 
-export function closeOverlay() {
-    hideElement(overlay);
-
+export function resetOverlayItems() {
     for (const item of overlayItems) {
-        hideElement(item as HTMLElement);
+        hideElement(item as HTMLElement, true);
         //reset the form and stepper
         if (item instanceof HTMLFormElement) {
             item.reset();
@@ -88,7 +86,13 @@ export function closeOverlay() {
     }
 }
 
-export function show(elementId: string){
+export function closeOverlay() {
+    hideElement(overlay);
+    resetOverlayItems();
+}
+
+export function show(elementId: string) {
+    resetOverlayItems();
     const element = document.querySelector<HTMLElement>(`#${elementId}`);
     if (!element) {
         console.error(`Element with id ${elementId} not found`);

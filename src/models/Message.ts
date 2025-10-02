@@ -1,3 +1,5 @@
+import { Content } from "@google/genai";
+
 export interface GeneratedImage {
     mimeType: string;
     base64: string; // raw base64 bytes without data: prefix

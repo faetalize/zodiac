@@ -89,6 +89,62 @@
         background-color: #1a2733;
     }
 
+    /* LoRA metadata cards (dark) */
+    .card-lora {
+        background-color: #162334;
+        border: 1px solid rgba(80, 134, 194, 0.35);
+        box-shadow: 0 8px 24px rgba(4, 15, 32, 0.25);
+    }
+
+    .lora-card-meta,
+    .lora-card-section-title {
+        color: #9ab9d8;
+    }
+
+    .lora-card-toggle span,
+    .lora-strength-label,
+    .lora-strength-value {
+        color: #cbdff6;
+    }
+
+    .lora-card-trigger {
+        background-color: #253a5c;
+        border-color: rgba(43, 110, 162, 0.55);
+        color: #d1ecff;
+    }
+
+    .lora-card-trigger:hover {
+        background-color: #315077;
+    }
+
+    .lora-card-trigger[data-copied="true"] {
+        background-color: #3b6ca1;
+        border-color: #5b8fce;
+        color: #ffffff;
+    }
+
+    .lora-card-empty {
+        color: #9ab9d8;
+    }
+
+    .lora-card-delete {
+        background-color: rgba(37, 58, 92, 0.6);
+        border-color: rgba(58, 97, 150, 0.55);
+        color: #d1ecff;
+    }
+
+    .lora-card-delete:hover {
+        background-color: rgba(40, 82, 135, 0.7);
+    }
+
+    .lora-card-delete:active {
+        transform: translateY(1px);
+    }
+
+    .lora-strength-slider {
+        accent-color: #7cabff;
+    }
+
     .badge {
         background-color: #253a5c;
         border: 1px solid rgba(35, 108, 119, 0.508);
@@ -202,6 +258,12 @@
     .attachment-container {
         background-color: #060d1447;
         outline: 1px solid #ffffff1c;
+    }
+
+    /* LoRA add card (dark) */
+    .card-add-lora {
+        background-color: rgba(40, 78, 125, 0.25);
+        border: 1px solid rgba(95, 150, 200, 0.3);
     }
 
     #dialog{
@@ -341,5 +403,27 @@
     .message-thinking pre {
         background: var(--thinking-bg);
     }
+
+    /* Top-up buttons (dark theme) */
+    #form-top-up-imagecredits .btn-array-vertical > button {
+        background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+        border-color: #374151;
+        color: #e5e7eb;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    }
+    #form-top-up-imagecredits .btn-array-vertical > button:hover {
+        box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+        transform: translateY(-1px);
+        background: linear-gradient(145deg, #263244 0%, #141b23 100%);
+        border-color: #465164;
+    }
+    #form-top-up-imagecredits .btn-array-vertical > button:active {
+        transform: translateY(0);
+        box-shadow: 0 8px 22px rgba(0,0,0,0.4);
+        background: linear-gradient(145deg, #1b2431 0%, #0f141a 100%);
+    }
+    #form-top-up-imagecredits .top-up-price { color: #ffffff; }
+    #form-top-up-imagecredits .top-up-credits { color: #e8eef7; }
+    #form-top-up-imagecredits .top-up-subtitle { color: #a6b2c2; }
 
 }

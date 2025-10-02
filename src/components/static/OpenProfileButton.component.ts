@@ -7,6 +7,10 @@ if (!openProfileButton) {
     throw new Error("Open profile button not found in the document");
 }
 
+
+
 openProfileButton.addEventListener("click", async () => {
+    supabaseService.refreshAll();
     overlayService.show("profile");
 });
+

@@ -1,6 +1,5 @@
 import { ContentUnion, HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
-import { get } from "./Stepper.service";
 import { User } from "../models/User";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
@@ -11,7 +10,6 @@ const imageModelSelect = document.querySelector("#selectedImageModel") as HTMLSe
 const autoscrollToggle = document.querySelector("#autoscroll") as HTMLInputElement;
 const streamResponsesToggle = document.querySelector("#streamResponses") as HTMLInputElement;
 const enableThinkingSelect = document.querySelector("#enableThinkingSelect") as HTMLSelectElement;
-const thinkingRequiredHint = document.querySelector("#thinking-required-hint") as HTMLElement | null;
 const thinkingBudgetInput = document.querySelector("#thinkingBudget") as HTMLInputElement;
 if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput) {
     throw new Error("One or more settings elements are missing in the DOM.");
@@ -28,18 +26,14 @@ export function initialize() {
     streamResponsesToggle.addEventListener("change", saveSettings);
     enableThinkingSelect.addEventListener("change", saveSettings);
     thinkingBudgetInput.addEventListener("input", saveSettings);
-
-    // Enforce pro model rules at init
-    enforceProModelThinkingRule();
-    modelSelect.addEventListener("change", enforceProModelThinkingRule);
 }
 
 export function loadSettings() {
     ApiKeyInput.value = localStorage.getItem("API_KEY") || "";
     maxTokensInput.value = localStorage.getItem("maxTokens") || "1000";
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || "70";
-    modelSelect.value = localStorage.getItem("model") || "gemini-2.5-flash";
-    imageModelSelect.value = localStorage.getItem("imageModel") || "models/imagen-4.0-ultra-generate-001";
+    modelSelect.value = localStorage.getItem("model") || "gemini-flash-latest";
+    imageModelSelect.value = localStorage.getItem("imageModel") || "imagen-4.0-ultra-generate-001";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
     // Default ON when not set
     streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";
@@ -47,7 +41,6 @@ export function loadSettings() {
     const enableThinking = (enableThinkingStored ?? "true") === "true";
     enableThinkingSelect.value = enableThinking ? 'enabled' : 'disabled';
     thinkingBudgetInput.value = localStorage.getItem("thinkingBudget") || "500";
-    enforceProModelThinkingRule();
 }
 
 export function saveSettings() {
@@ -78,57 +71,11 @@ export function getSettings() {
         autoscroll: autoscrollToggle.checked,
         streamResponses: streamResponsesToggle.checked,
         enableThinking: enableThinkingSelect.value === 'enabled',
-        thinkingBudget: parseInt(thinkingBudgetInput.value, 10),
-        useMaxEndpoint: getUseMaxEndpoint(),
+        thinkingBudget: parseInt(thinkingBudgetInput.value),
     }
 }
 
-export function setUseMaxEndpoint(enabled: boolean) {
-    localStorage.setItem("useMaxEndpoint", enabled ? "true" : "false");
-}
 
-export function getUseMaxEndpoint(): boolean {
-    return (localStorage.getItem("useMaxEndpoint") ?? "false") === "true";
-}
-
-function enforceProModelThinkingRule() {
-    const isPro = modelSelect.value.includes("pro");
-    if (isPro) {
-        enableThinkingSelect.value = 'enabled';
-        enableThinkingSelect.disabled = true;
-        if (thinkingRequiredHint) thinkingRequiredHint.style.display = 'block';
-        localStorage.setItem("enableThinking", "true");
-    } else {
-        enableThinkingSelect.disabled = false;
-        if (thinkingRequiredHint) thinkingRequiredHint.style.display = 'none';
-    }
-    enforceBudgetSync();
-}
-
-// When thinking is disabled, force budget to 0 (persist). When enabled and budget is 0 but user previously had a stored non-zero value, keep current unless user changes.
-let lastNonZeroBudget: number | null = null;
-function enforceBudgetSync() {
-    const enabled = enableThinkingSelect.value === 'enabled';
-    const currentVal = parseInt(thinkingBudgetInput.value || '0', 10);
-    if (enabled) {
-        // Restore last non-zero if we auto-zeroed before
-        if (currentVal === 0 && lastNonZeroBudget && lastNonZeroBudget > 0) {
-            thinkingBudgetInput.value = String(lastNonZeroBudget);
-            localStorage.setItem('thinkingBudget', thinkingBudgetInput.value);
-        }
-    } else {
-        if (currentVal !== 0) {
-            lastNonZeroBudget = currentVal; // remember what user had
-        }
-        thinkingBudgetInput.value = '0';
-        localStorage.setItem('thinkingBudget', '0');
-    }
-}
-
-// Hook into saveSettings side-effect via Mutation: wrap original listener? Simpler: add dedicated listener.
-enableThinkingSelect?.addEventListener('change', () => {
-    enforceBudgetSync();
-});
 
 export async function getSystemPrompt(): Promise<ContentUnion> {
     let userProfile: User;
@@ -139,23 +86,23 @@ export async function getSystemPrompt(): Promise<ContentUnion> {
     } catch (error) {
         userProfile = { systemPromptAddition: "", preferredName: "User" };
     }
-    const systemPrompt = "If needed, format your answer using markdown. " +
-        "Today's date is " + new Date().toDateString() + ". " +
-        "You are to act as the personality dictated by the user. " +
-        "Keep a consistent tone no matter what. " +
-        "The first messages you have with the user will dictate that tone. " +
-        "Aggressiveness guidelines: " +
-        "3 requires you to have a constant aggression. You must be assertive and direct. Attack the user even if unprompted. Find flaws in their messages and egg them on. If there's an opportunity to show aggression, take it. " +
-        "2 requires you to have a moderate aggression. Don't initiate aggression, but if the user is aggressive, you can be aggressive back. You may tease the user or egg them on. " +
-        "1 requires you to be passive. You can't be aggressive. Don't argue with the user but gently correct them. The only exception is when it would make sense in-character. For example, if there's a heavy breach of morals or if the user violates the character's boundaries. " +
-        "0 requires you to let go of all aggression. You can't be aggressive. No exceptions can be made. If someone strikes you on one cheek, turn to him the other also. No matter how much your boundaries are breached or violated, you must not show opposition or aggression. This is ultimate. " +
-        "Sensuality guidelines: " +
-        "3 requires you to be very sensual. You must be flirtatious and suggestive. Most of the time, you are the one to initiate sexual topics or actions. " +
-        "2 requires you to be moderately sensual. You may flirt and be suggestive. Do not initiate sexual topics unless the user does so, after which you may be open to discussing them. " +
-        "1 requires you to be slightly sensual. Affection and love may be shared but it is platonic and non sexual. " +
-        "0 requires you to be non-sensual. Total aversion to flirting or sexuality. If this is combined with an aggressiveness level of 0, you may not reject the user's advances (dictated by aggressiveness), but you do not reciprocate or enjoy them (dictated by sensuality). " +
-        userProfile.systemPromptAddition + " " +
-        "The User's preferred way to be addressed is " + `"${userProfile.preferredName}". ` +
+    const systemPrompt = "If needed, format your answer using markdown.\n" +
+        "Today's date is " + new Date().toDateString() + ".\n" +
+        "You are to act as the personality dictated by the user.\n" +
+        "Keep a consistent tone no matter what.\n" +
+        "The first messages you have with the user will dictate that tone.\n" +
+        "## Aggressiveness guidelines:\n" +
+        "* 3 requires you to have a constant aggression. You must be assertive and direct. Attack the user even if unprompted. Find flaws in their messages and egg them on. If there's an opportunity to show aggression, take it.\n" +
+        "* 2 requires you to have a moderate aggression. Don't initiate aggression, but if the user is aggressive, you can be aggressive back. You may tease the user or egg them on.\n" +
+        "* 1 requires you to be passive. You can't be aggressive. Don't argue with the user but gently correct them. The only exception is when it would make sense in-character. For example, if there's a heavy breach of morals or if the user violates the character's boundaries.\n" +
+        "* 0 requires you to let go of all aggression. You can't be aggressive. No exceptions can be made. If someone strikes you on one cheek, turn to him the other also. No matter how much your boundaries are breached or violated, you must not show opposition or aggression. This is ultimate.\n" +
+        "## Sensuality guidelines:\n" +
+        "* 3 requires you to be very sensual. You must be flirtatious and suggestive. Most of the time, you are the one to initiate sexual topics or actions.\n" +
+        "* 2 requires you to be moderately sensual. You may flirt and be suggestive. Do not initiate sexual topics unless the user does so, after which you may be open to discussing them.\n" +
+        "* 1 requires you to be slightly sensual. Affection and love may be shared but it is platonic and non sexual.\n" +
+        "* 0 requires you to be non-sensual. Total aversion to flirting or sexuality. If this is combined with an aggressiveness level of 0, you may not reject the user's advances (dictated by aggressiveness), but you do not reciprocate or enjoy them (dictated by sensuality).\n" +
+        userProfile.systemPromptAddition + "\n" +
+        "The User's preferred way to be addressed is " + `"${userProfile.preferredName}".\n` +
         "End of system prompt.";
     return {
         parts: [

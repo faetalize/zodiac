@@ -6,7 +6,7 @@ import { getSettings } from '../services/Settings.service';
 
 // Description: This file contains helper functions that are used throughout the application.
 
-export function hideElement(element: HTMLElement) {
+export function hideElement(element: HTMLElement, nowait?: boolean) {
     if (!element) {
         return;
     }
@@ -14,7 +14,7 @@ export function hideElement(element: HTMLElement) {
     element.style.opacity = '0';
     setTimeout(function () {
         hideWithClass(element);
-    }, 200);
+    }, nowait ? 0 : 200);
 }
 
 export function showElement(element: HTMLElement, wait: boolean) {
@@ -57,7 +57,7 @@ export function lightenCard(element: HTMLElement) {
 }
 
 export function getVersion() {
-    return "1.0.0";
+    return "1.0.1";
 }
 
 export function getSanitized(string: string) {
@@ -109,7 +109,9 @@ export async function fileToBase64(file: File): Promise<string> {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = () => {
-            resolve(reader.result as string);
+            //we need to strip the data prefix
+            const base64String = (reader.result as string).split(',')[1];
+            resolve(base64String);
         };
         reader.onerror = (error) => {
             reject(error);

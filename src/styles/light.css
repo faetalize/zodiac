@@ -76,6 +76,62 @@
         background-color: #d2e2f7;
     }
 
+    /* LoRA metadata cards (light) */
+    .card-lora {
+        background-color: #e8f1ff;
+        border: 1px solid rgba(57, 121, 199, 0.15);
+        box-shadow: 0 10px 22px rgba(20, 54, 94, 0.08);
+    }
+
+    .lora-card-meta,
+    .lora-card-section-title {
+        color: #445f7f;
+    }
+
+    .lora-card-toggle span,
+    .lora-strength-label,
+    .lora-strength-value {
+        color: #29496c;
+    }
+
+    .lora-card-trigger {
+        background-color: #d2e6ff;
+        border-color: rgba(57, 121, 199, 0.35);
+        color: #133a68;
+    }
+
+    .lora-card-trigger:hover {
+        background-color: #c0dafc;
+    }
+
+    .lora-card-trigger[data-copied="true"] {
+        background-color: #93c5fd;
+        border-color: #3b82f6;
+        color: #0b1f3f;
+    }
+
+    .lora-card-empty {
+        color: #445f7f;
+    }
+
+    .lora-card-delete {
+        background-color: rgba(156, 194, 234, 0.6);
+        border-color: rgba(86, 133, 190, 0.45);
+        color: #163a63;
+    }
+
+    .lora-card-delete:hover {
+        background-color: rgba(133, 176, 226, 0.75);
+    }
+
+    .lora-card-delete:active {
+        transform: translateY(1px);
+    }
+
+    .lora-strength-slider {
+        accent-color: #3b82f6;
+    }
+
     .badge {
         background-color: #9cc2ea;
         border: 1px solid rgba(27, 104, 123, 0.508);
@@ -188,6 +244,12 @@
     .attachment-container {
         background-color: #03509c25;
         outline: 1px solid #00000030
+    }
+
+    /* LoRA add card (light) */
+    .card-add-lora {
+        background-color: rgba(30, 111, 183, 0.08);
+        border: 1px solid rgba(76, 124, 190, 0.45);
     }
 
     #dialog {
@@ -325,5 +387,27 @@
     .message-thinking pre {
         background: var(--thinking-bg);
     }
+
+    /* Top-up buttons (light theme) */
+    #form-top-up-imagecredits .btn-array-vertical > button {
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        border-color: #e5e7eb;
+        color: #1f2937;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+    #form-top-up-imagecredits .btn-array-vertical > button:hover {
+        box-shadow: 0 6px 18px rgba(0,0,0,0.10);
+        transform: translateY(-1px);
+        background: linear-gradient(145deg, #ffffff 0%, #eef2f7 100%);
+        border-color: #d1d5db;
+    }
+    #form-top-up-imagecredits .btn-array-vertical > button:active {
+        transform: translateY(0);
+        box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+        background: linear-gradient(145deg, #f9fafb 0%, #eef2f7 100%);
+    }
+    #form-top-up-imagecredits .top-up-price { color: #111827; }
+    #form-top-up-imagecredits .top-up-credits { color: #111827; }
+    #form-top-up-imagecredits .top-up-subtitle { color: #6b7280; }
 
 }

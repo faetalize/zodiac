@@ -11,12 +11,29 @@ const subscriptionCard = document.querySelector<HTMLElement>("#subscription-stat
 const subscriptionHeader = document.querySelector<HTMLElement>("#subscription-status-row .collapsible-card-header");
 const infoCard = document.querySelector<HTMLElement>("#profile-info-card");
 const infoHeader = document.querySelector<HTMLElement>("#profile-info-card .collapsible-card-header");
+const remainingImageGenerations = document.querySelector<HTMLSpanElement>("#subscription-remaining-generations");
 let image: File;
 
-if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader || !infoCard || !infoHeader) {
+if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader || !infoCard || !infoHeader || !remainingImageGenerations) {
     console.error("One or more profile panel elements are missing.");
+    console.log({ pfpChangeButton, preferredNameInput, systemPromptAddition, saveButton, subscriptionBadge, manageSubscriptionBtn, subscriptionCard, subscriptionHeader, infoCard, infoHeader, remainingImageGenerations });
     throw new Error("Profile panel initialization failed.");
 }
+
+window.addEventListener('profile-updated', (event: CustomEventInit) => {
+    const { profile } = event.detail;
+    if (profile) {
+        (preferredNameInput as HTMLInputElement).value = profile.preferredName || "";
+        (systemPromptAddition as HTMLTextAreaElement).value = profile.systemPromptAddition || "";
+    }
+});
+
+window.addEventListener('subscription-refreshed', (event: CustomEventInit) => {
+    const { subDetails }: { subDetails: supabaseService.UserSubscription } = event.detail;
+    if (subDetails) {
+        remainingImageGenerations.textContent = (subDetails.remaining_image_generations ?? 0).toString();
+    }
+});
 
 // Smooth expand/collapse helper
 function toggleCard(cardEl: HTMLElement, contentSelector: string) {

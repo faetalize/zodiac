@@ -145,3 +145,5 @@ supabase/*
 supabase/functions
 supabase/functions/*
 deno.lock
+cloudflare-workers
+cloudflare-workers/*
