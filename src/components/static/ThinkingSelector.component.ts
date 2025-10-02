@@ -28,15 +28,12 @@ document.addEventListener("chat-model-changed", (event: CustomEventInit) => {
     if (!model) return;
 
     if (model === ChatModel.PRO) {
-        console.log("Forcing thinking enabled for Pro model");
         thinkingSelector.value = 'enabled';
-        thinkingHint.style.display = 'block';
-        console.log(thinkingHint.style.display);
-        console.log(window.getComputedStyle(thinkingHint).display);
+        thinkingHint.style.display = '';
         thinkingSelector.dispatchEvent(new Event('change'));
         thinkingSelector.disabled = true; //prevent changes
     }
-    if (model === ChatModel.NANO_BANANA) {
+    else if (model === ChatModel.NANO_BANANA) {
         thinkingSelector.value = 'disabled';
         thinkingHint.style.display = '';
         thinkingHint.textContent = "Thinking is not available for the selected model.";
