@@ -84,6 +84,10 @@ select {
     font-size: 1rem;
 }
 
+input[type="range"] {
+    padding: 0;
+}
+
 button {
     display: flex;
     align-items: center;
@@ -1428,6 +1432,7 @@ form {
     flex-direction: column;
     gap: 1rem;
     min-height: 0;
+    box-sizing: border-box;
     /* allow inner scroll areas to size correctly in flex */
 }
 
@@ -1647,7 +1652,6 @@ form {
 
 #sidebar-content {
     min-height: 0;
-    padding: 0.5rem;
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
@@ -1931,6 +1935,274 @@ button {
     -webkit-box-sizing: border-box;
 }
 
+.generation-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+
+
+.generation-settings>div {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+
+
+}
+
+.generation-settings .material-symbols-outlined {
+    font-size: inherit;
+}
+
+.generation-settings button .material-symbols-outlined {
+    font-size: 1.25rem;
+}
+
+/* LoRA metadata cards */
+.card-lora {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+    text-align: left;
+    padding: 0.75rem;
+    border: 1px solid transparent;
+    background-color: transparent;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+
+#lora-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#lora-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.lora-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.lora-card-header-main {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.lora-card-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    flex: 1 1 auto;
+    min-width: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.lora-card-base {
+    cursor: default;
+    white-space: nowrap;
+}
+
+.lora-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    word-break: break-word;
+    line-height: 1.3;
+}
+
+.lora-card-meta-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.lora-card-meta-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.1rem;
+    height: 1px;
+    background-color: currentColor;
+    opacity: 0;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.lora-card-meta-link:hover::after,
+.lora-card-meta-link:focus-visible::after {
+    opacity: 1;
+    transform: scaleX(1);
+}
+
+.lora-card-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.lora-card-section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.075rem;
+    font-weight: 600;
+}
+
+.lora-card-triggers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.lora-card-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.82rem;
+    background: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.lora-card-trigger:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
+.lora-card-trigger[data-copied="true"] {
+    transform: translateY(-1px);
+}
+
+.lora-card-empty {
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+.lora-card-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+    background: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.lora-card-delete .material-symbols-outlined {
+    font-size: 1.15rem;
+}
+
+.lora-card-delete:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
+.lora-strength {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.lora-strength-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.lora-strength-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.lora-strength-slider {
+    flex: 1 1 auto;
+    min-width: 0;
+    accent-color: #3b82f6;
+}
+
+.lora-strength-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-width: 3ch;
+    text-align: right;
+}
+
+.lora-card-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.lora-card-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.lora-card-toggle input[type="checkbox"] {
+    margin: 0;
+}
+
+/* LoRA add card layout */
+.card-add-lora {
+    border-radius: 0.75rem;
+    border: 1px dashed transparent;
+    /* themed in dark/light */
+    padding: 0.5rem;
+}
+
+.lora-add {
+    display: flex;
+    flex-direction: row !important;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.lora-add input {
+    flex: 1 1 auto;
+}
+
+.lora-add .btn-icon {
+    padding: 0.5rem;
+    min-width: 2.75rem;
+    width: 2.75rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    align-self: stretch;
+}
+
 .add-personality-content {
     display: flex;
     justify-content: center;
@@ -1959,22 +2231,9 @@ input[name="currentChat"][value="none"] {
     display: none;
 }
 
-.generation-settings {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
 
-.generation-settings div {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
 
-    .material-symbols-outlined {
-        font-size: 1.2rem;
-    }
-}
+
 
 #attachments {
     display: none;

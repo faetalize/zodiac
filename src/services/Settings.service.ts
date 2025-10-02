@@ -10,7 +10,6 @@ const imageModelSelect = document.querySelector("#selectedImageModel") as HTMLSe
 const autoscrollToggle = document.querySelector("#autoscroll") as HTMLInputElement;
 const streamResponsesToggle = document.querySelector("#streamResponses") as HTMLInputElement;
 const enableThinkingSelect = document.querySelector("#enableThinkingSelect") as HTMLSelectElement;
-const thinkingRequiredHint = document.querySelector("#thinking-required-hint") as HTMLElement | null;
 const thinkingBudgetInput = document.querySelector("#thinkingBudget") as HTMLInputElement;
 if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput) {
     throw new Error("One or more settings elements are missing in the DOM.");
@@ -33,8 +32,8 @@ export function loadSettings() {
     ApiKeyInput.value = localStorage.getItem("API_KEY") || "";
     maxTokensInput.value = localStorage.getItem("maxTokens") || "1000";
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || "70";
-    modelSelect.value = localStorage.getItem("model") || "gemini-2.5-flash";
-    imageModelSelect.value = localStorage.getItem("imageModel") || "models/imagen-4.0-ultra-generate-001";
+    modelSelect.value = localStorage.getItem("model") || "gemini-flash-latest";
+    imageModelSelect.value = localStorage.getItem("imageModel") || "imagen-4.0-ultra-generate-001";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
     // Default ON when not set
     streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";

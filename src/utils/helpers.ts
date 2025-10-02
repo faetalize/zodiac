@@ -57,7 +57,7 @@ export function lightenCard(element: HTMLElement) {
 }
 
 export function getVersion() {
-    return "1.0.0";
+    return "1.0.1";
 }
 
 export function getSanitized(string: string) {
@@ -109,7 +109,9 @@ export async function fileToBase64(file: File): Promise<string> {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = () => {
-            resolve(reader.result as string);
+            //we need to strip the data prefix
+            const base64String = (reader.result as string).split(',')[1];
+            resolve(base64String);
         };
         reader.onerror = (error) => {
             reject(error);

@@ -124,8 +124,9 @@
                                     info
                                 </span> </label>
                             <select id="selectedModel" class="input-field">
-                                <option value="gemini-2.0-flash-lite">Flash Lite</option>
-                                <option value="gemini-2.5-flash" selected="true">Flash</option>
+                                <option value="gemini-flash-lite-latest">Flash Lite</option>
+                                <option value="gemini-flash-latest" selected="true">Flash</option>
+                                <option value="gemini-2.5-flash-image-preview">Flash Image (Nano Banana)</option>
                                 <option value="gemini-2.5-pro">Pro</option>
                             </select>
                         </div>
@@ -213,10 +214,10 @@
                                     info
                                 </span> </label>
                             <select id="selectedImageModel" class="input-field">
-                                <option value="models/imagen-4.0-ultra-generate-001" selected="true">Imagen 4 Ultra
+                                <option value="imagen-4.0-ultra-generate-001" selected="true">Imagen 4 Ultra
                                 </option>
-                                <option value="models/illustrious">Illustrious (Uncensored - Anime)</option>
-                                <option value="models/biglust">Biglust XL (Uncensored - Realism)</option>
+                                <option value="illustrious">Illustrious (Uncensored - Anime)</option>
+                                <option value="biglust">Biglust XL (Uncensored - Realism)</option>
                             </select>
                         </div>
                         <div>
@@ -227,24 +228,37 @@
                                     info="Editing models allow you to edit images to add details, remove objects, or make other modifications.">
                                     info
                                 </span> </label>
-                            <select id="selectedImageEditingModel" class="input-field">
-                                <option value="models/qwen-image-edit" selected="true">Qwen Image Edit
+                            <select id="selectedImageEditingModel" class="input-field" disabled>
+                                <option value="qwen-image-edit" selected="true">Qwen Image Edit
                                 </option>
-                                <option value="models/seadream-4.0-edit">Seadream 4.0 Edit</option>
+                                <option value="seadream-4.0-edit">Seadream 4.0 Edit</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="setting-label" for="">
+                        <div id="lora-settings">
+                            <label class="setting-label" for="lora-section">
                                 <span class="material-symbols-outlined">style</span>
                                 <span>LoRAs</span>
                                 <span class="material-symbols-outlined tooltip"
                                     style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="LoRAs are small models that can be applied on top of the base model to change its style or introduce new concepts.">
+                                    info="LoRAs are small models that can be applied on top of the base model to change its style or introduce new concepts. CURRENTLY NOT ENABLED, WORK IN PROGRESS!!!">
                                     info
                                 </span>
                             </label>
+                            <div id="lora-section">
+                                <div id="lora-add-card" class="card-add-lora">
+                                    <div class="lora-add">
+                                        <input type="url" id="lora-url-input" class="input-field"
+                                            placeholder="Paste CivitAI LoRA URL" disabled />
+                                        <button id="btn-add-lora" class="btn-icon" aria-label="Add LoRA">
+                                            <span class="material-symbols-outlined">add_link</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="lora-list"></div>
+                            </div>
 
                         </div>
+
                     </div>
                     <h3>User Experience</h3>
                     <div>
@@ -411,20 +425,18 @@
             <div id="whats-new" class="hidden">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li>Experimental: Image generation. If you have billing enabled on Google Cloud, you can use imagen
-                        4 Ultra image
-                        generation. If you want uncensored image models (Illustrious SDXL), subscribe to Max tier on
-                        Zodiac (900 monthly image generations)</li>
-                    <li>Incoming: Pay-per-use image generation, if you want to use it without a subscription (coming in
-                        1.1)</li>
-                    <li>Added a Pro tier for people not willing to use their own API keys for added privacy - (unlimited
-                        monthly usage, no quotas, no limits)</li>
-                    <li>Max tier now available with 900 monthly image generations, as well as everything from Pro</li>
-                    <li>Enabled reasoning/thinking</li>
-                    <li>Chats are now filterable</li>
-                    <li>You can export and import your chats individually</li>
-                    <li>You can now customize your profile to give extra instructions to the model (requires an account)
-                    </li>
+                    <li><b>Image generation:</b> Access to Imagen 4 Ultra, and uncensored models (Illustrious XL/
+                        BigLust XL) is granted to Zodiac Max subscribers (Pro subscribers must buy image credits). </li>
+                    <li><b>Max subscription tier:</b> Now available, with 900 monthly image generations, as well as
+                        everything from Pro tier.</li>
+                    <li><b>Pay-per-use image gen:</b> For those on a Pro subscription, you can buy image credits without
+                        having to upgrade to Max.</li>
+                    <li><b>New models:</b> Flash latest and Flash Lite latest.</li>
+                    <li><b>New multimodal model:</b> Added support for nano-banana (Flash Image Native)</li>
+                    <li><b>Image editing (beta):</b> Qwen Image Edit and Seadream 4.0 Edit are now available.</li>
+                    <li><b>LoRA support (beta):</b> Apply LoRAs from CivitAI to your image generations.</li>
+                    <li><b>Improved UX:</b> Lots of improvements and stability enhancements.</li>
+
                     <li>Visit my discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
                 </ul>
@@ -554,17 +566,13 @@
                         <div class="subscription-card-header">
                             <div class="tier-badge tier-badge-pro">Pro</div>
                             <div class="tier-price">
-                                <span class="price-amount">$14.99</span>
+                                <span class="price-amount">$29.99</span>
                                 <span class="price-period">/month</span>
                             </div>
                         </div>
                         <div class="subscription-card-body">
                             <div class="tier-description">For unlimited access</div>
                             <ul class="features-list">
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">Everything in Free</span>
-                                </li>
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
                                     <span class="feature-text">No API key required</span>
@@ -575,11 +583,19 @@
                                 </li>
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Nano-banana model access</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
                                     <span class="feature-text">Full token context limits</span>
                                 </li>
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
                                     <span class="feature-text">No rate limiting</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">Image generation credits to be bought separately</span>
                                 </li>
                             </ul>
                         </div>
@@ -592,7 +608,7 @@
                         <div class="subscription-card-header">
                             <div class="tier-badge tier-badge-max">Max</div>
                             <div class="tier-price">
-                                <span class="price-amount">$29.99</span>
+                                <span class="price-amount">$59.99</span>
                                 <span class="price-period">/month</span>
                             </div>
                         </div>
@@ -605,11 +621,15 @@
                                 </li>
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
-                                    <span class="feature-text">Imagen 4, sdxl and nano-banana models</span>
+                                    <span class="feature-text">Imagen 4 Ultra</span>
                                 </li>
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
-                                    <span class="feature-text">30 images per day</span>
+                                    <span class="feature-text">Uncensored image models</span>
+                                </li>
+                                <li class="feature-item">
+                                    <span class="feature-icon">✓</span>
+                                    <span class="feature-text">900 monthly image generation credits</span>
                                 </li>
                             </ul>
                         </div>

@@ -1,3 +1,4 @@
+import { ImageModel } from "../../models/Models";
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 
 const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel");
@@ -6,11 +7,10 @@ if (!imageModelSelector) {
     throw new Error("Missing DOM element: #selectedImageModel");
 }
 
-
 async function updateImageModelSelectorState() {
     if(!imageModelSelector) return;
     // Check if image generation is available based on current user settings
-    const isAvailable = await isImageGenerationAvailable();
+    const {enabled: isAvailable, type: modelType} = await isImageGenerationAvailable();
 
     // Enable/disable the selector based on availability
     imageModelSelector.disabled = !isAvailable;
@@ -24,6 +24,15 @@ async function updateImageModelSelectorState() {
         imageModelSelector.style.opacity = "0.6";
         imageModelSelector.style.cursor = "not-allowed";
         imageModelSelector.title = "Image generation not available with current settings";
+    }
+
+    // If only Google models are permitted, filter options
+    if (modelType === 'google_only') {
+        imageModelSelector.querySelectorAll('option').forEach(option => {
+            if (option.value !== ImageModel.ULTRA){
+                option.remove();
+            }
+        })
     }
 }
 

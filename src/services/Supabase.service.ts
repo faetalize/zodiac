@@ -1,8 +1,11 @@
 import { createClient, RealtimeChannel, Session } from '@supabase/supabase-js'
 import { User } from "../models/User";
+import { SubscriptionPriceIDs } from '../models/Price';
+import { ImageGenerationPermitted } from '../models/ImageGenerationTypes';
 
 export const SUPABASE_URL = 'https://hglcltvwunzynnzduauy.supabase.co';
-export const supabase = createClient(SUPABASE_URL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ');
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ';
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export async function getAuthHeaders(): Promise<Record<string, string>> {
     const { data: { session } } = await supabase.auth.getSession();
@@ -218,8 +221,12 @@ export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionT
     }
     switch (sub.price_id) {
         case 'price_1S0heGGiJrKwXclR69Ku7XEc':
+        case SubscriptionPriceIDs.MAX_MONTHLY:
+        case SubscriptionPriceIDs.MAX_YEARLY:
             return 'max';
         case 'price_1S0hdiGiJrKwXclRByeNLSPu':
+        case SubscriptionPriceIDs.PRO_MONTHLY:
+        case SubscriptionPriceIDs.PRO_YEARLY:
             return 'pro';
         default:
             return 'free';
@@ -325,19 +332,19 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
  * Determines if image generation is available based on subscription and settings.
  * This matches the same logic used for image button visibility.
  */
-export async function isImageGenerationAvailable(): Promise<boolean> {
+export async function isImageGenerationAvailable(): Promise<ImageGenerationPermitted> {
     try {
         const sub = await getUserSubscription();
         const tier = getSubscriptionTier(sub);
-        if (!sub) return true; // free tier, assume available (with API key)
-        if (tier === 'canceled') return true; // treat as free tier, assume available (with API key)
+        if (!sub) return { enabled: true, type: "google_only" }; // free tier, assume available (with API key)
+        if (tier === 'canceled') return { enabled: true, type: "google_only" }; // treat as free tier, assume available (with API key)
         if ((tier === 'pro' || tier === 'max') && sub?.remaining_image_generations && sub?.remaining_image_generations > 0) {
-            return true;
+            return { enabled: true, type: "all" };
         }
-        return false;
+        return { enabled: false, type: "google_only" };
     } catch {
         // If not logged in or error, assume available (probably Free tier with API key)
-        return true;
+        return { enabled: true, type: "google_only" };
     }
 }
 

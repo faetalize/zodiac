@@ -26,9 +26,8 @@ window.addEventListener('subscription-updated', () => {
 
 async function updateImageButtonState() {
     if (!imageButton) return;
-
     try {
-        if (await isImageGenerationAvailable()) {
+        if ((await isImageGenerationAvailable()).enabled) {
             imageButton.style.display = "";
         } else {
             imageButton.style.display = "none";
@@ -37,7 +36,6 @@ async function updateImageButtonState() {
                 isImageModeEnabled = false;
                 imageButton.classList.remove("btn-toggled");
             }
-
         }
 
     } catch {
@@ -45,8 +43,6 @@ async function updateImageButtonState() {
         imageButton.style.display = "";
     }
 }
-
-
 
 export function isImageModeActive(): boolean {
     return isImageModeEnabled;

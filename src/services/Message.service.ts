@@ -3,6 +3,7 @@ import { Content, FinishReason, GenerateContentConfig, GenerateContentResponse, 
 import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
+import * as loraService from "./Lora.service";
 import * as helpers from "../utils/helpers";
 import hljs from 'highlight.js';
 import { db } from "./Db.service";
@@ -13,6 +14,7 @@ import { messageElement } from "../components/dynamic/message";
 import { isImageModeActive } from "../components/static/ImageButton.component";
 import { Chat, DbChat } from "../models/Chat";
 import { getSubscriptionTier, getUserSubscription, type SubscriptionTier, SUPABASE_URL, getAuthHeaders } from "./Supabase.service";
+import { ChatModel } from "../models/Models";
 
 export async function send(msg: string) {
     const settings = settingsService.getSettings();
@@ -51,6 +53,8 @@ export async function send(msg: string) {
         return;
     }
 
+    const thinkingConfig = computeThinking(settings.model, settings.enableThinking, settings);
+
     //model setup (local SDK only for Free tier)
     const ai = new GoogleGenAI({ apiKey: settings.apiKey });
     const config: GenerateContentConfig = {
@@ -60,13 +64,7 @@ export async function send(msg: string) {
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain",
         tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
-        thinkingConfig: settings.enableThinking ? {
-            includeThoughts: true,
-            thinkingBudget: settings.thinkingBudget
-        } : {
-            includeThoughts: false,
-            thinkingBudget: 0
-        }
+        thinkingConfig: thinkingConfig
     };
 
     const currentChat = isPremiumEndpointPreferred ? await createChatIfAbsentPremium(msg) : await createChatIfAbsent(ai, msg);
@@ -120,7 +118,7 @@ export async function send(msg: string) {
 
     if (isImageModeActive()) {
         const payload = {
-            model: settings.imageModel || "models/imagen-4.0-ultra-generate-001",
+            model: settings.imageModel || "imagen-4.0-ultra-generate-001",
             prompt: msg,
             config: {
                 numberOfImages: 1,
@@ -129,6 +127,7 @@ export async function send(msg: string) {
                 aspectRatio: '1:1',
                 safetyFilterLevel: SafetyFilterLevel.BLOCK_LOW_AND_ABOVE,
             },
+            loras: loraService.getLoraState(),
         };
         let response;
         let b64: string;
@@ -190,6 +189,7 @@ export async function send(msg: string) {
     let rawText = "";
     let finishReason: FinishReason | undefined;
     let groundingContent = "";
+    let generatedImage: { mimeType: string; base64: string; } | undefined = undefined;
 
     // If Pro/Max, call Supabase Edge Function; else use SDK directly
     if (isPremiumEndpointPreferred) {
@@ -262,16 +262,21 @@ export async function send(msg: string) {
                             const payload = JSON.parse(data) as GenerateContentResponse;
                             if (payload) {
                                 finishReason = payload.candidates?.[0]?.finishReason; //finish reason
+                                if (config.thinkingConfig?.includeThoughts) {
+                                    ensureThinkingElements();
+                                }
                                 for (const part of payload.candidates?.[0]?.content?.parts || []) { // thinking block
-                                    if (part.thought && part.text) {
+                                    if (part.thought && part.text && thinkingContentElm) {
                                         thinking += part.text;
-                                        ensureThinkingElements();
-                                        if (thinkingContentElm) thinkingContentElm.textContent = thinking;
+                                        thinkingContentElm.textContent = thinking;
                                     }
                                     else if (part.text) { // direct text
                                         rawText += part.text;
                                         responseElement.querySelector('.message-text')?.classList.remove('is-loading');
                                         messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                                    }
+                                    else if (part.inlineData) {
+                                        generatedImage = { mimeType: part.inlineData.mimeType || "image/png", base64: part.inlineData.data || "" };
                                     }
                                 }
                                 if (payload.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
@@ -291,14 +296,20 @@ export async function send(msg: string) {
                 const json = await res.json() as GenerateContentResponse;
                 if (json) {
                     finishReason = json.candidates?.[0]?.finishReason; //finish reason
-                    for (const part of json.candidates?.[0]?.content?.parts || []) { //thinking block
-                        if (part.thought && part.text) {
-                            thinking += part.text;
-                        }
+                    if (config.thinkingConfig?.includeThoughts) {
+                        ensureThinkingElements();
                     }
-                    if (thinking) { ensureThinkingElements(); if (thinkingContentElm) thinkingContentElm.textContent = thinking; }
-                    if (json.text) { // direct text
-                        rawText = json.text;
+                    for (const part of json.candidates?.[0]?.content?.parts || []) {
+                        if (part.thought && part.text && thinkingContentElm) { //thinking block
+                            thinking += part.text;
+                            thinkingContentElm.textContent = thinking;
+                        }
+                        else if (part.text) { //direct text
+                            rawText += part.text;
+                        }
+                        else if (part.inlineData) {
+                            generatedImage = { mimeType: part.inlineData.mimeType || "image/png", base64: part.inlineData.data || "" };
+                        }
                     }
                     if (json.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { //grounding block
                         groundingContent = json.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
@@ -346,15 +357,23 @@ export async function send(msg: string) {
 
                 for await (const chunk of stream) {
                     if (chunk) {
-
                         finishReason = chunk.candidates?.[0]?.finishReason; //finish reason
-                        for (const part of chunk.candidates?.[0]?.content?.parts || []) { // thinking block
-                            if (part.thought && part.text) { thinking += part.text; ensureThinkingElements(); if (thinkingContentElm) thinkingContentElm.textContent = thinking; }
+                        if (config.thinkingConfig?.includeThoughts) {
+                            ensureThinkingElements();
                         }
-                        if (chunk.text) { // direct text
-                            rawText += chunk.text;
-                            responseElement.querySelector(".message-text")?.classList.remove("is-loading");
-                            messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                        for (const part of chunk.candidates?.[0]?.content?.parts || []) { // thinking block
+                            if (part.thought && part.text && thinkingContentElm) {
+                                thinking += part.text;
+                                thinkingContentElm.textContent = thinking;
+                            }
+                            else if (part.text) { // direct text
+                                rawText += part.text;
+                                responseElement.querySelector('.message-text')?.classList.remove('is-loading');
+                                messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                            }
+                            else if (part.inlineData) {
+                                generatedImage = { mimeType: part.inlineData.mimeType || "image/png", base64: part.inlineData.data || "" };
+                            }
                         }
                         if (chunk.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
                             groundingContent = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
@@ -371,16 +390,20 @@ export async function send(msg: string) {
                 const response = await chat.sendMessage(messagePayload);
                 if (response) {
                     finishReason = response.candidates?.[0]?.finishReason; //finish reason
-                    for (const part of response.candidates?.[0]?.content?.parts || []) { // thinking block
-                        if (part.thought && part.text) {
-                            thinking += part.text;
-                        }
+                    if (config.thinkingConfig?.includeThoughts) {
+                        ensureThinkingElements();
                     }
-                    if (thinking) { ensureThinkingElements(); if (thinkingContentElm) thinkingContentElm.textContent = thinking; }
-                    if (response.text) { // direct text
-                        rawText = response.text;
-                        responseElement.querySelector(".message-text")?.classList.remove("is-loading");
-                        messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                    for (const part of response.candidates?.[0]?.content?.parts || []) {
+                        if (part.thought && part.text && thinkingContentElm) { //thinking block
+                            thinking += part.text;
+                            thinkingContentElm.textContent = thinking;
+                        }
+                        else if (part.text) { //direct text
+                            rawText += part.text;
+                        }
+                        else if (part.inlineData) {
+                            generatedImage = { mimeType: part.inlineData.mimeType || "image/png", base64: part.inlineData.data || "" };
+                        }
                     }
                     if (response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
                         groundingContent = response.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
@@ -411,6 +434,21 @@ export async function send(msg: string) {
         // });
         // console.log(response);
     }
+
+
+    const modelMessage: Message = {
+        role: "model",
+        personalityid:
+            selectedPersonalityId,
+        parts: [{ text: rawText }],
+        groundingContent: groundingContent || "",
+        thinking: thinking || undefined,
+        generatedImages: generatedImage ? [generatedImage] : undefined
+    }
+    // Update the placeholder element with the image via re-render
+    const newElm = await messageElement(modelMessage);
+    responseElement.replaceWith(newElm);
+
     //finalize
     hljs.highlightAll();
     helpers.messageContainerScrollToBottom();
@@ -418,7 +456,8 @@ export async function send(msg: string) {
     //save chat history and settings (persist after success only)
     await persistUserAndModel(
         userMessage,
-        { role: "model", personalityid: selectedPersonalityId, parts: [{ text: rawText }], groundingContent: groundingContent || "", thinking: thinking || undefined }
+        modelMessage
+
     );
     return userMessageElement;
 }
@@ -511,27 +550,52 @@ async function buildHistory(selectedPersonality: Awaited<ReturnType<typeof perso
     if (selectedPersonality?.toneExamples && selectedPersonality.toneExamples.length > 0) {
         history.push(...selectedPersonality.toneExamples.map((toneExample) => ({ role: "model", parts: [{ text: toneExample }] })));
     }
-    const past = await Promise.all(currentChat.content.map(async (dbMessage: Message) => {
+    // Find the last message with generated images
+    let lastImageIndex = -1;
+    for (let i = currentChat.content.length - 1; i >= 0; i--) {
+        if (currentChat.content[i].generatedImages && currentChat.content[i].generatedImages!.length > 0) {
+            lastImageIndex = i;
+            break;
+        }
+    }
+
+    // Find the last message with attachments
+    let lastAttachmentIndex = -1;
+    for (let i = currentChat.content.length - 1; i >= 0; i--) {
+        if (currentChat.content[i].parts.some(part => part.attachments && part.attachments.length > 0)) {
+            lastAttachmentIndex = i;
+            break;
+        }
+    }
+
+    const past = await Promise.all(currentChat.content.map(async (dbMessage: Message, index: number) => {
         const genAiMessage: Content = {
             role: dbMessage.role,
             parts: ((await Promise.all(dbMessage.parts.map(async (part) => {
                 const text = part.text || "";
                 const attachments = part.attachments || [];
                 const parts: Part[] = [{ text }];
-                // if (attachments && attachments.length > 0) {
-                //     for (const attachment of attachments) {
-                //         parts.push({
-                //             inlineData: {
-                //                 //attachment is of File, we need to convert it to base64
-                //                 data: await helpers.fileToBase64(attachment),
-                //                 mimeType: attachment.type || "application/octet-stream",
-                //             }
-                //         });
-                //     }
-                // }
+                // Only include attachments if this is the last message that has them
+                if (attachments && attachments.length > 0 && index === lastAttachmentIndex) {
+                    for (const attachment of attachments) {
+                        parts.push({
+                            inlineData: {
+                                //attachment is of File, we need to convert it to base64
+                                data: await helpers.fileToBase64(attachment),
+                                mimeType: attachment.type || "application/octet-stream",
+                            }
+                        });
+                    }
+                }
                 return parts;
             })))).flat()
         };
+        // Only include generated images if this is the last message that has them
+        if (dbMessage.generatedImages && index === lastImageIndex) {
+            genAiMessage.parts?.push(...(dbMessage.generatedImages?.map(img => {
+                return { inlineData: { data: img.base64, mimeType: img.mimeType } };
+            })));
+        }
         return genAiMessage;
     }));
     history.push(...past);
@@ -569,4 +633,21 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
     const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
     if (chatInput) chatInput.checked = true;
     return chat!;
+}
+
+function computeThinking(model: string, enableThinking: boolean, settings: any) {
+    if (!enableThinking && model !== ChatModel.NANO_BANANA) {
+        return {
+            includeThoughts: false,
+            thinkingBudget: 0
+        };
+    }
+    if (model === ChatModel.NANO_BANANA) {
+        // there should be no thinking object at all for nanobanana
+        return undefined;
+    }
+    return {
+        includeThoughts: true,
+        thinkingBudget: settings.thinkingBudget
+    };
 }
