@@ -9,7 +9,7 @@ console.log("Is localhost:", isLocalhost);
 console.log("Hostname:", window.location.hostname);
 
 const debugElements = document.querySelectorAll<HTMLDivElement>(".debug");
-debugElements.forEach(element => element.remove());
+debugElements.forEach(element => element.style.display = "none");
 const generateRandomChatsButton = document.querySelector<HTMLButtonElement>("#btn-debug-chats");
 const generateRandomPersonalitiesButton = document.querySelector<HTMLButtonElement>("#btn-debug-personalities");
 
