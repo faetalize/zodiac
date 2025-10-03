@@ -30,7 +30,7 @@ export const messageElement = async (
             </div>
         </div>
         <div class="message-role-api" style="display: none;">${message.role}</div>
-        <div class="message-text">${helpers.getDecoded(message.parts[0].text)}</div>
+        <div class="message-text">${await helpers.getDecoded(message.parts[0].text)}</div>
         <div class="attachment-preview-container">
             ${Array.from(message.parts[0].attachments || []).map((attachment: File) => {
                 if (attachment.type.startsWith("image/")) {
@@ -52,13 +52,13 @@ export const messageElement = async (
     }
     //model message
     else {
-    const personality: Personality = await personalityService.get(String(message.personalityid)) || personalityService.getDefault();
+        const personality: Personality = await personalityService.get(String(message.personalityid)) || personalityService.getDefault();
         messageDiv.classList.add("message-model");
-            const rawInitial = message.parts[0].text || "";
-            const initialHtml = helpers.getDecoded(rawInitial) || "";
-            // If we already have generated images, don't show loading spinner even if text is empty
-            const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
-            const isLoading = rawInitial.trim().length === 0 && !hasImages;
+        const rawInitial = message.parts[0].text || "";
+        const initialHtml = await helpers.getDecoded(rawInitial) || "";
+        // If we already have generated images, don't show loading spinner even if text is empty
+        const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
+        const isLoading = rawInitial.trim().length === 0 && !hasImages;
         const hasThinking = !!message.thinking && message.thinking.trim().length > 0;
         messageDiv.innerHTML =
             `<div class="message-header">
@@ -73,9 +73,9 @@ export const messageElement = async (
         </div>
         <div class="message-role-api" style="display: none;">${message.role}</div>
         ${hasThinking ? `<div class="message-thinking">` +
-            `<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
-            `<div class="thinking-content" hidden>${message.thinking || ''}</div>` +
-        `</div>` : ''}
+                `<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
+                `<div class="thinking-content" hidden>${await helpers.getDecoded(message.thinking || '' )}</div>` +
+                `</div>` : ''}
             <div class="message-text${isLoading ? ' is-loading' : ''}">
                 <span class="message-spinner"></span>
                 <div class="message-text-content">${initialHtml}</div>
@@ -130,7 +130,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
     const messageText = messageElement.querySelector<HTMLElement>(".message-text-content") || messageElement.querySelector<HTMLElement>(".message-text");
 
     if (!editButton || !saveButton || !messageText) return;
-    
+
     let originalAttachments: FileList | undefined;
     let editingAttachments: File[] = [];
 
@@ -164,7 +164,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
             editingAttachments.forEach((attachment, index) => {
                 const container = document.createElement("div");
                 container.classList.add("attachment-container", "editable-attachment");
-                
+
                 if (attachment.type.startsWith("image/")) {
                     const img = document.createElement("img");
                     img.src = URL.createObjectURL(attachment);
@@ -175,24 +175,24 @@ function setupMessageEditing(messageElement: HTMLElement) {
                     const fileIcon = document.createElement("span");
                     fileIcon.classList.add("material-symbols-outlined", "attachment-icon");
                     fileIcon.textContent = "text_snippet";
-                    
+
                     const fileDetailsDiv = document.createElement("div");
                     fileDetailsDiv.classList.add("attachment-details");
-                    
+
                     const fileName = document.createElement("span");
                     fileName.classList.add("attachment-name");
                     fileName.textContent = attachment.name;
-                    
+
                     const fileType = document.createElement("span");
                     fileType.classList.add("attachment-type");
                     fileType.textContent = attachment.type;
-                    
+
                     fileDetailsDiv.appendChild(fileName);
                     fileDetailsDiv.appendChild(fileType);
                     container.appendChild(fileIcon);
                     container.appendChild(fileDetailsDiv);
                 }
-                
+
                 // Add remove button for editing
                 const removeButton = document.createElement("button");
                 removeButton.classList.add("btn-textual", "material-symbols-outlined", "btn-remove-attachment");
@@ -217,12 +217,12 @@ function setupMessageEditing(messageElement: HTMLElement) {
     function rerenderEditingAttachments() {
         const attachmentContainer = messageElement.querySelector<HTMLElement>(".attachment-preview-container");
         if (!attachmentContainer) return;
-        
+
         attachmentContainer.innerHTML = '';
         editingAttachments.forEach((attachment, index) => {
             const container = document.createElement("div");
             container.classList.add("attachment-container", "editable-attachment");
-            
+
             if (attachment.type.startsWith("image/")) {
                 const img = document.createElement("img");
                 img.src = URL.createObjectURL(attachment);
@@ -233,24 +233,24 @@ function setupMessageEditing(messageElement: HTMLElement) {
                 const fileIcon = document.createElement("span");
                 fileIcon.classList.add("material-symbols-outlined", "attachment-icon");
                 fileIcon.textContent = "text_snippet";
-                
+
                 const fileDetailsDiv = document.createElement("div");
                 fileDetailsDiv.classList.add("attachment-details");
-                
+
                 const fileName = document.createElement("span");
                 fileName.classList.add("attachment-name");
                 fileName.textContent = attachment.name;
-                
+
                 const fileType = document.createElement("span");
                 fileType.classList.add("attachment-type");
                 fileType.textContent = attachment.type;
-                
+
                 fileDetailsDiv.appendChild(fileName);
                 fileDetailsDiv.appendChild(fileType);
                 container.appendChild(fileIcon);
                 container.appendChild(fileDetailsDiv);
             }
-            
+
             // Add remove button for editing
             const removeButton = document.createElement("button");
             removeButton.classList.add("btn-textual", "material-symbols-outlined", "btn-remove-attachment");
@@ -286,7 +286,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
 
         // Update the chat history in database with both text and attachments
         await updateMessageInDatabase(markdownContent, messageIndex, editingAttachments);
-        
+
         // Re-render the message element to show the updated attachments without edit buttons
         const currentChat = await chatsService.getCurrentChat(db);
         if (currentChat && currentChat.content[messageIndex]) {
@@ -312,7 +312,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
             messageText.removeAttribute("contenteditable");
             editButton.style.display = "inline-block";
             saveButton.style.display = "none";
-            
+
             // Restore original attachments display
             const attachmentContainer = messageElement.querySelector<HTMLElement>(".attachment-preview-container");
             if (attachmentContainer && originalAttachments) {
@@ -320,7 +320,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
                 Array.from(originalAttachments).forEach((attachment: File) => {
                     const container = document.createElement("div");
                     container.classList.add("attachment-container");
-                    
+
                     if (attachment.type.startsWith("image/")) {
                         const img = document.createElement("img");
                         img.src = URL.createObjectURL(attachment);
@@ -331,24 +331,24 @@ function setupMessageEditing(messageElement: HTMLElement) {
                         const fileIcon = document.createElement("span");
                         fileIcon.classList.add("material-symbols-outlined", "attachment-icon");
                         fileIcon.textContent = "text_snippet";
-                        
+
                         const fileDetailsDiv = document.createElement("div");
                         fileDetailsDiv.classList.add("attachment-details");
-                        
+
                         const fileName = document.createElement("span");
                         fileName.classList.add("attachment-name");
                         fileName.textContent = attachment.name;
-                        
+
                         const fileType = document.createElement("span");
                         fileType.classList.add("attachment-type");
                         fileType.textContent = attachment.type;
-                        
+
                         fileDetailsDiv.appendChild(fileName);
                         fileDetailsDiv.appendChild(fileType);
                         container.appendChild(fileIcon);
                         container.appendChild(fileDetailsDiv);
                     }
-                    
+
                     attachmentContainer.appendChild(container);
                 });
             }
@@ -384,7 +384,7 @@ function setupMessageRegeneration(messageElement: HTMLElement) {
 function setupMessageClipboard(messageElement: HTMLElement) {
     const clipboardButton = messageElement.querySelector(".btn-clipboard");
     clipboardButton?.addEventListener("click", async () => {
-    const messageContent = messageElement.querySelector<HTMLDivElement>(".message-text-content") || messageElement.querySelector<HTMLDivElement>(".message-text");
+        const messageContent = messageElement.querySelector<HTMLDivElement>(".message-text-content") || messageElement.querySelector<HTMLDivElement>(".message-text");
         await navigator.clipboard.writeText(await parserService.parseHtmlToMarkdown(messageContent!) || "");
         clipboardButton.innerHTML = "check";
         setTimeout(() => {
@@ -402,7 +402,7 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
 
         // Update the message content in the parts array
         currentChat.content[messageIndex].parts[0].text = markdownContent;
-        
+
         // Update attachments if provided
         if (attachments !== undefined) {
             // Convert File[] to FileList

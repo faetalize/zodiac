@@ -1205,7 +1205,6 @@ form {
 
 #messageInput {
     text-wrap: wrap;
-    white-space: pre-wrap;
     overflow-wrap: break-word;
     word-break: break-word;
     line-height: 1.5rem;
@@ -1214,6 +1213,14 @@ form {
     flex-grow: 1;
     border-radius: 1rem;
     padding: 0.8rem;
+}
+
+#messageInput p{
+    margin: 0;
+}
+
+.thinking-content p {
+    margin: 0;
 }
 
 #messageInput:focus-visible {

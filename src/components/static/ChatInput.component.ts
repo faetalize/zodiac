@@ -18,7 +18,7 @@ internetSearchToggle.addEventListener("click", () => {
     internetSearchToggle.classList.toggle("btn-toggled");
 });
 
-//enter key to send message but support shift+enter for new line
+//enter key to send message but support shift+enter for new line on PC only
 messageInput.addEventListener("keydown", (e: KeyboardEvent) => {
     // Check if the user is on a mobile device
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -35,11 +35,12 @@ messageInput.addEventListener("paste", (e: ClipboardEvent) => {
     const text = e.clipboardData!.getData('text/plain');
     document.execCommand("insertText", false, text);
 });
-messageInput.addEventListener("input", () => {
-    if (messageInput.innerHTML == "<br>") {
+messageInput.addEventListener("input", (e) => {
+    if (messageInput.innerHTML.trim() == "<br>" || messageInput.innerHTML.trim() == "<p><br></p>") {
         messageInput.innerHTML = "";
     }
 });
+
 sendMessageButton.addEventListener("click", async () => {
     let userMessageElement: HTMLElement | undefined;
     try {
