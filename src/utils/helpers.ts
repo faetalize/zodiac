@@ -65,32 +65,69 @@ export function getSanitized(string: string) {
 }
 
 function getUnescaped(innerHTML: string) {
-    return innerHTML.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+    return innerHTML
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
 }
+
 
 function getMdNewLined(innerHTML: string) {
     //replace <br> with \n
-    //also collapse multiple newlines into one
-    return innerHTML.replace(/<br>/g, "\n").replace(/\n{2,}/g, "\n");
+    return innerHTML.replace(/<br>/g, "\n");
 }
 
 export function getEncoded(innerHTML: string) {
     return getUnescaped(getMdNewLined(innerHTML)).trim();
 }
 
-export function getDecoded(encoded: string) {
-    //reescape, convert to md
-    return marked.parse(encoded.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"), { breaks: true });
-}
-
-// Basic HTML escape for displaying raw reasoning/thinking safely inside <code> blocks
-export function escapeHtml(str: string): string {
-    return str
+function getEscaped(unescapedString: string): string {
+    return unescapedString
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
+}
+
+export async function getDecoded(encoded: string) {
+    // Re-escape only OUTSIDE of code spans/blocks to avoid double-escaping inside backticks
+    // 1) Temporarily replace fenced blocks and inline code with placeholders
+    const blocks: string[] = [];
+    const inlines: string[] = [];
+
+    // Use private-use unicode range to minimize collision with user content
+    const blockToken = (i: number) => `\uE000MD_BLOCK_${i}\uE000`;
+    const inlineToken = (i: number) => `\uE000MD_INLINE_${i}\uE000`;
+
+    let protectedMd = encoded;
+
+    // Protect fenced code blocks ```lang\n...\n```
+    protectedMd = protectedMd.replace(/```[\s\S]*?```/g, (m) => {
+        blocks.push(m);
+        return blockToken(blocks.length - 1);
+    });
+
+    // Protect inline code `...`
+    protectedMd = protectedMd.replace(/`[^`]*`/g, (m) => {
+        inlines.push(m);
+        return inlineToken(inlines.length - 1);
+    });
+
+    // 2) Escape the remaining (non-code) segments to neutralize HTML
+    protectedMd = getEscaped(protectedMd);
+
+    // 3) Restore the protected code segments
+    protectedMd = protectedMd
+        .replace(/\uE000MD_BLOCK_(\d+)\uE000/g, (_, i) => blocks[Number(i)])
+        .replace(/\uE000MD_INLINE_(\d+)\uE000/g, (_, i) => inlines[Number(i)]);
+
+    // 4) Parse to HTML with marked
+    const result = await marked.parse(protectedMd, { breaks: true, gfm: true, async: true });
+    return result;
 }
 
 export function messageContainerScrollToBottom() {
