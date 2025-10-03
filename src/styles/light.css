@@ -59,6 +59,35 @@
         background-color: #23487a;
     }
 
+    .toast {
+        --toast-fg: #0b1221;
+        box-shadow: 0 18px 40px rgba(22, 42, 78, 0.14);
+    }
+
+    .toast--normal {
+        --toast-normal-bg: rgba(255, 255, 255, 0.96);
+        --toast-normal-border: rgba(58, 110, 170, 0.22);
+        --toast-normal-action-bg: rgba(76, 124, 190, 0.14);
+        --toast-normal-action-bg-hover: rgba(76, 124, 190, 0.22);
+        --toast-normal-close-hover: rgba(76, 124, 190, 0.12);
+    }
+
+    .toast--warning {
+        --toast-warning-bg: rgba(255, 247, 225, 0.96);
+        --toast-warning-border: rgba(212, 170, 63, 0.35);
+        --toast-warning-action-bg: rgba(245, 186, 73, 0.2);
+        --toast-warning-action-bg-hover: rgba(245, 186, 73, 0.3);
+        --toast-warning-close-hover: rgba(245, 186, 73, 0.18);
+    }
+
+    .toast--danger {
+        --toast-danger-bg: rgba(255, 238, 241, 0.96);
+        --toast-danger-border: rgba(219, 83, 101, 0.35);
+        --toast-danger-action-bg: rgba(230, 95, 114, 0.2);
+        --toast-danger-action-bg-hover: rgba(230, 95, 114, 0.3);
+        --toast-danger-close-hover: rgba(230, 95, 114, 0.18);
+    }
+
 
     input,
     textarea,

@@ -147,3 +147,5 @@ supabase/functions/*
 deno.lock
 cloudflare-workers
 cloudflare-workers/*
+.github/instructions
+.github/instructions/*

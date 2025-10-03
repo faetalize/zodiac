@@ -57,6 +57,35 @@
         background-color: #3a648b;
     }
 
+    .toast {
+        --toast-fg: #f7fbff;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+    }
+
+    .toast--normal {
+        --toast-normal-bg: rgba(21, 35, 49, 0.95);
+        --toast-normal-border: rgba(136, 172, 227, 0.32);
+        --toast-normal-action-bg: rgba(136, 172, 227, 0.24);
+        --toast-normal-action-bg-hover: rgba(136, 172, 227, 0.34);
+        --toast-normal-close-hover: rgba(136, 172, 227, 0.22);
+    }
+
+    .toast--warning {
+        --toast-warning-bg: rgba(92, 61, 12, 0.94);
+        --toast-warning-border: rgba(255, 214, 132, 0.45);
+        --toast-warning-action-bg: rgba(255, 214, 132, 0.28);
+        --toast-warning-action-bg-hover: rgba(255, 214, 132, 0.37);
+        --toast-warning-close-hover: rgba(255, 214, 132, 0.26);
+    }
+
+    .toast--danger {
+        --toast-danger-bg: rgba(94, 18, 22, 0.94);
+        --toast-danger-border: rgba(255, 179, 189, 0.45);
+        --toast-danger-action-bg: rgba(255, 179, 189, 0.3);
+        --toast-danger-action-bg-hover: rgba(255, 179, 189, 0.4);
+        --toast-danger-close-hover: rgba(255, 179, 189, 0.28);
+    }
+
     .btn-toggled {
         background: #166bb1b0 !important;
     }
