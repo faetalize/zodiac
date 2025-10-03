@@ -10,9 +10,9 @@ import * as chatsService from "../../services/Chats.service";
 
 export const messageElement = async (
     message: Message
-) => {
-    const messageElement = document.createElement("div");
-    messageElement.classList.add("message");
+): Promise<HTMLElement> => {
+    const messageDiv = document.createElement("div");
+    messageDiv.classList.add("message");
     // NOTE: Thinking (chain-of-thought) is optionally provided by the backend
     // and stored in message.thinking. It is rendered inside a collapsible
     // region so it does not overwhelm the main answer. We do not parse it
@@ -20,7 +20,7 @@ export const messageElement = async (
     // keep its raw reasoning form.
     //user message
     if (!message.personalityid) {
-        messageElement.innerHTML =
+        messageDiv.innerHTML =
             `<div class="message-header">
             <h3 class="message-role">You:</h3>
             <div class="message-actions">
@@ -53,14 +53,14 @@ export const messageElement = async (
     //model message
     else {
     const personality: Personality = await personalityService.get(String(message.personalityid)) || personalityService.getDefault();
-        messageElement.classList.add("message-model");
+        messageDiv.classList.add("message-model");
             const rawInitial = message.parts[0].text || "";
             const initialHtml = helpers.getDecoded(rawInitial) || "";
             // If we already have generated images, don't show loading spinner even if text is empty
             const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
             const isLoading = rawInitial.trim().length === 0 && !hasImages;
         const hasThinking = !!message.thinking && message.thinking.trim().length > 0;
-        messageElement.innerHTML =
+        messageDiv.innerHTML =
             `<div class="message-header">
             <img class="pfp" src="${personality.image}" loading="lazy"></img>
             <h3 class="message-role">${personality.name}</h3>
@@ -93,8 +93,8 @@ export const messageElement = async (
         </div>
         <div class="message-grounding-rendered-content"></div>`;
         if (hasThinking) {
-            const toggle = messageElement.querySelector<HTMLButtonElement>('.thinking-toggle');
-            const content = messageElement.querySelector<HTMLElement>('.thinking-content');
+            const toggle = messageDiv.querySelector<HTMLButtonElement>('.thinking-toggle');
+            const content = messageDiv.querySelector<HTMLElement>('.thinking-content');
             toggle?.addEventListener('click', () => {
                 const expanded = toggle.getAttribute('aria-expanded') === 'true';
                 if (expanded) {
@@ -109,18 +109,18 @@ export const messageElement = async (
             });
         }
         if (message.groundingContent) {
-            const shadow = messageElement.querySelector<HTMLElement>(".message-grounding-rendered-content")!.attachShadow({ mode: "open" });
+            const shadow = messageDiv.querySelector<HTMLElement>(".message-grounding-rendered-content")!.attachShadow({ mode: "open" });
             shadow.innerHTML = message.groundingContent;
             shadow.querySelector<HTMLDivElement>(".carousel")!.style.scrollbarWidth = "unset";
         }
     }
 
-    setupMessageRegeneration(messageElement);
-    setupMessageClipboard(messageElement);
-    setupMessageEditing(messageElement);
-    setupGeneratedImageInteractions(messageElement);
+    setupMessageRegeneration(messageDiv);
+    setupMessageClipboard(messageDiv);
+    setupMessageEditing(messageDiv);
+    setupGeneratedImageInteractions(messageDiv);
 
-    return messageElement;
+    return messageDiv;
 
 }
 
@@ -130,10 +130,25 @@ function setupMessageEditing(messageElement: HTMLElement) {
     const messageText = messageElement.querySelector<HTMLElement>(".message-text-content") || messageElement.querySelector<HTMLElement>(".message-text");
 
     if (!editButton || !saveButton || !messageText) return;
+    
+    let originalAttachments: FileList | undefined;
+    let editingAttachments: File[] = [];
+
     // Handle edit button click
     editButton.addEventListener("click", async () => {
         // Store original content to allow cancellation
         messageText.dataset.originalContent = messageText.innerHTML;
+
+        // Get current message's attachments
+        const messageContainer = document.querySelector(".message-container");
+        if (messageContainer) {
+            const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
+            const currentChat = await chatsService.getCurrentChat(db);
+            if (currentChat && currentChat.content[messageIndex]) {
+                originalAttachments = currentChat.content[messageIndex].parts[0].attachments;
+                editingAttachments = originalAttachments ? Array.from(originalAttachments) : [];
+            }
+        }
 
         // Enable editing
         console.log(await parserService.parseHtmlToMarkdown(messageText.innerHTML));
@@ -141,10 +156,114 @@ function setupMessageEditing(messageElement: HTMLElement) {
         messageText.innerText = await parserService.parseHtmlToMarkdown(messageText.innerHTML) || ""; // Convert HTML to Markdown for editing
         messageText.focus();
 
+        // Show editable attachments
+        const attachmentContainer = messageElement.querySelector<HTMLElement>(".attachment-preview-container");
+        if (attachmentContainer && editingAttachments.length > 0) {
+            // Clear current attachment display and show editable version
+            attachmentContainer.innerHTML = '';
+            editingAttachments.forEach((attachment, index) => {
+                const container = document.createElement("div");
+                container.classList.add("attachment-container", "editable-attachment");
+                
+                if (attachment.type.startsWith("image/")) {
+                    const img = document.createElement("img");
+                    img.src = URL.createObjectURL(attachment);
+                    img.alt = attachment.name;
+                    img.classList.add("attachment-image");
+                    container.appendChild(img);
+                } else if (attachment.type === "application/pdf" || attachment.type === "text/plain") {
+                    const fileIcon = document.createElement("span");
+                    fileIcon.classList.add("material-symbols-outlined", "attachment-icon");
+                    fileIcon.textContent = "text_snippet";
+                    
+                    const fileDetailsDiv = document.createElement("div");
+                    fileDetailsDiv.classList.add("attachment-details");
+                    
+                    const fileName = document.createElement("span");
+                    fileName.classList.add("attachment-name");
+                    fileName.textContent = attachment.name;
+                    
+                    const fileType = document.createElement("span");
+                    fileType.classList.add("attachment-type");
+                    fileType.textContent = attachment.type;
+                    
+                    fileDetailsDiv.appendChild(fileName);
+                    fileDetailsDiv.appendChild(fileType);
+                    container.appendChild(fileIcon);
+                    container.appendChild(fileDetailsDiv);
+                }
+                
+                // Add remove button for editing
+                const removeButton = document.createElement("button");
+                removeButton.classList.add("btn-textual", "material-symbols-outlined", "btn-remove-attachment");
+                removeButton.textContent = "close";
+                removeButton.addEventListener("click", () => {
+                    // Remove from editingAttachments array
+                    editingAttachments.splice(index, 1);
+                    container.remove();
+                    // Re-render all attachments with updated indices
+                    rerenderEditingAttachments();
+                });
+                container.appendChild(removeButton);
+                attachmentContainer.appendChild(container);
+            });
+        }
+
         // Show save button, hide edit button
         editButton.style.display = "none";
         saveButton.style.display = "inline-block";
     });
+
+    function rerenderEditingAttachments() {
+        const attachmentContainer = messageElement.querySelector<HTMLElement>(".attachment-preview-container");
+        if (!attachmentContainer) return;
+        
+        attachmentContainer.innerHTML = '';
+        editingAttachments.forEach((attachment, index) => {
+            const container = document.createElement("div");
+            container.classList.add("attachment-container", "editable-attachment");
+            
+            if (attachment.type.startsWith("image/")) {
+                const img = document.createElement("img");
+                img.src = URL.createObjectURL(attachment);
+                img.alt = attachment.name;
+                img.classList.add("attachment-image");
+                container.appendChild(img);
+            } else if (attachment.type === "application/pdf" || attachment.type === "text/plain") {
+                const fileIcon = document.createElement("span");
+                fileIcon.classList.add("material-symbols-outlined", "attachment-icon");
+                fileIcon.textContent = "text_snippet";
+                
+                const fileDetailsDiv = document.createElement("div");
+                fileDetailsDiv.classList.add("attachment-details");
+                
+                const fileName = document.createElement("span");
+                fileName.classList.add("attachment-name");
+                fileName.textContent = attachment.name;
+                
+                const fileType = document.createElement("span");
+                fileType.classList.add("attachment-type");
+                fileType.textContent = attachment.type;
+                
+                fileDetailsDiv.appendChild(fileName);
+                fileDetailsDiv.appendChild(fileType);
+                container.appendChild(fileIcon);
+                container.appendChild(fileDetailsDiv);
+            }
+            
+            // Add remove button for editing
+            const removeButton = document.createElement("button");
+            removeButton.classList.add("btn-textual", "material-symbols-outlined", "btn-remove-attachment");
+            removeButton.textContent = "close";
+            removeButton.addEventListener("click", () => {
+                // Remove from editingAttachments array
+                editingAttachments.splice(index, 1);
+                rerenderEditingAttachments();
+            });
+            container.appendChild(removeButton);
+            attachmentContainer.appendChild(container);
+        });
+    }
 
     // Handle save button click
     saveButton.addEventListener("click", async () => {
@@ -156,7 +275,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
         // Disable editing
         messageText.removeAttribute("contenteditable");
 
-        // Show edit button, hide save button
+        // Show save button, hide edit button
         editButton.style.display = "inline-block";
         saveButton.style.display = "none";
 
@@ -165,8 +284,18 @@ function setupMessageEditing(messageElement: HTMLElement) {
         if (!messageContainer) return;
         const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
 
-        // Update the chat history in database
-        await updateMessageInDatabase(markdownContent, messageIndex);
+        // Update the chat history in database with both text and attachments
+        await updateMessageInDatabase(markdownContent, messageIndex, editingAttachments);
+        
+        // Re-render the message element to show the updated attachments without edit buttons
+        const currentChat = await chatsService.getCurrentChat(db);
+        if (currentChat && currentChat.content[messageIndex]) {
+            const updatedMessage = currentChat.content[messageIndex];
+            // Import the module to get a reference to the function
+            const { messageElement: createMessageElementFunction } = await import("./message");
+            const newMessageElement = await createMessageElementFunction(updatedMessage);
+            messageElement.replaceWith(newMessageElement);
+        }
     });
 
     // Handle keydown events in the editable message
@@ -183,6 +312,46 @@ function setupMessageEditing(messageElement: HTMLElement) {
             messageText.removeAttribute("contenteditable");
             editButton.style.display = "inline-block";
             saveButton.style.display = "none";
+            
+            // Restore original attachments display
+            const attachmentContainer = messageElement.querySelector<HTMLElement>(".attachment-preview-container");
+            if (attachmentContainer && originalAttachments) {
+                attachmentContainer.innerHTML = '';
+                Array.from(originalAttachments).forEach((attachment: File) => {
+                    const container = document.createElement("div");
+                    container.classList.add("attachment-container");
+                    
+                    if (attachment.type.startsWith("image/")) {
+                        const img = document.createElement("img");
+                        img.src = URL.createObjectURL(attachment);
+                        img.alt = attachment.name;
+                        img.classList.add("attachment-image");
+                        container.appendChild(img);
+                    } else if (attachment.type === "application/pdf" || attachment.type === "text/plain") {
+                        const fileIcon = document.createElement("span");
+                        fileIcon.classList.add("material-symbols-outlined", "attachment-icon");
+                        fileIcon.textContent = "text_snippet";
+                        
+                        const fileDetailsDiv = document.createElement("div");
+                        fileDetailsDiv.classList.add("attachment-details");
+                        
+                        const fileName = document.createElement("span");
+                        fileName.classList.add("attachment-name");
+                        fileName.textContent = attachment.name;
+                        
+                        const fileType = document.createElement("span");
+                        fileType.classList.add("attachment-type");
+                        fileType.textContent = attachment.type;
+                        
+                        fileDetailsDiv.appendChild(fileName);
+                        fileDetailsDiv.appendChild(fileType);
+                        container.appendChild(fileIcon);
+                        container.appendChild(fileDetailsDiv);
+                    }
+                    
+                    attachmentContainer.appendChild(container);
+                });
+            }
         }
     });
 }
@@ -224,7 +393,7 @@ function setupMessageClipboard(messageElement: HTMLElement) {
     });
 }
 
-async function updateMessageInDatabase(markdownContent: string, messageIndex: number) {
+async function updateMessageInDatabase(markdownContent: string, messageIndex: number, attachments?: File[]) {
     if (!db) return;
     try {
         // Get the current chat and update the specific message
@@ -233,6 +402,14 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
 
         // Update the message content in the parts array
         currentChat.content[messageIndex].parts[0].text = markdownContent;
+        
+        // Update attachments if provided
+        if (attachments !== undefined) {
+            // Convert File[] to FileList
+            const dataTransfer = new DataTransfer();
+            attachments.forEach(file => dataTransfer.items.add(file));
+            currentChat.content[messageIndex].parts[0].attachments = dataTransfer.files;
+        }
 
         // Save the updated chat back to the database
         await db.chats.put(currentChat);

@@ -2300,6 +2300,25 @@ input[name="currentChat"][value="none"] {
     color: white !important;
 }
 
+.editable-attachment {
+    border: 2px dashed rgba(var(--accent-color), 0.3);
+    transition: border-color 0.2s ease;
+}
+
+.editable-attachment:hover {
+    border-color: rgba(var(--accent-color), 0.6);
+}
+
+.editable-attachment .btn-remove-attachment {
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+.editable-attachment .btn-remove-attachment:hover {
+    opacity: 1;
+    background-color: rgba(220, 53, 69, 0.8) !important;
+}
+
 
 .setting-label {
     display: flex;
