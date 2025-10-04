@@ -34,7 +34,7 @@ export function loadSettings() {
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || "70";
     modelSelect.value = localStorage.getItem("model") || "gemini-flash-latest";
     imageModelSelect.value = localStorage.getItem("imageModel") || "imagen-4.0-ultra-generate-001";
-    autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
+    autoscrollToggle.checked = localStorage.getItem("autoscroll") ? localStorage.getItem("autoscroll") === "true" : true;
     // Default ON when not set
     streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";
     const enableThinkingStored = localStorage.getItem("enableThinking");
@@ -112,4 +112,9 @@ export async function getSystemPrompt(): Promise<ContentUnion> {
         ],
         role: "system"
     };
+}
+
+export function isMobile() {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    return isMobile;
 }

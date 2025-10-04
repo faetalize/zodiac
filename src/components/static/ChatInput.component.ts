@@ -4,7 +4,7 @@ import * as personalityService from '../../services/Personality.service';
 import { attachmentPreviewElement } from './AttachmentPreview.component';
 import * as toastService from '../../services/Toast.service';
 import { formatFileListForToast, getFileSignature, isSupportedFileType, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS, SUPPORTED_ACCEPT_ATTRIBUTE, SUPPORTED_TYPES_LABEL } from '../../utils/attachments';
-
+import * as settingsService from '../../services/Settings.service';
 interface AttachmentRemovedDetail {
     signature: string;
 }
@@ -41,7 +41,7 @@ internetSearchToggle.addEventListener("click", () => {
 
 //enter key to send message but support shift+enter for new line on PC only
 messageInput.addEventListener("keydown", (e: KeyboardEvent) => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isMobile = settingsService.isMobile();
 
     if (e.key === "Enter" && !e.shiftKey && !isMobile) {
         e.preventDefault();
@@ -51,6 +51,16 @@ messageInput.addEventListener("keydown", (e: KeyboardEvent) => {
 
 messageInput.addEventListener("blur", () => {
     /* no-op placeholder to mirror previous behaviour */
+});
+
+messageInput.addEventListener("focus", () => {
+    if (!settingsService.isMobile()) {
+        return;
+    }
+
+    window.requestAnimationFrame(() => {
+        messageInput.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
 });
 
 messageInput.addEventListener("paste", (event: ClipboardEvent) => {

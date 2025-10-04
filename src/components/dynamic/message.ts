@@ -8,6 +8,7 @@ import * as messageService from "../../services/Message.service";
 import * as parserService from "../../services/Parser.service";
 import * as chatsService from "../../services/Chats.service";
 import { enhanceCodeBlocks, stripCodeBlockEnhancements } from "../../utils/codeBlocks";
+import * as settingsService from "../../services/Settings.service";
 
 export const messageElement = async (
     message: Message
@@ -306,8 +307,9 @@ function setupMessageEditing(messageElement: HTMLElement) {
 
     // Handle keydown events in the editable message
     messageText.addEventListener("keydown", (e) => {
+        const isMobile = settingsService.isMobile();
         // Save on Enter key (without shift for newlines)
-        if (e.key === "Enter" && !e.shiftKey) {
+        if (e.key === "Enter" && !e.shiftKey && !isMobile) {
             e.preventDefault();
             saveButton.click();
         }

@@ -8,6 +8,11 @@
     src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v232/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsI.woff2) format('woff2');
 }
 
+:root {
+    --vvh: 100dvh;
+    --vv-offset-top: 0px;
+}
+
 .material-symbols-outlined {
     font-family: 'Material Symbols Outlined';
     font-weight: normal;
@@ -60,6 +65,30 @@ body {
     overflow: hidden;
     font-optical-sizing: auto;
     margin: 0;
+}
+
+body.ime-open {
+    height: var(--vvh, 100dvh);
+    overflow: hidden;
+    overscroll-behavior-y: contain;
+}
+
+body.ime-open .container {
+    height: var(--vvh, 100dvh);
+    min-height: var(--vvh, 100dvh);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+body.ime-open .message-container {
+    overscroll-behavior: contain;
+}
+
+body.ime-open #message-box {
+    margin-bottom: 0;
+}
+
+body.ime-open #messageInput {
+    max-height: min(14rem, calc(var(--vvh, 100dvh) * 0.4));
 }
 
 p {
@@ -1302,6 +1331,9 @@ form {
     flex-grow: 1;
     border-radius: 1rem;
     padding: 0.8rem;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
 }
 
 #messageInput p{
@@ -1608,11 +1640,9 @@ form {
     display: flex;
     gap: 0.5rem;
     padding: 1rem;
-
-
     width: 100dvw;
-    height: 100dvh;
-
+    height: var(--vvh, 100dvh);
+    min-height: var(--vvh, 100dvh);
 }
 
 #chat-title {
@@ -1630,7 +1660,7 @@ form {
     width: 25rem;
     border-radius: 1rem;
     scrollbar-width: thin;
-    height: calc(100dvh - 4rem);
+    height: calc(var(--vvh, 100dvh) - 4rem);
     z-index: 1;
 }
 
@@ -2633,7 +2663,7 @@ input[name="currentChat"][value="none"] {
 
     .sidebar {
         top: 0;
-        height: calc(100dvh - 2rem);
+        height: calc(var(--vvh, 100dvh) - 2rem);
         margin: 0;
         width: calc(100dvw - 2rem);
         position: fixed;
