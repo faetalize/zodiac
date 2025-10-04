@@ -75,7 +75,7 @@ export const messageElement = async (
         <div class="message-role-api" style="display: none;">${message.role}</div>
         ${hasThinking ? `<div class="message-thinking">` +
                 `<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
-                `<div class="thinking-content" hidden>${await helpers.getDecoded(message.thinking || '' )}</div>` +
+                `<div class="thinking-content" hidden>${await helpers.getDecoded(message.thinking || '')}</div>` +
                 `</div>` : ''}
             <div class="message-text${isLoading ? ' is-loading' : ''}">
                 <span class="message-spinner"></span>
@@ -139,11 +139,11 @@ function setupMessageEditing(messageElement: HTMLElement) {
 
     // Handle edit button click
     editButton.addEventListener("click", async () => {
-    // Store original content to allow cancellation
-    messageText.dataset.originalContent = messageText.innerHTML;
+        // Store original content to allow cancellation
+        messageText.dataset.originalContent = messageText.innerHTML;
 
-    // Remove code block chrome before entering edit mode
-    stripCodeBlockEnhancements(messageText);
+        // Remove code block chrome before entering edit mode
+        stripCodeBlockEnhancements(messageText);
 
         // Get current message's attachments
         const messageContainer = document.querySelector(".message-container");
@@ -157,9 +157,8 @@ function setupMessageEditing(messageElement: HTMLElement) {
         }
 
         // Enable editing
-        console.log(await parserService.parseHtmlToMarkdown(messageText.innerHTML));
         messageText.setAttribute("contenteditable", "true");
-        messageText.innerText = await parserService.parseHtmlToMarkdown(messageText.innerHTML) || ""; // Convert HTML to Markdown for editing
+        messageText.innerText = parserService.parseHtmlToMarkdown(messageText.innerHTML) || ""; // Convert HTML to Markdown for editing
         messageText.focus();
 
         // Show editable attachments
@@ -274,10 +273,9 @@ function setupMessageEditing(messageElement: HTMLElement) {
     // Handle save button click
     saveButton.addEventListener("click", async () => {
         const markdownContent = messageText.innerText!;
-        console.log("Saving edited message:", markdownContent);
-    messageText.innerHTML = await parserService.parseMarkdownToHtml(markdownContent) || ""; // Convert Markdown back to HTML
-    hljs.highlightAll(); // Reapply syntax highlighting
-    enhanceCodeBlocks(messageElement);
+        messageText.innerHTML = await parserService.parseMarkdownToHtml(markdownContent) || ""; // Convert Markdown back to HTML
+        hljs.highlightAll(); // Reapply syntax highlighting
+        enhanceCodeBlocks(messageElement);
 
         // Disable editing
         messageText.removeAttribute("contenteditable");
@@ -303,6 +301,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
             const newMessageElement = await createMessageElementFunction(updatedMessage);
             messageElement.replaceWith(newMessageElement);
         }
+        hljs.highlightAll(); // Reapply syntax highlighting
     });
 
     // Handle keydown events in the editable message
@@ -395,7 +394,22 @@ function setupMessageClipboard(messageElement: HTMLElement) {
         if (!clipboardButton) return;
         const messageContent = messageElement.querySelector<HTMLDivElement>(".message-text-content") || messageElement.querySelector<HTMLDivElement>(".message-text");
         try {
-            await navigator.clipboard.writeText(await parserService.parseHtmlToMarkdown(messageContent!) || "");
+            let markdown = parserService.parseHtmlToMarkdown(messageContent!) || "";
+            //remove any line that ends with 'content\_copy' EXACTLY (it's not content_copy, it needs to match the slash).(artifact of code block bottom bar)
+            const lines = markdown.split('\n');
+            const cleanedLines: string[] = [];
+            for (let i = 0; i < lines.length; i++) {
+                if (!/content\\_copy$/.test(lines[i])) {
+                    cleanedLines.push(lines[i]);
+                } else {
+                    // Remove the previous line if it exists
+                    if (cleanedLines.length > 0) {
+                        cleanedLines.pop();
+                    }
+                }
+            }
+            markdown = cleanedLines.join('\n');
+            await navigator.clipboard.writeText(markdown);
             clipboardButton.disabled = true;
             clipboardButton.innerHTML = "check";
             setTimeout(() => {

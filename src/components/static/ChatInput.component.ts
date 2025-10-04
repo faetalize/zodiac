@@ -62,14 +62,14 @@ messageInput.addEventListener("paste", (event: ClipboardEvent) => {
     if (!hasFiles) {
         if (hasText) {
             event.preventDefault();
-            document.execCommand("insertText", false, text);
+            document.execCommand("insertText", false, text.replace(/\r/g, ""));
         }
         return;
     }
 
     event.preventDefault();
     if (hasText) {
-        document.execCommand("insertText", false, text);
+        document.execCommand("insertText", false, text.replace(/\r/g, ""));
     }
     addAttachments(files);
 });

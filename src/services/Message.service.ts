@@ -76,6 +76,7 @@ export async function send(msg: string) {
     //insert user's message element
     const userMessage: Message = { role: "user", parts: [{ text: msg, attachments: attachmentFiles }] };
     const userMessageElement = await insertMessageV2(userMessage);
+    hljs.highlightAll();
     helpers.messageContainerScrollToBottom();
 
     //insert model message placeholder

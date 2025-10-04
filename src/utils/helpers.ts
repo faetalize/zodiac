@@ -64,6 +64,24 @@ export function getSanitized(string: string) {
     return DOMPurify.sanitize(string.trim());
 }
 
+
+/**
+ * Converts HTML entities back to their original characters.
+ * 
+ * This function takes an HTML string and replaces common HTML entities
+ * with their corresponding characters. It handles entities for less-than,
+ * greater-than, ampersand, quotes, apostrophes, and non-breaking spaces.
+ * 
+ * @param innerHTML - The HTML string containing entities to be unescaped
+ * @returns The string with HTML entities converted back to original characters
+ * 
+ * @example
+ * ```typescript
+ * const htmlString = "&lt;div&gt;Hello &amp; welcome&lt;/div&gt;";
+ * const unescaped = getUnescaped(htmlString);
+ * console.log(unescaped); // "<div>Hello & welcome</div>"
+ * ```
+ */
 function getUnescaped(innerHTML: string) {
     return innerHTML
     .replace(/&lt;/g, "<")
@@ -75,6 +93,31 @@ function getUnescaped(innerHTML: string) {
 }
 
 
+/**
+ * Converts contenteditable HTML content to Markdown-formatted plain text with proper line breaks.
+ * 
+ * This function normalizes HTML content from contenteditable elements, particularly handling
+ * mobile keyboard behavior where lines are wrapped in `<div>` or `<p>` tags instead of using `<br>`.
+ * 
+ * The normalization process:
+ * 1. Converts `<br>` tags to newlines
+ * 2. Treats closing `</div>`/`</p>` tags as line breaks
+ * 3. Removes opening `<div>`/`<p>` tags
+ * 4. Collapses empty block placeholders like `<div><br></div>`
+ * 5. Strips all remaining HTML tags to produce plain text
+ * 6. Converts single newlines within paragraphs to Markdown hard breaks (two spaces + newline)
+ * 7. Limits consecutive newlines to maximum of 2 to preserve intentional spacing
+ * 
+ * @param innerHTML - The HTML content from a contenteditable element
+ * @returns Markdown-formatted plain text with proper line breaks, or empty string if input is falsy
+ * 
+ * @example
+ * ```typescript
+ * const html = '<div>Line 1</div><div>Line 2<br>Line 3</div>';
+ * const result = getMdNewLined(html);
+ * // Returns: "Line 1\n\nLine 2  \nLine 3"
+ * ```
+ */
 function getMdNewLined(innerHTML: string) {
     // Normalize contenteditable HTML into plain text with newlines.
     // Mobile (Android) keyboards inside a contenteditable often wrap each line

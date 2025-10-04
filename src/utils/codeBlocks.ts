@@ -18,6 +18,7 @@ const LANGUAGE_ALIASES: Record<string, string> = {
     rb: "Ruby",
     csharp: "C#",
     "c#": "C#",
+    cs : "C#",
     cpp: "C++",
     "c++": "C++",
     java: "Java",
