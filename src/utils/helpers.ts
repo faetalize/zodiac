@@ -76,8 +76,57 @@ function getUnescaped(innerHTML: string) {
 
 
 function getMdNewLined(innerHTML: string) {
-    //replace <br> with \n
-    return innerHTML.replace(/<br>/g, "\n");
+    // Normalize contenteditable HTML into plain text with newlines.
+    // Mobile (Android) keyboards inside a contenteditable often wrap each line
+    // in <div> or <p> instead of inserting <br>. Previously we only converted
+    // <br> to newlines, so those block tags were kept, later escaped, and
+    // appeared as literal "<div>" in the sent message. Here we:
+    // 1. Convert <br> to \n
+    // 2. Treat closing </div>/<p> as line breaks
+    // 3. Remove opening <div>/<p> tags
+    // 4. Collapse empty block placeholders like <div><br></div>
+    // 5. Strip any remaining tags (we only want plain text from the input field)
+    // 6. Collapse excessive blank lines and trim trailing whitespace
+    if (!innerHTML) return "";
+
+    let normalized = innerHTML;
+
+    // Replace &nbsp; early (will also be handled later, but helps with cleanup)
+    normalized = normalized.replace(/&nbsp;/gi, ' ');
+
+    // Collapse empty block placeholders e.g. <div><br></div> -> newline
+    normalized = normalized.replace(/<(div|p)>\s*<br\s*\/?>(\s*)<\/\1>/gi, '\n');
+
+    // Convert <br> to newline
+    normalized = normalized.replace(/<br\s*\/?>(?=\s*<)/gi, '\n'); // br before another tag
+    normalized = normalized.replace(/<br\s*\/?>(?!\n)/gi, '\n');   // remaining br
+
+    // Treat closing block tags as newline boundaries
+    normalized = normalized.replace(/<\/(div|p)>/gi, '\n');
+
+    // Remove opening block tags
+    normalized = normalized.replace(/<(div|p)[^>]*>/gi, '');
+
+    // Strip any remaining HTML tags (keeps user content purely textual)
+    normalized = normalized.replace(/<[^>]+>/g, '');
+
+    // Normalize CRLF -> LF
+    normalized = normalized.replace(/\r\n?/g, '\n');
+
+    // Collapse 3+ consecutive newlines to max 2 (preserve intentional blank line spacing)
+    normalized = normalized.replace(/\n{3,}/g, '\n\n');
+
+    // Within each paragraph (split by double newline), convert single newlines to Markdown hard breaks (two spaces before \n)
+    // This ensures a single Enter (common on mobile) renders as a visible line break instead of a space.
+    normalized = normalized
+        .split(/\n\n/) // paragraph boundaries
+        .map(paragraph => paragraph.replace(/\n/g, '  \n'))
+        .join('\n\n');
+
+    // Final trim (do after transformations so we don't remove intentional internal newlines)
+    normalized = normalized.trim();
+
+    return normalized;
 }
 
 export function getEncoded(innerHTML: string) {

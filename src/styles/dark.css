@@ -2,6 +2,13 @@
 @media (prefers-color-scheme: dark) {
     :root {
         color-scheme: dark;
+        --code-block-bg: transparent;
+        --code-block-border: rgba(118, 160, 227, 0.22);
+        --code-toolbar-bg: rgba(54, 78, 117, 0.35);
+        --code-toolbar-fg: #d7e7ff;
+        --code-copy-hover: rgba(118, 160, 227, 0.28);
+        --code-copy-success: #7fc4ff;
+        --inline-code-border: #ffffff42;
     }
 
     :focus-visible{
@@ -251,11 +258,6 @@
 
     #btn-add-tone-example:hover {
         background-color: #1a2733;
-    }
-
-    code {
-        background-color: #0c0c0c8a;
-        outline: 1px solid #000000ab;
     }
 
     .api-key-valid {

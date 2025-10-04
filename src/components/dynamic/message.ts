@@ -7,6 +7,7 @@ import * as personalityService from "../../services/Personality.service";
 import * as messageService from "../../services/Message.service";
 import * as parserService from "../../services/Parser.service";
 import * as chatsService from "../../services/Chats.service";
+import { enhanceCodeBlocks, stripCodeBlockEnhancements } from "../../utils/codeBlocks";
 
 export const messageElement = async (
     message: Message
@@ -115,6 +116,8 @@ export const messageElement = async (
         }
     }
 
+    enhanceCodeBlocks(messageDiv);
+
     setupMessageRegeneration(messageDiv);
     setupMessageClipboard(messageDiv);
     setupMessageEditing(messageDiv);
@@ -136,8 +139,11 @@ function setupMessageEditing(messageElement: HTMLElement) {
 
     // Handle edit button click
     editButton.addEventListener("click", async () => {
-        // Store original content to allow cancellation
-        messageText.dataset.originalContent = messageText.innerHTML;
+    // Store original content to allow cancellation
+    messageText.dataset.originalContent = messageText.innerHTML;
+
+    // Remove code block chrome before entering edit mode
+    stripCodeBlockEnhancements(messageText);
 
         // Get current message's attachments
         const messageContainer = document.querySelector(".message-container");
@@ -269,8 +275,9 @@ function setupMessageEditing(messageElement: HTMLElement) {
     saveButton.addEventListener("click", async () => {
         const markdownContent = messageText.innerText!;
         console.log("Saving edited message:", markdownContent);
-        messageText.innerHTML = await parserService.parseMarkdownToHtml(markdownContent) || ""; // Convert Markdown back to HTML
-        hljs.highlightAll(); // Reapply syntax highlighting
+    messageText.innerHTML = await parserService.parseMarkdownToHtml(markdownContent) || ""; // Convert Markdown back to HTML
+    hljs.highlightAll(); // Reapply syntax highlighting
+    enhanceCodeBlocks(messageElement);
 
         // Disable editing
         messageText.removeAttribute("contenteditable");
@@ -309,6 +316,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
         // Cancel on Escape key
         if (e.key === "Escape") {
             messageText.innerHTML = messageText.dataset.originalContent || "";
+            enhanceCodeBlocks(messageElement);
             messageText.removeAttribute("contenteditable");
             editButton.style.display = "inline-block";
             saveButton.style.display = "none";
@@ -382,14 +390,21 @@ function setupMessageRegeneration(messageElement: HTMLElement) {
 }
 
 function setupMessageClipboard(messageElement: HTMLElement) {
-    const clipboardButton = messageElement.querySelector(".btn-clipboard");
+    const clipboardButton = messageElement.querySelector<HTMLButtonElement>(".btn-clipboard");
     clipboardButton?.addEventListener("click", async () => {
+        if (!clipboardButton) return;
         const messageContent = messageElement.querySelector<HTMLDivElement>(".message-text-content") || messageElement.querySelector<HTMLDivElement>(".message-text");
-        await navigator.clipboard.writeText(await parserService.parseHtmlToMarkdown(messageContent!) || "");
-        clipboardButton.innerHTML = "check";
-        setTimeout(() => {
-            clipboardButton.innerHTML = "content_copy";
-        }, 1000);
+        try {
+            await navigator.clipboard.writeText(await parserService.parseHtmlToMarkdown(messageContent!) || "");
+            clipboardButton.disabled = true;
+            clipboardButton.innerHTML = "check";
+            setTimeout(() => {
+                clipboardButton.innerHTML = "content_copy";
+                clipboardButton.disabled = false;
+            }, 1000);
+        } catch (error) {
+            console.error("Failed to copy message", error);
+        }
     });
 }
 

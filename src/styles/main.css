@@ -25,9 +25,21 @@
     -webkit-font-smoothing: antialiased;
 }
 
+
 * {
     -webkit-tap-highlight-color: transparent;
     scrollbar-width: thin;
+}
+
+code{
+    padding: 2px;
+    border-radius: 2px;
+    outline: 1px solid var(--inline-code-border);
+}
+
+hr {
+    margin: 1rem 0;
+    opacity: 0.5;
 }
 
 .hidden {
@@ -948,6 +960,78 @@ form {
     opacity: 0;
 }
 
+.code-block-wrapper {
+    position: relative;
+    margin: 1.25rem 0;
+    border-radius: 0.75rem;
+    border: 1px solid var(--code-block-border, rgba(255, 255, 255, 0.12));
+    background: var(--code-block-bg, rgba(14, 20, 28, 0.8));
+    overflow: hidden;
+}
+
+.code-block-wrapper pre {
+    margin: 0;
+    padding: 0;
+    overflow-x: auto;
+    font-family: 'Space Mono', 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+    font-size: 0.9rem;
+    line-height: 1.25;
+    background: transparent;
+}
+
+.code-block-wrapper pre code {
+    display: block;
+}
+
+.code-block-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0.95rem;
+    background: var(--code-toolbar-bg, rgba(255, 255, 255, 0.05));
+    border-top: 1px solid var(--code-block-border, rgba(255, 255, 255, 0.12));
+    color: var(--code-toolbar-fg, inherit);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.code-lang-label {
+    font-weight: 600;
+    opacity: 0.82;
+    white-space: nowrap;
+}
+
+.code-copy-btn {
+    border: none;
+    background: transparent;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.15rem 0.35rem;
+    border-radius: 0.4rem;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.18s ease;
+}
+
+.code-copy-btn:hover {
+    background: var(--code-copy-hover, rgba(255, 255, 255, 0.12));
+}
+
+.code-copy-btn:disabled {
+    cursor: default;
+    opacity: 0.55;
+    background: transparent;
+    transform: none;
+}
+
+.code-copy-btn.is-success {
+    color: var(--code-copy-success, #79b8ff);
+}
+
 /* Reasoning / thinking collapsible section (revised) */
 /* Revised thinking section (now above main text, plain text) */
 .message-thinking {
@@ -1225,6 +1309,13 @@ form {
 
 #messageInput:focus-visible {
     border: none;
+}
+
+.message-text h3 {
+    margin-block: 1rem;
+}
+.message-text h4 {
+    margin-block: 0.7rem;
 }
 
 #changelog {
