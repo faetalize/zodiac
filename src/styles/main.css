@@ -1282,6 +1282,11 @@ form {
     overflow: hidden;
 }
 
+#message-box.drag-over {
+    border: 2px dashed var(--message-drop-border, rgba(76, 124, 190, 0.55));
+    background-color: var(--message-drop-bg, rgba(188, 212, 243, 0.35));
+}
+
 #message-box::-webkit-scrollbar {
     height: 1rem;
     width: 0.5rem;

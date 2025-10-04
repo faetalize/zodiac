@@ -94,18 +94,18 @@ function getMdNewLined(innerHTML: string) {
     // Replace &nbsp; early (will also be handled later, but helps with cleanup)
     normalized = normalized.replace(/&nbsp;/gi, ' ');
 
-    // Collapse empty block placeholders e.g. <div><br></div> -> newline
-    normalized = normalized.replace(/<(div|p)>\s*<br\s*\/?>(\s*)<\/\1>/gi, '\n');
+    // Collapse empty block placeholders e.g. <div><br></div> -> double newline
+    normalized = normalized.replace(/<(div|p)>\s*<br\s*\/?>(\s*)<\/\1>/gi, '\n\n');
 
     // Convert <br> to newline
     normalized = normalized.replace(/<br\s*\/?>(?=\s*<)/gi, '\n'); // br before another tag
     normalized = normalized.replace(/<br\s*\/?>(?!\n)/gi, '\n');   // remaining br
 
-    // Treat closing block tags as newline boundaries
-    normalized = normalized.replace(/<\/(div|p)>/gi, '\n');
+    // Treat opening block tags as newline boundaries
+    normalized = normalized.replace(/<(div|p)[^>]*>/gi, '\n');
 
-    // Remove opening block tags
-    normalized = normalized.replace(/<(div|p)[^>]*>/gi, '');
+    // Remove closing block tags
+    normalized = normalized.replace(/<\/(div|p)>/gi, '');
 
     // Strip any remaining HTML tags (keeps user content purely textual)
     normalized = normalized.replace(/<[^>]+>/g, '');

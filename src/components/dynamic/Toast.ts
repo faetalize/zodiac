@@ -1,7 +1,7 @@
 import { ToastInstance, ToastSeverity } from "../../models/Toast";
 
 const TOAST_CONTAINER_ID = "toast-container";
-const AUTO_DISMISS_MS = 2000;
+const AUTO_DISMISS_MS = 5000;
 
 interface MountToastResult {
     element: HTMLElement;
@@ -143,7 +143,7 @@ export function mountToast(instance: ToastInstance, onDismissed: DismissCallback
         cleanup();
         if (toast.parentElement) {
             toast.parentElement.removeChild(toast);
-            if (toast.parentElement.childElementCount === 0) {
+            if (toast && toast.parentElement && toast.parentElement.childElementCount === 0) {
                 toast.parentElement.remove();
             }
         }

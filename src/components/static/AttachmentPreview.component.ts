@@ -1,3 +1,5 @@
+import { getFileSignature } from "../../utils/attachments";
+
 const input = document.querySelector<HTMLInputElement>("#attachments");
 const attachmentPreview = document.querySelector<HTMLDivElement>("#attachment-preview");
 
@@ -10,18 +12,16 @@ if (!input || !attachmentPreview) {
 export const attachmentPreviewElement = (file: File) => {
     const container = document.createElement("div");
     container.classList.add("attachment-container");
+    container.dataset.attachmentSignature = getFileSignature(file);
     if (file.type.startsWith("image/")) {
         const reader = new FileReader();
         reader.onload = (e) => {
             const removeButton = document.createElement("button");
             removeButton.classList.add("btn-textual", "material-symbols-outlined", "btn-remove-attachment");
             removeButton.addEventListener("click", () => {
-                //remove the current file from the input
-                const fileList = Array.from(input.files || []).filter(f => f.name !== file.name);
-                const dataTransfer = new DataTransfer();
-                fileList.forEach(f => dataTransfer.items.add(f));
-                input.files = dataTransfer.files; // Update the input's files property
+                removeFileFromInput(file);
                 container.remove(); // Remove the preview element
+                dispatchAttachmentRemoved(file);
             });
             removeButton.textContent = "close";
             const img = document.createElement("img");
@@ -39,12 +39,9 @@ export const attachmentPreviewElement = (file: File) => {
         const removeButton = document.createElement("button");
         removeButton.classList.add("btn-textual", "material-symbols-outlined", "btn-remove-attachment");
         removeButton.addEventListener("click", () => {
-            //remove the current file from the input
-            const fileList = Array.from(input.files || []).filter(f => f.name !== file.name);
-            const dataTransfer = new DataTransfer();
-            fileList.forEach(f => dataTransfer.items.add(f));
-            input.files = dataTransfer.files; // Update the input's files property
+            removeFileFromInput(file);
             container.remove(); // Remove the preview element
+            dispatchAttachmentRemoved(file);
         });
         removeButton.textContent = "close";
         const fileIcon = document.createElement("span");
@@ -81,4 +78,30 @@ input.addEventListener("change", (event) => {
 export function clearAttachmentPreviews(){
     const previews = attachmentPreview?.querySelectorAll(".attachment-container");
     previews?.forEach(preview => preview.querySelector<HTMLButtonElement>(".btn-remove-attachment")?.click());
+}
+
+function removeFileFromInput(file: File): void {
+    const signatureToRemove = getFileSignature(file);
+    const dataTransfer = new DataTransfer();
+    for (const existing of Array.from(input!.files || [])) {
+        if (getFileSignature(existing) === signatureToRemove) {
+            continue;
+        }
+        dataTransfer.items.add(existing);
+    }
+    input!.files = dataTransfer.files;
+}
+
+function dispatchAttachmentRemoved(file: File): void {
+    const detail = {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified,
+        signature: getFileSignature(file),
+    } as const;
+    attachmentPreview!.dispatchEvent(new CustomEvent("attachmentremoved", {
+        detail,
+        bubbles: true,
+    }));
 }

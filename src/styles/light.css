@@ -8,6 +8,8 @@
         --code-copy-hover: rgba(68, 110, 214, 0.18);
         --code-copy-success: #2f6deb;
         --inline-code-border: #00000029;
+        --message-drop-border: rgba(76, 124, 190, 0.55);
+        --message-drop-bg: rgba(188, 212, 243, 0.4);
     }
 
     :focus-visible {

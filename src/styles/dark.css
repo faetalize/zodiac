@@ -9,6 +9,8 @@
         --code-copy-hover: rgba(118, 160, 227, 0.28);
         --code-copy-success: #7fc4ff;
         --inline-code-border: #ffffff42;
+        --message-drop-border: rgba(118, 160, 227, 0.65);
+        --message-drop-bg: rgba(34, 72, 107, 0.45);
     }
 
     :focus-visible{
