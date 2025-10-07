@@ -7,12 +7,14 @@ import * as personalityService from "../../services/Personality.service";
 import * as messageService from "../../services/Message.service";
 import * as parserService from "../../services/Parser.service";
 import * as chatsService from "../../services/Chats.service";
+import { enhanceCodeBlocks, stripCodeBlockEnhancements } from "../../utils/codeBlocks";
+import * as settingsService from "../../services/Settings.service";
 
 export const messageElement = async (
     message: Message
-) => {
-    const messageElement = document.createElement("div");
-    messageElement.classList.add("message");
+): Promise<HTMLElement> => {
+    const messageDiv = document.createElement("div");
+    messageDiv.classList.add("message");
     // NOTE: Thinking (chain-of-thought) is optionally provided by the backend
     // and stored in message.thinking. It is rendered inside a collapsible
     // region so it does not overwhelm the main answer. We do not parse it
@@ -20,7 +22,7 @@ export const messageElement = async (
     // keep its raw reasoning form.
     //user message
     if (!message.personalityid) {
-        messageElement.innerHTML =
+        messageDiv.innerHTML =
             `<div class="message-header">
             <h3 class="message-role">You:</h3>
             <div class="message-actions">
@@ -30,7 +32,7 @@ export const messageElement = async (
             </div>
         </div>
         <div class="message-role-api" style="display: none;">${message.role}</div>
-        <div class="message-text">${helpers.getDecoded(message.parts[0].text)}</div>
+        <div class="message-text">${await helpers.getDecoded(message.parts[0].text)}</div>
         <div class="attachment-preview-container">
             ${Array.from(message.parts[0].attachments || []).map((attachment: File) => {
                 if (attachment.type.startsWith("image/")) {
@@ -52,15 +54,15 @@ export const messageElement = async (
     }
     //model message
     else {
-    const personality: Personality = await personalityService.get(String(message.personalityid)) || personalityService.getDefault();
-        messageElement.classList.add("message-model");
-            const rawInitial = message.parts[0].text || "";
-            const initialHtml = helpers.getDecoded(rawInitial) || "";
-            // If we already have generated images, don't show loading spinner even if text is empty
-            const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
-            const isLoading = rawInitial.trim().length === 0 && !hasImages;
+        const personality: Personality = await personalityService.get(String(message.personalityid)) || personalityService.getDefault();
+        messageDiv.classList.add("message-model");
+        const rawInitial = message.parts[0].text || "";
+        const initialHtml = await helpers.getDecoded(rawInitial) || "";
+        // If we already have generated images, don't show loading spinner even if text is empty
+        const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
+        const isLoading = rawInitial.trim().length === 0 && !hasImages;
         const hasThinking = !!message.thinking && message.thinking.trim().length > 0;
-        messageElement.innerHTML =
+        messageDiv.innerHTML =
             `<div class="message-header">
             <img class="pfp" src="${personality.image}" loading="lazy"></img>
             <h3 class="message-role">${personality.name}</h3>
@@ -73,9 +75,9 @@ export const messageElement = async (
         </div>
         <div class="message-role-api" style="display: none;">${message.role}</div>
         ${hasThinking ? `<div class="message-thinking">` +
-            `<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
-            `<div class="thinking-content" hidden>${message.thinking || ''}</div>` +
-        `</div>` : ''}
+                `<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
+                `<div class="thinking-content" hidden>${await helpers.getDecoded(message.thinking || '')}</div>` +
+                `</div>` : ''}
             <div class="message-text${isLoading ? ' is-loading' : ''}">
                 <span class="message-spinner"></span>
                 <div class="message-text-content">${initialHtml}</div>
@@ -93,8 +95,8 @@ export const messageElement = async (
         </div>
         <div class="message-grounding-rendered-content"></div>`;
         if (hasThinking) {
-            const toggle = messageElement.querySelector<HTMLButtonElement>('.thinking-toggle');
-            const content = messageElement.querySelector<HTMLElement>('.thinking-content');
+            const toggle = messageDiv.querySelector<HTMLButtonElement>('.thinking-toggle');
+            const content = messageDiv.querySelector<HTMLElement>('.thinking-content');
             toggle?.addEventListener('click', () => {
                 const expanded = toggle.getAttribute('aria-expanded') === 'true';
                 if (expanded) {
@@ -109,18 +111,20 @@ export const messageElement = async (
             });
         }
         if (message.groundingContent) {
-            const shadow = messageElement.querySelector<HTMLElement>(".message-grounding-rendered-content")!.attachShadow({ mode: "open" });
+            const shadow = messageDiv.querySelector<HTMLElement>(".message-grounding-rendered-content")!.attachShadow({ mode: "open" });
             shadow.innerHTML = message.groundingContent;
             shadow.querySelector<HTMLDivElement>(".carousel")!.style.scrollbarWidth = "unset";
         }
     }
 
-    setupMessageRegeneration(messageElement);
-    setupMessageClipboard(messageElement);
-    setupMessageEditing(messageElement);
-    setupGeneratedImageInteractions(messageElement);
+    enhanceCodeBlocks(messageDiv);
 
-    return messageElement;
+    setupMessageRegeneration(messageDiv);
+    setupMessageClipboard(messageDiv);
+    setupMessageEditing(messageDiv);
+    setupGeneratedImageInteractions(messageDiv);
+
+    return messageDiv;
 
 }
 
@@ -130,33 +134,154 @@ function setupMessageEditing(messageElement: HTMLElement) {
     const messageText = messageElement.querySelector<HTMLElement>(".message-text-content") || messageElement.querySelector<HTMLElement>(".message-text");
 
     if (!editButton || !saveButton || !messageText) return;
+
+    let originalAttachments: FileList | undefined;
+    let editingAttachments: File[] = [];
+
     // Handle edit button click
     editButton.addEventListener("click", async () => {
         // Store original content to allow cancellation
         messageText.dataset.originalContent = messageText.innerHTML;
 
+        // Remove code block chrome before entering edit mode
+        stripCodeBlockEnhancements(messageText);
+
+        // Get current message's attachments
+        const messageContainer = document.querySelector(".message-container");
+        if (messageContainer) {
+            const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
+            const currentChat = await chatsService.getCurrentChat(db);
+            if (currentChat && currentChat.content[messageIndex]) {
+                originalAttachments = currentChat.content[messageIndex].parts[0].attachments;
+                editingAttachments = originalAttachments ? Array.from(originalAttachments) : [];
+            }
+        }
+
         // Enable editing
-        console.log(await parserService.parseHtmlToMarkdown(messageText.innerHTML));
         messageText.setAttribute("contenteditable", "true");
-        messageText.innerText = await parserService.parseHtmlToMarkdown(messageText.innerHTML) || ""; // Convert HTML to Markdown for editing
+        messageText.innerText = parserService.parseHtmlToMarkdown(messageText.innerHTML) || ""; // Convert HTML to Markdown for editing
         messageText.focus();
+
+        // Show editable attachments
+        const attachmentContainer = messageElement.querySelector<HTMLElement>(".attachment-preview-container");
+        if (attachmentContainer && editingAttachments.length > 0) {
+            // Clear current attachment display and show editable version
+            attachmentContainer.innerHTML = '';
+            editingAttachments.forEach((attachment, index) => {
+                const container = document.createElement("div");
+                container.classList.add("attachment-container", "editable-attachment");
+
+                if (attachment.type.startsWith("image/")) {
+                    const img = document.createElement("img");
+                    img.src = URL.createObjectURL(attachment);
+                    img.alt = attachment.name;
+                    img.classList.add("attachment-image");
+                    container.appendChild(img);
+                } else if (attachment.type === "application/pdf" || attachment.type === "text/plain") {
+                    const fileIcon = document.createElement("span");
+                    fileIcon.classList.add("material-symbols-outlined", "attachment-icon");
+                    fileIcon.textContent = "text_snippet";
+
+                    const fileDetailsDiv = document.createElement("div");
+                    fileDetailsDiv.classList.add("attachment-details");
+
+                    const fileName = document.createElement("span");
+                    fileName.classList.add("attachment-name");
+                    fileName.textContent = attachment.name;
+
+                    const fileType = document.createElement("span");
+                    fileType.classList.add("attachment-type");
+                    fileType.textContent = attachment.type;
+
+                    fileDetailsDiv.appendChild(fileName);
+                    fileDetailsDiv.appendChild(fileType);
+                    container.appendChild(fileIcon);
+                    container.appendChild(fileDetailsDiv);
+                }
+
+                // Add remove button for editing
+                const removeButton = document.createElement("button");
+                removeButton.classList.add("btn-textual", "material-symbols-outlined", "btn-remove-attachment");
+                removeButton.textContent = "close";
+                removeButton.addEventListener("click", () => {
+                    // Remove from editingAttachments array
+                    editingAttachments.splice(index, 1);
+                    container.remove();
+                    // Re-render all attachments with updated indices
+                    rerenderEditingAttachments();
+                });
+                container.appendChild(removeButton);
+                attachmentContainer.appendChild(container);
+            });
+        }
 
         // Show save button, hide edit button
         editButton.style.display = "none";
         saveButton.style.display = "inline-block";
     });
 
+    function rerenderEditingAttachments() {
+        const attachmentContainer = messageElement.querySelector<HTMLElement>(".attachment-preview-container");
+        if (!attachmentContainer) return;
+
+        attachmentContainer.innerHTML = '';
+        editingAttachments.forEach((attachment, index) => {
+            const container = document.createElement("div");
+            container.classList.add("attachment-container", "editable-attachment");
+
+            if (attachment.type.startsWith("image/")) {
+                const img = document.createElement("img");
+                img.src = URL.createObjectURL(attachment);
+                img.alt = attachment.name;
+                img.classList.add("attachment-image");
+                container.appendChild(img);
+            } else if (attachment.type === "application/pdf" || attachment.type === "text/plain") {
+                const fileIcon = document.createElement("span");
+                fileIcon.classList.add("material-symbols-outlined", "attachment-icon");
+                fileIcon.textContent = "text_snippet";
+
+                const fileDetailsDiv = document.createElement("div");
+                fileDetailsDiv.classList.add("attachment-details");
+
+                const fileName = document.createElement("span");
+                fileName.classList.add("attachment-name");
+                fileName.textContent = attachment.name;
+
+                const fileType = document.createElement("span");
+                fileType.classList.add("attachment-type");
+                fileType.textContent = attachment.type;
+
+                fileDetailsDiv.appendChild(fileName);
+                fileDetailsDiv.appendChild(fileType);
+                container.appendChild(fileIcon);
+                container.appendChild(fileDetailsDiv);
+            }
+
+            // Add remove button for editing
+            const removeButton = document.createElement("button");
+            removeButton.classList.add("btn-textual", "material-symbols-outlined", "btn-remove-attachment");
+            removeButton.textContent = "close";
+            removeButton.addEventListener("click", () => {
+                // Remove from editingAttachments array
+                editingAttachments.splice(index, 1);
+                rerenderEditingAttachments();
+            });
+            container.appendChild(removeButton);
+            attachmentContainer.appendChild(container);
+        });
+    }
+
     // Handle save button click
     saveButton.addEventListener("click", async () => {
         const markdownContent = messageText.innerText!;
-        console.log("Saving edited message:", markdownContent);
         messageText.innerHTML = await parserService.parseMarkdownToHtml(markdownContent) || ""; // Convert Markdown back to HTML
         hljs.highlightAll(); // Reapply syntax highlighting
+        enhanceCodeBlocks(messageElement);
 
         // Disable editing
         messageText.removeAttribute("contenteditable");
 
-        // Show edit button, hide save button
+        // Show save button, hide edit button
         editButton.style.display = "inline-block";
         saveButton.style.display = "none";
 
@@ -165,14 +290,26 @@ function setupMessageEditing(messageElement: HTMLElement) {
         if (!messageContainer) return;
         const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
 
-        // Update the chat history in database
-        await updateMessageInDatabase(markdownContent, messageIndex);
+        // Update the chat history in database with both text and attachments
+        await updateMessageInDatabase(markdownContent, messageIndex, editingAttachments);
+
+        // Re-render the message element to show the updated attachments without edit buttons
+        const currentChat = await chatsService.getCurrentChat(db);
+        if (currentChat && currentChat.content[messageIndex]) {
+            const updatedMessage = currentChat.content[messageIndex];
+            // Import the module to get a reference to the function
+            const { messageElement: createMessageElementFunction } = await import("./message");
+            const newMessageElement = await createMessageElementFunction(updatedMessage);
+            messageElement.replaceWith(newMessageElement);
+        }
+        hljs.highlightAll(); // Reapply syntax highlighting
     });
 
     // Handle keydown events in the editable message
     messageText.addEventListener("keydown", (e) => {
+        const isMobile = settingsService.isMobile();
         // Save on Enter key (without shift for newlines)
-        if (e.key === "Enter" && !e.shiftKey) {
+        if (e.key === "Enter" && !e.shiftKey && !isMobile) {
             e.preventDefault();
             saveButton.click();
         }
@@ -180,9 +317,50 @@ function setupMessageEditing(messageElement: HTMLElement) {
         // Cancel on Escape key
         if (e.key === "Escape") {
             messageText.innerHTML = messageText.dataset.originalContent || "";
+            enhanceCodeBlocks(messageElement);
             messageText.removeAttribute("contenteditable");
             editButton.style.display = "inline-block";
             saveButton.style.display = "none";
+
+            // Restore original attachments display
+            const attachmentContainer = messageElement.querySelector<HTMLElement>(".attachment-preview-container");
+            if (attachmentContainer && originalAttachments) {
+                attachmentContainer.innerHTML = '';
+                Array.from(originalAttachments).forEach((attachment: File) => {
+                    const container = document.createElement("div");
+                    container.classList.add("attachment-container");
+
+                    if (attachment.type.startsWith("image/")) {
+                        const img = document.createElement("img");
+                        img.src = URL.createObjectURL(attachment);
+                        img.alt = attachment.name;
+                        img.classList.add("attachment-image");
+                        container.appendChild(img);
+                    } else if (attachment.type === "application/pdf" || attachment.type === "text/plain") {
+                        const fileIcon = document.createElement("span");
+                        fileIcon.classList.add("material-symbols-outlined", "attachment-icon");
+                        fileIcon.textContent = "text_snippet";
+
+                        const fileDetailsDiv = document.createElement("div");
+                        fileDetailsDiv.classList.add("attachment-details");
+
+                        const fileName = document.createElement("span");
+                        fileName.classList.add("attachment-name");
+                        fileName.textContent = attachment.name;
+
+                        const fileType = document.createElement("span");
+                        fileType.classList.add("attachment-type");
+                        fileType.textContent = attachment.type;
+
+                        fileDetailsDiv.appendChild(fileName);
+                        fileDetailsDiv.appendChild(fileType);
+                        container.appendChild(fileIcon);
+                        container.appendChild(fileDetailsDiv);
+                    }
+
+                    attachmentContainer.appendChild(container);
+                });
+            }
         }
     });
 }
@@ -213,18 +391,40 @@ function setupMessageRegeneration(messageElement: HTMLElement) {
 }
 
 function setupMessageClipboard(messageElement: HTMLElement) {
-    const clipboardButton = messageElement.querySelector(".btn-clipboard");
+    const clipboardButton = messageElement.querySelector<HTMLButtonElement>(".btn-clipboard");
     clipboardButton?.addEventListener("click", async () => {
-    const messageContent = messageElement.querySelector<HTMLDivElement>(".message-text-content") || messageElement.querySelector<HTMLDivElement>(".message-text");
-        await navigator.clipboard.writeText(await parserService.parseHtmlToMarkdown(messageContent!) || "");
-        clipboardButton.innerHTML = "check";
-        setTimeout(() => {
-            clipboardButton.innerHTML = "content_copy";
-        }, 1000);
+        if (!clipboardButton) return;
+        const messageContent = messageElement.querySelector<HTMLDivElement>(".message-text-content") || messageElement.querySelector<HTMLDivElement>(".message-text");
+        try {
+            let markdown = parserService.parseHtmlToMarkdown(messageContent!) || "";
+            //remove any line that ends with 'content\_copy' EXACTLY (it's not content_copy, it needs to match the slash).(artifact of code block bottom bar)
+            const lines = markdown.split('\n');
+            const cleanedLines: string[] = [];
+            for (let i = 0; i < lines.length; i++) {
+                if (!/content\\_copy$/.test(lines[i])) {
+                    cleanedLines.push(lines[i]);
+                } else {
+                    // Remove the previous line if it exists
+                    if (cleanedLines.length > 0) {
+                        cleanedLines.pop();
+                    }
+                }
+            }
+            markdown = cleanedLines.join('\n');
+            await navigator.clipboard.writeText(markdown);
+            clipboardButton.disabled = true;
+            clipboardButton.innerHTML = "check";
+            setTimeout(() => {
+                clipboardButton.innerHTML = "content_copy";
+                clipboardButton.disabled = false;
+            }, 1000);
+        } catch (error) {
+            console.error("Failed to copy message", error);
+        }
     });
 }
 
-async function updateMessageInDatabase(markdownContent: string, messageIndex: number) {
+async function updateMessageInDatabase(markdownContent: string, messageIndex: number, attachments?: File[]) {
     if (!db) return;
     try {
         // Get the current chat and update the specific message
@@ -233,6 +433,14 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
 
         // Update the message content in the parts array
         currentChat.content[messageIndex].parts[0].text = markdownContent;
+
+        // Update attachments if provided
+        if (attachments !== undefined) {
+            // Convert File[] to FileList
+            const dataTransfer = new DataTransfer();
+            attachments.forEach(file => dataTransfer.items.add(file));
+            currentChat.content[messageIndex].parts[0].attachments = dataTransfer.files;
+        }
 
         // Save the updated chat back to the database
         await db.chats.put(currentChat);

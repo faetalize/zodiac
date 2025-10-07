@@ -57,35 +57,127 @@ export function lightenCard(element: HTMLElement) {
 }
 
 export function getVersion() {
-    return "1.0.1";
+    return "1.0.2";
 }
 
 export function getSanitized(string: string) {
     return DOMPurify.sanitize(string.trim());
 }
 
+
+/**
+ * Converts HTML entities back to their original characters.
+ * 
+ * This function takes an HTML string and replaces common HTML entities
+ * with their corresponding characters. It handles entities for less-than,
+ * greater-than, ampersand, quotes, apostrophes, and non-breaking spaces.
+ * 
+ * @param innerHTML - The HTML string containing entities to be unescaped
+ * @returns The string with HTML entities converted back to original characters
+ * 
+ * @example
+ * ```typescript
+ * const htmlString = "&lt;div&gt;Hello &amp; welcome&lt;/div&gt;";
+ * const unescaped = getUnescaped(htmlString);
+ * console.log(unescaped); // "<div>Hello & welcome</div>"
+ * ```
+ */
 function getUnescaped(innerHTML: string) {
-    return innerHTML.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+    return innerHTML
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
 }
 
+
+/**
+ * Converts contenteditable HTML content to Markdown-formatted plain text with proper line breaks.
+ * 
+ * This function normalizes HTML content from contenteditable elements, particularly handling
+ * mobile keyboard behavior where lines are wrapped in `<div>` or `<p>` tags instead of using `<br>`.
+ * 
+ * The normalization process:
+ * 1. Converts `<br>` tags to newlines
+ * 2. Treats closing `</div>`/`</p>` tags as line breaks
+ * 3. Removes opening `<div>`/`<p>` tags
+ * 4. Collapses empty block placeholders like `<div><br></div>`
+ * 5. Strips all remaining HTML tags to produce plain text
+ * 6. Converts single newlines within paragraphs to Markdown hard breaks (two spaces + newline)
+ * 7. Limits consecutive newlines to maximum of 2 to preserve intentional spacing
+ * 
+ * @param innerHTML - The HTML content from a contenteditable element
+ * @returns Markdown-formatted plain text with proper line breaks, or empty string if input is falsy
+ * 
+ * @example
+ * ```typescript
+ * const html = '<div>Line 1</div><div>Line 2<br>Line 3</div>';
+ * const result = getMdNewLined(html);
+ * // Returns: "Line 1\n\nLine 2  \nLine 3"
+ * ```
+ */
 function getMdNewLined(innerHTML: string) {
-    //replace <br> with \n
-    //also collapse multiple newlines into one
-    return innerHTML.replace(/<br>/g, "\n").replace(/\n{2,}/g, "\n");
+    // Normalize contenteditable HTML into plain text with newlines.
+    // Mobile (Android) keyboards inside a contenteditable often wrap each line
+    // in <div> or <p> instead of inserting <br>. Previously we only converted
+    // <br> to newlines, so those block tags were kept, later escaped, and
+    // appeared as literal "<div>" in the sent message. Here we:
+    // 1. Convert <br> to \n
+    // 2. Treat closing </div>/<p> as line breaks
+    // 3. Remove opening <div>/<p> tags
+    // 4. Collapse empty block placeholders like <div><br></div>
+    // 5. Strip any remaining tags (we only want plain text from the input field)
+    // 6. Collapse excessive blank lines and trim trailing whitespace
+    if (!innerHTML) return "";
+
+    let normalized = innerHTML;
+
+    // Replace &nbsp; early (will also be handled later, but helps with cleanup)
+    normalized = normalized.replace(/&nbsp;/gi, ' ');
+
+    // Collapse empty block placeholders e.g. <div><br></div> -> double newline
+    normalized = normalized.replace(/<(div|p)>\s*<br\s*\/?>(\s*)<\/\1>/gi, '\n\n');
+
+    // Convert <br> to newline
+    normalized = normalized.replace(/<br\s*\/?>(?=\s*<)/gi, '\n'); // br before another tag
+    normalized = normalized.replace(/<br\s*\/?>(?!\n)/gi, '\n');   // remaining br
+
+    // Treat opening block tags as newline boundaries
+    normalized = normalized.replace(/<(div|p)[^>]*>/gi, '\n');
+
+    // Remove closing block tags
+    normalized = normalized.replace(/<\/(div|p)>/gi, '');
+
+    // Strip any remaining HTML tags (keeps user content purely textual)
+    normalized = normalized.replace(/<[^>]+>/g, '');
+
+    // Normalize CRLF -> LF
+    normalized = normalized.replace(/\r\n?/g, '\n');
+
+    // Collapse 3+ consecutive newlines to max 2 (preserve intentional blank line spacing)
+    normalized = normalized.replace(/\n{3,}/g, '\n\n');
+
+    // Within each paragraph (split by double newline), convert single newlines to Markdown hard breaks (two spaces before \n)
+    // This ensures a single Enter (common on mobile) renders as a visible line break instead of a space.
+    normalized = normalized
+        .split(/\n\n/) // paragraph boundaries
+        .map(paragraph => paragraph.replace(/\n/g, '  \n'))
+        .join('\n\n');
+
+    // Final trim (do after transformations so we don't remove intentional internal newlines)
+    normalized = normalized.trim();
+
+    return normalized;
 }
 
 export function getEncoded(innerHTML: string) {
     return getUnescaped(getMdNewLined(innerHTML)).trim();
 }
 
-export function getDecoded(encoded: string) {
-    //reescape, convert to md
-    return marked.parse(encoded.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"), { breaks: true });
-}
-
-// Basic HTML escape for displaying raw reasoning/thinking safely inside <code> blocks
-export function escapeHtml(str: string): string {
-    return str
+function getEscaped(unescapedString: string): string {
+    return unescapedString
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -93,11 +185,48 @@ export function escapeHtml(str: string): string {
         .replace(/'/g, "&#39;");
 }
 
+export async function getDecoded(encoded: string) {
+    // Re-escape only OUTSIDE of code spans/blocks to avoid double-escaping inside backticks
+    // 1) Temporarily replace fenced blocks and inline code with placeholders
+    const blocks: string[] = [];
+    const inlines: string[] = [];
+
+    // Use private-use unicode range to minimize collision with user content
+    const blockToken = (i: number) => `\uE000MD_BLOCK_${i}\uE000`;
+    const inlineToken = (i: number) => `\uE000MD_INLINE_${i}\uE000`;
+
+    let protectedMd = encoded;
+
+    // Protect fenced code blocks ```lang\n...\n```
+    protectedMd = protectedMd.replace(/```[\s\S]*?```/g, (m) => {
+        blocks.push(m);
+        return blockToken(blocks.length - 1);
+    });
+
+    // Protect inline code `...`
+    protectedMd = protectedMd.replace(/`[^`]*`/g, (m) => {
+        inlines.push(m);
+        return inlineToken(inlines.length - 1);
+    });
+
+    // 2) Escape the remaining (non-code) segments to neutralize HTML
+    protectedMd = getEscaped(protectedMd);
+
+    // 3) Restore the protected code segments
+    protectedMd = protectedMd
+        .replace(/\uE000MD_BLOCK_(\d+)\uE000/g, (_, i) => blocks[Number(i)])
+        .replace(/\uE000MD_INLINE_(\d+)\uE000/g, (_, i) => inlines[Number(i)]);
+
+    // 4) Parse to HTML with marked
+    const result = await marked.parse(protectedMd, { breaks: true, gfm: true, async: true });
+    return result;
+}
+
 export function messageContainerScrollToBottom() {
     if (!getSettings().autoscroll) {
         return;
     }
-    const container = document.querySelector(".message-container");
+    const container = document.querySelector("#scrollable-chat-container");
     container?.scrollBy({
         top: container.scrollHeight,
         behavior: 'instant',
@@ -224,4 +353,19 @@ function hideWithClass(element: HTMLElement | null) {
 function showWithClass(element: HTMLElement | null) {
     if (!element) return;
     element.classList.remove('hidden');
+}
+
+
+export function getClientScrollbarWidth(): number {
+    // Create a temporary div container and append it into the body
+    const container = document.createElement("div");
+    // Append the element into the body
+    document.body.appendChild(container);
+    // Force scrollbar on the element
+    container.style.overflow = 'scroll';
+    container.style.position = 'absolute';
+    container.style.top = '-9999px';
+    const scrollbarWidth = container.offsetWidth - container.clientWidth;
+    document.body.removeChild(container);
+    return scrollbarWidth;
 }

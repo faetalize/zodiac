@@ -1,17 +1,30 @@
 import * as chatService from "../../services/Chats.service"
 import * as personalityService from "../../services/Personality.service"
+import * as toastService from "../../services/Toast.service"
+import * as overlayService from "../../services/Overlay.service"
 import { Message } from "../../models/Message";
 import { Personality } from "../../models/Personality";
+import { ToastSeverity } from "../../models/Toast";
 
-// Only enable debug UI when running on localhost
-const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-console.log("Is localhost:", isLocalhost);
-console.log("Hostname:", window.location.hostname);
+
 
 const debugElements = document.querySelectorAll<HTMLDivElement>(".debug");
-debugElements.forEach(element => element.style.display = "none");
 const generateRandomChatsButton = document.querySelector<HTMLButtonElement>("#btn-debug-chats");
 const generateRandomPersonalitiesButton = document.querySelector<HTMLButtonElement>("#btn-debug-personalities");
+const testToastNormalButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-normal");
+const testToastWarningButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-warning");
+const testToastDangerButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-danger");
+const testToastActionsButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-actions");
+const testToastSpamButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-spam");
+const showSubscriptionOptionsButton = document.querySelector<HTMLButtonElement>("#btn-debug-subscription-options");
+
+if (!generateRandomChatsButton || !generateRandomPersonalitiesButton) {
+    console.error("Debug buttons not found");
+    throw new Error("DebugButtons component is not properly initialized.");
+}
+
+// Only enable debug UI when running on localhost
+const isLocalhost = ["localhost", "127.0.0.1", "::1", "192.168.1.1"].includes(window.location.hostname);
 
 if (!isLocalhost) {
     // Hide debug UI entirely in non-local environments
@@ -23,10 +36,7 @@ if (!isLocalhost) {
     if (debugElements) {
         debugElements.forEach(element => element.classList.remove("hidden"));
     }
-    if (!generateRandomChatsButton || !generateRandomPersonalitiesButton) {
-        console.error("Debug buttons not found");
-        throw new Error("DebugButtons component is not properly initialized.");
-    }
+
 }
 
 
@@ -168,4 +178,66 @@ if (isLocalhost && generateRandomPersonalitiesButton) generateRandomPersonalitie
 
         await personalityService.add(randomPersonality);
     }
+});
+
+// Toast testing buttons
+if (isLocalhost && testToastNormalButton) testToastNormalButton.addEventListener("click", () => {
+    toastService.info({
+        title: "Info Toast",
+        text: "This is a normal informational notification. It will auto-dismiss in 2 seconds."
+    });
+});
+
+if (isLocalhost && testToastWarningButton) testToastWarningButton.addEventListener("click", () => {
+    toastService.warn({
+        title: "Warning Toast",
+        text: "This is a warning notification. Hover over it to pause the auto-dismiss timer."
+    });
+});
+
+if (isLocalhost && testToastDangerButton) testToastDangerButton.addEventListener("click", () => {
+    toastService.danger({
+        title: "Error Toast",
+        text: "This is a danger/error notification with higher priority."
+    });
+});
+
+if (isLocalhost && testToastActionsButton) testToastActionsButton.addEventListener("click", () => {
+    toastService.show({
+        title: "Toast with Actions",
+        text: "This toast has footer action buttons. Click any action to auto-dismiss.",
+        severity: ToastSeverity.Danger,
+        actions: [
+            {
+                label: "Confirm",
+                onClick: (dismiss) => {
+                    console.log("Confirm clicked!");
+                    // dismiss() is called automatically after onClick
+                }
+            },
+            {
+                label: "Cancel",
+                onClick: (dismiss) => {
+                    console.log("Cancel clicked!");
+                }
+            }
+        ]
+    });
+});
+
+if (isLocalhost && testToastSpamButton) testToastSpamButton.addEventListener("click", () => {
+    // Test the 5-toast limit by creating 8 toasts rapidly
+    for (let i = 1; i <= 8; i++) {
+        setTimeout(() => {
+            toastService.show({
+                title: `Toast #${i}`,
+                text: `Testing concurrent toasts. Max is 5, so oldest should be auto-dismissed.`,
+                severity: i % 3 === 0 ? ToastSeverity.Danger : i % 2 === 0 ? ToastSeverity.Warning : ToastSeverity.Normal
+            });
+        }, i * 500);
+    }
+});
+
+if (isLocalhost && showSubscriptionOptionsButton) showSubscriptionOptionsButton.addEventListener("click", () => {
+    overlayService.show("form-subscription");
 });

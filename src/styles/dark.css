@@ -2,6 +2,15 @@
 @media (prefers-color-scheme: dark) {
     :root {
         color-scheme: dark;
+        --code-block-bg: transparent;
+        --code-block-border: rgba(118, 160, 227, 0.22);
+        --code-toolbar-bg: rgba(54, 78, 117, 0.35);
+        --code-toolbar-fg: #d7e7ff;
+        --code-copy-hover: rgba(118, 160, 227, 0.28);
+        --code-copy-success: #7fc4ff;
+        --inline-code-border: #ffffff42;
+        --message-drop-border: rgba(118, 160, 227, 0.65);
+        --message-drop-bg: rgba(34, 72, 107, 0.45);
     }
 
     :focus-visible{
@@ -24,7 +33,8 @@
     }
 
     .sidebar {
-        background-color: #1a2733;
+        background-color: #1a2733d5;
+        backdrop-filter: blur(64px);
     }
 
     .navbar {
@@ -55,6 +65,35 @@
 
     button:active {
         background-color: #3a648b;
+    }
+
+    .toast {
+        --toast-fg: #f7fbff;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+    }
+
+    .toast--normal {
+        --toast-normal-bg: rgba(21, 35, 49, 0.8);
+        --toast-normal-border: rgba(136, 172, 227, 0.32);
+        --toast-normal-action-bg: rgba(136, 172, 227, 0.24);
+        --toast-normal-action-bg-hover: rgba(136, 172, 227, 0.34);
+        --toast-normal-close-hover: rgba(136, 172, 227, 0.22);
+    }
+
+    .toast--warning {
+        --toast-warning-bg: rgba(92, 61, 12, 0.8);
+        --toast-warning-border: rgba(255, 214, 132, 0.45);
+        --toast-warning-action-bg: rgba(255, 214, 132, 0.28);
+        --toast-warning-action-bg-hover: rgba(255, 214, 132, 0.37);
+        --toast-warning-close-hover: rgba(255, 214, 132, 0.26);
+    }
+
+    .toast--danger {
+        --toast-danger-bg: rgba(94, 18, 22, 0.8);
+        --toast-danger-border: rgba(255, 179, 189, 0.45);
+        --toast-danger-action-bg: rgba(255, 179, 189, 0.3);
+        --toast-danger-action-bg-hover: rgba(255, 179, 189, 0.4);
+        --toast-danger-close-hover: rgba(255, 179, 189, 0.28);
     }
 
     .btn-toggled {
@@ -193,7 +232,8 @@
     }
 
     #message-box {
-        background-color: #1b2935 !important;
+        background-color: #1b2935c0 !important;
+        backdrop-filter: blur(16px);
     }
 
     /* Subscription card theming (dark) */
@@ -211,7 +251,7 @@
     .subscription-card-footer{ background-color: transparent; }
 
     #messageInput {
-        background-color: #283542;
+        background-color: #283542b6;
     }
 
     #btn-add-tone-example {
@@ -222,11 +262,6 @@
 
     #btn-add-tone-example:hover {
         background-color: #1a2733;
-    }
-
-    code {
-        background-color: #0c0c0c8a;
-        outline: 1px solid #000000ab;
     }
 
     .api-key-valid {
@@ -392,6 +427,20 @@
         background: #ffffff12;
     }
     .chat-actions-item:active {
+        background: #ffffff1e;
+    }
+
+    /* Split button dropdown (dark theme) */
+    .split-button__menu {
+        --split-button-menu-bg: rgba(20,25,32,0.92);
+        border: 1px solid #ffffff18;
+        box-shadow: 0 6px 22px -4px rgba(0,0,0,0.6), 0 2px 8px -2px rgba(0,0,0,0.5);
+        color: #e4e4e4;
+    }
+    .split-button__menu-item:hover, .split-button__menu-item:focus-visible {
+        background: #ffffff12;
+    }
+    .split-button__menu-item:active {
         background: #ffffff1e;
     }
 

@@ -2,7 +2,8 @@
   "devDependencies": {
     "@types/marked": "^5.0.2",
     "@types/turndown": "^5.0.5",
-  "@types/uuid": "^9.0.8",
+    "@types/uuid": "^9.0.8",
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
     "supabase": "^2.39.2",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
@@ -15,9 +16,9 @@
     "dompurify": "^3.2.3",
     "highlight.js": "^11.11.1",
     "marked": "^15.0.11",
-  "uuid": "^9.0.1",
     "tippy.js": "^6.3.7",
-    "turndown": "^7.2.0"
+    "turndown": "^7.2.0",
+    "uuid": "^9.0.1"
   },
   "scripts": {
     "dev": "vite",

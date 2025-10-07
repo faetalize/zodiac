@@ -257,10 +257,7 @@ export async function loadChat(chatID: number, db: Db) {
             await messageService.insertMessageV2(msg);
         }
         // Always scroll to bottom when loading a chat
-        messageContainer.scrollTo({
-            top: messageContainer.scrollHeight,
-            behavior: 'instant'
-        });
+        helpers.messageContainerScrollToBottom();
         hljs.highlightAll();
         return chat;
     }

@@ -5,7 +5,7 @@ if (!temperatureLabel || !temperatureInput) {
     throw new Error("Temperature slider component is not properly initialized.");
 }
 
-temperatureLabel.textContent = (parseInt(temperatureInput.value) / 100) + "";
+temperatureLabel.textContent = (parseInt(temperatureInput.value) / 100).toFixed(2) + "";
 temperatureInput.addEventListener("input", () => {
-    temperatureLabel.textContent = (parseInt(temperatureInput.value) / 100) + "";
+    temperatureLabel.textContent = (parseInt(temperatureInput.value) / 100).toFixed(2) + "";
 });

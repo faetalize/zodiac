@@ -76,6 +76,7 @@ export async function send(msg: string) {
     //insert user's message element
     const userMessage: Message = { role: "user", parts: [{ text: msg, attachments: attachmentFiles }] };
     const userMessageElement = await insertMessageV2(userMessage);
+    hljs.highlightAll();
     helpers.messageContainerScrollToBottom();
 
     //insert model message placeholder
@@ -464,7 +465,7 @@ export async function send(msg: string) {
 
 export async function regenerate(responseElement: HTMLElement) {
     //basically, we remove every message after the response we wish to regenerate, then send the message again.
-    const elementIndex = [...responseElement.parentElement?.children || []].indexOf(responseElement);
+    const elementIndex = [...(responseElement.parentElement?.children || [])].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
     const message: Message = chat?.content[elementIndex - 1] || {
         role: "user",
@@ -513,7 +514,7 @@ async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat>
     const currentChat = await chatsService.getCurrentChat(db);
     if (currentChat) { return currentChat; }
     const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash-lite',
         contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
     });
     const title = response.text || "Default Chat";
@@ -606,7 +607,7 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
     const currentChat = await chatsService.getCurrentChat(db);
     if (currentChat) { return currentChat; }
     const payloadSettings = {
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash-lite",
         streamResponses: false,
         generate: true,
     }

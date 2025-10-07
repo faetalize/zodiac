@@ -5,7 +5,7 @@ const turndownService = new TurndownService({
     fence: '```',
     codeBlockStyle: 'fenced',
     headingStyle: 'atx',
-    br: '\n\n',
+    br: '',
 });
 
 export async function parseMarkdownToHtml(markdown: string): Promise<string> {
@@ -18,7 +18,7 @@ export async function parseMarkdownToHtml(markdown: string): Promise<string> {
     return html;
 }
 
-export async function parseHtmlToMarkdown(html: string | TurndownService.Node): Promise<string> {
+export function parseHtmlToMarkdown(html: string | TurndownService.Node): string {
     // Convert HTML to Markdown using Turndown
     const markdown = turndownService.turndown(html);
     return markdown;

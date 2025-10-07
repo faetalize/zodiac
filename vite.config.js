@@ -1,7 +1,12 @@
 /** @type {import('vite').UserConfig} */
+import basicSsl from '@vitejs/plugin-basic-ssl';
+import { server } from 'typescript';
 
 export default {
     root: 'src',
+    plugins: [
+        basicSsl(),
+    ],
     build: {
         target: 'esnext',
         outDir: '../dist',
