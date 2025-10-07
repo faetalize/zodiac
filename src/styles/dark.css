@@ -33,7 +33,8 @@
     }
 
     .sidebar {
-        background-color: #1a2733;
+        background-color: #1a2733d5;
+        backdrop-filter: blur(64px);
     }
 
     .navbar {
@@ -72,7 +73,7 @@
     }
 
     .toast--normal {
-        --toast-normal-bg: rgba(21, 35, 49, 0.95);
+        --toast-normal-bg: rgba(21, 35, 49, 0.8);
         --toast-normal-border: rgba(136, 172, 227, 0.32);
         --toast-normal-action-bg: rgba(136, 172, 227, 0.24);
         --toast-normal-action-bg-hover: rgba(136, 172, 227, 0.34);
@@ -80,7 +81,7 @@
     }
 
     .toast--warning {
-        --toast-warning-bg: rgba(92, 61, 12, 0.94);
+        --toast-warning-bg: rgba(92, 61, 12, 0.8);
         --toast-warning-border: rgba(255, 214, 132, 0.45);
         --toast-warning-action-bg: rgba(255, 214, 132, 0.28);
         --toast-warning-action-bg-hover: rgba(255, 214, 132, 0.37);
@@ -88,7 +89,7 @@
     }
 
     .toast--danger {
-        --toast-danger-bg: rgba(94, 18, 22, 0.94);
+        --toast-danger-bg: rgba(94, 18, 22, 0.8);
         --toast-danger-border: rgba(255, 179, 189, 0.45);
         --toast-danger-action-bg: rgba(255, 179, 189, 0.3);
         --toast-danger-action-bg-hover: rgba(255, 179, 189, 0.4);
@@ -231,7 +232,8 @@
     }
 
     #message-box {
-        background-color: #1b2935 !important;
+        background-color: #1b2935c0 !important;
+        backdrop-filter: blur(16px);
     }
 
     /* Subscription card theming (dark) */
@@ -249,7 +251,7 @@
     .subscription-card-footer{ background-color: transparent; }
 
     #messageInput {
-        background-color: #283542;
+        background-color: #283542b6;
     }
 
     #btn-add-tone-example {

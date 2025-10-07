@@ -1,6 +1,7 @@
 import * as chatService from "../../services/Chats.service"
 import * as personalityService from "../../services/Personality.service"
 import * as toastService from "../../services/Toast.service"
+import * as overlayService from "../../services/Overlay.service"
 import { Message } from "../../models/Message";
 import { Personality } from "../../models/Personality";
 import { ToastSeverity } from "../../models/Toast";
@@ -15,6 +16,7 @@ const testToastWarningButton = document.querySelector<HTMLButtonElement>("#btn-d
 const testToastDangerButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-danger");
 const testToastActionsButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-actions");
 const testToastSpamButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-spam");
+const showSubscriptionOptionsButton = document.querySelector<HTMLButtonElement>("#btn-debug-subscription-options");
 
 if (!generateRandomChatsButton || !generateRandomPersonalitiesButton) {
     console.error("Debug buttons not found");
@@ -204,7 +206,7 @@ if (isLocalhost && testToastActionsButton) testToastActionsButton.addEventListen
     toastService.show({
         title: "Toast with Actions",
         text: "This toast has footer action buttons. Click any action to auto-dismiss.",
-        severity: ToastSeverity.Warning,
+        severity: ToastSeverity.Danger,
         actions: [
             {
                 label: "Confirm",
@@ -234,4 +236,8 @@ if (isLocalhost && testToastSpamButton) testToastSpamButton.addEventListener("cl
             });
         }, i * 500);
     }
+});
+
+if (isLocalhost && showSubscriptionOptionsButton) showSubscriptionOptionsButton.addEventListener("click", () => {
+    overlayService.show("form-subscription");
 });

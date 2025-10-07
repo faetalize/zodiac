@@ -24,7 +24,7 @@ window.addEventListener('auth-state-changed', (event: CustomEventInit) => {
         if (tier === 'pro' || tier === 'max') {
             if (apiKeyInput) {
                 apiKeyInput.disabled = true;
-                apiKeyInput.placeholder = "API key not needed when using Edge Function";
+                apiKeyInput.placeholder = "API key not needed!";
                 // Clear any existing error states
                 apiKeyInput.classList.remove('api-key-invalid');
                 document.querySelector<HTMLElement>(".api-key-error")?.classList.add('hidden');

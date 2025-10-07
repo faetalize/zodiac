@@ -11,9 +11,11 @@
     <link rel="stylesheet" href="./styles/dark.css">
     <link rel="stylesheet" href="./styles/light.css">
     <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.css" media="(prefers-color-scheme: dark)">
+        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.css"
+        media="(prefers-color-scheme: dark)">
     <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.css" media="(prefers-color-scheme: light)">
+        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.css"
+        media="(prefers-color-scheme: light)">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-VCHJXFGB08"></script>
@@ -96,7 +98,7 @@
                     <div id="personalitiesDiv"></div>
                 </div>
 
-                <div class="sidebar-section hidden">
+                <div class="sidebar-section hidden" id="settings-section">
                     <h3>API Key</h3>
                     <div class="api-key-group">
                         <div class="api-key">
@@ -144,8 +146,8 @@
                                     info
                                 </span>
                             </label>
-                            <input type="number" id="maxTokens" class="input-field" min="1" max="1000000"
-                                value="1000"></input>
+                            <input type="number" id="maxTokens" class="input-field" min="1" max="65536" value="1000"
+                                step="1"></input>
                         </div>
                         <div>
                             <label class="setting-label" for="enableThinkingSelect">
@@ -200,8 +202,8 @@
                                 </span>
                             </label>
                             <div class="btn-array">
-                                <input type="range" min="20" max="200" id="temperature" class="slider">
-                                <label id="label-temperature">0</label>
+                                <input type="range" min="0" max="200" id="temperature" class="slider">
+                                <label id="label-temperature" for="temperature">0</label>
                             </div>
                         </div>
                     </div>
@@ -306,6 +308,7 @@
                         <button id="btn-debug-toast-danger">Test Toast (Danger)</button>
                         <button id="btn-debug-toast-actions">Test Toast (With Actions)</button>
                         <button id="btn-debug-toast-spam">Test Toast Spam (5 Limit)</button>
+                        <button id="btn-debug-subscription-options">Open Subscription Options</button>
                     </div>
 
                 </div>
@@ -325,7 +328,9 @@
                 </button>
                 <div id="chat-title"></div>
             </div>
-            <div class="message-container"></div>
+            <div id="scrollable-chat-container">
+                <div class="message-container"></div>
+            </div>
             <div id="message-box">
                 <div contenteditable placeholder="Send a message to" id="messageInput" class="input-field"></div>
                 <div id="attachment-preview" class="attachment-preview-container">
@@ -339,7 +344,7 @@
                     <button type="button" class="btn-textual material-symbols-outlined"
                         id="btn-roleplay">pan_tool</button>
                     <button type="button" class="btn-textual material-symbols-outlined" id="btn-image">
-                        <div>image</div>
+                        <div>brush</div>
                         <div id="image-generation-label">Image Generation</div>
                     </button>
                     <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>

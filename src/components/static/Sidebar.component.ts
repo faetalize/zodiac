@@ -1,5 +1,4 @@
 import * as helpers from "../../utils/helpers";
-import * as overlayService from "../../services/Overlay.service";
 import * as personalityService from "../../services/Personality.service";
 import * as chatsService from "../../services/Chats.service";
 import { db } from "../../services/Db.service";

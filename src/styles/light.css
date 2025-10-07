@@ -31,7 +31,8 @@
     }
 
     .sidebar {
-        background-color: #d2e2f7;
+        background-color: #d2e2f7a9;
+        backdrop-filter: blur(64px);
     }
 
     .navbar {
@@ -77,7 +78,7 @@
     }
 
     .toast--normal {
-        --toast-normal-bg: rgba(255, 255, 255, 0.96);
+        --toast-normal-bg: rgba(184, 213, 252, 0.8);
         --toast-normal-border: rgba(58, 110, 170, 0.22);
         --toast-normal-action-bg: rgba(76, 124, 190, 0.14);
         --toast-normal-action-bg-hover: rgba(76, 124, 190, 0.22);
@@ -85,15 +86,15 @@
     }
 
     .toast--warning {
-        --toast-warning-bg: rgba(255, 247, 225, 0.96);
+        --toast-warning-bg: rgba(250, 238, 183, 0.8);
         --toast-warning-border: rgba(212, 170, 63, 0.35);
-        --toast-warning-action-bg: rgba(245, 186, 73, 0.2);
-        --toast-warning-action-bg-hover: rgba(245, 186, 73, 0.3);
+        --toast-warning-action-bg: rgba(245, 186, 73, 0.3);
+        --toast-warning-action-bg-hover: rgba(245, 186, 73, 0.5);
         --toast-warning-close-hover: rgba(245, 186, 73, 0.18);
     }
 
     .toast--danger {
-        --toast-danger-bg: rgba(255, 238, 241, 0.96);
+        --toast-danger-bg: rgba(255, 185, 198, 0.8);
         --toast-danger-border: rgba(219, 83, 101, 0.35);
         --toast-danger-action-bg: rgba(230, 95, 114, 0.2);
         --toast-danger-action-bg-hover: rgba(230, 95, 114, 0.3);
@@ -234,8 +235,9 @@
 
 
     #message-box {
-        background-color: #dfeeff !important;
+        background-color: #dfeeffab !important;
         border: 1px solid #cbdbf0;
+        backdrop-filter: blur(16px);
     }
 
     /* Subscription card theming (light) */

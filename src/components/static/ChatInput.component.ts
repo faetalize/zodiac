@@ -22,6 +22,11 @@ if (!messageInput || !messageBox || !attachmentsInput || !attachmentPreview || !
     throw new Error("Chat input component is not properly initialized.");
 }
 
+const scrollbarWidth = helpers.getClientScrollbarWidth();
+if (scrollbarWidth > 0) {
+    document.documentElement.style.setProperty('--scroll-bar-width', `${scrollbarWidth}px`);
+}
+
 attachmentPreview.setAttribute("aria-live", "polite");
 attachmentPreview.setAttribute("aria-atomic", "false");
 messageBox.setAttribute("role", "group");

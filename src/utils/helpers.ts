@@ -226,7 +226,7 @@ export function messageContainerScrollToBottom() {
     if (!getSettings().autoscroll) {
         return;
     }
-    const container = document.querySelector(".message-container");
+    const container = document.querySelector("#scrollable-chat-container");
     container?.scrollBy({
         top: container.scrollHeight,
         behavior: 'instant',
@@ -353,4 +353,19 @@ function hideWithClass(element: HTMLElement | null) {
 function showWithClass(element: HTMLElement | null) {
     if (!element) return;
     element.classList.remove('hidden');
+}
+
+
+export function getClientScrollbarWidth(): number {
+    // Create a temporary div container and append it into the body
+    const container = document.createElement("div");
+    // Append the element into the body
+    document.body.appendChild(container);
+    // Force scrollbar on the element
+    container.style.overflow = 'scroll';
+    container.style.position = 'absolute';
+    container.style.top = '-9999px';
+    const scrollbarWidth = container.offsetWidth - container.clientWidth;
+    document.body.removeChild(container);
+    return scrollbarWidth;
 }
