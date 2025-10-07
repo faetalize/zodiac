@@ -10,7 +10,9 @@ export async function initialize() {
         console.error("Default personality failed to insert");
         return
     }
-    defaultPersonalityCard.querySelector(".btn-edit-card")?.remove(); // Remove edit button from default personality
+    defaultPersonalityCard.querySelector(".btn-edit-card")?.remove(); 
+    defaultPersonalityCard.querySelector(".btn-delete-card")?.remove(); 
+    defaultPersonalityCard.querySelector(".btn-share-card")?.remove(); 
 
     //load all personalities from local storage
     const personalitiesArray = await getAll();

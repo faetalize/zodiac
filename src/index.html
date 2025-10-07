@@ -70,9 +70,20 @@
             <div id="sidebar-content">
                 <div class="sidebar-section">
                     <div class="btn-array">
-                        <button id="btn-new-chat">
-                            <span class="material-symbols-outlined">add</span> <span>New Chat</span>
-                        </button>
+                        <div class="split-button btn">
+                            <button id="btn-new-chat" class="split-button__main">
+                                <span class="material-symbols-outlined">add</span> <span>New Chat</span>
+                            </button>
+                            <button class="split-button__toggle" aria-haspopup="true" aria-expanded="false">
+                                <span class="material-symbols-outlined">expand_more</span>
+                            </button>
+                            <div class="split-button__menu" role="menu">
+                                <button class="split-button__menu-item" role="menuitem" id="btn-chat-import">
+                                    <span class="material-symbols-outlined">upload</span>
+                                    <span>Import</span></button>
+                            </div>
+
+                        </div>
                         <button id="btn-reset-chat">
                             <span class="material-symbols-outlined">clear_all</span>Clear All
                         </button>

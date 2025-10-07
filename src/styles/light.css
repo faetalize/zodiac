@@ -437,6 +437,29 @@
         background: rgba(0, 0, 0, 0.12);
     }
 
+    /* Split button dropdown (light theme overrides) */
+    .split-button__menu {
+        --split-button-menu-bg: rgba(255, 255, 255, 0.95);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.25), 0 2px 6px -1px rgba(0, 0, 0, 0.15);
+        backdrop-filter: blur(8px) saturate(180%);
+        -webkit-backdrop-filter: blur(8px) saturate(180%);
+        color: #1f2937;
+    }
+
+    .split-button__menu-item {
+        color: #1f2937;
+    }
+
+    .split-button__menu-item:hover,
+    .split-button__menu-item:focus-visible {
+        background: rgba(0, 0, 0, 0.07);
+    }
+
+    .split-button__menu-item:active {
+        background: rgba(0, 0, 0, 0.12);
+    }
+
     /* Thinking section theming */
     .message-thinking {
         --thinking-border: #4c7cbe;

@@ -1480,6 +1480,97 @@ form {
     outline: none;
 }
 
+/* Split Button Component */
+.split-button {
+    display: inline-flex;
+    position: relative;
+    align-items: stretch;
+}
+
+.split-button__main {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    flex: 1;
+}
+
+.split-button__toggle {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    padding: 0 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0.5rem;
+    flex-shrink: 0;
+    flex-grow: 0;
+}
+
+.split-button__toggle .material-symbols-outlined {
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+.split-button.open .split-button__toggle .material-symbols-outlined {
+    transform: rotate(180deg);
+}
+
+.split-button__menu {
+    position: absolute;
+    top: calc(100% + 0.25rem);
+    right: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--split-button-menu-bg, rgba(0, 0, 0, 0.8));
+    backdrop-filter: blur(6px) saturate(150%);
+    -webkit-backdrop-filter: blur(6px) saturate(150%);
+    border: 1px solid #ffffff22;
+    padding: 0.25rem;
+    border-radius: 0.4rem;
+    min-width: 10rem;
+    box-shadow: 0 4px 12px -2px #00000054;
+    z-index: 1000;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s linear;
+}
+
+.split-button.open > .split-button__menu {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.split-button__menu-item {
+    justify-content: flex-start;
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.3rem;
+    font: inherit;
+    cursor: pointer;
+    color: inherit;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    white-space: nowrap;
+    transition: background 0.1s ease;
+}
+
+.split-button__menu-item:hover,
+.split-button__menu-item:focus-visible {
+    background: #ffffff18;
+    outline: none;
+}
+
+.split-button__menu-item:active {
+    background: #ffffff25;
+}
+
 .chat-title-text {
     flex: 1 1 auto;
     min-width: 0;
@@ -1640,7 +1731,7 @@ form {
     gap: 0.5rem;
 }
 
-.btn-array :is(button, a) {
+.btn-array>:is(button, a, .btn) {
     flex: 1;
 }
 
@@ -2731,11 +2822,7 @@ input[name="currentChat"][value="none"] {
         display: block;
     }
 
-    .message-model {
-        margin-right: 0;
-    }
-
-    .message:not(.message-model) {
-        margin-left: 0;
+    .message{
+        width: 100%;
     }
 }

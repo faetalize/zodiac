@@ -10,7 +10,7 @@ const sidebarViews = document.querySelectorAll<HTMLElement>(".sidebar-section");
 const sidebar = document.querySelector<HTMLDivElement>(".sidebar");
 const clearAllPersonalitiesButton = document.querySelector("#btn-clearall-personality");
 const deleteAllChatsButton = document.querySelector("#btn-reset-chat");
-const newChatButton = document.querySelector("#btn-new-chat");
+
 const importPersonalityButton = document.querySelector("#btn-import-personality");
 const clearAllDataButton = document.querySelector("#btn-clear-all-data");
 const bulkImportChatsButton = document.querySelector("#btn-bulk-import-chats");
@@ -22,7 +22,6 @@ if (!sidebar ||
     !sidebarViews ||
     !clearAllPersonalitiesButton ||
     !deleteAllChatsButton ||
-    !newChatButton ||
     !importPersonalityButton ||
     !exportAllChatsButton ||
     !bulkImportChatsButton ||
@@ -49,16 +48,7 @@ deleteAllChatsButton.addEventListener("click", async () => {
         await chatsService.deleteAllChats(db);
     }
 });
-newChatButton.addEventListener("click", () => {
-    //hide sidebar if in mobile view
-    if (window.innerWidth <= 1032) {
-        helpers.hideElement(sidebar);
-    }
-    if (!chatsService.getCurrentChatId()) {
-        return;
-    }
-    chatsService.newChat();
-});
+
 
 exportAllChatsButton.addEventListener("click", async () => {
     await chatsService.exportAllChats();
