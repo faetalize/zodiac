@@ -1429,7 +1429,7 @@ form {
     position: absolute;
     top: 100%;
     right: 0;
-    display: flex;
+    display: none;
     flex-direction: column;
     background: var(--chat-actions-menu-bg, rgba(0, 0, 0, 0.8));
     backdrop-filter: blur(6px) saturate(150%);
@@ -1440,16 +1440,47 @@ form {
     min-width: 8rem;
     box-shadow: 0 4px 12px -2px #00000054;
     z-index: 20;
-    visibility: hidden;
     opacity: 0;
     transform: translateY(-4px);
-    transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s linear;
 }
 
 .chat-actions-wrapper.open>.chat-actions-menu {
-    visibility: visible;
-    opacity: 1;
-    transform: translateY(0);
+    display: flex;
+    /* Trigger animation after display change */
+    animation: menuFadeIn 0.12s ease forwards;
+}
+
+/* When menu should open upward */
+.chat-actions-wrapper.menu-above>.chat-actions-menu {
+    top: auto;
+    bottom: 100%;
+    transform: translateY(4px);
+}
+
+.chat-actions-wrapper.menu-above.open>.chat-actions-menu {
+    animation: menuFadeInAbove 0.12s ease forwards;
+}
+
+@keyframes menuFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes menuFadeInAbove {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .chat-actions-item {
