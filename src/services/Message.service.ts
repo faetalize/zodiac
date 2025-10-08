@@ -466,7 +466,7 @@ export async function send(msg: string) {
 
 export async function regenerate(responseElement: HTMLElement) {
     //basically, we remove every message after the response we wish to regenerate, then send the message again.
-    const elementIndex = [...responseElement.parentElement?.children! || []].indexOf(responseElement);
+    const elementIndex = [...(responseElement.parentElement?.children || [])].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
     const message: Message = chat?.content[elementIndex - 1] || {
         role: "user",
