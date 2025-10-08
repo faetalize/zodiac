@@ -77,10 +77,11 @@ export async function send(msg: string) {
     const userMessage: Message = { role: "user", parts: [{ text: msg, attachments: attachmentFiles }] };
     const userMessageElement = await insertMessageV2(userMessage);
     hljs.highlightAll();
-    helpers.messageContainerScrollToBottom();
+    helpers.messageContainerScrollToBottom(true);
 
     //insert model message placeholder
     const responseElement = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId, ""));
+    helpers.messageContainerScrollToBottom(true);
     const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
     let thinkingWrapper = responseElement.querySelector<HTMLElement>(".message-thinking");
     let thinkingContentElm = responseElement.querySelector<HTMLElement>(".thinking-content");
