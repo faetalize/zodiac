@@ -1,5 +1,5 @@
 //handles sending messages to the api
-import { Content, FinishReason, GenerateContentConfig, GenerateContentResponse, GenerateImagesResponse, GoogleGenAI, Part, PersonGeneration, SafetyFilterLevel, createPartFromUri } from "@google/genai"
+import { Content, FinishReason, GenerateContentConfig, GenerateContentResponse, GenerateImagesResponse, GoogleGenAI, HarmBlockThreshold, HarmCategory, Part, PersonGeneration, SafetyFilterLevel, createPartFromBase64, createPartFromUri } from "@google/genai"
 import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
@@ -13,8 +13,14 @@ import { Message } from "../models/Message";
 import { messageElement } from "../components/dynamic/message";
 import { isImageModeActive } from "../components/static/ImageButton.component";
 import { Chat, DbChat } from "../models/Chat";
-import { getSubscriptionTier, getUserSubscription, type SubscriptionTier, SUPABASE_URL, getAuthHeaders } from "./Supabase.service";
+import { getSubscriptionTier, getUserSubscription, SUPABASE_URL, getAuthHeaders } from "./Supabase.service";
 import { ChatModel } from "../models/Models";
+import OpenAI from 'openai';
+import { Request, Response as OpenRouterResponse, StreamingChoice } from "../models/OpenRouterTypes";
+import { DbPersonality, Personality } from "../models/Personality";
+import { requestCompletionFromGLM } from "./GLM.service";
+import { PremiumEndpoint } from "../models/PremiumEndpoint";
+
 
 export async function send(msg: string) {
     const settings = settingsService.getSettings();
@@ -53,10 +59,11 @@ export async function send(msg: string) {
         return;
     }
 
-    const thinkingConfig = computeThinking(settings.model, settings.enableThinking, settings);
+    const thinkingConfig = generateThinkingConfig(settings.model, settings.enableThinking, settings);
 
     //model setup (local SDK only for Free tier)
     const ai = new GoogleGenAI({ apiKey: settings.apiKey });
+
     const config: GenerateContentConfig = {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: parseInt(settings.temperature) / 100,
@@ -73,14 +80,17 @@ export async function send(msg: string) {
         return;
     }
 
+    const chatHistory: Content[] = await constructGeminiChatHistoryFromLocalChat(currentChat, { id: getSelectedPersonalityId(), ...selectedPersonality });
+
     //insert user's message element
     const userMessage: Message = { role: "user", parts: [{ text: msg, attachments: attachmentFiles }] };
     const userMessageElement = await insertMessageV2(userMessage);
     hljs.highlightAll();
-    helpers.messageContainerScrollToBottom();
+    helpers.messageContainerScrollToBottom(true);
 
     //insert model message placeholder
     const responseElement = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId, ""));
+    helpers.messageContainerScrollToBottom(true);
     const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
     let thinkingWrapper = responseElement.querySelector<HTMLElement>(".message-thinking");
     let thinkingContentElm = responseElement.querySelector<HTMLElement>(".thinking-content");
@@ -185,7 +195,7 @@ export async function send(msg: string) {
         return userMessageElement;
     }
 
-    const history: Content[] = await buildHistory(selectedPersonality, currentChat);
+
     let thinking = "";
     let rawText = "";
     let finishReason: FinishReason | undefined;
@@ -195,7 +205,7 @@ export async function send(msg: string) {
     // If Pro/Max, call Supabase Edge Function; else use SDK directly
     if (isPremiumEndpointPreferred) {
         try {
-            const payloadSettings = {
+            const payloadSettings: PremiumEndpoint.RequestSettings = {
                 model: settings.model,
                 streamResponses: settings.streamResponses,
                 ...config,
@@ -208,7 +218,7 @@ export async function send(msg: string) {
                 const form = new FormData();
                 form.append('message', msg);
                 form.append('settings', JSON.stringify(payloadSettings));
-                form.append('history', JSON.stringify(history));
+                form.append('history', JSON.stringify(chatHistory));
                 for (const f of Array.from(attachmentFiles || [])) {
                     form.append('files', f);
                 }
@@ -218,21 +228,26 @@ export async function send(msg: string) {
                     body: form,
                 });
             } else {
+                const payload: PremiumEndpoint.Request = {
+                    message: msg,
+                    settings: payloadSettings,
+                    history: chatHistory
+                }
                 res = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         ...(await getAuthHeaders()),
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        message: msg,
-                        settings: payloadSettings,
-                        history
-                    })
+                    body: JSON.stringify(payload)
                 });
             }
 
             if (!res.ok) throw new Error(`Edge function error: ${res.status}`);
+
+            if (config.thinkingConfig?.includeThoughts) {
+                ensureThinkingElements();
+            }
 
             //process response in streaming or non-streaming mode
             if (settings.streamResponses) {
@@ -240,14 +255,15 @@ export async function send(msg: string) {
                 const reader = res.body!.getReader();
                 const decoder = new TextDecoder();
                 let buffer = '';
+                let isFallbackMode = false;
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
                     buffer += decoder.decode(value, { stream: true });
-                    let idx;
-                    while ((idx = buffer.indexOf('\n\n')) !== -1) {
-                        const eventBlock = buffer.slice(0, idx);
-                        buffer = buffer.slice(idx + 2);
+                    let delemiterIndex;
+                    while ((delemiterIndex = buffer.indexOf('\n\n')) !== -1) {
+                        const eventBlock = buffer.slice(0, delemiterIndex);
+                        buffer = buffer.slice(delemiterIndex + 2);
                         if (!eventBlock) continue;
                         if (eventBlock.startsWith(':')) continue;
                         const lines = eventBlock.split('\n');
@@ -259,17 +275,48 @@ export async function send(msg: string) {
                         }
                         if (eventName === 'error') throw new Error(data);
                         if (eventName === 'done') break;
+                        //handle glm fallback event
+                        if (eventName === 'fallback') {
+                            //we have to process the data differently now
+                            isFallbackMode = true;
+                            //first, we clear the current buffers and the html elements as a new decensored stream will start
+                            thinking = "";
+                            rawText = "";
+                            finishReason = undefined;
+                            groundingContent = "";
+                            generatedImage = undefined;
+                            responseElement.querySelector('.message-text')?.classList.add('is-loading');
+                            messageContent.innerHTML = "";
+                            if (thinkingContentElm) thinkingContentElm.textContent = "";
+                            groundingRendered.innerHTML = "";
+                        }
                         if (data) {
+                            if (isFallbackMode) {
+
+                                if (data === "[DONE]") break;
+                                if (data === "{}") continue;
+                                const glmPayload = JSON.parse(data) as OpenRouterResponse;
+                                const content = (glmPayload.choices[0] as StreamingChoice).delta.content;
+                                const reasoning = (glmPayload.choices[0] as StreamingChoice).delta.reasoning;
+                                if (content) {
+                                    // Process the content for fallback mode
+                                    rawText += content;
+                                    responseElement.querySelector('.message-text')?.classList.remove('is-loading');
+                                    messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                                }
+                                if (reasoning && thinkingContentElm) {
+                                    thinking += reasoning;
+                                    thinkingContentElm.innerHTML = await parseMarkdownToHtml(thinking);
+                                }
+                            }
                             const payload = JSON.parse(data) as GenerateContentResponse;
                             if (payload) {
                                 finishReason = payload.candidates?.[0]?.finishReason; //finish reason
-                                if (config.thinkingConfig?.includeThoughts) {
-                                    ensureThinkingElements();
-                                }
                                 for (const part of payload.candidates?.[0]?.content?.parts || []) { // thinking block
                                     if (part.thought && part.text && thinkingContentElm) {
                                         thinking += part.text;
-                                        thinkingContentElm.textContent = thinking;
+                                        thinkingContentElm.innerHTML = await parseMarkdownToHtml(thinking);
+
                                     }
                                     else if (part.text) { // direct text
                                         rawText += part.text;
@@ -294,30 +341,35 @@ export async function send(msg: string) {
                     }
                 }
             } else { //non-streaming
-                const json = await res.json() as GenerateContentResponse;
+                const json = await res.json();
                 if (json) {
-                    finishReason = json.candidates?.[0]?.finishReason; //finish reason
-                    if (config.thinkingConfig?.includeThoughts) {
-                        ensureThinkingElements();
+                    if (json.decensored) {
+                        thinking += json.reasoning;
+                        rawText += json.text;
+                        if (thinkingContentElm) thinkingContentElm.textContent = thinking;
+                        finishReason = json.finishReason;
                     }
-                    for (const part of json.candidates?.[0]?.content?.parts || []) {
-                        if (part.thought && part.text && thinkingContentElm) { //thinking block
-                            thinking += part.text;
-                            thinkingContentElm.textContent = thinking;
+                    else {
+                        finishReason = json.candidates?.[0]?.finishReason; //finish reason
+                        for (const part of json.candidates?.[0]?.content?.parts || []) {
+                            if (part.thought && part.text && thinkingContentElm) { //thinking block
+                                thinking += part.text;
+                                thinkingContentElm.textContent = thinking;
+                            }
+                            else if (part.text) { //direct text
+                                rawText += part.text;
+                            }
+                            else if (part.inlineData) {
+                                generatedImage = { mimeType: part.inlineData.mimeType || "image/png", base64: part.inlineData.data || "" };
+                            }
                         }
-                        else if (part.text) { //direct text
-                            rawText += part.text;
+                        if (json.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { //grounding block
+                            groundingContent = json.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
+                            const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
+                            shadow.innerHTML = groundingContent;
+                            const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
+                            if (carousel) carousel.style.scrollbarWidth = "unset";
                         }
-                        else if (part.inlineData) {
-                            generatedImage = { mimeType: part.inlineData.mimeType || "image/png", base64: part.inlineData.data || "" };
-                        }
-                    }
-                    if (json.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { //grounding block
-                        groundingContent = json.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
-                        const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
-                        shadow.innerHTML = groundingContent;
-                        const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
-                        if (carousel) carousel.style.scrollbarWidth = "unset";
                     }
                 }
                 responseElement.querySelector('.message-text')?.classList.remove('is-loading');
@@ -331,6 +383,7 @@ export async function send(msg: string) {
         }
 
     } else { //free user, use local sdk
+        const chat = ai.chats.create({ model: settings.model, history: chatHistory, config: config });
         //upload attachments and get their URIs
         const uploadedFiles = await Promise.all(Array.from(attachmentFiles || []).map(async (file) => {
             return await ai.files.upload({
@@ -353,9 +406,7 @@ export async function send(msg: string) {
         //insert model message placeholder
         try {
             if (settings.streamResponses) {
-                const chat = ai.chats.create({ model: settings.model, history, config });
                 let stream: AsyncGenerator<GenerateContentResponse> = await chat.sendMessageStream(messagePayload);
-
                 for await (const chunk of stream) {
                     if (chunk) {
                         finishReason = chunk.candidates?.[0]?.finishReason; //finish reason
@@ -387,7 +438,6 @@ export async function send(msg: string) {
                     }
                 }
             } else {
-                const chat = ai.chats.create({ model: settings.model, history, config });
                 const response = await chat.sendMessage(messagePayload);
                 if (response) {
                     finishReason = response.candidates?.[0]?.finishReason; //finish reason
@@ -466,24 +516,48 @@ export async function send(msg: string) {
 export async function regenerate(responseElement: HTMLElement) {
     //basically, we remove every message after the response we wish to regenerate, then send the message again.
     const elementIndex = [...(responseElement.parentElement?.children || [])].indexOf(responseElement);
+
+
+    if (elementIndex === -1) {
+        console.error("Message index not found on element");
+        return;
+    }
+
+
     const chat = await chatsService.getCurrentChat(db);
-    const message: Message = chat?.content[elementIndex - 1] || {
-        role: "user",
-        parts: [{ text: responseElement.parentElement?.children[elementIndex - 1]?.querySelector(".message-text-content")?.textContent || "" }],
-    };
+    const message: Message = chat?.content[elementIndex - 1]!; //user message is always before the model message
     if (!chat || !message) {
         console.error("No chat or message found");
         console.log({ chat, message, elementIndex });
         return;
     }
-    chat.content = chat.content.slice(0, elementIndex - 1);
+    //we should check if the message is a personality change message, and if so, we should delete the hidden system messsages before it.
+    //we do this by checking if the message before the user message is a model message with hidden property set to true
+    const prevMessage = chat.content[elementIndex - 2];
+    if (prevMessage && prevMessage.role === "model" && (prevMessage.hidden === true)) {
+        //we need to delete every hidden message until we reach a non-hidden message or the start of the chat
+        let deleteCount = 0;
+        for (let i = elementIndex - 2; i >= 0; i--) {
+            if (chat.content[i].role === "model" && (chat.content[i].hidden === true)) {
+                deleteCount++;
+            } else {
+                break;
+            }
+        }
+        chat.content = chat.content.slice(0, elementIndex - 2 - deleteCount);
+    }
+    else {
+        chat.content = chat.content.slice(0, elementIndex - 1); //remove every message after the user message
+
+    }
+
+
     await db.chats.put(chat);
     await chatsService.loadChat(chat.id, db);
-
     //we also should reattach the attachments to the message box
     const attachments = message.parts[0].attachments || [];
     const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
-    if (attachmentsInput) {
+    if (attachmentsInput && attachments.length > 0) {
         const dataTransfer = new DataTransfer();
         for (const attachment of attachments) {
             dataTransfer.items.add(attachment);
@@ -510,22 +584,6 @@ function getSelectedPersonalityId(): string {
     return parentId.startsWith("personality-") ? parentId.slice("personality-".length) : "-1";
 }
 
-async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat> {
-    const currentChat = await chatsService.getCurrentChat(db);
-    if (currentChat) { return currentChat; }
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-lite',
-        contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
-    });
-    const title = response.text || "Default Chat";
-    const id = await chatsService.addChat(title);
-    const chat = await chatsService.loadChat(id, db);
-    const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
-    if (chatInput) chatInput.checked = true;
-    return chat!;
-}
-
-
 function createModelPlaceholderMessage(personalityid: string, groundingContent?: string): Message {
     const m: Message = { role: "model", parts: [{ text: "" }], personalityid };
     if (groundingContent !== undefined) (m as any).groundingContent = groundingContent;
@@ -540,17 +598,8 @@ async function persistUserAndModel(user: Message, model: Message): Promise<void>
     await db.chats.put(chat);
 }
 
-async function buildHistory(selectedPersonality: Awaited<ReturnType<typeof personalityService.getSelected>>, currentChat: Chat): Promise<Content[]> {
-    const history: Content[] = [
-        {
-            role: "user",
-            parts: [{ text: `Personality Name: ${selectedPersonality!.name}, Personality Description: ${selectedPersonality!.description}, Personality Prompt: ${selectedPersonality!.prompt}. Your level of aggression is ${selectedPersonality!.aggressiveness} out of 3. Your sensuality is ${selectedPersonality!.sensuality} out of 3.` }]
-        },
-        { role: "model", parts: [{ text: "Very well, from now on, I will be acting as the personality you have chosen" }] }
-    ];
-    if (selectedPersonality?.toneExamples && selectedPersonality.toneExamples.length > 0) {
-        history.push(...selectedPersonality.toneExamples.map((toneExample) => ({ role: "model", parts: [{ text: toneExample }] })));
-    }
+export async function constructGeminiChatHistoryFromLocalChat(currentChat: Chat, selectedPersonality: DbPersonality): Promise<Content[]> {
+    const history: Content[] = [];
     // Find the last message with generated images
     let lastImageIndex = -1;
     for (let i = currentChat.content.length - 1; i >= 0; i--) {
@@ -579,13 +628,7 @@ async function buildHistory(selectedPersonality: Awaited<ReturnType<typeof perso
                 // Only include attachments if this is the last message that has them
                 if (attachments && attachments.length > 0 && index === lastAttachmentIndex) {
                     for (const attachment of attachments) {
-                        parts.push({
-                            inlineData: {
-                                //attachment is of File, we need to convert it to base64
-                                data: await helpers.fileToBase64(attachment),
-                                mimeType: attachment.type || "application/octet-stream",
-                            }
-                        });
+                        parts.push(await createPartFromBase64(await helpers.fileToBase64(attachment), attachment.type || "application/octet-stream"));
                     }
                 }
                 return parts;
@@ -600,16 +643,100 @@ async function buildHistory(selectedPersonality: Awaited<ReturnType<typeof perso
         return genAiMessage;
     }));
     history.push(...past);
+    //compare last message's personality with selectedPersonality
+    const lastMessage = currentChat.content[currentChat.content.length - 1];
+    if (lastMessage?.personalityid !== selectedPersonality.id) { //personality has changed, we need to insert a system message to inform the model
+        const messages: Content[] = [
+            {
+                role: "user",
+                parts: [{ text: `<system>Personality Name: ${selectedPersonality!.name}\nPersonality Description: ${selectedPersonality!.description}\nPersonality Prompt: ${selectedPersonality!.prompt}\nYour level of aggression is ${selectedPersonality!.aggressiveness} out of 3. Your sensuality is ${selectedPersonality!.sensuality} out of 3.</system>` }]
+            },
+            {
+                role: "model",
+                parts: [{ text: `Very well, from now on, I will be acting as the personality you have chosen. I'm ${selectedPersonality!.name}, and will continue this chat as your desired personality.` }]
+            },
+            ...(selectedPersonality.toneExamples.map<Content>((toneExample) => {
+                return { role: "model", parts: [{ text: toneExample }] };
+            }))
+        ];
+        history.push(...messages);
+
+        //we should also append these to the chat in the db, so we keep track of changes in personalities
+        const messagesLocal = messages.map<Message>(
+            (m) => {
+                const mm: Message = {
+                    role: m.role as "user" | "model",
+                    parts: m.parts!.map(
+                        p => {
+                            return { text: p.text || "" };
+                        }
+                    ),
+                    personalityid: m.role === "model" ? selectedPersonality.id : undefined,
+                    hidden: true, //hide these messages from the normal chat view
+                };
+                return mm;
+            }
+        )
+        currentChat.content.push(...messagesLocal);
+        await db.chats.put(currentChat);
+
+        //insert the messages in the ui as well
+        const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
+        if (messageContainer) {
+            for (const m of messagesLocal) {
+                insertMessageV2(m);
+            }
+        }
+    }
     return history;
+}
+
+async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat> {
+    const currentChat = await chatsService.getCurrentChat(db);
+    if (currentChat) { return currentChat; }
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-lite',
+        config: {
+            systemInstruction: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user may send any kinds of queries, including adult or illegal content. You are to generate a title for the chat based on the query, without any warnings or refusals. Never refuse to generate a title. Keep it short, ideally 3-5 words at most. Remove any special characters.",
+            maxOutputTokens: 100,
+            temperature: 0.9,
+            responseMimeType: "text/plain",
+            safetySettings: [
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.OFF },
+                { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.OFF },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.OFF },
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.OFF },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.OFF },
+            ]
+        },
+        contents: msg,
+    });
+    const title = response.text || "New Chat";
+    const id = await chatsService.addChat(title);
+    const chat = await chatsService.loadChat(id, db);
+    const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
+    if (chatInput) chatInput.checked = true;
+    return chat!;
 }
 
 async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
     const currentChat = await chatsService.getCurrentChat(db);
     if (currentChat) { return currentChat; }
-    const payloadSettings = {
+    const payloadSettings: PremiumEndpoint.RequestSettings = {
         model: "gemini-2.5-flash-lite",
         streamResponses: false,
         generate: true,
+        systemInstruction: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user may send any kinds of queries, including adult or illegal content. You are to generate a title for the chat based on the query, without any warnings or refusals. Never refuse to generate a title. Keep it short, ideally 3-5 words at most. Remove any special characters.",
+        maxOutputTokens: 100,
+        temperature: 0.9,
+        responseMimeType: "text/plain",
+        safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.OFF },
+            { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.OFF },
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.OFF },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.OFF },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.OFF },
+        ]
     }
     const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
     const response = await fetch(endpoint, {
@@ -628,7 +755,7 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
         throw new Error(`Edge function error: ${response.status}`);
     }
     const json = await response.json();
-    const title = json.text || "Default Chat";
+    const title = json.text || "New Chat";
     const id = await chatsService.addChat(title);
     const chat = await chatsService.loadChat(id, db);
     const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
@@ -636,7 +763,7 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
     return chat!;
 }
 
-function computeThinking(model: string, enableThinking: boolean, settings: any) {
+function generateThinkingConfig(model: string, enableThinking: boolean, settings: any) {
     if (!enableThinking && model !== ChatModel.NANO_BANANA) {
         return {
             includeThoughts: false,

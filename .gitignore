@@ -149,3 +149,4 @@ cloudflare-workers
 cloudflare-workers/*
 .github/instructions
 .github/instructions/*
+src/services/GLM.service.ts

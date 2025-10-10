@@ -15,7 +15,7 @@ if (!apiKeyInput || !apiKeyGroup || !noNeedMsg) {
 window.addEventListener('auth-state-changed', (event: CustomEventInit) => {
     const { subscription: sub } = event.detail;
     if (!sub) {
-        // no subscription info, do nothing
+        apiKeyInput.placeholder = "Paste API key here";
         return;
     }
     else {

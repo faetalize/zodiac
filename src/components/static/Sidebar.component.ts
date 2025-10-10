@@ -67,6 +67,7 @@ bulkImportChatsButton.addEventListener("click", () => {
 importPersonalityButton.addEventListener("click", () => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
+    fileInput.accept = '.json,.personality';
     fileInput.addEventListener('change', () => {
         const file = fileInput.files![0];
         const reader = new FileReader();

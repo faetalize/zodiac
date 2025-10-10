@@ -57,7 +57,7 @@ export function lightenCard(element: HTMLElement) {
 }
 
 export function getVersion() {
-    return "1.0.2";
+    return "1.0.5";
 }
 
 export function getSanitized(string: string) {
@@ -84,12 +84,12 @@ export function getSanitized(string: string) {
  */
 function getUnescaped(innerHTML: string) {
     return innerHTML
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ");
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, " ");
 }
 
 
@@ -222,8 +222,8 @@ export async function getDecoded(encoded: string) {
     return result;
 }
 
-export function messageContainerScrollToBottom() {
-    if (!getSettings().autoscroll) {
+export function messageContainerScrollToBottom(force?: boolean) {
+    if (!getSettings().autoscroll && !force) {
         return;
     }
     const container = document.querySelector("#scrollable-chat-container");

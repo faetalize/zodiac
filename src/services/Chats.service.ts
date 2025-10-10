@@ -85,6 +85,26 @@ function insertChatEntry(chat: DbChat) {
             document.querySelectorAll('.chat-actions-wrapper.open').forEach(el => {
                 if (el !== actionsWrapper) el.classList.remove('open');
             });
+
+            // Check if menu would overflow at the bottom
+            const scrollContainer = chatHistorySection;
+            if (scrollContainer) {
+                const buttonRect = actionsButton.getBoundingClientRect();
+                const containerRect = scrollContainer.getBoundingClientRect();
+
+                // Estimate menu height (we'll use 120px as approximate height for 3 items)
+                const estimatedMenuHeight = 120;
+                const spaceBelow = containerRect.bottom - buttonRect.bottom;
+                const spaceAbove = buttonRect.top - containerRect.top;
+
+                // If not enough space below but enough space above, open upward
+                if (spaceBelow < estimatedMenuHeight && spaceAbove > estimatedMenuHeight) {
+                    actionsWrapper.classList.add("menu-above");
+                } else {
+                    actionsWrapper.classList.remove("menu-above");
+                }
+            }
+
             actionsWrapper.classList.add("open");
             actionsButton.setAttribute("aria-expanded", "true");
         }
@@ -257,7 +277,7 @@ export async function loadChat(chatID: number, db: Db) {
             await messageService.insertMessageV2(msg);
         }
         // Always scroll to bottom when loading a chat
-        helpers.messageContainerScrollToBottom();
+        helpers.messageContainerScrollToBottom(true);
         hljs.highlightAll();
         return chat;
     }
