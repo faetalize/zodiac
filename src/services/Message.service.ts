@@ -557,7 +557,7 @@ export async function regenerate(responseElement: HTMLElement) {
     //we also should reattach the attachments to the message box
     const attachments = message.parts[0].attachments || [];
     const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
-    if (attachmentsInput) {
+    if (attachmentsInput && attachments.length > 0) {
         const dataTransfer = new DataTransfer();
         for (const attachment of attachments) {
             dataTransfer.items.add(attachment);
