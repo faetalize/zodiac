@@ -17,4 +17,6 @@ export interface Message {
     generatedImages?: GeneratedImage[];
     // Optional chain-of-thought / reasoning text (not part of visible answer by default)
     thinking?: string;
+    // Whether this message is hidden from the normal chat view (e.g. system prompts)
+    hidden?: boolean;
 }

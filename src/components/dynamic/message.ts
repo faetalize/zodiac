@@ -14,6 +14,10 @@ export const messageElement = async (
     message: Message
 ): Promise<HTMLElement> => {
     const messageDiv = document.createElement("div");
+    if (message.hidden) {
+        messageDiv.style.display = "none"; // Hide system messages from normal view
+        return messageDiv;
+    }
     messageDiv.classList.add("message");
     // NOTE: Thinking (chain-of-thought) is optionally provided by the backend
     // and stored in message.thinking. It is rendered inside a collapsible
@@ -290,6 +294,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
         if (!messageContainer) return;
         const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
 
+
         // Update the chat history in database with both text and attachments
         await updateMessageInDatabase(markdownContent, messageIndex, editingAttachments);
 
@@ -300,6 +305,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
             // Import the module to get a reference to the function
             const { messageElement: createMessageElementFunction } = await import("./message");
             const newMessageElement = await createMessageElementFunction(updatedMessage);
+
             messageElement.replaceWith(newMessageElement);
         }
         hljs.highlightAll(); // Reapply syntax highlighting
