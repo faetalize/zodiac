@@ -780,7 +780,7 @@ form {
     align-items: center;
     flex-grow: 1;
     /* Allow vertical scrolling when content exceeds viewport */
-    overflow-y: hidden;
+    overflow-y: auto;
     overflow-x: hidden;
     /* Ensure flex child can shrink for overflow */
     min-height: 0;
