@@ -1,7 +1,9 @@
-import { createClient, RealtimeChannel, Session } from '@supabase/supabase-js'
+import { createClient, RealtimeChannel, Session, User as SupabaseUser } from '@supabase/supabase-js'
 import { User } from "../models/User";
 import { SubscriptionPriceIDs } from '../models/Price';
 import { ImageGenerationPermitted } from '../models/ImageGenerationTypes';
+
+let userCache: SupabaseUser | null = null;
 
 export const SUPABASE_URL = 'https://hglcltvwunzynnzduauy.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ';
@@ -18,7 +20,10 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
 supabase.auth.onAuthStateChange((event, session) => {
     //on login
     if (event === 'SIGNED_IN' && session) {
-        //on profile change
+        console.log("User signed in.");
+        //cache user
+        userCache = session.user;
+        //show relevant components
         document.querySelectorAll('.logged-in-component').forEach(el => {
             (el as HTMLElement).classList.remove('hidden');
         });
@@ -36,17 +41,19 @@ supabase.auth.onAuthStateChange((event, session) => {
                 document.querySelector<HTMLTextAreaElement>("#profile-system-prompt")!.defaultValue = profile.systemPromptAddition;
                 getUserSubscription(session).then((sub) => {
                     // notify listeners
-                    try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: true, session, subscription: sub } })); } catch { }
-                    updateSubscriptionUI(session, sub); // will dispatch subscription-updated
+                    try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: true, session, subscription: sub } })); } catch (e) { console.error(e); }
+                    getImageGenerationRecord().then((imageGenRecord) => {
+                        updateSubscriptionUI(session, sub, imageGenRecord);
+                    });
                 });
-
             }
         );
-
-
-
     } else if (event === 'SIGNED_OUT') {
-        try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: false } })); } catch { }
+        console.log("User signed out.");
+        try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: false } })); } catch (e) { console.error(e); }
+        //clear cached user
+        userCache = null;
+        //hide relevant components
         document.querySelectorAll('.logged-out-component').forEach(el => {
             (el as HTMLElement).classList.remove('hidden');
         });
@@ -90,6 +97,14 @@ supabase.auth.onAuthStateChange((event, session) => {
         if (upgradeBtn) upgradeBtn.classList.remove('hidden');
         // Treat as free tier for any listeners
         try { window.dispatchEvent(new CustomEvent('subscription-updated', { detail: { tier: 'free' } })); } catch { }
+    } else if (event === 'TOKEN_REFRESHED' && session) {
+        console.log("Token refreshed.");
+        //update cached user
+        userCache = session.user;
+    } else if (event === 'USER_UPDATED' && session) {
+        console.log("User update event.");
+        //update cached user
+        userCache = session.user;
     }
 });
 
@@ -123,15 +138,19 @@ export async function logout() {
         console.error("Logout error:", error.message);
         throw new Error(error.message);
     }
+    userCache = null;
     return true;
 }
 
 export async function getCurrentUser() {
+    //to prevent multiple network calls, we can cache the user in memory and only fetch if not present
+    if (userCache) return userCache;
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error) {
         console.error("Get current user error:", error.message);
         return null;
     }
+    userCache = user;
     return user;
 }
 
@@ -189,6 +208,12 @@ export interface UserSubscription {
     [key: string]: unknown;
 }
 
+export interface ImageGenerationRecord {
+    user_id: string;
+    remaining_image_generations: number | null;
+    [key: string]: unknown;
+}
+
 export async function getCurrentUserEmail(): Promise<string | null> {
     const user = await getCurrentUser();
     return user?.email ?? null;
@@ -209,6 +234,22 @@ export async function getUserSubscription(session?: Session): Promise<UserSubscr
         return null;
     }
     return (data as UserSubscription) ?? null;
+}
+
+export async function getImageGenerationRecord(): Promise<ImageGenerationRecord | null> {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return null;
+    const { data, error } = await supabase
+        .from('image_generations')
+        .select('user_id, remaining_image_generations')
+        .eq('user_id', currentUser.id)
+        .limit(1)
+        .maybeSingle();
+    if (error) {
+        console.error('Get image generation record error:', error.message);
+        return null;
+    }
+    return data;
 }
 
 export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionTier {
@@ -240,7 +281,7 @@ export function getBillingPortalUrlWithEmail(email: string | null): string {
     return `${base}?prefilled_email=${param}`;
 }
 
-export async function updateSubscriptionUI(session: Session | null, sub: UserSubscription | null): Promise<void> {
+export async function updateSubscriptionUI(session: Session | null, sub: UserSubscription | null, imageGenerationRecord: ImageGenerationRecord | null): Promise<void> {
     try {
         const email = session?.user.email ?? await getCurrentUserEmail();
         const tier = getSubscriptionTier(sub);
@@ -273,7 +314,7 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
             periodEndEl.textContent = periodEndLabel;
         }
         if (remainingGenerationsEl) {
-            remainingGenerationsEl.textContent = sub?.remaining_image_generations != null ? String(sub.remaining_image_generations) : '—';
+            remainingGenerationsEl.textContent = imageGenerationRecord?.remaining_image_generations != null ? String(imageGenerationRecord.remaining_image_generations) : '—';
         }
         if (manageBtn) {
             if (tier === 'free') {
@@ -330,20 +371,18 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
 
 /**
  * Determines if image generation is available based on subscription and settings.
- * This matches the same logic used for image button visibility.
  */
 export async function isImageGenerationAvailable(): Promise<ImageGenerationPermitted> {
     try {
-        const sub = await getUserSubscription();
-        const tier = getSubscriptionTier(sub);
-        if (!sub) return { enabled: true, type: "google_only" }; // free tier, assume available (with API key)
-        if (tier === 'canceled') return { enabled: true, type: "google_only" }; // treat as free tier, assume available (with API key)
-        if ((tier === 'pro' || tier === 'max') && sub?.remaining_image_generations && sub?.remaining_image_generations > 0) {
-            return { enabled: true, type: "all" };
+        const imageGenerationRecord = await getImageGenerationRecord();
+        if (!imageGenerationRecord) return { enabled: true, type: "google_only" }; //free tier, assume available (with API key)
+        if (imageGenerationRecord?.remaining_image_generations && imageGenerationRecord?.remaining_image_generations > 0) {
+            return { enabled: true, type: "all" }; //Has credits, can use premium endpoints + Google
         }
-        return { enabled: false, type: "google_only" };
+        //Has record but no credits (0 or null) - can still use Google with API key
+        return { enabled: true, type: "google_only" };
     } catch {
-        // If not logged in or error, assume available (probably Free tier with API key)
+        //If not logged in or error, assume available (probably Free tier with API key)
         return { enabled: true, type: "google_only" };
     }
 }

@@ -1,5 +1,3 @@
-import { isImageGenerationAvailable } from "../../services/Supabase.service";
-
 const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel");
 if (!imageEditModelSelector) {
     console.error("Image edit model selector component initialization failed");

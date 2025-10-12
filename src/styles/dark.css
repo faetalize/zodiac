@@ -234,6 +234,7 @@
     #message-box {
         background-color: #1b2935c0 !important;
         backdrop-filter: blur(16px);
+        box-shadow: 0 0 16px 5px rgb(0 0 0 / 25%);
     }
 
     /* Subscription card theming (dark) */

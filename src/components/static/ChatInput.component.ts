@@ -135,7 +135,10 @@ sendMessageButton.addEventListener("click", async () => {
         if (userMessageElement) {
             (userMessageElement as HTMLElement).classList.add("message-failure");
         }
-        alert("Error, please report this to the developer. You might need to restart the page to continue normal usage: " + error);
+        toastService.danger({
+            title: "Error sending message",
+            text: JSON.stringify(error.message),
+        });
         console.error(error);
         return;
     }
