@@ -219,6 +219,10 @@ button:focus {
     line-height: 1.45;
     white-space: pre-wrap;
     word-break: break-word;
+    /* auto crop text */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 7rem;
 }
 
 .toast-actions {
@@ -1337,6 +1341,7 @@ form {
     margin-right: var(--scroll-bar-width, 0px);
     max-width: calc(50rem - 2rem);
     justify-self: center;
+    box-shadow: 0 0 13px 0px rgb(0 0 0 / 15%);
 }
 
 #message-box.drag-over {

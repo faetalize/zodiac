@@ -21,9 +21,7 @@ thinkingSelector.addEventListener("change", () => {
 
 // if pro model is selected, force thinking to be enabled and disable selector
 document.addEventListener("chat-model-changed", (event: CustomEventInit) => {
-    console.log("Chat model changed event received in ThinkingSelector.component");
     const { model }: { model: ChatModel } = event.detail;
-    console.log("Selected model:", model);
 
     if (!model) return;
 

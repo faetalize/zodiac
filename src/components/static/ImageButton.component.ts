@@ -1,5 +1,5 @@
 
-import { getSubscriptionTier, getUserSubscription, type SubscriptionTier, isImageGenerationAvailable } from "../../services/Supabase.service";
+import { isImageGenerationAvailable } from "../../services/Supabase.service";
 
 const imageButton = document.querySelector<HTMLButtonElement>("#btn-image");
 if (!imageButton) {

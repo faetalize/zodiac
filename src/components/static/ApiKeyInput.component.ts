@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { getSubscriptionTier, getUserSubscription, type SubscriptionTier } from "../../services/Supabase.service";
+import { getSubscriptionTier, type SubscriptionTier } from "../../services/Supabase.service";
 
 const apiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
 const apiKeyGroup = document.querySelector<HTMLDivElement>(".api-key");
@@ -9,8 +9,6 @@ if (!apiKeyInput || !apiKeyGroup || !noNeedMsg) {
     console.error("One or more API key input elements are missing.");
     throw new Error("API key input initialization failed.");
 }
-
-
 
 window.addEventListener('auth-state-changed', (event: CustomEventInit) => {
     const { subscription: sub } = event.detail;

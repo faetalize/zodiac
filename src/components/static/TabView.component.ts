@@ -10,7 +10,6 @@ interface TabView {
 }
 
 for (const tabGroup of tabGroups) {
-    console.log(tabGroup.dataset.targetId)
     const tabHighlight = tabGroup.querySelector<HTMLElement>(".navbar-tab-highlight");
     const tabs = tabGroup.querySelectorAll<HTMLElement>(".navbar-tab");
     const views = document.querySelector(`#${tabGroup.dataset.targetId}`)!.children as HTMLCollectionOf<HTMLElement>;

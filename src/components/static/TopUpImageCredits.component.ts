@@ -7,10 +7,10 @@ const topUp10Button = document.querySelector<HTMLButtonElement>("#btn-top-up-10"
 const topUp75Button = document.querySelector<HTMLButtonElement>("#btn-top-up-75");
 const topUp300Button = document.querySelector<HTMLButtonElement>("#btn-top-up-300");
 
-//if no subscription, hide the top up button
-const subscription = await supabaseService.getUserSubscription();
+//if no logged in user, hide the top up button
+const loggedUser = await supabaseService.getCurrentUser();
 
-if (!subscription) {
+if (!loggedUser) {
     if (topUpButton) {
         topUpButton.style.display = "none";
     }
