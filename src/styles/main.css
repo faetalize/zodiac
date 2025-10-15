@@ -36,7 +36,7 @@
     scrollbar-width: thin;
 }
 
-:root {
+code {
     padding: 2px;
     border-radius: 2px;
     outline: 1px solid var(--inline-code-border);
