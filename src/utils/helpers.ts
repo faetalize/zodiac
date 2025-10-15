@@ -57,7 +57,7 @@ export function lightenCard(element: HTMLElement) {
 }
 
 export function getVersion() {
-    return "1.0.5";
+    return "1.0.9";
 }
 
 export function getSanitized(string: string) {
@@ -229,7 +229,7 @@ export function messageContainerScrollToBottom(force?: boolean) {
     const container = document.querySelector("#scrollable-chat-container");
     container?.scrollBy({
         top: container.scrollHeight,
-        behavior: 'instant',
+        behavior: 'smooth',
     });
 }
 

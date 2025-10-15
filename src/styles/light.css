@@ -10,6 +10,8 @@
         --inline-code-border: #00000029;
         --message-drop-border: rgba(76, 124, 190, 0.55);
         --message-drop-bg: rgba(188, 212, 243, 0.4);
+    --tone-example-remove-hover: rgba(17, 46, 97, 0.12);
+    --tone-example-remove-active: rgba(17, 46, 97, 0.18);
     }
 
     :focus-visible {
@@ -70,6 +72,15 @@
 
     button:active {
         background-color: #23487a;
+    }
+
+    .tone-example-remove {
+        color: #23487a;
+    }
+
+    .tone-example-remove:hover,
+    .tone-example-remove:focus-visible {
+        color: #132c4d;
     }
 
     .toast {

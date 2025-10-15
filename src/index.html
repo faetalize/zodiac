@@ -187,22 +187,6 @@
                                 value="500">
                         </div>
                         <div>
-                            <label class="setting-label" for="safetySettings"><span class="material-symbols-outlined">
-                                    health_and_safety
-                                </span>
-                                <span>Safety</span>
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="Controls the model's sensitivity to potentially harmful content.">
-                                    info
-                                </span> </label>
-                            <select id="safetySettings" class="input-field">
-                                <option value="safe">Safe</option>
-                                <option value="moderate">Moderate</option>
-                                <option value="risky" selected="true">Risky</option>
-                            </select>
-                        </div>
-                        <div>
                             <label class="setting-label" for="temperature">
                                 <span class="material-symbols-outlined">thermostat</span>
                                 <span>Temperature</span>
@@ -231,8 +215,8 @@
                             <select id="selectedImageModel" class="input-field">
                                 <option value="imagen-4.0-ultra-generate-001" selected="true">Imagen 4 Ultra
                                 </option>
-                                <option value="illustrious">Illustrious (Uncensored - Anime)</option>
-                                <option value="biglust">Biglust XL (Uncensored - Realism)</option>
+                                <option value="illustrious">Illustrious (Anime)</option>
+                                <option value="biglust">BLXL (Realism)</option>
                             </select>
                         </div>
                         <div>
@@ -429,6 +413,10 @@
                                 <h3 style="display:inline">Tone Examples</h3>
                                 <span style="opacity: 60%; font-size: 90%; font-style: italic;">Optional</span>
                             </div>
+                            <div>
+                                <p>Respond to these questions and situations as your personality would. The more
+                                    examples you provide, the better the result.</p>
+                            </div>
                             <input type="text" name="tone-example-1" class="tone-example"
                                 placeholder="I'm a plumber, not a doctor. Lets-a go!">
                             <button type="button" id="btn-add-tone-example"
@@ -447,8 +435,14 @@
             <div id="whats-new" class="hidden">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li><b>Censorship begone:</b> Google can't beat me. Expect 100% response rate no matter what (albeit a little slower).</li>
-                    <li><b>Character responsiveness:</b> You can now switch characters/personalities mid conversation, and the AI will respond accordingly without mixing them up.</li>
+                    <li><b>Character responsiveness:</b> You can now switch characters/personalities mid conversation,
+                        and the AI will respond accordingly without mixing them up.</li>
+                    <li><b>Enhanced context retention:</b> The AI now remembers previous interactions more effectively
+                        and adheres to your prompt better. Note: This might work better in a new conversation - start a
+                        new chat to benefit from the new changes</li>
+                    <li><b>Tone Examples revamp:</b> The tone examples feature has been improved for better context and
+                        relevance. PLEASE check your personalities and redo your tone/style examples to fully take
+                        advantage of this feature!</li>
                     <li><b>Mobile related improvements:</b> Improved performance and usability on mobile devices.</li>
                     <li><b>Improved UX:</b> Lots of improvements and stability enhancements.</li>
 
@@ -669,15 +663,15 @@
                     </button>
                     <button id="btn-top-up-75">
                         <div class="top-up-info">
-                            <div class="top-up-credits">75 Credits</div>
-                            <div class="top-up-subtitle">equivalent to 75 image generations</div>
+                            <div class="top-up-credits">60 Credits</div>
+                            <div class="top-up-subtitle">equivalent to 60 image generations</div>
                         </div>
                         <div class="top-up-price">$5</div>
                     </button>
                     <button id="btn-top-up-300">
                         <div class="top-up-info">
-                            <div class="top-up-credits">300 Credits</div>
-                            <div class="top-up-subtitle">equivalent to 300 image generations</div>
+                            <div class="top-up-credits">200 Credits</div>
+                            <div class="top-up-subtitle">equivalent to 200 image generations</div>
                         </div>
                         <div class="top-up-price">$10</div>
                     </button>

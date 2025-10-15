@@ -41,9 +41,9 @@ supabase.auth.onAuthStateChange((event, session) => {
                 document.querySelector<HTMLTextAreaElement>("#profile-system-prompt")!.defaultValue = profile.systemPromptAddition;
                 getUserSubscription(session).then((sub) => {
                     // notify listeners
-                    try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: true, session, subscription: sub } })); } catch (e) { console.error(e); }
                     getImageGenerationRecord().then((imageGenRecord) => {
                         updateSubscriptionUI(session, sub, imageGenRecord);
+                        try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: true, session, subscription: sub, imageGenerationRecord: imageGenRecord } })); } catch (e) { console.error(e); }
                     });
                 });
             }
@@ -390,6 +390,7 @@ export async function isImageGenerationAvailable(): Promise<ImageGenerationPermi
 export async function refreshAll() {
     refreshProfile();
     refreshSubscription();
+    refreshImageGenerationRecord();
 }
 
 
@@ -409,5 +410,15 @@ export async function refreshSubscription() {
         window.dispatchEvent(new CustomEvent('subscription-refreshed', { detail: { subDetails: subscriptionDetails } }));
     } catch (error) {
         console.error('Error refreshing subscription:', error);
+    }
+}
+
+export async function refreshImageGenerationRecord() {
+    try {
+        const imageGenRecord = await getImageGenerationRecord();
+        if (!imageGenRecord) return;
+        window.dispatchEvent(new CustomEvent('image-generation-record-refreshed', { detail: { imageGenerationRecord: imageGenRecord } }));
+    } catch (error) {
+        console.error('Error refreshing image generation record:', error);
     }
 }

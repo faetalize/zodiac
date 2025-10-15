@@ -11,9 +11,11 @@
         --inline-code-border: #ffffff42;
         --message-drop-border: rgba(118, 160, 227, 0.65);
         --message-drop-bg: rgba(34, 72, 107, 0.45);
+        --tone-example-remove-hover: rgba(255, 255, 255, 0.12);
+        --tone-example-remove-active: rgba(255, 255, 255, 0.18);
     }
 
-    :focus-visible{
+    :focus-visible {
         border: 1px solid #8f9eb3;
         outline: none;
     }
@@ -65,6 +67,15 @@
 
     button:active {
         background-color: #3a648b;
+    }
+
+    .tone-example-remove {
+        color: #e8f0ff;
+    }
+
+    .tone-example-remove:hover,
+    .tone-example-remove:focus-visible {
+        color: #ffffff;
     }
 
     .toast {
@@ -194,9 +205,11 @@
     #subscription-badge.badge-tier-free:hover {
         background-color: #253a5c !important;
     }
+
     #subscription-badge.badge-tier-pro:hover {
         background-color: #164321 !important;
     }
+
     #subscription-badge.badge-tier-max:hover {
         background-color: #3a255c !important;
     }
@@ -207,11 +220,13 @@
         border-color: rgba(35, 108, 119, 0.508);
         color: #b6ebfb;
     }
+
     .badge-tier-pro {
         background-color: #164321;
         border-color: #1f6b31;
         color: #b7f5c8;
     }
+
     .badge-tier-max {
         background-color: #3a255c;
         border-color: #6c4fb0;
@@ -238,18 +253,28 @@
     }
 
     /* Subscription card theming (dark) */
-    #subscription-status-row{
+    #subscription-status-row {
         background-color: #0e1a24;
         border-color: #2a3a45;
     }
+
     /* Info profile card (dark) */
-    #profile-info-card{
+    #profile-info-card {
         background-color: #0e1a24;
         border-color: #2a3a45;
     }
-    .subscription-card-header{ background-color: transparent; }
-    .subscription-card-body{ background-color: transparent; }
-    .subscription-card-footer{ background-color: transparent; }
+
+    .subscription-card-header {
+        background-color: transparent;
+    }
+
+    .subscription-card-body {
+        background-color: transparent;
+    }
+
+    .subscription-card-footer {
+        background-color: transparent;
+    }
 
     #messageInput {
         background-color: #283542b6;
@@ -302,15 +327,17 @@
         border: 1px solid rgba(95, 150, 200, 0.3);
     }
 
-    #dialog{
-        background-color: #461010;
+    #dialog {
+        background-color: #461010db;
+        backdrop-filter: blur(32px);
+        box-shadow: 0 0 16px 5px rgb(0 0 0 / 25%);
     }
 
-     #profile-pfp {
+    #profile-pfp {
         filter: invert(1);
     }
 
-    #profile-pfp[src]:not([src=""]):not([src="undefined"]):not([src="null"]):not([src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="]){
+    #profile-pfp[src]:not([src=""]):not([src="undefined"]):not([src="null"]):not([src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="]) {
         filter: invert(0);
     }
 
@@ -419,28 +446,34 @@
 
     /* Chat actions dropdown (dark theme explicit) */
     .chat-actions-menu {
-        --chat-actions-menu-bg: rgba(20,25,32,0.92);
+        --chat-actions-menu-bg: rgba(20, 25, 32, 0.92);
         border: 1px solid #ffffff18;
-        box-shadow: 0 6px 22px -4px rgba(0,0,0,0.6), 0 2px 8px -2px rgba(0,0,0,0.5);
+        box-shadow: 0 6px 22px -4px rgba(0, 0, 0, 0.6), 0 2px 8px -2px rgba(0, 0, 0, 0.5);
         color: #e4e4e4;
     }
-    .chat-actions-item:hover, .chat-actions-item:focus-visible {
+
+    .chat-actions-item:hover,
+    .chat-actions-item:focus-visible {
         background: #ffffff12;
     }
+
     .chat-actions-item:active {
         background: #ffffff1e;
     }
 
     /* Split button dropdown (dark theme) */
     .split-button__menu {
-        --split-button-menu-bg: rgba(20,25,32,0.92);
+        --split-button-menu-bg: rgba(20, 25, 32, 0.92);
         border: 1px solid #ffffff18;
-        box-shadow: 0 6px 22px -4px rgba(0,0,0,0.6), 0 2px 8px -2px rgba(0,0,0,0.5);
+        box-shadow: 0 6px 22px -4px rgba(0, 0, 0, 0.6), 0 2px 8px -2px rgba(0, 0, 0, 0.5);
         color: #e4e4e4;
     }
-    .split-button__menu-item:hover, .split-button__menu-item:focus-visible {
+
+    .split-button__menu-item:hover,
+    .split-button__menu-item:focus-visible {
         background: #ffffff12;
     }
+
     .split-button__menu-item:active {
         background: #ffffff1e;
     }
@@ -450,30 +483,42 @@
         --thinking-border: #3a648b;
         --thinking-bg: #000000;
     }
+
     .message-thinking pre {
         background: var(--thinking-bg);
     }
 
     /* Top-up buttons (dark theme) */
-    #form-top-up-imagecredits .btn-array-vertical > button {
+    #form-top-up-imagecredits .btn-array-vertical>button {
         background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
         border-color: #374151;
         color: #e5e7eb;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
     }
-    #form-top-up-imagecredits .btn-array-vertical > button:hover {
-        box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+
+    #form-top-up-imagecredits .btn-array-vertical>button:hover {
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
         transform: translateY(-1px);
         background: linear-gradient(145deg, #263244 0%, #141b23 100%);
         border-color: #465164;
     }
-    #form-top-up-imagecredits .btn-array-vertical > button:active {
+
+    #form-top-up-imagecredits .btn-array-vertical>button:active {
         transform: translateY(0);
-        box-shadow: 0 8px 22px rgba(0,0,0,0.4);
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
         background: linear-gradient(145deg, #1b2431 0%, #0f141a 100%);
     }
-    #form-top-up-imagecredits .top-up-price { color: #ffffff; }
-    #form-top-up-imagecredits .top-up-credits { color: #e8eef7; }
-    #form-top-up-imagecredits .top-up-subtitle { color: #a6b2c2; }
+
+    #form-top-up-imagecredits .top-up-price {
+        color: #ffffff;
+    }
+
+    #form-top-up-imagecredits .top-up-credits {
+        color: #e8eef7;
+    }
+
+    #form-top-up-imagecredits .top-up-subtitle {
+        color: #a6b2c2;
+    }
 
 }

@@ -379,19 +379,9 @@ function setupMessageRegeneration(messageElement: HTMLElement) {
     }
 
     refreshButton.addEventListener("click", async () => {
-        try {
-            const confirmation = await helpers.confirmDialogDanger("This action will also clear messages after the response you wish to regenerate. This action cannot be undone!");
-            if (confirmation) {
-                await messageService.regenerate(messageElement);
-            }
-
-        } catch (error) {
-            if ((error as any).status === 429) {
-                alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");
-                return;
-            }
-            alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
-            console.error(error);
+        const confirmation = await helpers.confirmDialogDanger("This action will also clear messages after the response you wish to regenerate. This action cannot be undone!");
+        if (confirmation) {
+            await messageService.regenerate(messageElement);
         }
     });
 }
