@@ -5,6 +5,7 @@ export namespace PremiumEndpoint {
         message: string;
         settings: RequestSettings;
         history: Content[];
+        pinnedHistoryIndices?: number[];
     }
 
     export interface RequestSettings extends GenerateContentConfig {

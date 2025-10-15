@@ -1,0 +1,22 @@
+export const TONE_QUESTIONS: ReadonlyArray<string> = [
+    "What do you think of the weather?",
+    "Are you into parties?",
+    "Fight me.",
+    "How would you introduce yourself to a stranger?",
+    "How do you relax after a long day?",
+    "Someone challenges your opinion. Your response?",
+    "(The user unexpectedly slaps you)",
+    "How do you get hyped for something exciting?",
+    "What's a habit that annoys you?",
+    "How do you comfort a sad friend?",
+    "How do you celebrate a win?",
+    "How do you handle rudeness?",
+    "Plans change last minute. Your reaction?",
+    "How do you ask for help?",
+    "Your tone when teaching something new?",
+    "How do you say goodnight?",
+    "How do you flirt subtly?",
+    "What do you sound like when bored?",
+    "How do you apologize when you're wrong?",
+    "React to surprising good news."
+];

@@ -36,7 +36,7 @@
     scrollbar-width: thin;
 }
 
-code {
+:root {
     padding: 2px;
     border-radius: 2px;
     outline: 1px solid var(--inline-code-border);
@@ -48,6 +48,8 @@ hr {
 }
 
 .hidden {
+    --tone-example-remove-hover: rgba(0, 0, 0, 0.08);
+    --tone-example-remove-active: rgba(0, 0, 0, 0.12);
     display: none !important;
 }
 
@@ -324,6 +326,59 @@ select:disabled {
 form {
     max-width: 100%;
     max-height: 100%;
+}
+
+.tone-example-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.tone-example-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.tone-example-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.tone-example-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tone-example-row .tone-example {
+    flex: 1 1 auto;
+}
+
+.tone-example-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0.35rem;
+    border-radius: 0.5rem;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: inherit;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+    flex-shrink: 0;
+}
+
+.tone-example-remove:hover {
+    background-color: var(--tone-example-remove-hover);
+}
+
+.tone-example-remove:active {
+    background-color: var(--tone-example-remove-active);
+    transform: scale(0.96);
 }
 
 #login-register-tabs {

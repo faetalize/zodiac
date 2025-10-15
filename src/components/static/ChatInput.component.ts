@@ -126,18 +126,14 @@ messageInput.addEventListener("dragleave", handleDragLeave);
 messageInput.addEventListener("drop", handleDrop);
 
 sendMessageButton.addEventListener("click", async () => {
-    let userMessageElement: HTMLElement | undefined;
     try {
         const message = helpers.getEncoded(messageInput.innerHTML);
         messageInput.innerHTML = "";
-        userMessageElement = await messageService.send(message);
+        await messageService.send(message);
     } catch (error: any) {
-        if (userMessageElement) {
-            (userMessageElement as HTMLElement).classList.add("message-failure");
-        }
         toastService.danger({
             title: "Error sending message",
-            text: JSON.stringify(error.message),
+            text: JSON.stringify(error.message || error),
         });
         console.error(error);
         return;

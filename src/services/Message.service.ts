@@ -20,7 +20,11 @@ import { Request, Response as OpenRouterResponse, StreamingChoice } from "../mod
 import { DbPersonality, Personality } from "../models/Personality";
 import { requestCompletionFromGLM } from "./GLM.service";
 import { PremiumEndpoint } from "../models/PremiumEndpoint";
-import { warn } from "./Toast.service";
+import { danger, warn } from "./Toast.service";
+import { log } from "node:console";
+import { TONE_QUESTIONS } from "../constants/ToneQuestions";
+
+const PERSONALITY_MARKER_PREFIX = "__personality_marker__|";
 
 
 export async function send(msg: string) {
@@ -83,7 +87,9 @@ export async function send(msg: string) {
         return;
     }
 
-    const chatHistory: Content[] = await constructGeminiChatHistoryFromLocalChat(currentChat, { id: getSelectedPersonalityId(), ...selectedPersonality });
+    const { history: chatHistory, pinnedHistoryIndices } = await constructGeminiChatHistoryFromLocalChat(currentChat, { id: getSelectedPersonalityId(), ...selectedPersonality });
+    console.log(structuredClone(chatHistory));
+    console.log(structuredClone(pinnedHistoryIndices));
 
     //insert user's message element
     const userMessage: Message = { role: "user", parts: [{ text: msg, attachments: attachmentFiles }] };
@@ -159,9 +165,13 @@ export async function send(msg: string) {
             });
             //case: fail
             if (!response.ok) {
-                const error = (await response.json()).error;
-                alert("Image generation failed: " + error);
-                responseElement.remove();
+                const responseError = (await response.json()).error;
+                danger({ text: responseError, title: "Image generation failed" });
+                const modelMessage: Message = createImageGenerationErrorMessage(selectedPersonalityId);
+                const newElm = await messageElement(modelMessage);
+                responseElement.replaceWith(newElm);
+                helpers.messageContainerScrollToBottom(true);
+                await persistUserAndModel(userMessage, modelMessage);
                 return userMessageElement;
             }
             // the edge function returns an image directly (binary body)
@@ -172,14 +182,18 @@ export async function send(msg: string) {
         }
         else {
             response = await ai.models.generateImages(payload);
-            if (!response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
+            if (!response || !response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
                 const extraMessage = (response?.generatedImages?.[0]?.raiFilteredReason);
-                alert("Image generation failed" + (extraMessage ? `: ${extraMessage}` : ""));
-                responseElement.remove();
+                danger({ text: `${extraMessage ? "Reason: " + extraMessage : ""}`, title: "Image generation failed" });
+                const modelMessage: Message = createImageGenerationErrorMessage(selectedPersonalityId);
+                const newElm = await messageElement(modelMessage);
+                responseElement.replaceWith(newElm);
+                helpers.messageContainerScrollToBottom(true);
+                await persistUserAndModel(userMessage, modelMessage);
                 return userMessageElement;
             }
-            b64 = response.generatedImages[0].image.imageBytes
-            returnedMimeType = response.generatedImages[0].image.mimeType || "image/png";
+            b64 = response.generatedImages?.[0].image?.imageBytes!;
+            returnedMimeType = response.generatedImages?.[0].image?.mimeType || "image/png";
         }
 
         // Update the placeholder element with the image via re-render
@@ -214,7 +228,7 @@ export async function send(msg: string) {
                 ...config,
             }
             const hasFiles = (attachmentFiles?.length ?? 0) > 0;
-            const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+            const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-requestv2`;
             // Build request
             let res: Response;
             if (hasFiles) {
@@ -222,6 +236,7 @@ export async function send(msg: string) {
                 form.append('message', msg);
                 form.append('settings', JSON.stringify(payloadSettings));
                 form.append('history', JSON.stringify(chatHistory));
+                form.append('pinnedHistoryIndices', JSON.stringify(pinnedHistoryIndices));
                 for (const f of Array.from(attachmentFiles || [])) {
                     form.append('files', f);
                 }
@@ -234,7 +249,8 @@ export async function send(msg: string) {
                 const payload: PremiumEndpoint.Request = {
                     message: msg,
                     settings: payloadSettings,
-                    history: chatHistory
+                    history: chatHistory,
+                    pinnedHistoryIndices
                 }
                 res = await fetch(endpoint, {
                     method: 'POST',
@@ -380,8 +396,12 @@ export async function send(msg: string) {
             }
         } catch (err) {
             console.error(err);
-            try { responseElement.remove(); } catch { }
-            return userMessageElement;
+            const modelMessage: Message = createModelErrorMessage(selectedPersonalityId);
+            const newElm = await messageElement(modelMessage);
+            responseElement.replaceWith(newElm);
+            helpers.messageContainerScrollToBottom(true);
+            await persistUserAndModel(userMessage, modelMessage);
+            throw err;
         }
 
     } else { //free user, use local sdk
@@ -405,7 +425,6 @@ export async function send(msg: string) {
             ],
         };
 
-        //insert model message placeholder
         try {
             if (settings.streamResponses) {
                 let stream: AsyncGenerator<GenerateContentResponse> = await chat.sendMessageStream(messagePayload);
@@ -468,6 +487,11 @@ export async function send(msg: string) {
                 }
             }
         } catch (err) {
+            const modelMessage: Message = createModelErrorMessage(selectedPersonalityId)
+            const newElm = await messageElement(modelMessage);
+            responseElement.replaceWith(newElm);
+            helpers.messageContainerScrollToBottom(true);
+            await persistUserAndModel(userMessage, modelMessage);
             console.error(err);
             throw err;
         }
@@ -527,6 +551,18 @@ export async function send(msg: string) {
     return userMessageElement;
 }
 
+function createModelErrorMessage(selectedPersonalityId: string): Message {
+    return {
+        role: "model",
+        parts: [{ text: "Error: Unable to get a response from the AI. Please try again by regenerating the response." }],
+        personalityid: selectedPersonalityId,
+    };
+}
+
+function createImageGenerationErrorMessage(selectedPersonalityId: string): Message {
+    return { role: "model", parts: [{ text: "I'm sorry, I couldn't generate the image you requested. Try regenerating the response, or picking a different image model in the settings." }], personalityid: selectedPersonalityId };
+}
+
 export async function regenerate(responseElement: HTMLElement) {
     //basically, we remove every message after the response we wish to regenerate, then send the message again.
     const elementIndex = [...(responseElement.parentElement?.children || [])].indexOf(responseElement);
@@ -545,31 +581,26 @@ export async function regenerate(responseElement: HTMLElement) {
         console.log({ chat, message, elementIndex });
         return;
     }
-    //we should check if the message is a personality change message, and if so, we should delete the hidden system messsages before it.
-    //we do this by checking if the message before the user message is a model message with hidden property set to true
-    const prevMessage = chat.content[elementIndex - 2];
-    if (prevMessage && prevMessage.role === "model" && (prevMessage.hidden === true)) {
-        //we need to delete every hidden message until we reach a non-hidden message or the start of the chat
-        let deleteCount = 0;
-        for (let i = elementIndex - 2; i >= 0; i--) {
-            if (chat.content[i].role === "model" && (chat.content[i].hidden === true)) {
-                deleteCount++;
-            } else {
-                break;
-            }
+    // Remove the user message we're regenerating and any legacy hidden intro messages
+    // that may precede it, while preserving personality markers.
+    const userIndex = elementIndex - 1;
+    let deletionStart = userIndex;
+    for (let i = userIndex - 1; i >= 0; i--) {
+        const candidate = chat.content[i];
+        if (!candidate.hidden) {
+            break;
         }
-        chat.content = chat.content.slice(0, elementIndex - 2 - deleteCount);
+        if (candidate.role === "model" && isPersonalityMarker(candidate)) {
+            break;
+        }
+        deletionStart = i;
     }
-    else {
-        chat.content = chat.content.slice(0, elementIndex - 1); //remove every message after the user message
-
-    }
-
-
+    chat.content = chat.content.slice(0, deletionStart);
+    pruneTrailingPersonalityMarkers(chat);
     await db.chats.put(chat);
     await chatsService.loadChat(chat.id, db);
     //we also should reattach the attachments to the message box
-    const attachments = message.parts[0].attachments || [];
+    const attachments = message.parts[0].attachments || {} as FileList;
     const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
     if (attachmentsInput && attachments.length > 0) {
         const dataTransfer = new DataTransfer();
@@ -578,7 +609,24 @@ export async function regenerate(responseElement: HTMLElement) {
         }
         attachmentsInput.files = dataTransfer.files;
     }
-    await send(message.parts[0].text || "");
+    try {
+        await send(message.parts[0].text || "");
+    } catch (error: any) {
+        const modelMessage: Message = createModelErrorMessage(getSelectedPersonalityId());
+        const userMessage: Message = { role: "user", parts: [{ text: message.parts[0].text || "", attachments: attachments }] };
+        const userMessageElement = await messageElement(userMessage);
+        const responseMessageElement = await messageElement(modelMessage);
+        document.querySelector(".message-container")?.append(userMessageElement);
+        document.querySelector(".message-container")?.append(responseMessageElement);
+        helpers.messageContainerScrollToBottom(true);
+        await persistUserAndModel(message, modelMessage);
+        danger({
+            title: "Error regenerating message",
+            text: JSON.stringify(error.message || error),
+        });
+        console.error(error);
+        return;
+    }
 }
 
 export async function insertMessageV2(message: Message) {
@@ -612,97 +660,399 @@ async function persistUserAndModel(user: Message, model: Message): Promise<void>
     await db.chats.put(chat);
 }
 
-export async function constructGeminiChatHistoryFromLocalChat(currentChat: Chat, selectedPersonality: DbPersonality): Promise<Content[]> {
+export interface GeminiHistoryBuildResult {
+    history: Content[];
+    pinnedHistoryIndices: number[];
+}
+
+export async function constructGeminiChatHistoryFromLocalChat(currentChat: Chat, selectedPersonality: DbPersonality): Promise<GeminiHistoryBuildResult> {
     const history: Content[] = [];
-    // Find the last message with generated images
+    const pinnedHistoryIndices: number[] = [];
+
+    const migrated = await migrateLegacyPersonalityMarkers(currentChat);
+    const backfilled = await backfillMissingPersonalityMarkers(currentChat);
+    const markerEnsured = await ensurePersonalityMarker(currentChat, selectedPersonality.id);
+    if (migrated || backfilled || markerEnsured) {
+        await db.chats.put(currentChat);
+    }
+
     let lastImageIndex = -1;
     for (let i = currentChat.content.length - 1; i >= 0; i--) {
-        if (currentChat.content[i].generatedImages && currentChat.content[i].generatedImages!.length > 0) {
+        const message = currentChat.content[i];
+        if (message.hidden) {
+            continue;
+        }
+        if (message.generatedImages && message.generatedImages.length > 0) {
             lastImageIndex = i;
             break;
         }
     }
 
-    // Find the last message with attachments
     let lastAttachmentIndex = -1;
     for (let i = currentChat.content.length - 1; i >= 0; i--) {
-        if (currentChat.content[i].parts.some(part => part.attachments && part.attachments.length > 0)) {
+        const message = currentChat.content[i];
+        if (message.hidden) {
+            continue;
+        }
+        if (message.parts.some(part => part.attachments && part.attachments.length > 0)) {
             lastAttachmentIndex = i;
             break;
         }
     }
 
-    const past = await Promise.all(currentChat.content.map(async (dbMessage: Message, index: number) => {
-        const genAiMessage: Content = {
-            role: dbMessage.role,
-            parts: ((await Promise.all(dbMessage.parts.map(async (part) => {
-                const text = part.text || "";
-                const attachments = part.attachments || [];
-                const parts: Part[] = [{ text }];
-                // Only include attachments if this is the last message that has them
-                if (attachments && attachments.length > 0 && index === lastAttachmentIndex) {
-                    for (const attachment of attachments) {
-                        parts.push(await createPartFromBase64(await helpers.fileToBase64(attachment), attachment.type || "application/octet-stream"));
+    for (let index = 0; index < currentChat.content.length; index++) {
+        const dbMessage = currentChat.content[index];
+
+        if (isPersonalityMarker(dbMessage)) {
+            const markerInfo = getPersonalityMarkerInfo(dbMessage);
+            if (!markerInfo) {
+                continue;
+            }
+            let persona: DbPersonality | undefined;
+            if (markerInfo.personalityId === selectedPersonality.id) {
+                persona = selectedPersonality;
+            } else {
+                const fetched = await personalityService.get(markerInfo.personalityId);
+                if (fetched) {
+                    persona = { id: markerInfo.personalityId, ...fetched } as DbPersonality;
+                }
+            }
+            if (persona) {
+                const instructions = buildPersonalityInstructionMessages(persona);
+                const startIndex = history.length;
+                history.push(...instructions);
+                if (markerInfo.personalityId === selectedPersonality.id) {
+                    for (let offset = 0; offset < instructions.length; offset++) {
+                        pinnedHistoryIndices.push(startIndex + offset);
                     }
                 }
-                return parts;
-            })))).flat()
-        };
-        // Only include generated images if this is the last message that has them
-        if (dbMessage.generatedImages && index === lastImageIndex) {
-            genAiMessage.parts?.push(...(dbMessage.generatedImages?.map(img => {
-                return { inlineData: { data: img.base64, mimeType: img.mimeType } };
-            })));
+            }
+            continue;
         }
-        return genAiMessage;
-    }));
-    history.push(...past);
-    //compare last message's personality with selectedPersonality
-    const lastMessage = currentChat.content[currentChat.content.length - 1];
-    if (lastMessage?.personalityid !== selectedPersonality.id) { //personality has changed, we need to insert a system message to inform the model
-        const messages: Content[] = [
+
+        if (dbMessage.hidden) {
+            continue;
+        }
+
+        const aggregatedParts: Part[] = [];
+        for (const part of dbMessage.parts) {
+            const text = part.text || "";
+            aggregatedParts.push({ text });
+
+            const attachments = part.attachments || [];
+            if (attachments.length > 0 && index === lastAttachmentIndex) {
+                for (const attachment of attachments) {
+                    aggregatedParts.push(
+                        await createPartFromBase64(
+                            await helpers.fileToBase64(attachment),
+                            attachment.type || "application/octet-stream"
+                        )
+                    );
+                }
+            }
+        }
+
+        const genAiMessage: Content = {
+            role: dbMessage.role,
+            parts: aggregatedParts
+        };
+
+        if (dbMessage.generatedImages && index === lastImageIndex) {
+            genAiMessage.parts?.push(
+                ...(dbMessage.generatedImages.map(img => ({
+                    inlineData: { data: img.base64, mimeType: img.mimeType }
+                })))
+            );
+        }
+
+        history.push(genAiMessage);
+    }
+
+    //only return the pinnedHistoryIndices of the last personality
+
+    return { history, pinnedHistoryIndices };
+}
+
+function createPersonalityMarkerMessage(personalityId: string): Message {
+    return {
+        role: "model",
+        parts: [{ text: `${PERSONALITY_MARKER_PREFIX}${personalityId}|${new Date().toISOString()}` }],
+        personalityid: personalityId,
+        hidden: true,
+    };
+}
+
+function isPersonalityMarker(message: Message): boolean {
+    if (!message.hidden) {
+        return false;
+    }
+    const text = message.parts?.[0]?.text;
+    return typeof text === "string" && text.startsWith(PERSONALITY_MARKER_PREFIX);
+}
+
+function getPersonalityMarkerInfo(message: Message): { personalityId: string; updatedAt?: string } | undefined {
+    if (!isPersonalityMarker(message)) {
+        return undefined;
+    }
+    const text = message.parts?.[0]?.text ?? "";
+    const payload = text.slice(PERSONALITY_MARKER_PREFIX.length);
+    const [personalityId, updatedAt] = payload.split("|");
+    if (!personalityId) {
+        return undefined;
+    }
+    return { personalityId, updatedAt };
+}
+
+function isLegacyPersonalityIntro(message: Message): boolean {
+    if (!message.hidden || message.role !== "user") {
+        return false;
+    }
+    const text = message.parts?.[0]?.text ?? "";
+    return text.includes("<system>Personality Name:");
+}
+
+async function migrateLegacyPersonalityMarkers(chat: Chat): Promise<boolean> {
+    let mutated = false;
+    let index = 0;
+    while (index < chat.content.length) {
+        const message = chat.content[index];
+        if (!isLegacyPersonalityIntro(message)) {
+            index++;
+            continue;
+        }
+
+        let end = index + 1;
+        let personalityId: string | undefined = message.personalityid;
+        while (end < chat.content.length) {
+            const current = chat.content[end];
+            if (!current.hidden || isPersonalityMarker(current)) {
+                break;
+            }
+            if (!personalityId && current.personalityid) {
+                personalityId = current.personalityid;
+            }
+            end++;
+        }
+
+        if (!personalityId) {
+            const nextMessage = chat.content[index + 1];
+            if (nextMessage?.personalityid) {
+                personalityId = nextMessage.personalityid;
+            }
+        }
+
+        if (!personalityId) {
+            index = end;
+            continue;
+        }
+
+        removeMessagesFromDom(index, end);
+        chat.content.splice(index, end - index);
+
+        const markerMessage = createPersonalityMarkerMessage(personalityId);
+        chat.content.splice(index, 0, markerMessage);
+        await insertHiddenMessageIntoDom(markerMessage, index);
+        index++;
+
+        mutated = true;
+    }
+    return mutated;
+}
+
+async function backfillMissingPersonalityMarkers(chat: Chat): Promise<boolean> {
+    let mutated = false;
+    let activePersonalityId: string | undefined;
+    const content = chat.content;
+
+    for (let index = 0; index < content.length; index++) {
+        const message = content[index];
+
+        if (isPersonalityMarker(message)) {
+            activePersonalityId = getPersonalityMarkerInfo(message)?.personalityId;
+            continue;
+        }
+
+        if (message.hidden) {
+            continue;
+        }
+
+        const personaId = message.personalityid;
+        if (!personaId) {
+            continue;
+        }
+
+        if (personaId === activePersonalityId) {
+            continue;
+        }
+
+        let insertionIndex = index;
+        for (let cursor = index - 1; cursor >= 0; cursor--) {
+            const candidate = content[cursor];
+            if (isPersonalityMarker(candidate)) {
+                insertionIndex = cursor;
+                break;
+            }
+            if (candidate.hidden) {
+                continue;
+            }
+            if (candidate.role === "user") {
+                insertionIndex = cursor;
+            }
+            break;
+        }
+
+        const markerMessage = createPersonalityMarkerMessage(personaId);
+        content.splice(insertionIndex, 0, markerMessage);
+        await insertHiddenMessageIntoDom(markerMessage, insertionIndex);
+        activePersonalityId = personaId;
+        mutated = true;
+        if (insertionIndex <= index) {
+            index++;
+        }
+        continue;
+    }
+
+    return mutated;
+}
+
+function removeMessagesFromDom(startIndex: number, endIndex: number): void {
+    const container = document.querySelector<HTMLDivElement>(".message-container");
+    if (!container) {
+        return;
+    }
+    for (let idx = endIndex - 1; idx >= startIndex; idx--) {
+        const node = container.children[idx];
+        if (node) {
+            node.remove();
+        }
+    }
+}
+
+async function insertHiddenMessageIntoDom(message: Message, index: number): Promise<void> {
+    const container = document.querySelector<HTMLDivElement>(".message-container");
+    if (!container) {
+        return;
+    }
+    const element = await messageElement(message);
+    const referenceNode = container.children[index] ?? null;
+    container.insertBefore(element, referenceNode);
+}
+
+async function moveDomMessage(fromIndex: number, toIndex: number, message: Message): Promise<void> {
+    const container = document.querySelector<HTMLDivElement>(".message-container");
+    if (!container) {
+        return;
+    }
+    const node = container.children[fromIndex];
+    if (!node) {
+        await insertHiddenMessageIntoDom(message, toIndex);
+        return;
+    }
+    container.removeChild(node);
+    const referenceNode = container.children[toIndex] ?? null;
+    container.insertBefore(node, referenceNode);
+}
+
+async function ensurePersonalityMarker(chat: Chat, personalityId: string): Promise<boolean> {
+    const content = chat.content;
+    for (let i = content.length - 1; i >= 0; i--) {
+        if (!isPersonalityMarker(content[i])) {
+            continue;
+        }
+        const info = getPersonalityMarkerInfo(content[i]);
+        if (info?.personalityId === personalityId) {
+            return false;
+        }
+    }
+
+    const markerMessage = createPersonalityMarkerMessage(personalityId);
+    content.push(markerMessage);
+    await insertHiddenMessageIntoDom(markerMessage, content.length - 1);
+    return true;
+}
+
+function pruneTrailingPersonalityMarkers(chat: Chat): void {
+    const content = chat.content;
+    while (content.length > 0) {
+        const last = content[content.length - 1];
+        if (isPersonalityMarker(last)) {
+            content.pop();
+            continue;
+        }
+        break;
+    }
+}
+
+function buildPersonalityInstructionMessages(personality: DbPersonality): Content[] {
+    const messages: Content[] = [
+        {
+            role: "user",
+            parts: [{
+                text: `<system>Personality Name: ${personality.name}\nPersonality Description: ${personality.description}\nPersonality Prompt: ${personality.prompt}\nYour level of aggression is ${personality.aggressiveness} out of 3. Your sensuality is ${personality.sensuality} out of 3.</system>`
+            }]
+        },
+        {
+            role: "model",
+            parts: [{
+                text: `Very well, from now on, I will be acting as the personality you have chosen. I'm ${personality.name}, and will continue this chat as your desired personality.`
+            }]
+        },
+    ];
+
+    //before adding tone examples, we add a system message explaining what we're doing
+    if (personality.toneExamples && personality.toneExamples.length > 0) {
+        messages.push(
             {
                 role: "user",
-                parts: [{ text: `<system>Personality Name: ${selectedPersonality!.name}\nPersonality Description: ${selectedPersonality!.description}\nPersonality Prompt: ${selectedPersonality!.prompt}\nYour level of aggression is ${selectedPersonality!.aggressiveness} out of 3. Your sensuality is ${selectedPersonality!.sensuality} out of 3.</system>` }]
+                parts: [{
+                    text: `<system>We are gonna establish some examples of how this personality would talk/speak. I will ask you questions, and you will respond in character as '${personality.name}'.</system>`
+                }]
             },
             {
                 role: "model",
-                parts: [{ text: `Very well, from now on, I will be acting as the personality you have chosen. I'm ${selectedPersonality!.name}, and will continue this chat as your desired personality.` }]
-            },
-            ...(selectedPersonality.toneExamples.map<Content>((toneExample) => {
-                return { role: "model", parts: [{ text: toneExample }] };
-            }))
-        ];
-        history.push(...messages);
-
-        //we should also append these to the chat in the db, so we keep track of changes in personalities
-        const messagesLocal = messages.map<Message>(
-            (m) => {
-                const mm: Message = {
-                    role: m.role as "user" | "model",
-                    parts: m.parts!.map(
-                        p => {
-                            return { text: p.text || "" };
-                        }
-                    ),
-                    personalityid: m.role === "model" ? selectedPersonality.id : undefined,
-                    hidden: true, //hide these messages from the normal chat view
-                };
-                return mm;
-            }
-        )
-        currentChat.content.push(...messagesLocal);
-        await db.chats.put(currentChat);
-
-        //insert the messages in the ui as well
-        const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
-        if (messageContainer) {
-            for (const m of messagesLocal) {
-                insertMessageV2(m);
-            }
-        }
+                parts: [{
+                    text: `Understood. I am ready to respond as '${personality.name}'. Please proceed with your questions.`
+                }]
+            });
     }
-    return history;
+
+    //add tone examples, if any
+    (personality.toneExamples || [])
+        .slice(0, TONE_QUESTIONS.length)
+        .forEach((toneExample, index) => {
+            const prompt = TONE_QUESTIONS[index] ?? "Give me an example on how this personality would talk/speak.";
+            messages.push(
+                {
+                    role: "user",
+                    parts: [{ text: prompt }]
+                },
+                {
+                    role: "model",
+                    parts: [{ text: toneExample }]
+                }
+            );
+        });
+
+    //after adding tone examples, we add a system message to tell the model to continue in this tone
+    if (personality.toneExamples && personality.toneExamples.length > 0) {
+        console.log(personality.toneExamples);
+        messages.push(
+            {
+                role: "user",
+                parts: [{
+                    text: `<system>End of examples. From now on, continue responding as ${personality.name}, using the tone and style established in the examples above. Do NOT ever stray from the writing style you've established above. Respond with 'OK' if all is understood and ready to proceed.</system>`
+                }]
+            },
+            {
+                role: "model",
+                parts: [{
+                    text: "OK"
+                }]
+            });
+    }
+
+
+    return messages;
 }
 
 async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat> {
@@ -752,7 +1102,7 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
             { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.OFF },
         ]
     }
-    const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+    const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-requestv2`;
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: {

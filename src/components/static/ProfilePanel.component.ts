@@ -28,10 +28,10 @@ window.addEventListener('profile-updated', (event: CustomEventInit) => {
     }
 });
 
-window.addEventListener('subscription-refreshed', (event: CustomEventInit) => {
-    const { subDetails }: { subDetails: supabaseService.UserSubscription } = event.detail;
-    if (subDetails) {
-        remainingImageGenerations.textContent = (subDetails.remaining_image_generations ?? 0).toString();
+window.addEventListener('image-generation-record-refreshed', (event: CustomEventInit) => {
+    const { imageGenerationRecord }: { imageGenerationRecord: supabaseService.ImageGenerationRecord } = event.detail;
+    if (imageGenerationRecord) {
+        remainingImageGenerations.textContent = (imageGenerationRecord.remaining_image_generations ?? 0).toString();
     }
 });
 
