@@ -224,7 +224,7 @@ export async function send(msg: string) {
                 ...config,
             }
             const hasFiles = (attachmentFiles?.length ?? 0) > 0;
-            const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-requestv2`;
+            const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
             // Build request
             let res: Response;
             if (hasFiles) {
@@ -1097,7 +1097,7 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
             { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.OFF },
         ]
     }
-    const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-requestv2`;
+    const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
