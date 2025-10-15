@@ -15,10 +15,8 @@ import { isImageModeActive } from "../components/static/ImageButton.component";
 import { Chat, DbChat } from "../models/Chat";
 import { getSubscriptionTier, getUserSubscription, SUPABASE_URL, getAuthHeaders, isImageGenerationAvailable } from "./Supabase.service";
 import { ChatModel } from "../models/Models";
-import OpenAI from 'openai';
-import { Request, Response as OpenRouterResponse, StreamingChoice } from "../models/OpenRouterTypes";
-import { DbPersonality, Personality } from "../models/Personality";
-import { requestCompletionFromGLM } from "./GLM.service";
+import { Response as OpenRouterResponse, StreamingChoice } from "../models/OpenRouterTypes";
+import { DbPersonality } from "../models/Personality";
 import { PremiumEndpoint } from "../models/PremiumEndpoint";
 import { danger, warn } from "./Toast.service";
 import { TONE_QUESTIONS } from "../constants/ToneQuestions";
@@ -226,7 +224,7 @@ export async function send(msg: string) {
                 ...config,
             }
             const hasFiles = (attachmentFiles?.length ?? 0) > 0;
-            const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-requestv2`;
+            const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
             // Build request
             let res: Response;
             if (hasFiles) {
@@ -1099,7 +1097,7 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
             { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.OFF },
         ]
     }
-    const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-requestv2`;
+    const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
