@@ -88,7 +88,6 @@ export async function send(msg: string) {
 
     const { history: chatHistory, pinnedHistoryIndices } = await constructGeminiChatHistoryFromLocalChat(currentChat, { id: getSelectedPersonalityId(), ...selectedPersonality });
     console.log(structuredClone(chatHistory));
-    console.log(structuredClone(pinnedHistoryIndices));
 
     //insert user's message element
     const userMessage: Message = { role: "user", parts: [{ text: msg, attachments: attachmentFiles }] };
