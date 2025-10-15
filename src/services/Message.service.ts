@@ -1033,7 +1033,6 @@ function buildPersonalityInstructionMessages(personality: DbPersonality): Conten
 
     //after adding tone examples, we add a system message to tell the model to continue in this tone
     if (personality.toneExamples && personality.toneExamples.length > 0) {
-        console.log(personality.toneExamples);
         messages.push(
             {
                 role: "user",
