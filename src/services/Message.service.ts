@@ -21,7 +21,6 @@ import { DbPersonality, Personality } from "../models/Personality";
 import { requestCompletionFromGLM } from "./GLM.service";
 import { PremiumEndpoint } from "../models/PremiumEndpoint";
 import { danger, warn } from "./Toast.service";
-import { log } from "node:console";
 import { TONE_QUESTIONS } from "../constants/ToneQuestions";
 
 const PERSONALITY_MARKER_PREFIX = "__personality_marker__|";
