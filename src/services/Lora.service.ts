@@ -100,7 +100,6 @@ export function deleteLora(modelVersionId: string) {
 
     loras = loras.filter((entry) => entry.modelVersionId !== modelVersionId);
     console.log(loras);
-    console.log(getLoraState());
     deleteFromLocalstorage(modelVersionId);
 }
 
