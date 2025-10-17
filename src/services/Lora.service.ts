@@ -2,7 +2,6 @@ import { LoRAInfo, LORA_STORAGE_KEY, LoRAState } from "../models/Lora";
 import { supabase } from "./Supabase.service";
 
 let loras: LoRAInfo[] = [];
-
 let loraState: LoRAState[] = [];
 
 export const initialLoraState: Omit<LoRAState, "lora"> = { strength: 1, enabled: false }
@@ -12,8 +11,8 @@ export function getLoraState(): LoRAState[] {
     const state = loras.map((lora) => {
         return {
             lora,
-            strength: loraState.find(entry => entry.lora.modelVersionId === lora.modelVersionId)?.strength ?? 0,
-            enabled: loraState.find(entry => entry.lora.modelVersionId === lora.modelVersionId)?.enabled ?? false
+            strength: loraState.find(entry => entry.lora.modelVersionId === lora.modelVersionId)?.strength ?? initialLoraState.strength,
+            enabled: loraState.find(entry => entry.lora.modelVersionId === lora.modelVersionId)?.enabled ?? initialLoraState.enabled
         }
     });
     return state;
@@ -43,6 +42,7 @@ function writeToLocalstorage(list: string[]): void {
     localStorage.setItem(LORA_STORAGE_KEY, JSON.stringify(list));
 }
 function deleteFromLocalstorage(modelVersionId: string): void {
+    console.log("Deleting LoRA from localstorage:", modelVersionId);
     const urls = readFromLocalstorage();
     const filtered = urls.filter((url) => !url.includes(modelVersionId));
     writeToLocalstorage(filtered);
@@ -55,16 +55,20 @@ export function getAll(): LoRAInfo[] {
 export async function add(url: string): Promise<LoRAInfo | void> {
     const urlTrimmed = url.trim();
     const urls = readFromLocalstorage();
-    // prevent duplicates (exact match)
-    if (urlTrimmed && !urls.includes(urlTrimmed)) {
-        urls.push(urlTrimmed);
-        writeToLocalstorage(urls);
+    // prevent duplicates early return
+    if (urls.some((existingUrl) => existingUrl === urlTrimmed)) {
+        console.log("[LoRA] LoRA URL already exists in localstorage:", urlTrimmed);
+        return;
     }
     const loraDetails = await getLoraMetadata([urlTrimmed]);
     if (loraDetails && loraDetails.length > 0) {
+        urls.push(loraDetails[0].url);
+        writeToLocalstorage(urls);
+
         loras.push(...loraDetails);
         return loraDetails[0];
     }
+
 }
 
 export async function initialize(): Promise<void> {
@@ -98,7 +102,7 @@ export function deleteLora(modelVersionId: string) {
 }
 
 export function toggleLora(modelVersionId: string, enabled: boolean) {
-    const state = loraState.find((entry) => entry.lora.modelVersionId === modelVersionId);
+    const state = getLoraState().find((entry) => entry.lora.modelVersionId === modelVersionId);
     if (state) {
         state.enabled = enabled;
         upsertLoraState(state);
@@ -106,7 +110,7 @@ export function toggleLora(modelVersionId: string, enabled: boolean) {
 }
 
 export function setLoraStrength(modelVersionId: string, strength: number) {
-    const state = loraState.find((entry) => entry.lora.modelVersionId === modelVersionId);
+    const state = getLoraState().find((entry) => entry.lora.modelVersionId === modelVersionId);
     if (state) {
         state.strength = strength;
         upsertLoraState(state);

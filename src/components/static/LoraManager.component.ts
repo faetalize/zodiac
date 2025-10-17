@@ -1,5 +1,6 @@
 import { LoRAInfo, LoRAState } from "../../models/Lora";
 import * as loraService from "../../services/Lora.service";
+import { danger, warn } from "../../services/Toast.service";
 import { loraElement } from "../dynamic/lora";
 
 const input = document.querySelector<HTMLInputElement>('#lora-url-input');
@@ -46,13 +47,22 @@ async function addLoraFromInput() {
   const value = input?.value || '';
   if (!value) return;
   if (!isLikelyCivitUrl(value)) {
-    // simple UX hint: keep consistent with project style (no alerts if avoidable)
     console.warn('[LoRA] Provided URL does not look like a CivitAI link:', value);
+    warn({
+      title: "Unrecognized LoRA URL",
+      text: "Only CivitAI URLs are supported.",
+    })
     return;
   }
   const lora = await loraService.add(value);
   if (lora) {
     appendLora(lora, loraService.initialLoraState);
+  }
+  else{
+    danger({
+      title: "Failed to add LoRA",
+      text: "Could not retrieve LoRA metadata. Please check the URL and try again.",
+    })
   }
 
   // Clear input after save
