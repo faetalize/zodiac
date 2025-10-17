@@ -1,5 +1,6 @@
 import * as supabaseService from "../../services/Supabase.service";
 import * as overlayService from "../../services/Overlay.service";
+import * as toastService from "../../services/Toast.service";
 
 const registerSubmit = document.querySelector("#btn-register-submit");
 if (!registerSubmit) {
@@ -53,6 +54,12 @@ registerSubmit.addEventListener("click", async (e) => {
         registerError.classList.remove("hidden");
         return;
     }
+
+    // Show verification email toast
+    toastService.info({
+        title: "Check Your Email",
+        text: "Please check your email for a verification link to activate your account."
+    });
 
     overlayService.closeOverlay();
     registerError.classList.add("hidden");
