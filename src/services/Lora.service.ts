@@ -97,9 +97,7 @@ export async function getLoraMetadata(urls: string[]): Promise<LoRAInfo[] | void
 }
 
 export function deleteLora(modelVersionId: string) {
-
     loras = loras.filter((entry) => entry.modelVersionId !== modelVersionId);
-    console.log(loras);
     deleteFromLocalstorage(modelVersionId);
 }
 
