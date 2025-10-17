@@ -44,7 +44,6 @@ function writeToLocalstorage(list: string[]): void {
 function deleteFromLocalstorage(modelVersionId: string): void {
     console.log("Deleting LoRA from localstorage:", modelVersionId);
     const urls = readFromLocalstorage();
-    console.log("Current LoRA URLs in localstorage:", urls);
     const filtered = urls.filter((url) => !url.includes(modelVersionId));
     writeToLocalstorage(filtered);
 }
