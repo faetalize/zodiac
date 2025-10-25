@@ -10,6 +10,9 @@ interface TabView {
 }
 
 for (const tabGroup of tabGroups) {
+    if (tabGroup.dataset.tabview === "manual") {
+        continue;
+    }
     const tabHighlight = tabGroup.querySelector<HTMLElement>(".navbar-tab-highlight");
     const tabs = tabGroup.querySelectorAll<HTMLElement>(".navbar-tab");
     const views = document.querySelector(`#${tabGroup.dataset.targetId}`)!.children as HTMLCollectionOf<HTMLElement>;

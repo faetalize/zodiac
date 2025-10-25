@@ -1,0 +1,299 @@
+/* Blue Dark Theme - Color Palette Variables */
+[data-theme="blue"][data-mode="dark"] {
+    --code-block-bg: transparent;
+    --code-block-border: rgba(118, 160, 227, 0.22);
+    --code-toolbar-bg: rgba(54, 78, 117, 0.35);
+    --code-toolbar-fg: #d7e7ff;
+    --code-copy-hover: rgba(118, 160, 227, 0.28);
+    --code-copy-success: #7fc4ff;
+    --inline-code-border: #ffffff42;
+    --message-drop-border: rgba(118, 160, 227, 0.65);
+    --message-drop-bg: rgba(34, 72, 107, 0.45);
+    --tone-example-remove-hover: rgba(255, 255, 255, 0.12);
+    --tone-example-remove-active: rgba(255, 255, 255, 0.18);
+
+    /* Body */
+    --body-bg: #12171d;
+    --body-fg: #e4e4e4;
+
+    /* Links */
+    --link-color: #92d9eb;
+
+    /* Sidebar */
+    --sidebar-bg: #1a2733d5;
+
+    /* Navbar */
+    --navbar-bg: #00000047;
+    --navbar-tab-fg: #e4e4e4;
+    --navbar-tab-highlight-bg: #22486b;
+    --navbar-tab-highlight-shadow: 0 0 1rem 0.05rem #29292aac;
+    --navbar-tab-hover-bg: #00000042;
+
+    /* Buttons */
+    --button-bg: #5f96c8;
+    --button-fg: #0b2469;
+    --button-hover-bg: #5280ac;
+    --button-active-bg: #3a648b;
+    --button-toggled-bg: #166bb1b0;
+
+    /* Textual buttons */
+    --btn-textual-fg: #e4e4e4;
+    --btn-textual-shadow: 0 0 10px #000000, 0 0 5px #181818;
+    --btn-textual-hover-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf;
+
+    /* Tone example remove */
+    --tone-example-remove-fg: #e8f0ff;
+    --tone-example-remove-hover-fg: #ffffff;
+
+    /* Toasts */
+    --toast-fg: #f7fbff;
+    --toast-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+    --toast-normal-bg: rgba(21, 35, 49, 0.8);
+    --toast-normal-border: rgba(136, 172, 227, 0.32);
+    --toast-normal-action-bg: rgba(136, 172, 227, 0.24);
+    --toast-normal-action-bg-hover: rgba(136, 172, 227, 0.34);
+    --toast-normal-close-hover: rgba(136, 172, 227, 0.22);
+    --toast-warning-bg: rgba(92, 61, 12, 0.8);
+    --toast-warning-border: rgba(255, 214, 132, 0.45);
+    --toast-warning-action-bg: rgba(255, 214, 132, 0.28);
+    --toast-warning-action-bg-hover: rgba(255, 214, 132, 0.37);
+    --toast-warning-close-hover: rgba(255, 214, 132, 0.26);
+    --toast-danger-bg: rgba(94, 18, 22, 0.8);
+    --toast-danger-border: rgba(255, 179, 189, 0.45);
+    --toast-danger-action-bg: rgba(255, 179, 189, 0.3);
+    --toast-danger-action-bg-hover: rgba(255, 179, 189, 0.4);
+    --toast-danger-close-hover: rgba(255, 179, 189, 0.28);
+
+    /* Inputs */
+    --input-bg: #283542;
+    --input-border: 1px solid #b6b6b62f;
+    --input-fg: #e4e4e4;
+    --input-placeholder: #849caf;
+
+    /* Messages */
+    --message-user-bg: #1a2733;
+
+    /* LoRA cards */
+    --card-lora-bg: #162334;
+    --card-lora-border: 1px solid rgba(80, 134, 194, 0.35);
+    --card-lora-shadow: 0 8px 24px rgba(4, 15, 32, 0.25);
+    --lora-card-meta-fg: #9ab9d8;
+    --lora-card-toggle-fg: #cbdff6;
+    --lora-card-trigger-bg: #253a5c;
+    --lora-card-trigger-border: rgba(43, 110, 162, 0.55);
+    --lora-card-trigger-fg: #d1ecff;
+    --lora-card-trigger-hover-bg: #315077;
+    --lora-card-trigger-copied-bg: #3b6ca1;
+    --lora-card-trigger-copied-border: #5b8fce;
+    --lora-card-trigger-copied-fg: #ffffff;
+    --lora-card-empty-fg: #9ab9d8;
+    --lora-card-delete-bg: rgba(37, 58, 92, 0.6);
+    --lora-card-delete-border: rgba(58, 97, 150, 0.55);
+    --lora-card-delete-fg: #d1ecff;
+    --lora-card-delete-hover-bg: rgba(40, 82, 135, 0.7);
+    --lora-strength-slider: #7cabff;
+
+    /* Badges */
+    --badge-bg: #253a5c;
+    --badge-border: 1px solid rgba(35, 108, 119, 0.508);
+    --badge-fg: #b6ebfb;
+
+    /* Subscription badge tiers */
+    --badge-tier-free-bg: #253a5c;
+    --badge-tier-free-border: rgba(35, 108, 119, 0.508);
+    --badge-tier-free-fg: #b6ebfb;
+    --badge-tier-free-hover-bg: #253a5c;
+    --badge-tier-pro-bg: #164321;
+    --badge-tier-pro-border: #1f6b31;
+    --badge-tier-pro-fg: #b7f5c8;
+    --badge-tier-pro-hover-bg: #164321;
+    --badge-tier-max-bg: #3a255c;
+    --badge-tier-max-border: #6c4fb0;
+    --badge-tier-max-fg: #e3d3ff;
+    --badge-tier-max-hover-bg: #3a255c;
+
+    /* Current chat radio */
+    --input-radio-checked-bg: #0f4c84b2;
+    --input-radio-checked-fg: #bcdbf7;
+    --label-currentchat-hover-bg: #597c9124;
+
+    /* Overlay */
+    --overlay-bg: #00000082;
+
+    /* Message box */
+    --message-box-bg: #1b2935c0;
+    --message-box-shadow: 0 0 16px 5px rgb(0 0 0 / 25%);
+
+    /* Cards */
+    --subscription-status-card-bg: #0e1a24;
+    --subscription-status-card-border: #2a3a45;
+    --profile-info-card-bg: #0e1a24;
+    --profile-info-card-border: #2a3a45;
+    --account-info-card-bg: #0e1a24;
+    --account-info-card-border: #2a3a45;
+
+    /* Message input */
+    --message-input-bg: #283542b6;
+
+    /* Add tone example button */
+    --btn-add-tone-bg: #283542;
+    --btn-add-tone-border: 1px solid #b6b6b62f;
+    --btn-add-tone-fg: #849caf;
+    --btn-add-tone-hover-bg: #1a2733;
+
+    /* API key states */
+    --api-key-valid-border: 1px solid #137e3ab0;
+    --api-key-invalid-border: 1px solid #bf121cad;
+    --api-key-error-fg: #ff4a53;
+
+    /* Add personality card */
+    --card-add-personality-bg: rgba(40, 78, 125, 0.4);
+    --card-add-personality-border: 1px dashed rgba(95, 150, 200, 0.3);
+    --card-add-personality-hover-bg: rgba(48, 103, 170, 0.4);
+    --card-add-personality-hover-border: rgba(95, 150, 200, 0.6);
+    --card-add-personality-icon-fg: #5f96c8;
+
+    /* Attachment container */
+    --attachment-container-bg: #060d1447;
+    --attachment-container-outline: 1px solid #ffffff1c;
+
+    /* Add LoRA card */
+    --card-add-lora-bg: rgba(40, 78, 125, 0.25);
+    --card-add-lora-border: 1px solid rgba(95, 150, 200, 0.3);
+
+    /* Dialog */
+    --dialog-bg: #461010db;
+    --dialog-shadow: 0 0 16px 5px rgb(0 0 0 / 25%);
+
+    /* Profile picture */
+    --profile-pfp-filter: invert(1);
+    --profile-pfp-loaded-filter: invert(0);
+
+    /* Toggle switches */
+    --toggle-bg: #3a3a3a;
+    --toggle-border: #505050;
+    --toggle-knob-bg: #e4e4e4;
+    --toggle-knob-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    --toggle-checked-bg: #5f96c8;
+    --toggle-checked-border: #5280ac;
+    --toggle-checked-knob-bg: #ffffff;
+    --toggle-hover-bg: #454545;
+    --toggle-checked-hover-bg: #5280ac;
+    --toggle-focus-shadow: 0 0 0 2px #8f9eb3;
+    --toggle-focus-border: #8f9eb3;
+
+    /* Focus states */
+    --focus-border: 1px solid #8f9eb3;
+    --focus-outline: 1px solid #8f9eb3a6;
+
+    /* Subscription cards */
+    --subscription-card-bg: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+    --subscription-card-border: #374151;
+    --subscription-card-fg: #e4e4e4;
+    --subscription-card-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    --subscription-card-popular-border: #667eea;
+    --subscription-card-popular-shadow: 0 15px 50px rgba(102, 126, 234, 0.3);
+    --subscription-card-popular-hover-shadow: 0 25px 70px rgba(102, 126, 234, 0.4);
+    --subscription-header-gradient: linear-gradient(135deg, #8b92ff 0%, #a78bfa 100%);
+
+    /* Tier badges */
+    --tier-badge-free-fg: #9ca3af;
+    --tier-badge-pro-gradient: linear-gradient(135deg, #8b92ff 0%, #a78bfa 100%);
+    --tier-badge-max-gradient: linear-gradient(135deg, #fb7185 0%, #f472b6 100%);
+
+    /* Mobile subscription cards */
+    --subscription-card-header-border: rgba(255, 255, 255, 0.1);
+
+    /* Chat actions dropdown */
+    --chat-actions-menu-bg: rgba(20, 25, 32, 0.92);
+    --chat-actions-menu-border: 1px solid #ffffff18;
+    --chat-actions-menu-shadow: 0 6px 22px -4px rgba(0, 0, 0, 0.6), 0 2px 8px -2px rgba(0, 0, 0, 0.5);
+    --chat-actions-menu-fg: #e4e4e4;
+    --chat-actions-item-hover-bg: #ffffff12;
+    --chat-actions-item-active-bg: #ffffff1e;
+
+    /* Split button dropdown */
+    --split-button-menu-bg: rgba(20, 25, 32, 0.92);
+    --split-button-menu-border: 1px solid #ffffff18;
+    --split-button-menu-shadow: 0 6px 22px -4px rgba(0, 0, 0, 0.6), 0 2px 8px -2px rgba(0, 0, 0, 0.5);
+    --split-button-menu-fg: #e4e4e4;
+    --split-button-menu-item-hover-bg: #ffffff12;
+    --split-button-menu-item-active-bg: #ffffff1e;
+
+    /* Thinking section */
+    --thinking-border: #3a648b;
+    --thinking-bg: #000000;
+
+    /* Top-up buttons */
+    --top-up-btn-bg: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+    --top-up-btn-border: #374151;
+    --top-up-btn-fg: #e5e7eb;
+    --top-up-btn-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    --top-up-btn-hover-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+    --top-up-btn-hover-bg: linear-gradient(145deg, #263244 0%, #141b23 100%);
+    --top-up-btn-hover-border: #465164;
+    --top-up-btn-active-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+    --top-up-btn-active-bg: linear-gradient(145deg, #1b2431 0%, #0f141a 100%);
+    --top-up-price-fg: #ffffff;
+    --top-up-credits-fg: #e8eef7;
+    --top-up-subtitle-fg: #a6b2c2;
+
+    /* Onboarding */
+    --onboarding-overlay-bg: rgba(8, 12, 18, 0.95);
+    --onboarding-title: #f0f4f8;
+    --onboarding-text: #d1d9e6;
+    --onboarding-card-bg: rgba(26, 39, 51, 0.8);
+    --onboarding-card-hover-bg: rgba(31, 49, 64, 0.9);
+    --onboarding-card-border: rgba(136, 172, 227, 0.2);
+    --onboarding-card-border-hover: rgba(136, 172, 227, 0.45);
+    --onboarding-card-shadow: rgba(0, 0, 0, 0.4);
+    --onboarding-list-neutral-bg: rgba(31, 44, 61, 0.6);
+    --onboarding-list-neutral-icon: #9bbbe5;
+    --onboarding-list-positive-bg: rgba(72, 187, 120, 0.22);
+    --onboarding-list-positive-text: #9be7bb;
+    --onboarding-list-positive-icon: #81e6a9;
+    --onboarding-list-negative-bg: rgba(239, 68, 68, 0.22);
+    --onboarding-list-negative-text: #f8a4a4;
+    --onboarding-list-negative-icon: #f8a4a4;
+    --onboarding-badge-bg: rgba(94, 129, 172, 0.3);
+    --onboarding-badge-text: #c5d7f2;
+    --onboarding-recommended-border: rgba(136, 172, 227, 0.5);
+    --onboarding-recommended-badge: linear-gradient(135deg, #5f96c8 0%, #4a7ba7 100%);
+    --onboarding-recommended-badge-text: #ffffff;
+    --onboarding-hook-bg: rgba(95, 150, 200, 0.15);
+    --onboarding-hook-text: #a8c9ed;
+    --onboarding-bullet: #7fa8d1;
+    --onboarding-instructions-bg: rgba(31, 44, 61, 0.6);
+    --onboarding-step-number-bg: #5f96c8;
+    --onboarding-step-number-text: #0b2469;
+    --onboarding-link: #7fa8d1;
+    --onboarding-input-bg: rgba(18, 27, 38, 0.7);
+    --onboarding-input-text: #f0f4f8;
+    --onboarding-input-border: rgba(136, 172, 227, 0.25);
+    --onboarding-input-border-focus: #5f96c8;
+    --onboarding-input-focus-shadow: rgba(95, 150, 200, 0.2);
+    --onboarding-input-placeholder: rgba(209, 217, 230, 0.5);
+    --onboarding-status-loading-bg: rgba(94, 129, 172, 0.2);
+    --onboarding-status-loading-text: #a8c9ed;
+    --onboarding-status-success-bg: rgba(72, 187, 120, 0.2);
+    --onboarding-status-success-text: #81e6a9;
+    --onboarding-status-error-bg: rgba(239, 68, 68, 0.2);
+    --onboarding-status-error-text: #f8a4a4;
+    --onboarding-error-bg: rgba(127, 29, 29, 0.3);
+    --onboarding-error-border: rgba(239, 68, 68, 0.4);
+    --onboarding-error-text: #f8a4a4;
+    --onboarding-accent: #7fa8d1;
+    --onboarding-btn-primary-bg: #5f96c8;
+    --onboarding-btn-primary-text: #0b2469;
+    --onboarding-btn-primary-hover: #5280ac;
+    --onboarding-btn-shadow: rgba(0, 0, 0, 0.3);
+    --onboarding-btn-secondary-bg: transparent;
+    --onboarding-btn-secondary-text: #d1d9e6;
+    --onboarding-btn-secondary-border: rgba(136, 172, 227, 0.3);
+    --onboarding-btn-secondary-hover: rgba(136, 172, 227, 0.1);
+    --onboarding-btn-text-color: #a8c9ed;
+    --onboarding-btn-text-hover: rgba(136, 172, 227, 0.1);
+    --onboarding-success-icon-bg: rgba(72, 187, 120, 0.2);
+    --onboarding-success-icon-text: #81e6a9;
+    --onboarding-feature-bg: rgba(31, 44, 61, 0.6);
+}

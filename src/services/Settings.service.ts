@@ -31,7 +31,7 @@ export function initialize() {
 export function loadSettings() {
     ApiKeyInput.value = localStorage.getItem("API_KEY") || "";
     maxTokensInput.value = localStorage.getItem("maxTokens") || "1000";
-    temperatureInput.value = localStorage.getItem("TEMPERATURE") || "70";
+    temperatureInput.value = localStorage.getItem("TEMPERATURE") || "60";
     modelSelect.value = localStorage.getItem("model") || "gemini-flash-latest";
     imageModelSelect.value = localStorage.getItem("imageModel") || "imagen-4.0-ultra-generate-001";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") ? localStorage.getItem("autoscroll") === "true" : true;
@@ -41,6 +41,9 @@ export function loadSettings() {
     const enableThinking = (enableThinkingStored ?? "true") === "true";
     enableThinkingSelect.value = enableThinking ? 'enabled' : 'disabled';
     thinkingBudgetInput.value = localStorage.getItem("thinkingBudget") || "500";
+    
+    // Trigger input events to update any UI components that depend on these values
+    temperatureInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 export function saveSettings() {

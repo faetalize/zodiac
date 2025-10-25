@@ -2,6 +2,7 @@ import * as chatService from "../../services/Chats.service"
 import * as personalityService from "../../services/Personality.service"
 import * as toastService from "../../services/Toast.service"
 import * as overlayService from "../../services/Overlay.service"
+import * as onboardingService from "../../services/Onboarding.service"
 import { Message } from "../../models/Message";
 import { Personality } from "../../models/Personality";
 import { ToastSeverity } from "../../models/Toast";
@@ -17,6 +18,7 @@ const testToastDangerButton = document.querySelector<HTMLButtonElement>("#btn-de
 const testToastActionsButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-actions");
 const testToastSpamButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-spam");
 const showSubscriptionOptionsButton = document.querySelector<HTMLButtonElement>("#btn-debug-subscription-options");
+const testOnboardingButton = document.querySelector<HTMLButtonElement>("#btn-debug-onboarding");
 
 if (!generateRandomChatsButton || !generateRandomPersonalitiesButton) {
     console.error("Debug buttons not found");
@@ -240,4 +242,8 @@ if (isLocalhost && testToastSpamButton) testToastSpamButton.addEventListener("cl
 
 if (isLocalhost && showSubscriptionOptionsButton) showSubscriptionOptionsButton.addEventListener("click", () => {
     overlayService.show("form-subscription");
+});
+
+if (isLocalhost && testOnboardingButton) testOnboardingButton.addEventListener("click", () => {
+    onboardingService.show();
 });

@@ -1,5 +1,6 @@
 import { User } from "../../models/User";
 import * as supabaseService from "../../services/Supabase.service";
+import * as toastService from "../../services/Toast.service";
 
 const pfpChangeButton = document.querySelector("#btn-change-pfp");
 const preferredNameInput = document.querySelector("#profile-preferred-name");
@@ -12,11 +13,16 @@ const subscriptionHeader = document.querySelector<HTMLElement>("#subscription-st
 const infoCard = document.querySelector<HTMLElement>("#profile-info-card");
 const infoHeader = document.querySelector<HTMLElement>("#profile-info-card .collapsible-card-header");
 const remainingImageGenerations = document.querySelector<HTMLSpanElement>("#subscription-remaining-generations");
+const accountCard = document.querySelector<HTMLElement>("#account-info-card");
+const accountHeader = document.querySelector<HTMLElement>("#account-info-card .collapsible-card-header");
+const accountEmailEl = document.querySelector<HTMLSpanElement>("#account-email");
+const resetPasswordButton = document.querySelector<HTMLButtonElement>("#btn-reset-password");
+const changeEmailButton = document.querySelector<HTMLButtonElement>("#btn-change-email");
 let image: File;
 
-if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader || !infoCard || !infoHeader || !remainingImageGenerations) {
+if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader || !infoCard || !infoHeader || !remainingImageGenerations || !accountCard || !accountHeader || !accountEmailEl || !resetPasswordButton || !changeEmailButton) {
     console.error("One or more profile panel elements are missing.");
-    console.log({ pfpChangeButton, preferredNameInput, systemPromptAddition, saveButton, subscriptionBadge, manageSubscriptionBtn, subscriptionCard, subscriptionHeader, infoCard, infoHeader, remainingImageGenerations });
+    console.log({ pfpChangeButton, preferredNameInput, systemPromptAddition, saveButton, subscriptionBadge, manageSubscriptionBtn, subscriptionCard, subscriptionHeader, infoCard, infoHeader, remainingImageGenerations, accountCard, accountHeader, accountEmailEl, resetPasswordButton, changeEmailButton });
     throw new Error("Profile panel initialization failed.");
 }
 
@@ -76,6 +82,9 @@ subHeaderEl.addEventListener('click', () => toggleCard(subscriptionCard as HTMLE
 const infoHeaderEl = infoHeader as HTMLElement;
 infoHeaderEl.addEventListener('click', () => toggleCard(infoCard as HTMLElement, '#profile-info-content'));
 
+const accountHeaderEl = accountHeader as HTMLElement;
+accountHeaderEl.addEventListener('click', () => toggleCard(accountCard as HTMLElement, '#account-info-content'));
+
 // Initialize collapsed states' inline heights to 0 to avoid flash
 const subContent = document.querySelector<HTMLElement>('#subscription-card-content');
 if ((subscriptionCard as HTMLElement).classList.contains('collapsed') && subContent) {
@@ -85,6 +94,80 @@ const infoContent = document.querySelector<HTMLElement>('#profile-info-content')
 if ((infoCard as HTMLElement).classList.contains('collapsed') && infoContent) {
     infoContent.style.height = '0px';
 }
+const accountContent = document.querySelector<HTMLElement>('#account-info-content');
+if ((accountCard as HTMLElement).classList.contains('collapsed') && accountContent) {
+    accountContent.style.height = '0px';
+}
+
+function setAccountEmail(email: string | null) {
+    const fallback = '—';
+    accountEmailEl!.textContent = email?.trim() || fallback;
+}
+
+async function hydrateAccountEmail() {
+    try {
+        const email = await supabaseService.getCurrentUserEmail();
+        setAccountEmail(email);
+    } catch (error) {
+        console.error('Failed to load account email:', error);
+        setAccountEmail(null);
+    }
+}
+
+window.addEventListener('auth-state-changed', (event: Event) => {
+    const detail = (event as CustomEvent).detail ?? {};
+    if (detail.loggedIn) {
+        const email = detail.session?.user?.email ?? null;
+        if (email) {
+            setAccountEmail(email);
+        } else {
+            hydrateAccountEmail();
+        }
+    } else {
+        setAccountEmail(null);
+    }
+});
+
+window.addEventListener('account-email-changed', (event: Event) => {
+    const detail = (event as CustomEvent).detail ?? {};
+    const email = typeof detail.email === 'string' ? detail.email : null;
+    if (email && email.trim()) {
+        setAccountEmail(email.trim());
+    } else {
+        hydrateAccountEmail();
+    }
+});
+
+resetPasswordButton.addEventListener('click', async () => {
+    const email = accountEmailEl!.textContent?.trim();
+    if (!email || email === '—') {
+        toastService.warn({
+            title: 'Reset Password',
+            text: 'No email is set for this account.'
+        });
+        return;
+    }
+    try {
+        await supabaseService.sendPasswordResetEmail(email);
+        toastService.info({
+            title: 'Reset Email Sent',
+            text: 'Follow the email link to finish updating your password in the app.'
+        });
+    } catch (error) {
+        toastService.danger({
+            title: 'Reset Failed',
+            text: error instanceof Error ? error.message : 'Unable to send reset email.'
+        });
+    }
+});
+
+changeEmailButton.addEventListener('click', () => {
+    const currentEmail = accountEmailEl!.textContent?.trim() || '';
+    const normalized = currentEmail === '—' ? '' : currentEmail;
+    window.dispatchEvent(new CustomEvent('open-email-update', { detail: { currentEmail: normalized } }));
+});
+
+hydrateAccountEmail();
 
 pfpChangeButton.addEventListener("click", async () => {
     const tempInput: HTMLInputElement = document.createElement("input");
