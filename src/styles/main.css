@@ -57,6 +57,7 @@ img {
     opacity: 0;
 }
 
+
 /* Show images with non-empty src values */
 img[src]:not([src=""]):not([src="undefined"]):not([src="null"]) {
     opacity: 1;
@@ -119,12 +120,21 @@ a {
 input,
 textarea,
 select {
-    border: 1px solid;
+    border: 1px solid var(--input-text-border);
+    background-color: var(--input-bg);
+    color: var(--input-fg);
     padding: 0.5rem;
     border-radius: 0.5rem;
-    border: none;
     font-family: noto sans, sans-serif;
     font-size: 1rem;
+}
+
+/* focus-visible */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    border: 1px solid var(--input-text-border-focus);
+    outline: none;
 }
 
 input[type="range"] {
@@ -324,6 +334,19 @@ select:disabled {
 
 #btn-whatsnew {
     justify-self: center;
+}
+
+#btn-whatsnew:hover {
+    background-color: var(--badge-hover-bg);
+}
+
+#btn-whatsnew:active {
+    background-color: var(--badge-active-bg);
+}
+
+#btn-add-tone-example{
+    background-color: var(--card-add-personality-bg);
+    border: 1px dashed var(--card-add-personality-border);
 }
 
 .btn-danger {
@@ -1646,6 +1669,7 @@ form {
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
+    border: none;
 }
 
 #messageInput p {
@@ -1657,7 +1681,7 @@ form {
 }
 
 #messageInput:focus-visible {
-    border: none;
+    outline: none;
 }
 
 .message-text h3 {
@@ -1982,7 +2006,7 @@ form {
 }
 
 .card-personality .btn-textual {
-    color: #e4e4e4;
+    color: var(--card-personality-fg) !important;
     text-shadow: 0 0 10px #000000, 0 0 5px #181818;
 }
 
@@ -3902,12 +3926,13 @@ input[name="currentChat"][value="none"] {
 
 /* Advanced Settings (Power User Path) */
 .onboarding-settings-form {
-    max-width: 600px;
-    margin: 2rem auto;
+    margin: 2rem 0;
 }
 
 .onboarding-setting-group {
-    margin-bottom: 2rem;
+    gap: 0.75rem;
+    display: flex;
+    flex-direction: column;
     padding-bottom: 2rem;
     border-bottom: 1px solid var(--onboarding-card-border);
 }
@@ -3993,13 +4018,15 @@ input.onboarding-select {
 
 .onboarding-checkbox-label {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: flex-start;
     gap: 0.75rem;
     cursor: pointer;
     user-select: none;
 }
 
 .onboarding-checkbox-label input[type="checkbox"] {
+    display: none;
     position: absolute;
     opacity: 0;
     width: 0;
@@ -4049,7 +4076,6 @@ input.onboarding-select {
 }
 
 .setting-hint {
-    margin: 0.5rem 0 0 0;
     font-size: 0.875rem;
     color: var(--onboarding-text);
     opacity: 0.7;

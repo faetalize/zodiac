@@ -25,12 +25,12 @@
     /* Navbar */
     --navbar-bg: #00000047;
     --navbar-tab-fg: #e4e4e4;
-    --navbar-tab-highlight-bg: #6b2248;
+    --navbar-tab-highlight-bg: #6b2228;
     --navbar-tab-highlight-shadow: 0 0 1rem 0.05rem #29292aac;
     --navbar-tab-hover-bg: #00000042;
 
     /* Buttons */
-    --button-bg: #c8625f;
+    --button-bg: #eb8885;
     --button-fg: #690b24;
     --button-hover-bg: #ac5752;
     --button-active-bg: #8b483a;
@@ -136,10 +136,10 @@
     --message-input-bg: #4b2d29b6;
 
     /* Add tone example button */
-    --btn-add-tone-bg: #423528;
+    --btn-add-tone-bg: #462323;
     --btn-add-tone-border: 1px solid #b6b6b62f;
     --btn-add-tone-fg: #af9484;
-    --btn-add-tone-hover-bg: #331a1a;
+    --btn-add-tone-hover-bg: #3b1f1f;
 
     /* API key states */
     --api-key-valid-border: 1px solid #137e3ab0;
@@ -148,7 +148,7 @@
 
     /* Add personality card */
     --card-add-personality-bg: rgba(125, 52, 40, 0.4);
-    --card-add-personality-border: 1px dashed rgba(200, 95, 95, 0.3);
+    --card-add-personality-border:  rgba(200, 95, 95, 0.3);
     --card-add-personality-hover-bg: rgba(170, 68, 48, 0.4);
     --card-add-personality-hover-border: rgba(200, 95, 95, 0.6);
     --card-add-personality-icon-fg: #c8625f;

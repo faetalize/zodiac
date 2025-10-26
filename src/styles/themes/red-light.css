@@ -20,19 +20,19 @@
     --link-color: #d6444e;
 
     /* Sidebar */
-    --sidebar-bg: #f7d2e2a9;
+    --sidebar-bg: #f7d3d2a9;
 
     /* Navbar */
-    --navbar-bg: rgba(219, 131, 158, 0.24);
+    --navbar-bg: rgba(219, 137, 131, 0.24);
     --navbar-tab-fg: #310110;
-    --navbar-tab-highlight-bg: #f7c0dc;
+    --navbar-tab-highlight-bg: #f7c0c7;
     --navbar-tab-hover-bg: #65656517;
 
     /* Buttons */
-    --button-bg: #db4b6f;
-    --button-fg: #f8edf1;
-    --button-hover-bg: #a1473c;
-    --button-active-bg: #7a2348;
+    --button-bg: #e44b46;
+    --button-fg: #fdf4f4;
+    --button-hover-bg: #d14249;
+    --button-active-bg: #c53940;
     --button-toggled-bg: #eba0bcb0;
 
     /* Textual buttons */
@@ -64,7 +64,7 @@
     --toast-danger-close-hover: rgba(230, 95, 95, 0.18);
 
     /* Inputs */
-    --input-bg: #fff0f6;
+    --input-bg: #fde9ea;
     --input-border: 1px solid #54545428;
     --input-fg: #0a0a0a;
     --input-placeholder: #8a5670;
@@ -90,10 +90,12 @@
     --lora-card-delete-border: rgba(190, 103, 86, 0.45);
     --lora-card-delete-fg: #63163a;
     --lora-card-delete-hover-bg: rgba(226, 153, 133, 0.75);
-    --lora-strength-slider: #f63b82;
+    --lora-strength-slider: #f63b5a;
 
     /* Badges */
     --badge-bg: #ea9cc2;
+    --badge-hover-bg: #e794bb;
+    --badge-active-bg: #c7769a;
     --badge-border: 1px solid rgba(123, 57, 27, 0.508);
     --badge-fg: #5c3445;
 
@@ -149,8 +151,8 @@
 
     /* Add personality card */
     --card-add-personality-bg: rgba(183, 61, 30, 0.1);
-    --card-add-personality-border: 1px dashed rgba(190, 90, 76, 0.5);
-    --card-add-personality-hover-bg: rgba(26, 88, 143, 0.158);
+    --card-add-personality-border:  rgba(190, 90, 76, 0.5);
+    --card-add-personality-hover-bg: rgba(143, 26, 36, 0.158);
     --card-add-personality-hover-border: rgba(190, 90, 76, 0.8);
     --card-add-personality-icon-fg: #be4c4c;
 
@@ -214,7 +216,7 @@
     --chat-actions-menu-bg: rgba(255, 255, 255, 0.95);
     --chat-actions-menu-border: 1px solid rgba(0, 0, 0, 0.1);
     --chat-actions-menu-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.25), 0 2px 6px -1px rgba(0, 0, 0, 0.15);
-    --chat-actions-menu-fg: #e4e4e4;
+    --chat-actions-menu-fg: #000000;
     --chat-actions-item-hover-bg: rgba(0, 0, 0, 0.07);
     --chat-actions-item-active-bg: rgba(0, 0, 0, 0.12);
 

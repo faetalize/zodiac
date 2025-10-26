@@ -1,9 +1,9 @@
 /* Light mode base styles (applies to all themes in light mode) */
 [data-mode="light"] {
-    :focus-visible {
-        border: 1px solid var(--focus-border);
-        outline: none;
-    }
+    --card-personality-fg: #e4e4e4;
+
+    --input-text-border:  #4747472f;
+    --input-text-border-focus:  #00000067;
 
     .message-text:focus-visible {
         outline: 1px solid var(--focus-outline);
@@ -99,14 +99,6 @@
     }
 
 
-    input,
-    textarea,
-    select {
-        background-color: var(--input-bg);
-        border: 1px solid var(--input-border);
-        color: var(--input-fg);
-    }
-
     input[type="range"] {
         accent-color: var(--lora-strength-slider);
     }
@@ -124,7 +116,6 @@
     .card-lora {
         background-color: var(--card-add-lora-bg);
         border: 1px solid var(--card-lora-border);
-        box-shadow: var(--card-lora-shadow);
     }
 
     .lora-card-meta,
@@ -237,7 +228,7 @@
 
     #message-box {
         background-color: var(--message-box-bg) !important;
-        border: 1px solid rgba(0, 0, 0, 0.13);
+        outline: 1px solid rgba(0, 0, 0, 0.13);
         backdrop-filter: blur(16px);
     }
 
@@ -317,7 +308,7 @@
     }
 
     #dialog-message {
-        color: var(--body-fg);
+        color: white;
     }
 
     #user-profile {

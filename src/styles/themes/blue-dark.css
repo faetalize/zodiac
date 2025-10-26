@@ -70,6 +70,7 @@
     --input-fg: #e4e4e4;
     --input-placeholder: #849caf;
 
+    
     /* Messages */
     --message-user-bg: #1a2733;
 
@@ -148,7 +149,7 @@
 
     /* Add personality card */
     --card-add-personality-bg: rgba(40, 78, 125, 0.4);
-    --card-add-personality-border: 1px dashed rgba(95, 150, 200, 0.3);
+    --card-add-personality-border: rgba(172, 214, 253, 0.3);
     --card-add-personality-hover-bg: rgba(48, 103, 170, 0.4);
     --card-add-personality-hover-border: rgba(95, 150, 200, 0.6);
     --card-add-personality-icon-fg: #5f96c8;

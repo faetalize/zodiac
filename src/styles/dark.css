@@ -1,11 +1,9 @@
 /* Dark mode base styles (applies to all themes in dark mode) */
 [data-mode="dark"] {
-    color-scheme: dark;
 
-    :focus-visible {
-        border: 1px solid var(--focus-border);
-        outline: none;
-    }
+    --input-text-border: #b6b6b62f;
+    --input-text-border-focus: #ffffff67;
+    color-scheme: dark;
 
     .message-text:focus-visible {
         outline: 1px solid var(--focus-outline);
@@ -108,13 +106,6 @@
         text-shadow: var(--btn-textual-hover-shadow);
     }
 
-    input,
-    textarea,
-    select {
-        background-color: var(--input-bg);
-        border: 1px solid var(--input-border);
-        color: var(--input-fg);
-    }
 
     input[type="range"] {
         accent-color: var(--lora-strength-slider);
@@ -279,7 +270,6 @@
 
     #btn-add-tone-example {
         background-color: var(--btn-add-tone-bg);
-        border: 1px solid var(--btn-add-tone-border);
         color: var(--btn-add-tone-fg);
     }
 
