@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,200;0,400;0,800;1,200;1,400;1,800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Product+Sans&family=Google+Sans+Display:ital@0;1&family=Google+Sans:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Google+Sans+Text:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Material+Symbols+Outlined&family=Space+Mono&display=swap');
+@import "tailwindcss";
 
 @font-face {
     font-family: 'Material Symbols Outlined';
@@ -4146,9 +4147,9 @@ input.onboarding-select {
 
     .sidebar {
         top: 0;
-        height: calc(var(--vvh, 100dvh) - 2rem);
+        height: calc(var(--vvh, 100dvh));
         margin: 0;
-        width: calc(100dvw - 2rem);
+        width: calc(100dvw);
         position: fixed;
         border-radius: 0;
         display: none;

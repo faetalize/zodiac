@@ -5,12 +5,14 @@
     "@types/uuid": "^9.0.8",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
     "supabase": "^2.39.2",
+    "tailwindcss": "^4.1.16",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   },
   "dependencies": {
     "@google/genai": "^0.8.0",
     "@supabase/supabase-js": "^2.53.0",
+    "@tailwindcss/vite": "^4.1.16",
     "buffer": "^6.0.3",
     "dexie": "^4.0.10",
     "dompurify": "^3.2.3",
