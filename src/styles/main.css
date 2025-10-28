@@ -12,13 +12,18 @@
 :root {
     --vvh: 100dvh;
     --vv-offset-top: 0px;
+    --navbar-tab-highlight-padding: 2px;
+    --elevated-ui-shadow: 0 0 12px 0px rgb(0 0 0 / 15%);
+    --elevated-ui-outline: 1px solid rgba(0, 0, 0, 0.1);
+    --menu-spawn-top-offset: 4px;
+    font-size: 1rem;
 }
 
 .material-symbols-outlined {
     font-family: 'Material Symbols Outlined';
     font-weight: normal;
     font-style: normal;
-    font-size: 24px;
+    font-size: 1.5rem;
     line-height: 1;
     letter-spacing: normal;
     text-transform: none;
@@ -69,6 +74,8 @@ body {
     overflow: hidden;
     font-optical-sizing: auto;
     margin: 0;
+    background-color: var(--body-bg);
+    color: var(--body-fg);
 }
 
 body.ime-open {
@@ -99,6 +106,24 @@ p {
     margin: 0;
     margin-bottom: 0.5rem;
     padding: 0;
+}
+
+h1 {
+    font-size: 2rem;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+h2 {
+    font-size: 1.375rem;
+    font-weight: bold;
+    line-height: 1.25;
+}
+
+h3 {
+    font-size: 1.125rem;
+    font-weight: bold;
+    line-height: 1.3;
 }
 
 h1,
@@ -147,6 +172,9 @@ button {
     align-items: center;
     justify-content: center;
     gap: 0.3rem;
+    font-size: 1rem;
+    font-weight: normal;
+    transition: background-color 0.2s;
 }
 
 button:focus {
@@ -157,14 +185,84 @@ button:focus {
 .btn {
     cursor: pointer;
     transition: all 0.15s ease;
-    font-weight: 600;
     border: none;
     padding: 0.5rem;
     border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
 
 }
 
 .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    color: var(--button-fg);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+}
+
+.btn-primary:active {
+    background-color: var(--primary-active);
+}
+
+input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 3rem;
+    height: 1.5rem;
+    border-radius: 0.75rem;
+    background-color: var(--toggle-bg);
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+input[type="checkbox"]:checked {
+    background-color: var(--primary);
+}
+
+input[type="checkbox"]:focus-visible {
+    box-shadow: var(--toggle-focus-shadow);
+    border-color: var(--toggle-focus-border);
+}
+
+input[type="checkbox"]::before {
+    content: '';
+    position: absolute;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    background-color: var(--toggle-knob-bg);
+    left: 0.1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: all 0.3s ease;
+    box-shadow: var(--toggle-knob-shadow);
+}
+
+
+input[type="checkbox"]:checked::before {
+    left: 1.7rem;
+    background-color: var(--toggle-checked-knob-bg);
+}
+
+input[type="checkbox"]:hover {
+    background-color: var(--toggle-hover-bg);
+}
+
+input[type="checkbox"]:checked:hover {
+    background-color: var(--primary-hover);
+}
+
+input[type="checkbox"]:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
@@ -345,13 +443,13 @@ select:disabled {
     background-color: var(--badge-active-bg);
 }
 
-#btn-add-tone-example{
+#btn-add-tone-example {
     background-color: var(--card-add-personality-bg);
     border: 1px dashed var(--card-add-personality-border);
 }
 
 .btn-danger {
-    background-color: #d11818;
+    background-color: #e92727;
     color: rgb(243, 227, 227);
 }
 
@@ -520,7 +618,7 @@ form {
 }
 
 /* Prevent partial wrapping: go from horizontal (3 cols) to vertical (1 col) at a sensible breakpoint */
-@media (max-width: 1100px) {
+@media (max-width: 1032px) {
     .subscription-grid {
         grid-template-columns: 1fr;
         /* Slightly larger gap to keep breathing room in stacked mode */
@@ -570,17 +668,17 @@ form {
 
 .popular-badge {
     position: absolute;
-    top: -12px;
+    top: -1rem;
     left: 50%;
     transform: translateX(-50%);
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    width: fit-content;
+    background: linear-gradient(135deg, #66afea 0%, #a24b4b 100%);
     color: white;
-    padding: 0.5rem 1.5rem;
+    padding: 0.5rem 1rem;
     border-radius: 50px;
     font-size: 0.85rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
 }
 
 .coming-soon-badge {
@@ -931,6 +1029,7 @@ form {
 .subscription-grid {
     align-items: stretch;
     /* ensure cards align in height */
+    padding-bottom: 2rem;
 }
 
 .subscription-card {
@@ -1613,11 +1712,13 @@ form {
     width: 85%;
 }
 
+
 .message-failure {
     opacity: 0.6;
 }
 
 .message:not(.message-model) {
+    background-color: var(--message-user-bg);
     align-self: flex-end;
 }
 
@@ -1644,7 +1745,9 @@ form {
     margin-right: var(--scroll-bar-width, 0px);
     max-width: calc(50rem - 2rem);
     justify-self: center;
-    box-shadow: 0 0 13px 0px rgb(0 0 0 / 15%);
+    box-shadow: var(--elevated-ui-shadow);
+    background-color: var(--message-box-bg) !important;
+    backdrop-filter: blur(16px);
 }
 
 #message-box.drag-over {
@@ -1708,6 +1811,8 @@ form {
     transition: all 0.2s;
     cursor: pointer;
     font-size: inherit;
+    font-weight: inherit;
+    text-transform: uppercase;
 }
 
 
@@ -1717,7 +1822,18 @@ form {
     padding: 0.5rem;
     border-radius: 0.5rem;
     cursor: pointer;
+}
 
+.label-currentchat:hover {
+    background-color: var(--label-currentchat-hover-bg);
+}
+
+.label-currentchat * {
+    cursor: inherit;
+}
+
+.label-currentchat:not(:hover) {
+    opacity: 0.7;
 }
 
 /* Chat actions (ellipsis dropdown) */
@@ -1739,18 +1855,21 @@ form {
     top: 100%;
     right: 0;
     display: none;
+    opacity: 0;
+}
+
+.dropdown-menu {
     flex-direction: column;
-    background: var(--chat-actions-menu-bg, rgba(0, 0, 0, 0.8));
-    backdrop-filter: blur(6px) saturate(150%);
-    -webkit-backdrop-filter: blur(6px) saturate(150%);
-    border: 1px solid #ffffff22;
+    color: var(--dropdown-menu-fg);
+    background: var(--dropdown-menu-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: var(--dropdown-menu-border);
     padding: 0.25rem;
     border-radius: 0.4rem;
     min-width: 8rem;
-    box-shadow: 0 4px 12px -2px #00000054;
+    box-shadow: var(--dropdown-menu-shadow);
     z-index: 20;
-    opacity: 0;
-    transform: translateY(-4px);
 }
 
 .chat-actions-wrapper.open>.chat-actions-menu {
@@ -1794,6 +1913,8 @@ form {
     }
 }
 
+
+
 .chat-actions-item {
     justify-content: flex-start;
     background: transparent;
@@ -1818,8 +1939,12 @@ form {
 
 .chat-actions-item:hover,
 .chat-actions-item:focus-visible {
-    background: #ffffff18;
-    outline: none;
+    background: var(--dropdown-menu-item-hover-bg);
+}
+
+
+.chat-actions-item:active {
+    background: var(--dropdown-menu-item-active-bg);
 }
 
 /* Split Button Component */
@@ -1860,23 +1985,12 @@ form {
 
 .split-button__menu {
     position: absolute;
-    top: calc(100% + 0.25rem);
+    top: calc(100% + var(--menu-spawn-top-offset));
     right: 0;
     left: 0;
     display: flex;
-    flex-direction: column;
-    background: var(--split-button-menu-bg, rgba(0, 0, 0, 0.8));
-    backdrop-filter: blur(6px) saturate(150%);
-    -webkit-backdrop-filter: blur(6px) saturate(150%);
-    border: 1px solid #ffffff22;
-    padding: 0.25rem;
-    border-radius: 0.4rem;
-    min-width: 10rem;
-    box-shadow: 0 4px 12px -2px #00000054;
-    z-index: 1000;
     visibility: hidden;
     opacity: 0;
-    transform: translateY(-4px);
     transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s linear;
 }
 
@@ -1905,13 +2019,13 @@ form {
 
 .split-button__menu-item:hover,
 .split-button__menu-item:focus-visible {
-    background: #ffffff18;
-    outline: none;
+    background: var(--dropdown-menu-item-hover-bg);
 }
 
 .split-button__menu-item:active {
-    background: #ffffff25;
+    background: var(--dropdown-menu-item-active-bg);
 }
+
 
 .chat-title-text {
     flex: 1 1 auto;
@@ -1919,9 +2033,7 @@ form {
     /* allow ellipsis */
 }
 
-.label-currentchat * {
-    cursor: inherit;
-}
+
 
 
 
@@ -2051,6 +2163,13 @@ form {
     font-size: 0.75rem;
     font-weight: bold;
     transition: width ease-in-out 0.25s, gap ease-in-out 0.25s;
+    background-color: var(--badge-bg);
+    border: 1px solid var(--badge-border);
+    color: var(--badge-fg);
+}
+
+.badge:hover {
+    background-color: var(--badge-hover-bg);
 }
 
 .title-chat {
@@ -2122,6 +2241,8 @@ form {
     scrollbar-width: thin;
     margin: 1rem;
     z-index: 1;
+    box-shadow: var(--elevated-ui-shadow);
+    outline: var(--elevated-ui-outline);
 }
 
 #image-generation-label {
@@ -2416,7 +2537,6 @@ form {
     display: flex;
     flex-direction: row;
     border-radius: 0.5rem;
-    justify-content: space-evenly;
     margin-bottom: 1rem;
     z-index: 0;
     align-items: center;
@@ -2428,14 +2548,26 @@ form {
 }
 
 .navbar-tab {
-    width: 100%;
-    padding: 0.5rem;
+    flex-grow: 1;
+    flex-basis: 0;
+    flex-shrink: 0;
+    overflow: hidden;
+    padding: 0.55rem;
     text-align: center;
     border-radius: 0.5rem;
     z-index: 2;
     -webkit-tap-highlight-color: transparent;
     cursor: pointer;
     transition: all 0.2s;
+    font-weight: bold;
+    color: var(--navbar-tab-fg);
+    text-transform: uppercase;
+    letter-spacing: 0.05rem;
+    font-size: 0.8rem;
+}
+
+.navbar-tab-active {
+    color: var(--navbar-tab-fg-active);
 }
 
 .message-header {
@@ -2461,7 +2593,9 @@ form {
 }
 
 .navbar-tab-highlight {
-    padding: 0;
+    padding: var(--navbar-tab-highlight-padding, 4px);
+    background-color: var(--navbar-tab-highlight-bg);
+    box-sizing: content-box;
     margin: 0;
     position: absolute;
     border-radius: 0.5rem;
@@ -2469,8 +2603,13 @@ form {
     height: 100%;
     z-index: 1;
     /* glow */
-    box-shadow: 0 0 1rem 0.05rem #29292a3f;
+    /* box-shadow: 0 0 1px 0.05px #29292a3f; */
 }
+
+.navbar-tab:not(.navbar-tab-active):hover {
+    background-color: var(--navbar-tab-hover-bg);
+}
+
 
 #gemini-pro-branding {
     font-family: Google Sans Display, sans-serif;
@@ -2503,14 +2642,6 @@ form {
 
     justify-content: space-between;
     align-items: center;
-}
-
-button {
-    font-weight: 600;
-    border: none;
-    padding: 0.5rem;
-    border-radius: 0.5rem;
-    transition: background-color 0.2s;
 }
 
 #mainContent {
@@ -2624,9 +2755,7 @@ button {
     padding: 2rem;
 }
 
-.label-currentchat:not(:hover) {
-    opacity: 0.7;
-}
+
 
 .personality-description {
     display: none;
@@ -2954,7 +3083,10 @@ button {
     opacity: 0.7;
 }
 
+
 .input-radio-currentchat:checked+label {
+    background-color: var(--input-radio-checked-bg);
+    color: var(--input-radio-checked-fg);
     opacity: 1;
 }
 

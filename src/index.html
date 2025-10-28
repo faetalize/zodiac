@@ -37,8 +37,8 @@
         <div id="dialog" class="dialog hidden">
             <div id="dialog-message"></div>
             <div id="dialog-buttons" class="btn-array">
-                <button class="btn-danger" id="btn-dialog-ok">OK</button>
-                <button class="btn-neutral" id="btn-dialog-cancel">Cancel</button>
+                <button class="btn-danger btn" id="btn-dialog-ok">OK</button>
+                <button class="btn-neutral btn" id="btn-dialog-cancel">Cancel</button>
             </div>
         </div>
         <div class="sidebar">
@@ -57,7 +57,7 @@
                     <div id="gemini-pro-branding">Gemini 2.5</div>
                 </div>
 
-                <button id="btn-login" class="logged-out-component btn">
+                <button id="btn-login" class="logged-out-component btn btn-primary">
                     Login
                 </button>
                 <img class="user-avatar logged-in-component hidden" id="user-profile"
@@ -65,7 +65,7 @@
             </div>
             <div class="navbar" data-target-id="sidebar-content">
                 <div class="navbar-tab">Chats</div>
-                <div class="navbar-tab">Personalities</div>
+                <div class="navbar-tab">Personas</div>
                 <div class="navbar-tab">Settings</div>
                 <div class="navbar-tab-highlight"></div>
             </div>
@@ -73,20 +73,20 @@
                 <div class="sidebar-section">
                     <div class="btn-array">
                         <div class="split-button">
-                            <button id="btn-new-chat" class="split-button__main btn">
+                            <button id="btn-new-chat" class="split-button__main btn btn-primary">
                                 <span class="material-symbols-outlined">add</span> <span>New Chat</span>
                             </button>
-                            <button class="split-button__toggle btn" aria-haspopup="true" aria-expanded="false">
+                            <button class="split-button__toggle btn btn-primary" aria-haspopup="true" aria-expanded="false">
                                 <span class="material-symbols-outlined">expand_more</span>
                             </button>
-                            <div class="split-button__menu" role="menu">
+                            <div class="split-button__menu dropdown-menu" role="menu">
                                 <button class="split-button__menu-item" role="menuitem" id="btn-chat-import">
                                     <span class="material-symbols-outlined">upload</span>
                                     <span>Import</span></button>
                             </div>
 
                         </div>
-                        <button class="btn" id="btn-reset-chat">
+                        <button class="btn btn-primary" id="btn-reset-chat">
                             <span class="material-symbols-outlined">clear_all</span>Clear All
                         </button>
                     </div>
@@ -101,10 +101,10 @@
 
                 <div class="sidebar-section hidden" id="personalitySection">
                     <div class="btn-array">
-                        <button class="btn" id="btn-import-personality">
+                        <button class="btn btn-primary" id="btn-import-personality">
                             <span class="material-symbols-outlined">upload</span>Import
                         </button>
-                        <button class="btn" id="btn-clearall-personality">
+                        <button class="btn btn-primary" id="btn-clearall-personality">
                             <span class="material-symbols-outlined">clear_all</span>Clear All
                         </button>
                     </div>
@@ -250,7 +250,7 @@
                                     <div class="lora-add">
                                         <input type="url" id="lora-url-input" class="input-field"
                                             placeholder="Paste CivitAI LoRA URL" />
-                                        <button id="btn-add-lora" class="btn-icon btn" aria-label="Add LoRA">
+                                        <button id="btn-add-lora" class="btn-icon btn btn-primary" aria-label="Add LoRA">
                                             <span class="material-symbols-outlined">add_link</span>
                                         </button>
                                     </div>
@@ -311,9 +311,9 @@
                     </div>
                     <h3>Data Management</h3>
                     <div class="btn-array-vertical">
-                        <button class="btn" id="btn-bulk-import-chats">Bulk Import Chats</button>
-                        <button class="btn" id="btn-export-all-chats">Export All Chats</button>
-                        <button id="btn-clear-all-data" class="btn-danger">Wipe Everything</button>
+                        <button class="btn btn-primary" id="btn-bulk-import-chats">Bulk Import Chats</button>
+                        <button class="btn btn-primary" id="btn-export-all-chats">Export All Chats</button>
+                        <button id="btn-clear-all-data" class="btn btn-danger">Wipe Everything</button>
                     </div>
                     <h3>Tip Me</h3>
                     <div class="btn-array">
@@ -332,15 +332,15 @@
                     </div>
                     <h3 class="debug">Debug</h3>
                     <div class="btn-array-vertical debug">
-                        <button class="btn" id="btn-debug-chats">Generate 10 Random Chats</button>
-                        <button class="btn" id="btn-debug-personalities">Generate 10 Random Personalities</button>
-                        <button class="btn" id="btn-debug-toast-normal">Test Toast (Normal)</button>
-                        <button class="btn" id="btn-debug-toast-warning">Test Toast (Warning)</button>
-                        <button class="btn" id="btn-debug-toast-danger">Test Toast (Danger)</button>
-                        <button class="btn" id="btn-debug-toast-actions">Test Toast (With Actions)</button>
-                        <button class="btn" id="btn-debug-toast-spam">Test Toast Spam (5 Limit)</button>
-                        <button class="btn" id="btn-debug-subscription-options">Open Subscription Options</button>
-                        <button class="btn" id="btn-debug-onboarding">Test Onboarding</button>
+                        <button class="btn btn-primary" id="btn-debug-chats">Generate 10 Random Chats</button>
+                        <button class="btn btn-primary" id="btn-debug-personalities">Generate 10 Random Personas</button>
+                        <button class="btn btn-primary" id="btn-debug-toast-normal">Test Toast (Normal)</button>
+                        <button class="btn btn-primary" id="btn-debug-toast-warning">Test Toast (Warning)</button>
+                        <button class="btn btn-primary" id="btn-debug-toast-danger">Test Toast (Danger)</button>
+                        <button class="btn btn-primary" id="btn-debug-toast-actions">Test Toast (With Actions)</button>
+                        <button class="btn btn-primary" id="btn-debug-toast-spam">Test Toast Spam (5 Limit)</button>
+                        <button class="btn btn-primary" id="btn-debug-subscription-options">Open Subscription Options</button>
+                        <button class="btn btn-primary" id="btn-debug-onboarding">Test Onboarding</button>
                     </div>
 
                 </div>
@@ -457,14 +457,14 @@
                             <input type="text" name="tone-example-1" class="tone-example"
                                 placeholder="I'm a plumber, not a doctor. Lets-a go!">
                             <button type="button" id="btn-add-tone-example"
-                                class="material-symbols-outlined">add_circle</button>
+                                class="material-symbols-outlined btn">add_circle</button>
                         </div>
                     </div>
                     <div class="stepper-footer">
-                        <button class="btn-stepper-previous btn" type="button">Previous</button>
+                        <button class="btn-stepper-previous btn btn-primary" type="button">Previous</button>
                         <div class="stepper-progress"></div>
-                        <button class="btn-stepper-next btn" type="button">Next</button>
-                        <button class="btn-stepper-submit btn" type="submit">Submit</button>
+                        <button class="btn-stepper-next btn btn-primary" type="button">Next</button>
+                        <button class="btn-stepper-submit btn btn-primary" type="submit">Submit</button>
                     </div>
                 </div>
             </form>
@@ -481,7 +481,7 @@
                     <span id="password-reset-error-message">Passwords must match.</span>
                 </div>
                 <div class="overlay-actions">
-                    <button class="btn" type="submit" id="btn-password-reset-submit">Update Password</button>
+                    <button class="btn btn-primary" type="submit" id="btn-password-reset-submit">Update Password</button>
                     <button type="button" id="btn-password-reset-cancel" class="btn-textual">Cancel</button>
                 </div>
             </form>
@@ -499,7 +499,7 @@
                     <span id="email-update-error-message">Emails must match.</span>
                 </div>
                 <div class="overlay-actions">
-                    <button class="btn" type="submit" id="btn-email-update-submit">Update Email</button>
+                    <button class="btn btn-primary" type="submit" id="btn-email-update-submit">Update Email</button>
                     <button type="button" id="btn-email-update-cancel" class="btn-textual">Cancel</button>
                 </div>
             </form>
@@ -538,7 +538,7 @@
                             <span class="material-symbols-outlined">error</span>
                             <span id="login-error-message">Invalid email or password</span>
                         </div>
-                        <button class="btn" id="btn-login-submit">Login</button>
+                        <button class="btn btn-primary" id="btn-login-submit">Login</button>
 
                     </div>
                     <div id="register" class="hidden">
@@ -557,7 +557,7 @@
                             <span class="material-symbols-outlined">error</span> <span
                                 id="register-error-message">Registration failed, please try again</span>
                         </div>
-                        <button class="btn" id="btn-register-submit">Register</button>
+                        <button class="btn btn-primary" id="btn-register-submit">Register</button>
                     </div>
 
 
@@ -593,8 +593,8 @@
                             </div>
                         </div>
                         <div class="subscription-card-footer">
-                            <button class="btn" id="btn-top-up-credits">Get More Image Credits</button>
-                            <button class="btn" id="btn-manage-subscription">Manage Subscription</button>
+                            <button class="btn btn-primary" id="btn-top-up-credits">Get More Image Credits</button>
+                            <button class="btn btn-primary" id="btn-manage-subscription">Manage Subscription</button>
                         </div>
                     </div>
                 </div>
@@ -610,8 +610,8 @@
                             </div>
                         </div>
                         <div class="subscription-card-footer">
-                            <button class="btn" id="btn-reset-password">Reset Password</button>
-                            <button class="btn" id="btn-change-email">Change Email</button>
+                            <button class="btn btn-primary" id="btn-reset-password">Reset Password</button>
+                            <button class="btn btn-primary" id="btn-change-email">Change Email</button>
                         </div>
                     </div>
                 </div>
@@ -628,8 +628,8 @@
                         </div>
                     </div>
                 </div>
-                <button class="btn" id="btn-profile-save">Save</button>
-                <button id="btn-profile-logout" class="btn-danger">Log Out</button>
+                <button class="btn btn-primary" id="btn-profile-save">Save</button>
+                <button id="btn-profile-logout" class="btn btn-danger">Log Out</button>
             </div>
 
             <div id="form-subscription" class="hidden">
@@ -646,7 +646,6 @@
                             </div>
                         </div>
                         <div class="subscription-card-body">
-                            <div class="tier-description">Get started with AI conversations</div>
                             <ul class="features-list">
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
@@ -671,7 +670,6 @@
                             </div>
                         </div>
                         <div class="subscription-card-body">
-                            <div class="tier-description">For unlimited access</div>
                             <ul class="features-list">
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
@@ -713,7 +711,6 @@
                             </div>
                         </div>
                         <div class="subscription-card-body">
-                            <div class="tier-description">Image Generation</div>
                             <ul class="features-list">
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
@@ -1114,7 +1111,6 @@
                                 </div>
                             </div>
                             <div class="subscription-card-body">
-                                <div class="tier-description">For unlimited access</div>
                                 <ul class="features-list">
                                     <li class="feature-item">
                                         <span class="feature-icon">✓</span>
@@ -1160,7 +1156,6 @@
                                 </div>
                             </div>
                             <div class="subscription-card-body">
-                                <div class="tier-description">Image Generation</div>
                                 <ul class="features-list">
                                     <li class="feature-item">
                                         <span class="feature-icon">✓</span>

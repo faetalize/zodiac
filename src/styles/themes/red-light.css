@@ -12,9 +12,14 @@
     --tone-example-remove-hover: rgba(97, 27, 17, 0.12);
     --tone-example-remove-active: rgba(97, 27, 17, 0.18);
 
+    --primary: #d16060;
+    --primary-hover: #c55656;
+    --primary-active: #b44949;
+
+
     /* Body */
-    --body-bg: #fff0f6;
-    --body-fg: #0a0a0a;
+    --body-bg: #fff0f0;
+    --body-fg: #080808;
 
     /* Links */
     --link-color: #d6444e;
@@ -23,16 +28,17 @@
     --sidebar-bg: #f7d3d2a9;
 
     /* Navbar */
-    --navbar-bg: rgba(219, 137, 131, 0.24);
-    --navbar-tab-fg: #310110;
-    --navbar-tab-highlight-bg: #f7c0c7;
-    --navbar-tab-hover-bg: #65656517;
+    --navbar-bg: rgba(255, 185, 180, 0.521);
+    --navbar-tab-fg: #bd695e;
+    --navbar-tab-fg-active: #700902;
+    --navbar-tab-highlight-bg: #fdb1ae;
+    
 
     /* Buttons */
-    --button-bg: #e44b46;
-    --button-fg: #fdf4f4;
-    --button-hover-bg: #d14249;
-    --button-active-bg: #c53940;
+    --button-bg: #d16060;
+    --button-fg: #ffebeb;
+    --button-hover-bg: #c55656;
+    --button-active-bg: #b44949;
     --button-toggled-bg: #eba0bcb0;
 
     /* Textual buttons */
@@ -70,7 +76,7 @@
     --input-placeholder: #8a5670;
 
     /* Messages */
-    --message-user-bg: #f7d2e2;
+    --message-user-bg: #ffdfdf;
 
     /* LoRA cards */
     --card-lora-bg: #ffe8f1;
@@ -95,7 +101,7 @@
     /* Badges */
     --badge-bg: #ea9cc2;
     --badge-hover-bg: #e794bb;
-    --badge-active-bg: #c7769a;
+    --badge-active-bg: #e28cb4;
     --badge-border: 1px solid rgba(123, 57, 27, 0.508);
     --badge-fg: #5c3445;
 
@@ -114,16 +120,15 @@
     --badge-tier-max-hover-bg: #ffdbc9;
 
     /* Current chat radio */
-    --input-radio-checked-bg: #ea9dbfa6;
+    --input-radio-checked-bg: #ea9d9da6;
     --input-radio-checked-fg: inherit;
-    --label-currentchat-hover-bg: #ea9dbe3f;
+    --label-currentchat-hover-bg: #ea9d9d3f;
 
     /* Overlay */
     --overlay-bg: #ffffff82;
 
     /* Message box */
-    --message-box-bg: #ffdfe6ab;
-    --message-box-shadow: none;
+    --message-box-bg: #ffdfdfab;
     --message-box-border: 1px solid #f0cbdb;
 
     /* Cards */
@@ -178,7 +183,7 @@
     --toggle-border: #a8a8a8;
     --toggle-knob-bg: #ffffff;
     --toggle-knob-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    --toggle-checked-bg: #be4c4c;
+    --toggle-checked-bg: var(--primary);
     --toggle-checked-border: #a1473c;
     --toggle-checked-knob-bg: #ffffff;
     --toggle-hover-bg: #b8b8b8;
@@ -216,17 +221,10 @@
     --chat-actions-menu-bg: rgba(255, 255, 255, 0.95);
     --chat-actions-menu-border: 1px solid rgba(0, 0, 0, 0.1);
     --chat-actions-menu-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.25), 0 2px 6px -1px rgba(0, 0, 0, 0.15);
-    --chat-actions-menu-fg: #000000;
     --chat-actions-item-hover-bg: rgba(0, 0, 0, 0.07);
     --chat-actions-item-active-bg: rgba(0, 0, 0, 0.12);
 
-    /* Split button dropdown */
-    --split-button-menu-bg: rgba(255, 255, 255, 0.95);
-    --split-button-menu-border: 1px solid rgba(0, 0, 0, 0.1);
-    --split-button-menu-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.25), 0 2px 6px -1px rgba(0, 0, 0, 0.15);
-    --split-button-menu-fg: #e4e4e4;
-    --split-button-menu-item-hover-bg: rgba(0, 0, 0, 0.07);
-    --split-button-menu-item-active-bg: rgba(0, 0, 0, 0.12);
+
 
     /* Thinking section */
     --thinking-border: #be4c4c;

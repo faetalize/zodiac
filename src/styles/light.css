@@ -2,17 +2,27 @@
 [data-mode="light"] {
     --card-personality-fg: #e4e4e4;
 
-    --input-text-border:  #4747472f;
-    --input-text-border-focus:  #00000067;
+    --input-text-border: #1313132f;
+    --input-text-border-focus: #00000067;
+
+    --navbar-tab-hover-bg: #3030300e;
+
+    --chat-actions-menu-fg: #000000;
+
+
+     /* dropdown */
+    --dropdown-menu-bg: #ffffffa6;
+    --dropdown-menu-fg: #000000;
+    --dropdown-menu-border: 1px solid rgba(0, 0, 0, 0.1);
+    --dropdown-menu-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.25), 0 2px 6px -1px rgba(0, 0, 0, 0.15);
+    --dropdown-menu-item-hover-bg: rgba(105, 105, 105, 0.0685);
+    --dropdown-menu-item-active-bg: rgba(105, 105, 105, 0.15);
+    
 
     .message-text:focus-visible {
         outline: 1px solid var(--focus-outline);
     }
 
-    body {
-        background-color: var(--body-bg);
-        color: var(--body-fg);
-    }
 
     a {
         color: var(--link-color);
@@ -27,12 +37,8 @@
         background-color: var(--navbar-bg);
     }
 
-    .navbar-tab {
-        color: var(--navbar-tab-fg);
-    }
-
     .navbar-tab-highlight {
-        background-color: var(--navbar-tab-highlight-bg);
+        box-shadow: 0 0 8px 2px rgba(0, 0, 0, 0.103);
     }
 
     .btn-textual {
@@ -45,19 +51,6 @@
 
     .btn-textual:hover {
         text-shadow: var(--btn-textual-hover-shadow);
-    }
-
-    .btn {
-        background-color: var(--button-bg);
-        color: var(--button-fg);
-    }
-
-    .btn:hover {
-        background-color: var(--button-hover-bg);
-    }
-
-    .btn:active {
-        background-color: var(--button-active-bg);
     }
 
     .tone-example-remove {
@@ -108,9 +101,7 @@
         color: var(--input-placeholder);
     }
 
-    .message:not(.message-model) {
-        background-color: var(--message-user-bg);
-    }
+
 
     /* LoRA metadata cards (light) */
     .card-lora {
@@ -167,15 +158,7 @@
         accent-color: var(--lora-strength-slider);
     }
 
-    .badge {
-        background-color: var(--badge-bg);
-        border: 1px solid var(--badge-border);
-        color: var(--badge-fg);
-    }
 
-    .badge:hover {
-        background-color: var(--badge-tier-free-hover-bg);
-    }
 
     /* Keep subscription badge background unchanged on hover */
     #subscription-badge.badge-tier-free:hover {
@@ -209,27 +192,19 @@
         color: var(--badge-tier-max-fg);
     }
 
-    .input-radio-currentchat:checked+label {
-        background-color: var(--input-radio-checked-bg);
-    }
 
-    .label-currentchat:hover {
-        background-color: var(--label-currentchat-hover-bg);
-    }
+
+
 
     .overlay {
         background-color: var(--overlay-bg);
     }
 
-    .navbar-tab:not(.navbar-tab-active):hover {
-        background-color: var(--navbar-tab-hover-bg);
-    }
 
 
     #message-box {
-        background-color: var(--message-box-bg) !important;
-        outline: 1px solid rgba(0, 0, 0, 0.13);
-        backdrop-filter: blur(16px);
+        outline: var(--elevated-ui-outline);
+        
     }
 
     /* Subscription card theming (light) */
@@ -319,63 +294,6 @@
         filter: var(--profile-pfp-loaded-filter);
     }
 
-    /* Toggle Switch Styles for Light Theme */
-    input[type="checkbox"] {
-        appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        width: 3rem;
-        height: 1.5rem;
-        border-radius: 0.75rem;
-        background-color: var(--toggle-bg);
-        border: 2px solid var(--toggle-border);
-        position: relative;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        outline: none;
-    }
-
-    input[type="checkbox"]:focus-visible {
-        box-shadow: var(--toggle-focus-shadow);
-        border-color: var(--toggle-focus-border);
-    }
-
-    input[type="checkbox"]::before {
-        content: '';
-        position: absolute;
-        width: 1.1rem;
-        height: 1.1rem;
-        border-radius: 50%;
-        background-color: var(--toggle-knob-bg);
-        left: 0.1rem;
-        top: 50%;
-        transform: translateY(-50%);
-        transition: all 0.3s ease;
-        box-shadow: var(--toggle-knob-shadow);
-    }
-
-    input[type="checkbox"]:checked {
-        background-color: var(--toggle-checked-bg);
-        border-color: var(--toggle-checked-border);
-    }
-
-    input[type="checkbox"]:checked::before {
-        left: 1.7rem;
-        background-color: var(--toggle-checked-knob-bg);
-    }
-
-    input[type="checkbox"]:hover {
-        background-color: var(--toggle-hover-bg);
-    }
-
-    input[type="checkbox"]:checked:hover {
-        background-color: var(--toggle-checked-hover-bg);
-    }
-
-    input[type="checkbox"]:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
 
     /* Modern subscription cards light theme */
     .subscription-card {
@@ -412,59 +330,9 @@
         }
     }
 
-    /* Chat actions dropdown (light theme overrides) */
-    .chat-actions-wrapper .chat-actions-button {
-        color: var(--chat-actions-menu-fg);
-    }
 
-    .chat-actions-wrapper.open .chat-actions-button {
-        text-shadow: 0 0 4px #ffffffaa;
-    }
 
-    .chat-actions-menu {
-        --chat-actions-menu-bg: var(--chat-actions-menu-bg);
-        border: 1px solid var(--chat-actions-menu-border);
-        box-shadow: var(--chat-actions-menu-shadow);
-        backdrop-filter: blur(8px) saturate(180%);
-        -webkit-backdrop-filter: blur(8px) saturate(180%);
-        color: var(--chat-actions-menu-fg);
-    }
 
-    .chat-actions-item {
-        color: var(--chat-actions-menu-fg);
-    }
-
-    .chat-actions-item:hover,
-    .chat-actions-item:focus-visible {
-        background: var(--chat-actions-item-hover-bg);
-    }
-
-    .chat-actions-item:active {
-        background: var(--chat-actions-item-active-bg);
-    }
-
-    /* Split button dropdown (light theme overrides) */
-    .split-button__menu {
-        --split-button-menu-bg: var(--split-button-menu-bg);
-        border: 1px solid var(--split-button-menu-border);
-        box-shadow: var(--split-button-menu-shadow);
-        backdrop-filter: blur(8px) saturate(180%);
-        -webkit-backdrop-filter: blur(8px) saturate(180%);
-        color: var(--split-button-menu-fg);
-    }
-
-    .split-button__menu-item {
-        color: var(--split-button-menu-fg);
-    }
-
-    .split-button__menu-item:hover,
-    .split-button__menu-item:focus-visible {
-        background: var(--split-button-menu-item-hover-bg);
-    }
-
-    .split-button__menu-item:active {
-        background: var(--split-button-menu-item-active-bg);
-    }
 
     /* Thinking section theming */
     .message-thinking {

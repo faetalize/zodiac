@@ -12,6 +12,10 @@
     --tone-example-remove-hover: rgba(255, 255, 255, 0.12);
     --tone-example-remove-active: rgba(255, 255, 255, 0.18);
 
+    --primary: #5f96c8;
+    --primary-hover: #5280ac;
+    --primary-active: #3a648b;
+
     /* Body */
     --body-bg: #12171d;
     --body-fg: #e4e4e4;
@@ -24,10 +28,10 @@
 
     /* Navbar */
     --navbar-bg: #00000047;
-    --navbar-tab-fg: #e4e4e4;
+    --navbar-tab-fg: #d3e7ff8a;
+    ;
     --navbar-tab-highlight-bg: #22486b;
-    --navbar-tab-highlight-shadow: 0 0 1rem 0.05rem #29292aac;
-    --navbar-tab-hover-bg: #00000042;
+    --navbar-tab-fg-active: #d3e9ff;
 
     /* Buttons */
     --button-bg: #5f96c8;
@@ -70,7 +74,7 @@
     --input-fg: #e4e4e4;
     --input-placeholder: #849caf;
 
-    
+
     /* Messages */
     --message-user-bg: #1a2733;
 
@@ -96,9 +100,10 @@
 
     /* Badges */
     --badge-bg: #253a5c;
+    --badge-hover-bg: #324a70;
     --badge-border: 1px solid rgba(35, 108, 119, 0.508);
     --badge-fg: #b6ebfb;
-
+    --badge-active-bg: #203453;
     /* Subscription badge tiers */
     --badge-tier-free-bg: #253a5c;
     --badge-tier-free-border: rgba(35, 108, 119, 0.508);
@@ -123,7 +128,6 @@
 
     /* Message box */
     --message-box-bg: #1b2935c0;
-    --message-box-shadow: 0 0 16px 5px rgb(0 0 0 / 25%);
 
     /* Cards */
     --subscription-status-card-bg: #0e1a24;
@@ -209,17 +213,10 @@
     --chat-actions-menu-bg: rgba(20, 25, 32, 0.92);
     --chat-actions-menu-border: 1px solid #ffffff18;
     --chat-actions-menu-shadow: 0 6px 22px -4px rgba(0, 0, 0, 0.6), 0 2px 8px -2px rgba(0, 0, 0, 0.5);
-    --chat-actions-menu-fg: #e4e4e4;
     --chat-actions-item-hover-bg: #ffffff12;
     --chat-actions-item-active-bg: #ffffff1e;
 
-    /* Split button dropdown */
-    --split-button-menu-bg: rgba(20, 25, 32, 0.92);
-    --split-button-menu-border: 1px solid #ffffff18;
-    --split-button-menu-shadow: 0 6px 22px -4px rgba(0, 0, 0, 0.6), 0 2px 8px -2px rgba(0, 0, 0, 0.5);
-    --split-button-menu-fg: #e4e4e4;
-    --split-button-menu-item-hover-bg: #ffffff12;
-    --split-button-menu-item-active-bg: #ffffff1e;
+    
 
     /* Thinking section */
     --thinking-border: #3a648b;

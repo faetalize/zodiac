@@ -12,6 +12,10 @@
     --tone-example-remove-hover: rgba(17, 46, 97, 0.12);
     --tone-example-remove-active: rgba(17, 46, 97, 0.18);
 
+    --primary: #4c7cbe;
+    --primary-hover: #3c66a1;
+    --primary-active: #23487a;
+
     /* Body */
     --body-bg: #f0f6ff;
     --body-fg: #0a0a0a;
@@ -23,10 +27,10 @@
     --sidebar-bg: #d2e2f7a9;
 
     /* Navbar */
-    --navbar-bg: rgb(188 212 243);
-    --navbar-tab-fg: #011031;
-    --navbar-tab-highlight-bg: #c0dcf7;
-    --navbar-tab-hover-bg: #65656517;
+    --navbar-bg: rgb(196, 216, 241);
+    --navbar-tab-fg: #02194b7e;
+    --navbar-tab-highlight-bg: #a2d1fd;
+    --navbar-tab-fg-active: #163881;
 
     /* Buttons */
     --button-bg: #4c7cbe;
@@ -96,8 +100,10 @@
 
     /* Badges */
     --badge-bg: #9cc2ea;
+    --badge-hover-bg: #8bb3e3;
     --badge-border: 1px solid rgba(27, 104, 123, 0.508);
     --badge-fg: #34545c;
+    --badge-active-bg: #7ba3d4;
 
     /* Subscription badge tiers */
     --badge-tier-free-bg: #9cc2ea;
@@ -123,7 +129,6 @@
 
     /* Message box */
     --message-box-bg: #dfeeffab;
-    --message-box-shadow: none;
     --message-box-border: 1px solid #cbdbf0;
 
     /* Cards */
@@ -216,17 +221,11 @@
     --chat-actions-menu-bg: rgba(255, 255, 255, 0.95);
     --chat-actions-menu-border: 1px solid rgba(0, 0, 0, 0.1);
     --chat-actions-menu-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.25), 0 2px 6px -1px rgba(0, 0, 0, 0.15);
-    --chat-actions-menu-fg: #e4e4e4;
+
     --chat-actions-item-hover-bg: rgba(0, 0, 0, 0.07);
     --chat-actions-item-active-bg: rgba(0, 0, 0, 0.12);
 
-    /* Split button dropdown */
-    --split-button-menu-bg: rgba(255, 255, 255, 0.95);
-    --split-button-menu-border: 1px solid rgba(0, 0, 0, 0.1);
-    --split-button-menu-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.25), 0 2px 6px -1px rgba(0, 0, 0, 0.15);
-    --split-button-menu-fg: #e4e4e4;
-    --split-button-menu-item-hover-bg: rgba(0, 0, 0, 0.07);
-    --split-button-menu-item-active-bg: rgba(0, 0, 0, 0.12);
+
 
     /* Thinking section */
     --thinking-border: #4c7cbe;

@@ -70,6 +70,7 @@ function insertChatEntry(chat: DbChat) {
 
     const menu = document.createElement("div");
     menu.classList.add("chat-actions-menu");
+    menu.classList.add("dropdown-menu");
     menu.setAttribute("role", "menu");
 
     function closeMenu() {

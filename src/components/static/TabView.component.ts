@@ -54,7 +54,7 @@ for (const tabGroup of tabGroups) {
             const targetView = t.views[targetIndex];
             const targetTab = t.tabs[targetIndex];
             targetTab.classList.add("navbar-tab-active");
-            tabHighlight!.style.left = `calc(100% / ${tabs.length} * ${targetIndex})`;
+            tabHighlight!.style.left = `calc(100% / ${tabs.length} * ${targetIndex} - var(--navbar-tab-highlight-padding))`;
             helpers.hideElement(currentView);
             t.activeTabIndex = targetIndex;
             helpers.showElement(targetView, true);
