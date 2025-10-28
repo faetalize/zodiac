@@ -13,7 +13,7 @@ if (!modeButtons.length || !themeButtons.length) {
 }
 
 // Implemented themes (others are placeholders)
-const IMPLEMENTED_THEMES: ColorTheme[] = ['blue', 'red', 'green', 'purple'];
+const IMPLEMENTED_THEMES: ColorTheme[] = ['blue', 'red', 'green', 'purple', 'monochrome'];
 
 function initialize() {
     console.log('[ThemeControls] Initializing theme controls');

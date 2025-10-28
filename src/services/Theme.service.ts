@@ -180,7 +180,7 @@ class ThemeService {
 
         const s = settings as Record<string, unknown>;
         
-        const validColorThemes: ColorTheme[] = ['blue', 'red', 'green', 'purple', 'pink', 'orange'];
+        const validColorThemes: ColorTheme[] = ['blue', 'red', 'green', 'purple', 'pink', 'orange', 'monochrome'];
         
         return (
             validColorThemes.includes(s.colorTheme as ColorTheme) &&

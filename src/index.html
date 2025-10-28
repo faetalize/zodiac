@@ -19,6 +19,8 @@
     <link rel="stylesheet" href="./styles/themes/green-light.css">
     <link rel="stylesheet" href="./styles/themes/purple-dark.css">
     <link rel="stylesheet" href="./styles/themes/purple-light.css">
+    <link rel="stylesheet" href="./styles/themes/monochrome-dark.css">
+    <link rel="stylesheet" href="./styles/themes/monochrome-light.css">
     <!-- Highlight.js theme (dynamically updated by theme service) -->
     <link rel="stylesheet" data-highlight-theme
         href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
@@ -292,10 +294,8 @@
                                     style="background: linear-gradient(135deg, #5fc88e 0%, #3ca170 100%);"></button>
                                 <button class="theme-btn" data-theme="purple" aria-label="Purple theme"
                                     style="background: linear-gradient(135deg, #8e5fc8 0%, #6a3ca1 100%);"></button>
-                                <button class="theme-btn" data-theme="pink" aria-label="Pink theme"
-                                    style="background: linear-gradient(135deg, #c85f9e 0%, #a13c7a 100%);"></button>
-                                <button class="theme-btn" data-theme="orange" aria-label="Orange theme"
-                                    style="background: linear-gradient(135deg, #c8895f 0%, #a1673c 100%);"></button>
+                                <button class="theme-btn" data-theme="monochrome" aria-label="Monochrome theme"
+                                    style="background: linear-gradient(135deg, #666666 0%, #333333 100%);"></button>
                             </div>
                         </div>
                     </div>
@@ -812,7 +812,65 @@
                 </div>
             </div>
 
-            <!-- Step 2a: Account Selector (for logged-in users) -->
+            <!-- Step 2: Theme Selection -->
+            <div id="onboarding-theme-selection" class="onboarding-step hidden">
+                <div class="onboarding-content">
+                    <h1 class="onboarding-title">Choose Your Theme</h1>
+                    <p class="onboarding-subtitle">Pick a color palette and mode that suits your style</p>
+
+                    <div class="onboarding-theme-mode-section">
+                        <label class="onboarding-theme-label">Mode</label>
+                        <div class="mode-selector">
+                            <button class="mode-btn" id="onboarding-mode-light" data-mode="light" aria-label="Light mode">
+                                <span class="material-symbols-outlined">light_mode</span>
+                            </button>
+                            <button class="mode-btn active" id="onboarding-mode-auto" data-mode="auto" aria-label="Auto mode">
+                                <span class="material-symbols-outlined">contrast</span>
+                            </button>
+                            <button class="mode-btn" id="onboarding-mode-dark" data-mode="dark" aria-label="Dark mode">
+                                <span class="material-symbols-outlined">dark_mode</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="onboarding-theme-colors-section">
+                        <label class="onboarding-theme-label">Color Theme</label>
+                        <div class="onboarding-theme-grid">
+                            <button class="onboarding-theme-card active" id="onboarding-theme-blue" data-theme="blue">
+                                <div class="onboarding-theme-preview" 
+                                    style="background: linear-gradient(135deg, #5f96c8 0%, #3c66a1 100%);"></div>
+                                <span class="onboarding-theme-name">Blue</span>
+                            </button>
+                            <button class="onboarding-theme-card" id="onboarding-theme-red" data-theme="red">
+                                <div class="onboarding-theme-preview" 
+                                    style="background: linear-gradient(135deg, #c8625f 0%, #a1473c 100%);"></div>
+                                <span class="onboarding-theme-name">Red</span>
+                            </button>
+                            <button class="onboarding-theme-card" id="onboarding-theme-green" data-theme="green">
+                                <div class="onboarding-theme-preview" 
+                                    style="background: linear-gradient(135deg, #5fc88e 0%, #3ca170 100%);"></div>
+                                <span class="onboarding-theme-name">Green</span>
+                            </button>
+                            <button class="onboarding-theme-card" id="onboarding-theme-purple" data-theme="purple">
+                                <div class="onboarding-theme-preview" 
+                                    style="background: linear-gradient(135deg, #8e5fc8 0%, #6a3ca1 100%);"></div>
+                                <span class="onboarding-theme-name">Purple</span>
+                            </button>
+                            <button class="onboarding-theme-card" id="onboarding-theme-monochrome" data-theme="monochrome">
+                                <div class="onboarding-theme-preview" 
+                                    style="background: linear-gradient(135deg, #666666 0%, #333333 100%);"></div>
+                                <span class="onboarding-theme-name">Monochrome</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button id="onboarding-btn-theme-continue" class="onboarding-btn-primary onboarding-btn-large">
+                        Continue
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3a: Account Selector (for logged-in users) -->
             <div id="onboarding-account-selector" class="onboarding-step hidden">
                 <div class="onboarding-content onboarding-content-center">
                     <h1 class="onboarding-title">Welcome Back!</h1>
@@ -843,7 +901,7 @@
                 </div>
             </div>
 
-            <!-- Step 2b: API Key or Subscription Choice -->
+            <!-- Step 3b: API Key or Subscription Choice -->
             <div id="onboarding-api-or-subscription" class="onboarding-step hidden">
                 <div class="onboarding-content">
                     <h1 class="onboarding-title">Choose Your Setup</h1>

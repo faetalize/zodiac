@@ -2,6 +2,7 @@
  * Onboarding service - manages onboarding flow state and navigation
  */
 
+import type { ColorTheme, ThemeMode, ThemePreference } from "../models/Theme";
 import {
     OnboardingPath,
     OnboardingPendingCredentials,
@@ -13,6 +14,9 @@ import {
 let currentState: OnboardingState = {
     currentStep: OnboardingStep.PATH_SELECTION,
     selectedPath: null,
+    selectedTheme: null,
+    selectedMode: null,
+    selectedPreference: null,
     apiKeyValidated: false,
     registrationCompleted: false,
     setupOption: null,
@@ -41,6 +45,9 @@ export function show(): void {
     currentState = {
         currentStep: OnboardingStep.PATH_SELECTION,
         selectedPath: null,
+        selectedTheme: null,
+        selectedMode: null,
+        selectedPreference: null,
         apiKeyValidated: false,
         registrationCompleted: false,
         setupOption: null,
@@ -139,4 +146,25 @@ export function setSelectedPriceId(priceId: string | null): void {
 
 export function getSelectedPriceId(): string | null {
     return currentState.selectedPriceId;
+}
+
+export function setSelectedTheme(theme: ColorTheme): void {
+    currentState.selectedTheme = theme;
+}
+
+export function getSelectedTheme(): ColorTheme | null {
+    return currentState.selectedTheme;
+}
+
+export function setSelectedMode(mode: ThemeMode, preference: ThemePreference): void {
+    currentState.selectedMode = mode;
+    currentState.selectedPreference = preference;
+}
+
+export function getSelectedMode(): ThemeMode | null {
+    return currentState.selectedMode;
+}
+
+export function getSelectedPreference(): ThemePreference | null {
+    return currentState.selectedPreference;
 }

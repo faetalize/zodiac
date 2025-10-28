@@ -17,6 +17,12 @@
     --dropdown-menu-item-active-bg: rgba(255, 255, 255, 0.0685);
 
 
+
+    /* Dialog */
+    --dialog-bg: #461010db;
+    --dialog-shadow: 0 0 16px 5px rgb(0 0 0 / 25%);
+
+
     .message-text:focus-visible {
         outline: 1px solid var(--focus-outline);
     }
@@ -271,11 +277,6 @@
         border: 1px solid var(--card-add-lora-border);
     }
 
-    #dialog {
-        background-color: var(--dialog-bg);
-        backdrop-filter: blur(32px);
-        box-shadow: var(--dialog-shadow);
-    }
 
     #profile-pfp {
         filter: var(--profile-pfp-filter);
@@ -342,11 +343,6 @@
 
 
 
-    /* Thinking section theming */
-    .message-thinking {
-        --thinking-border: var(--thinking-border);
-        --thinking-bg: var(--thinking-bg);
-    }
 
     .message-thinking pre {
         background: var(--thinking-bg);

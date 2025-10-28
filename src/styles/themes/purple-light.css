@@ -169,10 +169,6 @@
     --card-add-lora-bg: rgba(100, 30, 183, 0.08);
     --card-add-lora-border: 1px solid rgba(140, 76, 190, 0.45);
 
-    /* Dialog */
-    --dialog-bg: #6f1c97;
-    --dialog-shadow: none;
-    --dialog-message-fg: #f4e3ff;
 
     /* Profile picture */
     --profile-pfp-filter: invert(1);

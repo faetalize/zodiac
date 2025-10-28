@@ -1,7 +1,7 @@
 /**
  * Color theme palette options
  */
-export type ColorTheme = 'blue' | 'red' | 'green' | 'purple' | 'pink' | 'orange';
+export type ColorTheme = 'blue' | 'red' | 'green' | 'purple' | 'pink' | 'orange' | 'monochrome';
 
 /**
  * Light/dark mode options

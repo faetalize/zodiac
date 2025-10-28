@@ -5,15 +5,32 @@
 import { GoogleGenAI } from "@google/genai";
 import { OnboardingPath, OnboardingStep } from "../../models/Onboarding";
 import { SubscriptionPriceIDs } from "../../models/Price";
+import type { ColorTheme, ThemeMode, ThemePreference } from "../../models/Theme";
 import * as onboardingService from "../../services/Onboarding.service";
 import * as supabaseService from "../../services/Supabase.service";
 import * as settingsService from "../../services/Settings.service";
 import * as toastService from "../../services/Toast.service";
+import { themeService } from "../../services/Theme.service";
 
 // Path selection buttons
 const easyPathButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-easy");
 const powerPathButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-power");
 const skipOnboardingButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-skip");
+
+// Theme selection elements
+const themeModeButtons = {
+    light: document.querySelector<HTMLButtonElement>("#onboarding-mode-light"),
+    auto: document.querySelector<HTMLButtonElement>("#onboarding-mode-auto"),
+    dark: document.querySelector<HTMLButtonElement>("#onboarding-mode-dark")
+};
+const themeColorButtons = {
+    blue: document.querySelector<HTMLButtonElement>("#onboarding-theme-blue"),
+    red: document.querySelector<HTMLButtonElement>("#onboarding-theme-red"),
+    green: document.querySelector<HTMLButtonElement>("#onboarding-theme-green"),
+    purple: document.querySelector<HTMLButtonElement>("#onboarding-theme-purple"),
+    monochrome: document.querySelector<HTMLButtonElement>("#onboarding-theme-monochrome")
+};
+const themeContinueButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-theme-continue");
 
 // Account selector elements (for logged-in Pro/Max users)
 const accountSelectorPfp = document.querySelector<HTMLImageElement>("#onboarding-account-pfp");
@@ -88,6 +105,15 @@ const requiredElements = {
     easyPathButton,
     powerPathButton,
     skipOnboardingButton,
+    themeModeLight: themeModeButtons.light,
+    themeModeAuto: themeModeButtons.auto,
+    themeModeDark: themeModeButtons.dark,
+    themeColorBlue: themeColorButtons.blue,
+    themeColorRed: themeColorButtons.red,
+    themeColorGreen: themeColorButtons.green,
+    themeColorPurple: themeColorButtons.purple,
+    themeColorMonochrome: themeColorButtons.monochrome,
+    themeContinueButton,
     accountSelectorPfp,
     accountSelectorEmail,
     accountSelectorTierBadge,
@@ -157,6 +183,7 @@ let activeAuthMode: AuthMode = "register";
  */
 export function initialize(): void {
     setupPathSelection();
+    setupThemeSelection();
     setupAccountSelector();
     setupAccountConfirmation();
     setupApiOrSubscriptionChoice();
@@ -174,7 +201,60 @@ export function initialize(): void {
 function setupPathSelection(): void {
     easyPathButton!.addEventListener("click", async () => {
         onboardingService.setPath(OnboardingPath.EASY);
-        
+        onboardingService.goToStep(OnboardingStep.THEME_SELECTION);
+    });
+    
+    powerPathButton!.addEventListener("click", async () => {
+        onboardingService.setPath(OnboardingPath.POWER);
+        onboardingService.goToStep(OnboardingStep.THEME_SELECTION);
+    });
+
+    skipOnboardingButton!.addEventListener("click", () => {
+        onboardingService.hide();
+    });
+}
+
+/**
+ * Theme selection step handlers
+ */
+function setupThemeSelection(): void {
+    // Set up mode buttons
+    Object.entries(themeModeButtons).forEach(([mode, button]) => {
+        button!.addEventListener("click", () => {
+            // Remove active from all mode buttons
+            Object.values(themeModeButtons).forEach(btn => btn!.classList.remove("active"));
+            // Add active to clicked button
+            button!.classList.add("active");
+            
+            // Apply theme immediately for preview
+            if (mode === 'auto') {
+                themeService.setAutoMode();
+                onboardingService.setSelectedMode(themeService.getCurrentTheme().mode, 'auto');
+            } else {
+                const themeMode = mode as ThemeMode;
+                themeService.setMode(themeMode, 'manual');
+                onboardingService.setSelectedMode(themeMode, 'manual');
+            }
+        });
+    });
+    
+    // Set up color theme buttons
+    Object.entries(themeColorButtons).forEach(([theme, button]) => {
+        button!.addEventListener("click", () => {
+            // Remove active from all theme buttons
+            Object.values(themeColorButtons).forEach(btn => btn!.classList.remove("active"));
+            // Add active to clicked button
+            button!.classList.add("active");
+            
+            // Apply theme immediately for preview and store in onboarding state
+            const colorTheme = theme as ColorTheme;
+            themeService.setColorTheme(colorTheme);
+            onboardingService.setSelectedTheme(colorTheme);
+        });
+    });
+    
+    // Continue button - route to account selector or API/subscription based on auth
+    themeContinueButton!.addEventListener("click", async () => {
         // Check if user is logged in and determine routing
         const user = await supabaseService.getCurrentUser();
         if (user) {
@@ -191,31 +271,6 @@ function setupPathSelection(): void {
         
         // Otherwise, show normal API or Subscription choice
         onboardingService.goToStep(OnboardingStep.API_OR_SUBSCRIPTION);
-    });
-    
-    powerPathButton!.addEventListener("click", async () => {
-        onboardingService.setPath(OnboardingPath.POWER);
-        
-        // Check if user is logged in and determine routing (same as Easy path)
-        const user = await supabaseService.getCurrentUser();
-        if (user) {
-            const subscription = await supabaseService.getUserSubscription();
-            const tier = supabaseService.getSubscriptionTier(subscription);
-            
-            // If user has Pro/Max subscription, show account selector
-            if (tier === 'pro' || tier === 'max') {
-                await prepareAccountSelector(user, subscription, tier);
-                onboardingService.goToStep(OnboardingStep.ACCOUNT_SELECTOR);
-                return;
-            }
-        }
-        
-        // Otherwise, show normal API or Subscription choice
-        onboardingService.goToStep(OnboardingStep.API_OR_SUBSCRIPTION);
-    });
-
-    skipOnboardingButton!.addEventListener("click", () => {
-        onboardingService.hide();
     });
 }
 
@@ -658,6 +713,9 @@ function setupSummary(): void {
     summaryFinishButton!.addEventListener("click", async () => {
         const selectedPriceId = onboardingService.getSelectedPriceId();
         
+        // Apply theme settings from onboarding state before everything else
+        applyThemeSettings();
+        
         // Apply Easy path settings for ALL outcomes
         const selectedPath = onboardingService.getState().selectedPath;
         if (selectedPath === OnboardingPath.EASY) {
@@ -734,6 +792,28 @@ function applyEasyPathSettings(): void {
     
     // Reload settings to apply changes to UI
     settingsService.loadSettings();
+}
+
+/**
+ * Apply theme settings from onboarding state to persist them
+ */
+function applyThemeSettings(): void {
+    const selectedTheme = onboardingService.getSelectedTheme();
+    const selectedMode = onboardingService.getSelectedMode();
+    const selectedPreference = onboardingService.getSelectedPreference();
+    
+    // Apply theme settings if they were selected during onboarding
+    if (selectedTheme) {
+        themeService.setColorTheme(selectedTheme);
+    }
+    
+    if (selectedMode && selectedPreference) {
+        if (selectedPreference === 'auto') {
+            themeService.setAutoMode();
+        } else {
+            themeService.setMode(selectedMode, 'manual');
+        }
+    }
 }
 
 /**
