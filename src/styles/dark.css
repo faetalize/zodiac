@@ -26,11 +26,6 @@
         color: var(--link-color);
     }
 
-    .sidebar {
-        background-color: var(--sidebar-bg);
-        backdrop-filter: blur(64px);
-    }
-
     .navbar {
         background-color: var(--navbar-bg);
     }
@@ -47,7 +42,6 @@
     }
 
     .toast {
-        --toast-fg: var(--toast-fg);
         box-shadow: var(--toast-shadow);
     }
 

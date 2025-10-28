@@ -1746,7 +1746,7 @@ form {
     max-width: calc(50rem - 2rem);
     justify-self: center;
     box-shadow: var(--elevated-ui-shadow);
-    background-color: var(--message-box-bg) !important;
+    background-color: var(--sidebar-bg) !important;
     backdrop-filter: blur(16px);
 }
 
@@ -2243,6 +2243,8 @@ form {
     z-index: 1;
     box-shadow: var(--elevated-ui-shadow);
     outline: var(--elevated-ui-outline);
+    background-color: var(--sidebar-bg);
+    backdrop-filter: blur(64px);
 }
 
 #image-generation-label {
@@ -2251,6 +2253,7 @@ form {
     font-size: 0.875rem;
     transition: width 0.2s ease;
     overflow: hidden;
+    text-transform: capitalize;
 }
 
 #btn-image.btn-toggled #image-generation-label {
