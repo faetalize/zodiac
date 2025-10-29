@@ -13,6 +13,10 @@ export const attachmentPreviewElement = (file: File) => {
     const container = document.createElement("div");
     container.classList.add("attachment-container");
     container.dataset.attachmentSignature = getFileSignature(file);
+    
+    // Check if this file is from chat history
+    const isFromChatHistory = (file as any)._fromChatHistory === true;
+    
     if (file.type.startsWith("image/")) {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -28,8 +32,20 @@ export const attachmentPreviewElement = (file: File) => {
             img.src = e.target!.result as string;
             img.alt = file.name;
             container.appendChild(img);
+            
+            // Add "Local" badge if from chat history
+            if (isFromChatHistory) {
+                const badge = document.createElement("span");
+                badge.classList.add("history-image-badge");
+                badge.textContent = "Local";
+                container.appendChild(badge);
+            }
+            
             container.appendChild(removeButton);
             attachmentPreview.appendChild(container);
+            
+            // Dispatch attachment added event
+            dispatchAttachmentAdded();
         };
         reader.readAsDataURL(file);
     }
@@ -60,6 +76,9 @@ export const attachmentPreviewElement = (file: File) => {
         container.appendChild(fileIcon);
         container.appendChild(fileDetailsDiv);
         container.appendChild(removeButton);
+        
+        // Dispatch attachment added event
+        dispatchAttachmentAdded();
     }
 
 
@@ -104,4 +123,22 @@ function dispatchAttachmentRemoved(file: File): void {
         detail,
         bubbles: true,
     }));
+}
+
+function dispatchAttachmentAdded(): void {
+    const count = getAttachmentCount();
+    window.dispatchEvent(new CustomEvent("attachment-added", {
+        detail: { count },
+        bubbles: true,
+    }));
+}
+
+/**
+ * Get the current number of image attachments
+ */
+export function getAttachmentCount(): number {
+    if (!input || !input.files) {
+        return 0;
+    }
+    return Array.from(input.files).filter(f => f.type.startsWith('image/')).length;
 }

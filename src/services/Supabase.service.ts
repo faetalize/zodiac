@@ -2,12 +2,25 @@ import { createClient, RealtimeChannel, Session, User as SupabaseUser } from '@s
 import { User } from "../models/User";
 import { SubscriptionPriceIDs } from '../models/Price';
 import { ImageGenerationPermitted } from '../models/ImageGenerationTypes';
+import { danger, warn } from './Toast.service';
 
 let userCache: SupabaseUser | null = null;
 
 export const SUPABASE_URL = 'https://hglcltvwunzynnzduauy.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ';
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+export const PASSWORD_RECOVERY_HASH = '#password-recovery';
+
+function buildPasswordRecoveryRedirectUrl(): string {
+    if (typeof window === 'undefined') {
+        return `${SUPABASE_URL}/auth/password-recovery`;
+    }
+    const { origin, pathname, search } = window.location;
+    console.log({ origin, pathname, search });
+    return `${origin}${pathname}${search}${PASSWORD_RECOVERY_HASH}`;
+    
+}
 
 export async function getAuthHeaders(): Promise<Record<string, string>> {
     const { data: { session } } = await supabase.auth.getSession();
@@ -18,6 +31,12 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY' && session) {
+        console.log('Password recovery session detected.');
+        userCache = session.user;
+        try { window.dispatchEvent(new CustomEvent('password-recovery', { detail: { session } })); } catch (e) { console.error(e); }
+    }
+
     //on login
     if (event === 'SIGNED_IN' && session) {
         console.log("User signed in.");
@@ -147,7 +166,42 @@ export async function getCurrentUser() {
     if (userCache) return userCache;
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error) {
-        console.error("Get current user error:", error.message);
+        console.error("Get current user error:", JSON.stringify(error));
+        if(error.name === "AuthSessionMissingError"){
+            //do nothing
+        }
+        if(error.code === "user_not_found"){
+            //we must clear the session cache
+            warn({
+                title: "Session Expired",
+                text: "Your session has expired. Please log in again.",
+                actions: [
+                    {
+                        label: "Log In",
+                        onClick: () => {
+                            document.querySelector<HTMLButtonElement>("#btn-login")?.click();
+                        }
+                    }
+                ]
+            });
+            await logout();
+        }
+        if (error.code === "user_banned"){
+            danger({
+                title: "Account Disabled",
+                text: "Your account has been disabled. Please contact support for more information.",
+                actions: [
+                    {
+                        label: "Contact Support",
+                        onClick: () => {
+                            //mailto zodiac@faetalize.dev
+                            window.location.href = "mailto:zodiac@faetalize.dev";
+                        }
+                    }
+                ]
+            });
+        }
+        userCache = null;
         return null;
     }
     userCache = user;
@@ -217,6 +271,49 @@ export interface ImageGenerationRecord {
 export async function getCurrentUserEmail(): Promise<string | null> {
     const user = await getCurrentUser();
     return user?.email ?? null;
+}
+
+export async function sendPasswordResetEmail(email: string): Promise<void> {
+    const targetEmail = email?.trim();
+    if (!targetEmail) {
+        throw new Error("Email is required for password reset");
+    }
+    const redirectTo = buildPasswordRecoveryRedirectUrl();
+    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo });
+    if (error) {
+        console.error("Password reset request error:", error.message);
+        throw new Error(error.message);
+    }
+}
+
+export async function updatePassword(newPassword: string): Promise<void> {
+    const trimmed = newPassword?.trim();
+    if (!trimmed) {
+        throw new Error("New password is required");
+    }
+    const { data, error } = await supabase.auth.updateUser({ password: trimmed });
+    if (error) {
+        console.error("Password update error:", error.message);
+        throw new Error(error.message);
+    }
+    if (data?.user) {
+        userCache = data.user;
+    }
+}
+
+export async function updateCurrentUserEmail(newEmail: string): Promise<void> {
+    const targetEmail = newEmail?.trim();
+    if (!targetEmail) {
+        throw new Error("New email is required");
+    }
+    const { data, error } = await supabase.auth.updateUser({ email: targetEmail });
+    if (error) {
+        console.error("Email update error:", error.message);
+        throw new Error(error.message);
+    }
+    if (data?.user) {
+        userCache = data.user;
+    }
 }
 
 export async function getUserSubscription(session?: Session): Promise<UserSubscription | null> {

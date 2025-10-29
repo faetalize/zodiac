@@ -10,12 +10,20 @@
     <link rel="stylesheet" href="./styles/main.css">
     <link rel="stylesheet" href="./styles/dark.css">
     <link rel="stylesheet" href="./styles/light.css">
-    <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.css"
-        media="(prefers-color-scheme: dark)">
-    <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.css"
-        media="(prefers-color-scheme: light)">
+    <!-- Theme-specific color palettes -->
+    <link rel="stylesheet" href="./styles/themes/blue-dark.css">
+    <link rel="stylesheet" href="./styles/themes/blue-light.css">
+    <link rel="stylesheet" href="./styles/themes/red-dark.css">
+    <link rel="stylesheet" href="./styles/themes/red-light.css">
+    <link rel="stylesheet" href="./styles/themes/green-dark.css">
+    <link rel="stylesheet" href="./styles/themes/green-light.css">
+    <link rel="stylesheet" href="./styles/themes/purple-dark.css">
+    <link rel="stylesheet" href="./styles/themes/purple-light.css">
+    <link rel="stylesheet" href="./styles/themes/monochrome-dark.css">
+    <link rel="stylesheet" href="./styles/themes/monochrome-light.css">
+    <!-- Highlight.js theme (dynamically updated by theme service) -->
+    <link rel="stylesheet" data-highlight-theme
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-VCHJXFGB08"></script>
@@ -31,14 +39,15 @@
 
 
 <body>
-    <div class="container">
+    <div id="main-container">
         <div id="dialog" class="dialog hidden">
             <div id="dialog-message"></div>
             <div id="dialog-buttons" class="btn-array">
-                <button class="btn-danger" id="btn-dialog-ok">OK</button>
-                <button class="btn-neutral" id="btn-dialog-cancel">Cancel</button>
+                <button class="btn-danger btn" id="btn-dialog-ok">OK</button>
+                <button class="btn-neutral btn" id="btn-dialog-cancel">Cancel</button>
             </div>
         </div>
+
         <div class="sidebar">
             <div class="header" style="padding-block: 12px;">
                 <button class=" material-symbols-outlined btn-textual" id="btn-hide-sidebar">
@@ -55,7 +64,7 @@
                     <div id="gemini-pro-branding">Gemini 2.5</div>
                 </div>
 
-                <button id="btn-login" class="logged-out-component">
+                <button id="btn-login" class="logged-out-component btn btn-primary">
                     Login
                 </button>
                 <img class="user-avatar logged-in-component hidden" id="user-profile"
@@ -63,28 +72,29 @@
             </div>
             <div class="navbar" data-target-id="sidebar-content">
                 <div class="navbar-tab">Chats</div>
-                <div class="navbar-tab">Personalities</div>
+                <div class="navbar-tab">Personas</div>
                 <div class="navbar-tab">Settings</div>
                 <div class="navbar-tab-highlight"></div>
             </div>
             <div id="sidebar-content">
                 <div class="sidebar-section">
                     <div class="btn-array">
-                        <div class="split-button btn">
-                            <button id="btn-new-chat" class="split-button__main">
+                        <div class="split-button">
+                            <button id="btn-new-chat" class="split-button__main btn btn-primary">
                                 <span class="material-symbols-outlined">add</span> <span>New Chat</span>
                             </button>
-                            <button class="split-button__toggle" aria-haspopup="true" aria-expanded="false">
+                            <button class="split-button__toggle btn btn-primary" aria-haspopup="true"
+                                aria-expanded="false">
                                 <span class="material-symbols-outlined">expand_more</span>
                             </button>
-                            <div class="split-button__menu" role="menu">
+                            <div class="split-button__menu dropdown-menu" role="menu">
                                 <button class="split-button__menu-item" role="menuitem" id="btn-chat-import">
                                     <span class="material-symbols-outlined">upload</span>
                                     <span>Import</span></button>
                             </div>
 
                         </div>
-                        <button id="btn-reset-chat">
+                        <button class="btn btn-primary" id="btn-reset-chat">
                             <span class="material-symbols-outlined">clear_all</span>Clear All
                         </button>
                     </div>
@@ -99,10 +109,10 @@
 
                 <div class="sidebar-section hidden" id="personalitySection">
                     <div class="btn-array">
-                        <button id="btn-import-personality">
+                        <button class="btn btn-primary" id="btn-import-personality">
                             <span class="material-symbols-outlined">upload</span>Import
                         </button>
-                        <button id="btn-clearall-personality">
+                        <button class="btn btn-primary" id="btn-clearall-personality">
                             <span class="material-symbols-outlined">clear_all</span>Clear All
                         </button>
                     </div>
@@ -127,7 +137,7 @@
                     </div>
                     <div id="or-divider" style="text-align: center; font-weight: 800; text-transform: uppercase;">or
                     </div>
-                    <button id="btn-show-subscription-options">Upgrade</button>
+                    <button class="btn" id="btn-show-subscription-options">Upgrade</button>
                     <h3>Generation Settings</h3>
                     <div class="generation-settings">
                         <div>
@@ -227,10 +237,10 @@
                                     info="Editing models allow you to edit images to add details, remove objects, or make other modifications.">
                                     info
                                 </span> </label>
-                            <select id="selectedImageEditingModel" class="input-field" disabled>
-                                <option value="qwen-image-edit" selected="true">Qwen Image Edit
+                            <select id="selectedImageEditingModel" class="input-field">
+                                <option value="qwen" selected="true">Qwen Image Edit
                                 </option>
-                                <option value="seadream-4.0-edit">Seadream 4.0 Edit</option>
+                                <option value="seedream">Seedream 4.0 Edit</option>
                             </select>
                         </div>
                         <div id="lora-settings">
@@ -239,7 +249,7 @@
                                 <span>LoRAs</span>
                                 <span class="material-symbols-outlined tooltip"
                                     style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="LoRAs are small models that can be applied on top of the base model to change its style or introduce new concepts. CURRENTLY NOT ENABLED, WORK IN PROGRESS!!!">
+                                    info="LoRAs are small models that can be applied on top of the base model to change its style or introduce new concepts.">
                                     info
                                 </span>
                             </label>
@@ -248,16 +258,47 @@
                                     <div class="lora-add">
                                         <input type="url" id="lora-url-input" class="input-field"
                                             placeholder="Paste CivitAI LoRA URL" />
-                                        <button id="btn-add-lora" class="btn-icon" aria-label="Add LoRA">
+                                        <button id="btn-add-lora" class="btn-icon btn btn-primary"
+                                            aria-label="Add LoRA">
                                             <span class="material-symbols-outlined">add_link</span>
                                         </button>
                                     </div>
                                 </div>
                                 <div id="lora-list"></div>
                             </div>
-
                         </div>
-
+                    </div>
+                    <h3>User Interface</h3>
+                    <div class="ui-settings">
+                        <div class="ui-setting">
+                            <label class="setting-label">Mode</label>
+                            <div class="mode-selector">
+                                <button class="mode-btn" data-mode="light" aria-label="Light mode">
+                                    <span class="material-symbols-outlined">light_mode</span>
+                                </button>
+                                <button class="mode-btn" data-mode="auto" aria-label="Auto mode">
+                                    <span class="material-symbols-outlined">contrast</span>
+                                </button>
+                                <button class="mode-btn" data-mode="dark" aria-label="Dark mode">
+                                    <span class="material-symbols-outlined">dark_mode</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ui-setting">
+                            <label class="setting-label">Theme</label>
+                            <div class="theme-selector">
+                                <button class="theme-btn" data-theme="blue" aria-label="Blue theme"
+                                    style="background: linear-gradient(135deg, #5f96c8 0%, #3c66a1 100%);"></button>
+                                <button class="theme-btn" data-theme="red" aria-label="Red theme"
+                                    style="background: linear-gradient(135deg, #c8625f 0%, #a1473c 100%);"></button>
+                                <button class="theme-btn" data-theme="green" aria-label="Green theme"
+                                    style="background: linear-gradient(135deg, #5fc88e 0%, #3ca170 100%);"></button>
+                                <button class="theme-btn" data-theme="purple" aria-label="Purple theme"
+                                    style="background: linear-gradient(135deg, #8e5fc8 0%, #6a3ca1 100%);"></button>
+                                <button class="theme-btn" data-theme="monochrome" aria-label="Monochrome theme"
+                                    style="background: linear-gradient(135deg, #666666 0%, #333333 100%);"></button>
+                            </div>
+                        </div>
                     </div>
                     <h3>User Experience</h3>
                     <div>
@@ -275,11 +316,11 @@
                     </div>
                     <h3>Data Management</h3>
                     <div class="btn-array-vertical">
-                        <button id="btn-bulk-import-chats">Bulk Import Chats</button>
-                        <button id="btn-export-all-chats">Export All Chats</button>
-                        <button id="btn-clear-all-data" class="btn-danger">Wipe Everything</button>
+                        <button class="btn btn-primary" id="btn-bulk-import-chats">Bulk Import Chats</button>
+                        <button class="btn btn-primary" id="btn-export-all-chats">Export All Chats</button>
+                        <button id="btn-clear-all-data" class="btn btn-danger">Wipe Everything</button>
                     </div>
-                    <h3>Donate</h3>
+                    <h3>Tip Me</h3>
                     <div class="btn-array">
                         <a href="https://patreon.com/faetalize" target="_blank" rel="noopener noreferrer"
                             class="card card-patreon">
@@ -296,14 +337,17 @@
                     </div>
                     <h3 class="debug">Debug</h3>
                     <div class="btn-array-vertical debug">
-                        <button id="btn-debug-chats">Generate 10 Random Chats</button>
-                        <button id="btn-debug-personalities">Generate 10 Random Personalities</button>
-                        <button id="btn-debug-toast-normal">Test Toast (Normal)</button>
-                        <button id="btn-debug-toast-warning">Test Toast (Warning)</button>
-                        <button id="btn-debug-toast-danger">Test Toast (Danger)</button>
-                        <button id="btn-debug-toast-actions">Test Toast (With Actions)</button>
-                        <button id="btn-debug-toast-spam">Test Toast Spam (5 Limit)</button>
-                        <button id="btn-debug-subscription-options">Open Subscription Options</button>
+                        <button class="btn btn-primary" id="btn-debug-chats">Generate 10 Random Chats</button>
+                        <button class="btn btn-primary" id="btn-debug-personalities">Generate 10 Random
+                            Personas</button>
+                        <button class="btn btn-primary" id="btn-debug-toast-normal">Test Toast (Normal)</button>
+                        <button class="btn btn-primary" id="btn-debug-toast-warning">Test Toast (Warning)</button>
+                        <button class="btn btn-primary" id="btn-debug-toast-danger">Test Toast (Danger)</button>
+                        <button class="btn btn-primary" id="btn-debug-toast-actions">Test Toast (With Actions)</button>
+                        <button class="btn btn-primary" id="btn-debug-toast-spam">Test Toast Spam (5 Limit)</button>
+                        <button class="btn btn-primary" id="btn-debug-subscription-options">Open Subscription
+                            Options</button>
+                        <button class="btn btn-primary" id="btn-debug-onboarding">Test Onboarding</button>
                     </div>
 
                 </div>
@@ -332,15 +376,19 @@
                     <input type="file" name="attachments" id="attachments">
                 </div>
                 <div id="message-box-buttons">
-                    <button type="button" class="btn-textual material-symbols-outlined"
+                    <button type="button" class="btn-textual material-symbols-outlined btn"
                         id="btn-attach">attach_file</button>
-                    <button type="button" class="btn-textual material-symbols-outlined"
+                    <button type="button" class="btn-textual material-symbols-outlined btn"
                         id="btn-internet">language</button>
-                    <button type="button" class="btn-textual material-symbols-outlined"
+                    <button type="button" class="btn-textual material-symbols-outlined btn"
                         id="btn-roleplay">pan_tool</button>
-                    <button type="button" class="btn-textual material-symbols-outlined" id="btn-image">
+                    <button type="button" class="btn-textual material-symbols-outlined btn" id="btn-image">
                         <div>brush</div>
                         <div id="image-generation-label">Image Generation</div>
+                    </button>
+                    <button type="button" class="btn-textual material-symbols-outlined btn" id="btn-edit">
+                        <div>imagesearch_roller</div>
+                        <div id="image-editing-label">Image Editing</div>
                     </button>
                     <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
                 </div>
@@ -420,34 +468,66 @@
                             <input type="text" name="tone-example-1" class="tone-example"
                                 placeholder="I'm a plumber, not a doctor. Lets-a go!">
                             <button type="button" id="btn-add-tone-example"
-                                class="material-symbols-outlined">add_circle</button>
+                                class="material-symbols-outlined btn">add_circle</button>
                         </div>
                     </div>
                     <div class="stepper-footer">
-                        <button class="btn-stepper-previous" type="button">Previous</button>
+                        <button class="btn-stepper-previous btn btn-primary" type="button">Previous</button>
                         <div class="stepper-progress"></div>
-                        <button class="btn-stepper-next" type="button">Next</button>
-                        <button class="btn-stepper-submit" type="submit">Submit</button>
+                        <button class="btn-stepper-next btn btn-primary" type="button">Next</button>
+                        <button class="btn-stepper-submit btn btn-primary" type="submit">Submit</button>
                     </div>
+                </div>
+            </form>
+
+            <form id="form-password-reset" class="hidden">
+                <h1>Reset Password</h1>
+                <p class="overlay-description">Enter and confirm your new password to finish resetting your account.</p>
+                <input type="password" id="password-reset-new" class="input-field" placeholder="New password"
+                    autocomplete="new-password">
+                <input type="password" id="password-reset-confirm" class="input-field"
+                    placeholder="Confirm new password" autocomplete="new-password">
+                <div id="password-reset-error" class="error-message hidden">
+                    <span class="material-symbols-outlined">error</span>
+                    <span id="password-reset-error-message">Passwords must match.</span>
+                </div>
+                <div class="overlay-actions">
+                    <button class="btn btn-primary" type="submit" id="btn-password-reset-submit">Update
+                        Password</button>
+                    <button type="button" id="btn-password-reset-cancel" class="btn-textual">Cancel</button>
+                </div>
+            </form>
+
+            <form id="form-email-update" class="hidden">
+                <h1>Update Email</h1>
+                <p class="overlay-description">Enter your new email address. We will send a confirmation to verify the
+                    change.</p>
+                <input type="email" id="email-update-new" class="input-field" placeholder="New email"
+                    autocomplete="email">
+                <input type="email" id="email-update-confirm" class="input-field" placeholder="Confirm new email"
+                    autocomplete="email">
+                <div id="email-update-error" class="error-message hidden">
+                    <span class="material-symbols-outlined">error</span>
+                    <span id="email-update-error-message">Emails must match.</span>
+                </div>
+                <div class="overlay-actions">
+                    <button class="btn btn-primary" type="submit" id="btn-email-update-submit">Update Email</button>
+                    <button type="button" id="btn-email-update-cancel" class="btn-textual">Cancel</button>
                 </div>
             </form>
 
             <div id="whats-new" class="hidden">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li><b>Character responsiveness:</b> You can now switch characters/personalities mid conversation,
-                        and the AI will respond accordingly without mixing them up.</li>
-                    <li><b>Enhanced context retention:</b> The AI now remembers previous interactions more effectively
-                        and adheres to your prompt better. Note: This might work better in a new conversation - start a
-                        new chat to benefit from the new changes</li>
-                    <li><b>Tone Examples revamp:</b> The tone examples feature has been improved for better context and
-                        relevance. PLEASE check your personalities and redo your tone/style examples to fully take
-                        advantage of this feature!</li>
+                    <li><b>Themes:</b> Customize your interface to your liking</li>
+                    <li><b>Image Editing:</b> You can now iterate on images using natural language using Seedream 4.0 and Qwen, which are state of the art image editing models.</li>
                     <li><b>Mobile related improvements:</b> Improved performance and usability on mobile devices.</li>
                     <li><b>Improved UX:</b> Lots of improvements and stability enhancements.</li>
 
-                    <li>Visit my discord if you'd like to connect regarding the project, need support, or have any
+                    <li>Visit my Discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
+                    <li>You may also contact the project via email: <a
+                            href="mailto:zodiac@faetalize.dev">zodiac@faetalize.dev</a></li>
                 </ul>
             </div>
 
@@ -465,7 +545,7 @@
                             <span class="material-symbols-outlined">error</span>
                             <span id="login-error-message">Invalid email or password</span>
                         </div>
-                        <button id="btn-login-submit">Login</button>
+                        <button class="btn btn-primary" id="btn-login-submit">Login</button>
 
                     </div>
                     <div id="register" class="hidden">
@@ -484,7 +564,7 @@
                             <span class="material-symbols-outlined">error</span> <span
                                 id="register-error-message">Registration failed, please try again</span>
                         </div>
-                        <button id="btn-register-submit">Register</button>
+                        <button class="btn btn-primary" id="btn-register-submit">Register</button>
                     </div>
 
 
@@ -520,8 +600,25 @@
                             </div>
                         </div>
                         <div class="subscription-card-footer">
-                            <button id="btn-top-up-credits">Get More Image Credits</button>
-                            <button id="btn-manage-subscription">Manage Subscription</button>
+                            <button class="btn btn-primary" id="btn-top-up-credits">Get More Image Credits</button>
+                            <button class="btn btn-primary" id="btn-manage-subscription">Manage Subscription</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="account-info-card" class="profile-card logged-in-component hidden collapsed">
+                    <div class="collapsible-card-header">
+                        <h3 style="margin:0;">Account</h3>
+                    </div>
+                    <div id="account-info-content" class="subscription-card-details">
+                        <div class="subscription-card-body">
+                            <div class="subscription-row">
+                                <span class="setting-label">Email</span>
+                                <span id="account-email">—</span>
+                            </div>
+                        </div>
+                        <div class="subscription-card-footer">
+                            <button class="btn btn-primary" id="btn-reset-password">Reset Password</button>
+                            <button class="btn btn-primary" id="btn-change-email">Change Email</button>
                         </div>
                     </div>
                 </div>
@@ -538,8 +635,8 @@
                         </div>
                     </div>
                 </div>
-                <button id="btn-profile-save">Save</button>
-                <button id="btn-profile-logout" class="btn-danger">Log Out</button>
+                <button class="btn btn-primary" id="btn-profile-save">Save</button>
+                <button id="btn-profile-logout" class="btn btn-danger">Log Out</button>
             </div>
 
             <div id="form-subscription" class="hidden">
@@ -547,7 +644,7 @@
                     <h1>Choose Your Plan</h1>
                 </div>
                 <div class="subscription-grid">
-                    <div class="subscription-card subscription-card-free">
+                    <div id="profile-free-card" class="subscription-card subscription-card-free">
                         <div class="subscription-card-header">
                             <div class="tier-badge tier-badge-free">Free</div>
                             <div class="tier-price">
@@ -556,7 +653,6 @@
                             </div>
                         </div>
                         <div class="subscription-card-body">
-                            <div class="tier-description">Get started with AI conversations</div>
                             <ul class="features-list">
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
@@ -570,7 +666,8 @@
                         </div>
                     </div>
 
-                    <div class="subscription-card subscription-card-pro subscription-card-popular">
+                    <div id="profile-pro-card"
+                        class="subscription-card subscription-card-pro subscription-card-popular">
                         <div class="popular-badge">Most Popular</div>
                         <div class="subscription-card-header">
                             <div class="tier-badge tier-badge-pro">Pro</div>
@@ -580,7 +677,6 @@
                             </div>
                         </div>
                         <div class="subscription-card-body">
-                            <div class="tier-description">For unlimited access</div>
                             <ul class="features-list">
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
@@ -613,7 +709,7 @@
                         </button>
                     </div>
 
-                    <div class="subscription-card subscription-card-max">
+                    <div id="profile-max-card" class="subscription-card subscription-card-max">
                         <div class="subscription-card-header">
                             <div class="tier-badge tier-badge-max">Max</div>
                             <div class="tier-price">
@@ -622,7 +718,6 @@
                             </div>
                         </div>
                         <div class="subscription-card-body">
-                            <div class="tier-description">Image Generation</div>
                             <ul class="features-list">
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
@@ -638,7 +733,7 @@
                                 </li>
                                 <li class="feature-item">
                                     <span class="feature-icon">✓</span>
-                                    <span class="feature-text">900 monthly image generation credits</span>
+                                    <span class="feature-text">300 monthly image generation credits</span>
                                 </li>
                             </ul>
                         </div>
@@ -676,11 +771,670 @@
                         <div class="top-up-price">$10</div>
                     </button>
                 </div>
-                <p>Each image credit grants you an image generation. However, LoRA usage may incur additional credit costs. Every 2 LoRA calls will consume 1 additional image credit, with a minimum of 1 credit required.</p>
+                <p>Each image credit grants you an image generation. However, LoRA usage may incur additional credit
+                    costs. Every 2 LoRA calls will consume 1 additional image credit, with a minimum of 1 credit
+                    required.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onboarding Overlay -->
+    <div id="onboarding-overlay" class="hidden">
+        <div class="onboarding-container">
+            <!-- Step 1: Path Selection -->
+            <div id="onboarding-path-selection" class="onboarding-step">
+                <div class="onboarding-content">
+                    <h1 class="onboarding-title">Welcome to Zodiac</h1>
+                    <p class="onboarding-subtitle">First time setup</p>
+
+                    <div class="choice-card-note choice-card-note--neutral onboarding-disclaimer">
+                        <span class="material-symbols-outlined choice-card-note-icon" style="
+    align-self: start;
+    margin-top: 3px;">lightbulb</span>
+                        <span>You acknowledge that all data is stored on-device. You are responsible for safeguarding
+                            it.</span>
+                    </div>
+
+                    <div class="onboarding-path-cards">
+                        <button class="onboarding-path-card" id="onboarding-btn-easy">
+                            <span class="material-symbols-outlined path-card-icon">auto_awesome</span>
+                            <h3 class="path-card-title">Easy</h3>
+                            <p class="path-card-description">Quick setup with sane defaults</p>
+                        </button>
+
+                        <button class="onboarding-path-card" id="onboarding-btn-power">
+                            <span class="material-symbols-outlined path-card-icon">flash_on</span>
+                            <h3 class="path-card-title">Power User</h3>
+                            <p class="path-card-description">Tweak everything to your liking</p>
+                        </button>
+                    </div>
+
+                    <button id="onboarding-btn-skip" class="onboarding-btn-text onboarding-skip-button">
+                        I don't need onboarding, take me to the app!
+                    </button>
+                </div>
             </div>
 
+            <!-- Step 2: Theme Selection -->
+            <div id="onboarding-theme-selection" class="onboarding-step hidden">
+                <div class="onboarding-content">
+                    <h1 class="onboarding-title">Choose Your Theme</h1>
+                    <p class="onboarding-subtitle">Pick a color palette and mode that suits your style</p>
 
-            <script type="module" src="main.ts" defer></script>
+                    <div class="onboarding-theme-mode-section">
+                        <label class="onboarding-theme-label">Mode</label>
+                        <div class="mode-selector">
+                            <button class="mode-btn" id="onboarding-mode-light" data-mode="light"
+                                aria-label="Light mode">
+                                <span class="material-symbols-outlined">light_mode</span>
+                                Light
+                            </button>
+                            <button class="mode-btn active" id="onboarding-mode-auto" data-mode="auto"
+                                aria-label="Auto mode">
+                                <span class="material-symbols-outlined">contrast</span>
+                                Auto
+                            </button>
+                            <button class="mode-btn" id="onboarding-mode-dark" data-mode="dark" aria-label="Dark mode">
+                                <span class="material-symbols-outlined">dark_mode</span>
+                                Dark
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="onboarding-theme-colors-section">
+                        <label class="onboarding-theme-label">Color Theme</label>
+                        <div class="onboarding-theme-grid">
+                            <button class="onboarding-theme-card active" id="onboarding-theme-blue" data-theme="blue">
+                                <div class="onboarding-theme-preview"
+                                    style="background: linear-gradient(135deg, #5f96c8 0%, #3c66a1 100%);"></div>
+                                <span class="onboarding-theme-name">Blue</span>
+                            </button>
+                            <button class="onboarding-theme-card" id="onboarding-theme-red" data-theme="red">
+                                <div class="onboarding-theme-preview"
+                                    style="background: linear-gradient(135deg, #c8625f 0%, #a1473c 100%);"></div>
+                                <span class="onboarding-theme-name">Red</span>
+                            </button>
+                            <button class="onboarding-theme-card" id="onboarding-theme-green" data-theme="green">
+                                <div class="onboarding-theme-preview"
+                                    style="background: linear-gradient(135deg, #5fc88e 0%, #3ca170 100%);"></div>
+                                <span class="onboarding-theme-name">Green</span>
+                            </button>
+                            <button class="onboarding-theme-card" id="onboarding-theme-purple" data-theme="purple">
+                                <div class="onboarding-theme-preview"
+                                    style="background: linear-gradient(135deg, #8e5fc8 0%, #6a3ca1 100%);"></div>
+                                <span class="onboarding-theme-name">Purple</span>
+                            </button>
+                            <button class="onboarding-theme-card" id="onboarding-theme-monochrome"
+                                data-theme="monochrome">
+                                <div class="onboarding-theme-preview"
+                                    style="background: linear-gradient(135deg, #666666 0%, #333333 100%);"></div>
+                                <span class="onboarding-theme-name">Monochrome</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button id="onboarding-btn-theme-continue" class="onboarding-btn-primary onboarding-btn-large">
+                        Continue
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3a: Account Selector (for logged-in users) -->
+            <div id="onboarding-account-selector" class="onboarding-step hidden">
+                <div class="onboarding-content onboarding-content-center">
+                    <h1 class="onboarding-title">Welcome Back!</h1>
+                    <p class="onboarding-subtitle">You've already subscribed. Continue with your account to get started.
+                    </p>
+
+                    <div class="onboarding-account-card">
+                        <div class="onboarding-account-card-header">
+                            <img id="onboarding-account-pfp" class="onboarding-account-avatar"
+                                src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==">
+                            <div class="onboarding-account-info">
+                                <div class="onboarding-account-email" id="onboarding-account-email">user@example.com
+                                </div>
+                                <span class="badge" id="onboarding-account-tier-badge">Pro</span>
+                            </div>
+                        </div>
+                        <button id="onboarding-btn-continue-with-account"
+                            class="onboarding-btn-primary onboarding-btn-large">
+                            Continue with this profile
+                        </button>
+                    </div>
+
+                    <div class="onboarding-actions onboarding-actions-column">
+                        <button id="onboarding-btn-use-different-account" class="onboarding-btn-text">
+                            Click here if you want to use a different account
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3b: API Key or Subscription Choice -->
+            <div id="onboarding-api-or-subscription" class="onboarding-step hidden">
+                <div class="onboarding-content">
+                    <h1 class="onboarding-title">Choose Your Setup</h1>
+                    <div class="onboarding-choice-cards">
+                        <button class="onboarding-choice-card" id="onboarding-btn-choose-api">
+                            <div class="choice-card-header">
+                                <span class="material-symbols-outlined choice-card-icon">vpn_key</span>
+                                <h3 class="choice-card-title">Bring Your Own API Key</h3>
+                            </div>
+                            <ul class="choice-card-list">
+                                <li class="choice-card-list-item choice-card-list-item--positive">
+                                    <span class="material-symbols-outlined choice-card-list-icon">check_circle</span>
+                                    <span>Free, but requires manual setup</span>
+                                </li>
+                                <li class="choice-card-list-item choice-card-list-item--negative">
+                                    <span class="material-symbols-outlined choice-card-list-icon">cancel</span>
+                                    <span>Subject to rate limits</span>
+                                </li>
+                                <li class="choice-card-list-item choice-card-list-item--negative">
+                                    <span class="material-symbols-outlined choice-card-list-icon">cancel</span>
+                                    <span>Content may be filtered</span>
+                                </li>
+                                <li class="choice-card-list-item choice-card-list-item--negative">
+                                    <span class="material-symbols-outlined choice-card-list-icon">cancel</span>
+                                    <span>Your usage is tied to your Google account</span>
+                                </li>
+                            </ul>
+                        </button>
+
+                        <button class="onboarding-choice-card onboarding-choice-card-recommended"
+                            id="onboarding-btn-choose-subscription">
+                            <div class="choice-card-badge-recommended">Recommended</div>
+                            <div class="choice-card-header">
+                                <span class="material-symbols-outlined choice-card-icon">rocket_launch</span>
+                                <h3 class="choice-card-title">Upgrade to Pro</h3>
+                            </div>
+                            <ul class="choice-card-list">
+                                <li class="choice-card-list-item choice-card-list-item--positive">
+                                    <span class="material-symbols-outlined choice-card-list-icon">check_circle</span>
+                                    <span>Zero setup, get started instantly</span>
+                                </li>
+                                <li class="choice-card-list-item choice-card-list-item--positive">
+                                    <span class="material-symbols-outlined choice-card-list-icon">check_circle</span>
+                                    <span>Unlimited Flash &amp; Pro models</span>
+                                </li>
+                                <li class="choice-card-list-item choice-card-list-item--positive">
+                                    <span class="material-symbols-outlined choice-card-list-icon">check_circle</span>
+                                    <span>No content filtering - uncensored</span>
+                                </li>
+                                <li class="choice-card-list-item choice-card-list-item--positive">
+                                    <span class="material-symbols-outlined choice-card-list-icon">check_circle</span>
+                                    <span>Your usage is anonymous</span>
+                                </li>
+                            </ul>
+                            <!-- <ul class="choice-card-list">
+                                <li class="choice-card-list-item choice-card-list-item--positive">
+                                    <span class="material-symbols-outlined choice-card-list-icon">check_circle</span>
+                                    <span>No API key required.</span>
+                                </li>
+                                <li class="choice-card-list-item choice-card-list-item--positive">
+                                    <span class="material-symbols-outlined choice-card-list-icon">check_circle</span>
+                                    <span>Unlimited Flash &amp; Pro models.</span>
+                                </li>
+                                <li class="choice-card-list-item choice-card-list-item--positive">
+                                    <span class="material-symbols-outlined choice-card-list-icon">check_circle</span>
+                                    <span>No content filtering.</span>
+                                </li>
+                                <li class="choice-card-list-item choice-card-list-item--positive">
+                                    <span class="material-symbols-outlined choice-card-list-icon">check_circle</span>
+                                    <span>No rate limiting.</span>
+                                </li>
+                            </ul> -->
+                        </button>
+
+                        <div class="choice-card-note choice-card-note--neutral" id="pro-upsell-note">
+                            <span class="material-symbols-outlined choice-card-note-icon" style="
+    align-self: start;
+    margin-top: 3px;
+">lightbulb</span>
+                            <span>You can always switch to <strong>Pro</strong> later if you so choose</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3a: API Key Setup -->
+            <div id="onboarding-api-key-setup" class="onboarding-step hidden">
+                <div class="onboarding-content">
+                    <h1 class="onboarding-title">Set Up Your API Key</h1>
+                    <p class="onboarding-subtitle">Get your free API key from Google AI Studio</p>
+
+                    <div class="onboarding-instructions">
+                        <div class="instruction-step">
+                            <div class="instruction-number">1</div>
+                            <div class="instruction-text">
+                                Visit <a href="https://aistudio.google.com/app/apikey" target="_blank"
+                                    rel="noopener noreferrer">Google AI Studio</a> to generate your API key
+                            </div>
+                        </div>
+                        <div class="instruction-step">
+                            <div class="instruction-number">2</div>
+                            <div class="instruction-text">Copy your API key and paste it below</div>
+                        </div>
+                        <div class="instruction-step">
+                            <div class="instruction-number">3</div>
+                            <div class="instruction-text">Click "Validate API Key" to test the connection</div>
+                        </div>
+                    </div>
+
+                    <div class="onboarding-form-group">
+                        <div class="onboarding-input-row">
+                            <input type="password" id="onboarding-api-key" class="onboarding-input"
+                                placeholder="Paste your API key here" autocomplete="off">
+                            <button id="onboarding-btn-validate-api" class="onboarding-btn-secondary">Validate API
+                                Key</button>
+                        </div>
+                        <div id="onboarding-api-key-status" class="onboarding-status hidden"></div>
+                    </div>
+
+                    <div class="choice-card-note choice-card-note--neutral" id="api-key-image-note">
+                        <span class="material-symbols-outlined choice-card-note-icon" style="
+    align-self: start;
+    margin-top: 3px;
+">lightbulb</span>
+                        <div>
+                            <p><strong>Imagen 4</strong> and <strong>Gemini 2.5 Flash Image
+                                    (nano-banana)</strong> may require billing to be enabled on the Google Cloud
+                                interface as Google doesn't offer those models for free.</p>
+                            <br>
+                            <p>You may also purchase image generation credits on Zodiac that give you access to a
+                                selection of image models, as well as your own LoRAs from CivitAI.</p>
+                        </div>
+                    </div>
+
+                    <div class="onboarding-actions">
+                        <button id="onboarding-btn-api-next" class="onboarding-btn-primary" disabled>Continue</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3b: Account Confirmation (for logged-in users) -->
+            <div id="onboarding-account-confirmation" class="onboarding-step hidden">
+                <div class="onboarding-content onboarding-content-center">
+                    <h1 class="onboarding-title" id="onboarding-confirm-title">Continue with Your Account</h1>
+                    <p class="onboarding-subtitle" id="onboarding-confirm-subtitle">You're logged in. Continue to
+                        proceed.</p>
+
+                    <div class="onboarding-account-card">
+                        <div class="onboarding-account-card-header">
+                            <img id="onboarding-confirm-account-pfp" class="onboarding-account-avatar"
+                                src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==">
+                            <div class="onboarding-account-info">
+                                <div class="onboarding-account-email" id="onboarding-confirm-account-email">
+                                    user@example.com</div>
+                                <span class="badge badge-tier-free"
+                                    id="onboarding-confirm-account-tier-badge">Free</span>
+                            </div>
+                        </div>
+                        <button id="onboarding-btn-confirm-continue"
+                            class="onboarding-btn-primary onboarding-btn-large">
+                            Continue with this account
+                        </button>
+                    </div>
+
+                    <div class="onboarding-actions onboarding-actions-column">
+                        <button id="onboarding-btn-confirm-different-account" class="onboarding-btn-text">
+                            Click here if you want to use a different account
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Registration -->
+            <div id="onboarding-registration" class="onboarding-step hidden">
+                <div class="onboarding-content">
+                    <div class="onboarding-form">
+                        <div id="onboarding-auth-tabs" class="navbar onboarding-auth-tabs"
+                            data-target-id="onboarding-auth-panels" data-tabview="manual" role="tablist"
+                            aria-label="Choose authentication method">
+                            <div id="onboarding-toggle-register" class="navbar-tab navbar-tab-active"
+                                data-auth-mode="register" role="tab" aria-selected="true"
+                                aria-controls="onboarding-register-panel" tabindex="0">
+                                Register
+                            </div>
+                            <div id="onboarding-toggle-login" class="navbar-tab" data-auth-mode="login" role="tab"
+                                aria-selected="false" aria-controls="onboarding-login-panel" tabindex="-1">
+                                Login
+                            </div>
+                            <div id="onboarding-auth-highlight" class="navbar-tab-highlight"></div>
+                        </div>
+
+                        <div id="onboarding-auth-panels">
+                            <div id="onboarding-register-panel" class="onboarding-panel" role="tabpanel"
+                                aria-labelledby="onboarding-toggle-register" aria-hidden="false">
+                                <h2 class="onboarding-login-title">Create your account</h2>
+                                <p class="onboarding-login-description">Sign up to continue your onboarding.</p>
+                                <div class="onboarding-form-section">
+                                    <input type="email" id="onboarding-register-email" class="onboarding-input"
+                                        placeholder="Email">
+                                    <input type="password" id="onboarding-register-password" class="onboarding-input"
+                                        placeholder="Password">
+                                    <input type="password" id="onboarding-register-password-confirm"
+                                        class="onboarding-input" placeholder="Confirm Password">
+                                </div>
+
+                                <div class="onboarding-terms">
+                                    <input type="checkbox" id="onboarding-register-terms">
+                                    <label for="onboarding-register-terms">
+                                        I agree to the <a href="terms-of-service.html" target="_blank">Terms of
+                                            Service</a> and
+                                        <a href="privacy-policy.html" target="_blank">Privacy Policy</a>
+                                    </label>
+                                </div>
+
+                                <div id="onboarding-register-error" class="onboarding-error hidden">
+                                    <span class="material-symbols-outlined">error</span>
+                                    <span id="onboarding-register-error-message">Registration failed</span>
+                                </div>
+
+                                <div class="onboarding-actions">
+                                    <button id="onboarding-btn-register"
+                                        class="onboarding-btn-primary">Register</button>
+                                    <button id="onboarding-btn-skip-register" class="onboarding-btn-text">No thanks, I'd
+                                        rather
+                                        not register</button>
+                                </div>
+                            </div>
+
+                            <div id="onboarding-login-panel" class="onboarding-panel onboarding-login-section hidden"
+                                role="tabpanel" aria-labelledby="onboarding-toggle-login" aria-hidden="true">
+                                <h2 class="onboarding-login-title">Already have an account?</h2>
+                                <p class="onboarding-login-description">Sign in to continue your onboarding without
+                                    creating a new account.</p>
+                                <div class="onboarding-login-inputs">
+                                    <input type="email" id="onboarding-login-email" class="onboarding-input"
+                                        placeholder="Email">
+                                    <input type="password" id="onboarding-login-password" class="onboarding-input"
+                                        placeholder="Password">
+                                </div>
+                                <div class="onboarding-actions onboarding-login-actions">
+                                    <button id="onboarding-btn-login-existing" class="onboarding-btn-primary">Log
+                                        In</button>
+                                </div>
+                                <div id="onboarding-login-error" class="onboarding-error hidden">
+                                    <span class="material-symbols-outlined">error</span>
+                                    <span id="onboarding-login-error-message">Login failed</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5a: Plan Selection (for subscription flow) -->
+            <div id="onboarding-plan-selection" class="onboarding-step hidden">
+                <div class="onboarding-content">
+                    <h1 class="onboarding-title">Choose Your Plan</h1>
+
+                    <div class="onboarding-subscription-grid">
+                        <div id="onboarding-pro-card"
+                            class="subscription-card subscription-card-pro subscription-card-popular"
+                            data-price-type="pro">
+                            <div class="popular-badge">Most Popular</div>
+                            <div class="subscription-card-header">
+                                <div class="tier-badge tier-badge-pro">Pro</div>
+                                <div class="tier-price">
+                                    <span class="price-amount">$29.99</span>
+                                    <span class="price-period">/month</span>
+                                </div>
+                            </div>
+                            <div class="subscription-card-body">
+                                <ul class="features-list">
+                                    <li class="feature-item">
+                                        <span class="feature-icon">✓</span>
+                                        <span class="feature-text">No API key required</span>
+                                    </li>
+                                    <li class="feature-item">
+                                        <span class="feature-icon">✓</span>
+                                        <span class="feature-text">Unlimited Flash & Pro models</span>
+                                    </li>
+                                    <li class="feature-item">
+                                        <span class="feature-icon">✓</span>
+                                        <span class="feature-text">Nano-banana model access</span>
+                                    </li>
+                                    <li class="feature-item">
+                                        <span class="feature-icon">✓</span>
+                                        <span class="feature-text">Full token context limits</span>
+                                    </li>
+                                    <li class="feature-item">
+                                        <span class="feature-icon">✓</span>
+                                        <span class="feature-text">No rate limiting</span>
+                                    </li>
+                                    <li class="feature-item">
+                                        <span class="feature-icon">✓</span>
+                                        <span class="feature-text">Image generation credits sold separately</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <button type="button" id="onboarding-btn-select-pro"
+                                class="subscription-cta subscription-cta-pro">
+                                Select Pro
+                            </button>
+                        </div>
+
+                        <div id="onboarding-max-card"
+                            class="subscription-card subscription-card-max subscription-card-disabled"
+                            data-price-type="max">
+                            <div class="coming-soon-badge">Coming Soon</div>
+                            <div class="subscription-card-header">
+                                <div class="tier-badge tier-badge-max">Max</div>
+                                <div class="tier-price">
+                                    <span class="price-amount">$59.99</span>
+                                    <span class="price-period">/month</span>
+                                </div>
+                            </div>
+                            <div class="subscription-card-body">
+                                <ul class="features-list">
+                                    <li class="feature-item">
+                                        <span class="feature-icon">✓</span>
+                                        <span class="feature-text">Everything in Pro</span>
+                                    </li>
+                                    <li class="feature-item">
+                                        <span class="feature-icon">✓</span>
+                                        <span class="feature-text">Imagen 4 Ultra</span>
+                                    </li>
+                                    <li class="feature-item">
+                                        <span class="feature-icon">✓</span>
+                                        <span class="feature-text">Uncensored image models</span>
+                                    </li>
+                                    <li class="feature-item">
+                                        <span class="feature-icon">✓</span>
+                                        <span class="feature-text">300 monthly image generation credits</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <button type="button" id="onboarding-btn-select-max"
+                                class="subscription-cta subscription-cta-max" disabled>
+                                Coming Soon
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5b: Subscription confirmation -->
+            <div id="onboarding-subscription-setup" class="onboarding-step hidden">
+                <div class="onboarding-content onboarding-content-center">
+                    <h1 class="onboarding-title">Confirm Your Email</h1>
+                    <p class="onboarding-subtitle-large">Continue only after successfully verifying your email address.
+                    </p>
+
+                    <div class="choice-card-note choice-card-note--neutral onboarding-subscription-note">
+                        <span class="material-symbols-outlined choice-card-note-icon" style="
+    align-self: start;
+    margin-top: 3px;">mark_email_unread</span>
+                        <div>
+                            <p>We sent a confirmation link to your inbox. Open it to confirm your email then
+                                return here to finish signing in.</p>
+                        </div>
+                    </div>
+
+                    <div id="onboarding-subscription-status" class="onboarding-status hidden"></div>
+
+                    <div class="onboarding-actions onboarding-actions-column">
+                        <button id="onboarding-btn-subscription-auto-login"
+                            class="onboarding-btn-primary onboarding-btn-large">I've confirmed my email</button>
+                        <button id="onboarding-btn-subscription-return" class="onboarding-btn-text">Use a different
+                            account</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5.5: Advanced Settings (Power User Path) -->
+            <div id="onboarding-advanced-settings" class="onboarding-step hidden">
+                <div class="onboarding-content">
+                    <h1 class="onboarding-title">Customize Your Experience</h1>
+                    <p class="onboarding-subtitle">Tailor Zodiac to your preferences</p>
+
+                    <div class="onboarding-form onboarding-settings-form">
+                        <!-- Model Selection -->
+                        <div class="onboarding-setting-group">
+                            <label for="onboarding-model-select" class="setting-label">
+                                <span class="material-symbols-outlined setting-icon">memory</span>
+                                Preferred Model
+                            </label>
+                            <select id="onboarding-model-select" class="onboarding-select">
+                                <option value="gemini-flash-lite-latest">Gemini 2.5 Flash Lite (Fastest)</option>
+                                <option value="gemini-flash-latest">Gemini 2.5 Flash (Balanced)</option>
+                                <option value="gemini-2.5-pro">Gemini 2.5 Pro (Most Capable)</option>
+                            </select>
+                            <p class="setting-hint">Flash is faster, Pro provides deeper reasoning</p>
+                        </div>
+
+                        <!-- Temperature Slider -->
+                        <div class="onboarding-setting-group">
+                            <label for="onboarding-temperature" class="setting-label">
+                                <span class="material-symbols-outlined setting-icon">thermostat</span>
+                                Temperature: <span id="onboarding-temperature-value">0.60</span>
+                            </label>
+                            <input type="range" id="onboarding-temperature" class="onboarding-slider" min="0" max="200"
+                                value="60" step="1">
+                            <p class="setting-hint">Higher = more creative, Lower = more focused</p>
+                        </div>
+
+                        <!-- Thinking Toggle -->
+                        <div class="onboarding-setting-group">
+                            <label class="onboarding-checkbox-label">
+                                <input type="checkbox" id="onboarding-thinking-enabled" checked>
+                                <span class="onboarding-checkbox-custom"></span>
+                                <div class="onboarding-checkbox-text">
+                                    <span class="material-symbols-outlined setting-icon">psychology</span>
+                                    <span>Enable Thinking Mode</span>
+                                </div>
+                            </label>
+                            <p class="setting-hint">Allows the model to reason through complex problems</p>
+                            <p id="onboarding-thinking-hint" class="setting-hint"
+                                style="display: none; color: var(--accent-color);">Thinking is required for this model.
+                            </p>
+                        </div>
+
+                        <!-- Thinking Budget -->
+                        <div class="onboarding-setting-group">
+                            <label for="onboarding-thinking-budget" class="setting-label">
+                                <span class="material-symbols-outlined setting-icon">speed</span>
+                                Thinking Budget (tokens)
+                            </label>
+                            <input type="number" id="onboarding-thinking-budget" class="onboarding-select" min="-1"
+                                step="1" value="500">
+                            <p class="setting-hint">Max tokens for reasoning. Use -1 for dynamic budget</p>
+                        </div>
+
+                        <!-- Auto Scroll Toggle -->
+                        <div class="onboarding-setting-group">
+                            <label class="onboarding-checkbox-label">
+                                <input type="checkbox" id="onboarding-autoscroll" checked>
+                                <span class="onboarding-checkbox-custom"></span>
+                                <div class="onboarding-checkbox-text">
+                                    <span class="material-symbols-outlined setting-icon">arrow_downward</span>
+                                    <span>Auto-scroll Messages</span>
+                                </div>
+                            </label>
+                            <p class="setting-hint">Automatically scroll to new messages as they arrive</p>
+                        </div>
+
+                        <!-- Stream Responses Toggle -->
+                        <div class="onboarding-setting-group">
+                            <label class="onboarding-checkbox-label">
+                                <input type="checkbox" id="onboarding-stream-responses" checked>
+                                <span class="onboarding-checkbox-custom"></span>
+                                <div class="onboarding-checkbox-text">
+                                    <span class="material-symbols-outlined setting-icon">stream</span>
+                                    <span>Stream Responses</span>
+                                </div>
+                            </label>
+                            <p class="setting-hint">See responses as they're generated in real-time</p>
+                        </div>
+                    </div>
+
+                    <div class="onboarding-actions">
+                        <button id="onboarding-btn-advanced-continue"
+                            class="onboarding-btn-primary onboarding-btn-large">
+                            Continue
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 6: Summary -->
+            <div id="onboarding-summary" class="onboarding-step hidden">
+                <div class="onboarding-content onboarding-content-center">
+                    <div class="onboarding-success-icon">
+                        <span class="material-symbols-outlined">check</span>
+                    </div>
+                    <h1 class="onboarding-title">All Set!</h1>
+
+                    <!-- API Key Flow Content -->
+                    <div id="summary-apikey-content">
+                        <p class="onboarding-subtitle-large">Here's things you can do next: </p>
+
+                        <div class="onboarding-summary-features">
+                            <div class="summary-feature">
+                                <span class="material-symbols-outlined summary-feature-icon">smart_toy</span>
+                                <p>Create and customize AI personalities</p>
+                            </div>
+                            <div class="summary-feature">
+                                <span class="material-symbols-outlined summary-feature-icon">chat_bubble</span>
+                                <p>Unlimited conversations with Gemini</p>
+                            </div>
+                            <div class="summary-feature">
+                                <span class="material-symbols-outlined summary-feature-icon">palette</span>
+                                <p>Generate images with advanced AI models</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Subscription Flow Content -->
+                    <div id="summary-subscription-content" class="hidden">
+                        <p class="onboarding-subtitle-large">You'll be redirected to checkout to complete your
+                            subscription.</p>
+
+                        <div class="onboarding-summary-features">
+                            <div class="summary-feature">
+                                <span class="material-symbols-outlined summary-feature-icon">smart_toy</span>
+                                <p>Create and customize AI personalities</p>
+                            </div>
+                            <div class="summary-feature">
+                                <span class="material-symbols-outlined summary-feature-icon">chat_bubble</span>
+                                <p>Unlimited conversations with Gemini</p>
+                            </div>
+                            <div class="summary-feature">
+                                <span class="material-symbols-outlined summary-feature-icon">palette</span>
+                                <p>Generate images with advanced AI models</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="onboarding-btn-finish" class="onboarding-btn-primary onboarding-btn-large">Start
+                        Chatting</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.ts" defer></script>
 </body>
 
 </html>

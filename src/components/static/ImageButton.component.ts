@@ -14,6 +14,19 @@ imageButton.addEventListener("click", () => {
 
     isImageModeEnabled = !isImageModeEnabled;
     imageButton.classList.toggle("btn-toggled");
+
+    // If image mode is enabled, disable image editing mode
+    window.dispatchEvent(new CustomEvent('image-generation-toggled', {
+        detail: { enabled: isImageModeEnabled }
+    }));
+});
+
+//listen for image-editing-toggled event to disable button if needed
+window.addEventListener('image-editing-toggled', (event: any) => {
+    if (event.detail.enabled && isImageModeEnabled) {
+        isImageModeEnabled = false;
+        imageButton.classList.remove("btn-toggled");
+    }
 });
 
 // Listen for auth and subscription changes

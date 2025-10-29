@@ -1,10 +1,15 @@
 import * as messageService from '../../services/Message.service';
 import * as helpers from '../../utils/helpers';
 import * as personalityService from '../../services/Personality.service';
-import { attachmentPreviewElement } from './AttachmentPreview.component';
+import { attachmentPreviewElement, getAttachmentCount } from './AttachmentPreview.component';
 import * as toastService from '../../services/Toast.service';
 import { formatFileListForToast, getFileSignature, isSupportedFileType, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS, SUPPORTED_ACCEPT_ATTRIBUTE, SUPPORTED_TYPES_LABEL } from '../../utils/attachments';
 import * as settingsService from '../../services/Settings.service';
+import * as chatsService from '../../services/Chats.service';
+import { db } from '../../services/Db.service';
+import { findLastEditableImage, EditableImage } from '../../utils/imageHistory';
+import { historyImagePreviewElement } from '../dynamic/HistoryImagePreview';
+import { getSelectedEditingModel } from './ImageEditModelSelector.component';
 interface AttachmentRemovedDetail {
     signature: string;
 }
@@ -38,6 +43,8 @@ attachmentsInput.multiple = true;
 let attachmentState: File[] = Array.from(attachmentsInput.files || []);
 let isInternetSearchEnabled = false;
 let dragDepth = 0;
+let currentHistoryImagePreview: HTMLElement | null = null;
+let isImageEditingActive = false;
 
 internetSearchToggle.addEventListener("click", () => {
     isInternetSearchEnabled = !isInternetSearchEnabled;
@@ -172,6 +179,68 @@ document.querySelector<HTMLDivElement>("#personalitiesDiv")!.addEventListener("c
 
 await setupBottomBar();
 
+// Listen for image editing toggle events
+window.addEventListener('image-editing-toggled', async (event: any) => {
+    isImageEditingActive = event.detail.enabled;
+    
+    if (!isImageEditingActive) {
+        // Clear history preview when editing is disabled
+        clearHistoryPreview();
+    } else {
+        // If toggled ON, and Qwen is selected, and multiple images are attached, enforce restriction
+        const model = getSelectedEditingModel();
+        if (model === 'qwen' && getAttachmentCount() > 1) {
+            enforceQwenSingleImageConstraint();
+        }
+    }
+});
+
+// Listen for attachment changes
+window.addEventListener('attachment-added', async () => {
+    // Hide history preview when attachments are added
+    if (isImageEditingActive) {
+        clearHistoryPreview();
+        // If Qwen is selected and editing is active, enforce single-image restriction
+        const model = getSelectedEditingModel();
+        if (model === 'qwen' && getAttachmentCount() > 1) {
+            enforceQwenSingleImageConstraint();
+        }
+    }
+});
+
+// Listen for history image removal
+window.addEventListener('history-image-removed', () => {
+    currentHistoryImagePreview = null;
+});
+
+// Listen for attach-image-from-chat event (from Edit/Attach buttons in messages)
+window.addEventListener('attach-image-from-chat', (event: any) => {
+    const { file, toggleEditing } = event.detail;
+    if (!file) return;
+    
+    // Mark this file as coming from chat history
+    (file as any)._fromChatHistory = true;
+    
+    // Add the file using the existing addAttachments function
+    addAttachments([file]);
+    
+    // Toggle editing mode if requested
+    if (toggleEditing) {
+        const editButton = document.querySelector<HTMLButtonElement>("#btn-edit");
+        if (editButton && !editButton.classList.contains("btn-toggled")) {
+            editButton.click();
+        }
+    }
+});
+
+// Listen for edit model changes (Qwen constraint)
+window.addEventListener('edit-model-changed', (event: any) => {
+    const model = event.detail.model;
+    if (model === 'qwen' && isImageEditingActive) {
+        enforceQwenSingleImageConstraint();
+    }
+});
+
 function addAttachments(rawFiles: File[]): void {
     if (!rawFiles.length) {
         return;
@@ -214,9 +283,23 @@ function addAttachments(rawFiles: File[]): void {
     }
 
     if (added.length > 0) {
-        attachmentState = [...attachmentState, ...added];
+        // Check Qwen single-image constraint before adding to state
+        let finalAdded = added;
+        if (isImageEditingActive && getSelectedEditingModel() === 'qwen') {
+            const imageFiles = added.filter(f => f.type.startsWith('image/'));
+            if (imageFiles.length > 1) {
+                // Keep only the first image, warn about others
+                finalAdded = [imageFiles[0]];
+                toastService.warn({
+                    title: 'Qwen supports single image only',
+                    text: `Only the first image will be used for editing. ${imageFiles.length - 1} other image(s) were skipped.`,
+                });
+            }
+        }
+        
+        attachmentState = [...attachmentState, ...finalAdded];
         syncAttachmentInput();
-        for (const file of added) {
+        for (const file of finalAdded) {
             const preview = attachmentPreviewElement(file);
             preview.dataset.attachmentSignature = getFileSignature(file);
             attachmentPreview!.appendChild(preview);
@@ -379,4 +462,116 @@ function resetDragState(): void {
 
 function getDisplayName(file: File): string {
     return file.name?.trim() ? file.name : "Unnamed file";
+}
+
+/**
+ * Updates or creates the history image preview based on current chat state
+ */
+async function updateHistoryPreview(): Promise<void> {
+    // Don't show if there are attachments
+    if (getAttachmentCount() > 0) {
+        clearHistoryPreview();
+        return;
+    }
+
+    const currentChat = await chatsService.getCurrentChat(db);
+    if (!currentChat) {
+        clearHistoryPreview();
+        return;
+    }
+
+    const editableImage = await findLastEditableImage(currentChat);
+    if (!editableImage) {
+        clearHistoryPreview();
+        return;
+    }
+
+    // Remove existing preview if any
+    clearHistoryPreview();
+
+    // Create and add new preview
+    currentHistoryImagePreview = historyImagePreviewElement(editableImage);
+    attachmentPreview!.appendChild(currentHistoryImagePreview);
+}
+
+/**
+ * Clears the history image preview
+ */
+function clearHistoryPreview(): void {
+    // Remove tracked preview
+    if (currentHistoryImagePreview) {
+        currentHistoryImagePreview.remove();
+        currentHistoryImagePreview = null;
+    }
+    
+    // Also remove any orphaned history previews that might exist in the DOM
+    const orphanedPreviews = attachmentPreview?.querySelectorAll('.history-image-preview');
+    orphanedPreviews?.forEach(preview => preview.remove());
+}
+
+/**
+ * Enforces Qwen's single-image constraint by trimming attachments
+ */
+function enforceQwenSingleImageConstraint(): void {
+    const imageAttachmentCount = getAttachmentCount();
+    
+    if (imageAttachmentCount <= 1) {
+        return; // No action needed
+    }
+
+
+    // Find all image attachments, keep only the first
+    const allImages = Array.from(attachmentsInput!.files || []).filter(f => f.type.startsWith('image/'));
+    if (allImages.length === 0) return;
+    const firstImage = allImages[0];
+
+    // Remove all image attachments except the first
+    const dataTransfer = new DataTransfer();
+    // Add back all non-image attachments
+    Array.from(attachmentsInput!.files || []).forEach(f => {
+        if (!f.type.startsWith('image/')) dataTransfer.items.add(f);
+    });
+    // Add the first image
+    dataTransfer.items.add(firstImage);
+    attachmentsInput!.files = dataTransfer.files;
+    attachmentState = Array.from(dataTransfer.files);
+
+    // Remove all image previews except the first image's preview
+    const previews = attachmentPreview?.querySelectorAll('.attachment-container:not(.history-image-preview)');
+    let foundFirst = false;
+    previews?.forEach(preview => {
+        const img = preview.querySelector('img');
+        if (img && img.src && !foundFirst && img.src.includes(firstImage.name)) {
+            foundFirst = true;
+        } else if (img && img.src) {
+            preview.remove();
+        } else if (!img) {
+            // Not an image preview, keep it
+        } else {
+            preview.remove();
+        }
+    });
+    // If the first image's preview was removed (e.g. due to src mismatch), re-add it
+    if (!foundFirst) {
+        const preview = attachmentPreviewElement(firstImage);
+        attachmentPreview!.appendChild(preview);
+    }
+
+    // Show warning toast
+    toastService.warn({
+        title: 'Qwen supports single image only',
+        text: 'For mixing multiple images, please switch to Seedream',
+    });
+}
+
+/**
+ * Export function to get current history image data URI
+ */
+export function getCurrentHistoryImageDataUri(): string | null {
+    if (!currentHistoryImagePreview) {
+        return null;
+    }
+    
+    const img = currentHistoryImagePreview.querySelector<HTMLImageElement>('.history-image-thumbnail');
+    return img?.src || null;
 }

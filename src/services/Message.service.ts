@@ -12,6 +12,9 @@ import { clearAttachmentPreviews } from "../components/static/AttachmentPreview.
 import { Message } from "../models/Message";
 import { messageElement } from "../components/dynamic/message";
 import { isImageModeActive } from "../components/static/ImageButton.component";
+import { isImageEditingActive } from "../components/static/ImageEditButton.component";
+import { getCurrentHistoryImageDataUri } from "../components/static/ChatInput.component";
+import { getSelectedEditingModel } from "../components/static/ImageEditModelSelector.component";
 import { Chat, DbChat } from "../models/Chat";
 import { getSubscriptionTier, getUserSubscription, SUPABASE_URL, getAuthHeaders, isImageGenerationAvailable } from "./Supabase.service";
 import { ChatModel } from "../models/Models";
@@ -34,6 +37,10 @@ export async function send(msg: string) {
         console.error("Missing #attachments input in the DOM");
         throw new Error("Missing DOM element");
     }
+    
+    // Capture history image BEFORE clearing previews (for image editing mode)
+    const historyImageDataUri = getCurrentHistoryImageDataUri();
+    
     //structuredClone is unreliable for FileList
     const attachmentFiles: FileList = (() => {
         const dt = new DataTransfer();
@@ -45,7 +52,7 @@ export async function send(msg: string) {
 
     attachmentsInput.value = ""; // Clear attachments input after sending
     attachmentsInput.files = new DataTransfer().files; // Reset the FileList
-    clearAttachmentPreviews(); // Clear attachment previews
+    clearAttachmentPreviews(); // Clear attachment previews (including history preview)
 
     if (!selectedPersonality) {
         return;
@@ -131,6 +138,124 @@ export async function send(msg: string) {
         }
     }
     const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
+
+    // Handle image editing mode
+    if (isImageEditingActive()) {
+        const imagesToEdit: string[] = [];
+        
+        // Priority 1: User attachments (images only)
+        const imageAttachments = Array.from(attachmentFiles).filter(f => f.type.startsWith('image/'));
+        if (imageAttachments.length > 0) {
+            for (const file of imageAttachments) {
+                const dataUri = await helpers.fileToBase64(file);
+                const fullDataUri = `data:${file.type};base64,${dataUri}`;
+                imagesToEdit.push(fullDataUri);
+            }
+        } else {
+            // Priority 2: Chat history image (captured before clearing previews)
+            if (historyImageDataUri) {
+                imagesToEdit.push(historyImageDataUri);
+            }
+        }
+
+        // Validate that we have images to edit
+        if (imagesToEdit.length === 0) {
+            danger({ 
+                title: "No images to edit", 
+                text: "Please attach an image or select an image for editing." 
+            });
+            // Remove placeholder elements
+            responseElement.remove();
+            userMessageElement.remove();
+            return;
+        }
+
+        const editingModel = getSelectedEditingModel();
+        
+        // Validate Qwen single-image constraint
+        if (editingModel === 'qwen' && imagesToEdit.length > 1) {
+            warn({
+                title: "Qwen supports single image only",
+                text: "Only the first image will be used for editing."
+            });
+            imagesToEdit.splice(1); // Keep only first image
+        }
+
+        try {
+            const endpoint = `${SUPABASE_URL}/functions/v1/handle-edit-request`;
+            const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    ...(await getAuthHeaders()),
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    images: imagesToEdit,
+                    prompt: msg,
+                    editingModel: editingModel
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                danger({ 
+                    text: errorData.error || "Unknown error", 
+                    title: "Image editing failed" 
+                });
+                const modelMessage: Message = createImageEditingErrorMessage(selectedPersonalityId);
+                const newElm = await messageElement(modelMessage);
+                responseElement.replaceWith(newElm);
+                helpers.messageContainerScrollToBottom(true);
+                await persistUserAndModel(userMessage, modelMessage);
+                return userMessageElement;
+            }
+
+            // Backend returns the final edited image directly
+            const result = await response.json();
+            
+            // Extract base64 image data from response
+            const editedImageBase64 = result.image;
+            const mimeType = result.mimeType || "image/png";
+            
+            if (!editedImageBase64) {
+                danger({ 
+                    title: "Image editing failed", 
+                    text: "No image data returned from server." 
+                });
+                const modelMessage: Message = createImageEditingErrorMessage(selectedPersonalityId);
+                const newElm = await messageElement(modelMessage);
+                responseElement.replaceWith(newElm);
+                helpers.messageContainerScrollToBottom(true);
+                await persistUserAndModel(userMessage, modelMessage);
+                return userMessageElement;
+            }
+
+            // Display edited image
+            const modelMessage: Message = {
+                role: "model",
+                parts: [{ text: "Here's your edited image~" }],
+                personalityid: selectedPersonalityId,
+                generatedImages: [{ mimeType, base64: editedImageBase64 }],
+            };
+            const newElm = await messageElement(modelMessage);
+            responseElement.replaceWith(newElm);
+            helpers.messageContainerScrollToBottom();
+            await persistUserAndModel(userMessage, modelMessage);
+            return userMessageElement;
+        } catch (error: any) {
+            console.error("Image editing error:", error);
+            danger({ 
+                title: "Image editing failed", 
+                text: error.message || "An unexpected error occurred" 
+            });
+            const modelMessage: Message = createImageEditingErrorMessage(selectedPersonalityId);
+            const newElm = await messageElement(modelMessage);
+            responseElement.replaceWith(newElm);
+            helpers.messageContainerScrollToBottom(true);
+            await persistUserAndModel(userMessage, modelMessage);
+            return userMessageElement;
+        }
+    }
 
     if (isImageModeActive()) {
         const payload = {
@@ -557,6 +682,10 @@ function createModelErrorMessage(selectedPersonalityId: string): Message {
 
 function createImageGenerationErrorMessage(selectedPersonalityId: string): Message {
     return { role: "model", parts: [{ text: "I'm sorry, I couldn't generate the image you requested. Try regenerating the response, or picking a different image model in the settings." }], personalityid: selectedPersonalityId };
+}
+
+function createImageEditingErrorMessage(selectedPersonalityId: string): Message {
+    return { role: "model", parts: [{ text: "I'm sorry, I couldn't edit the image. Please try again or check that the image is valid." }], personalityid: selectedPersonalityId };
 }
 
 export async function regenerate(responseElement: HTMLElement) {

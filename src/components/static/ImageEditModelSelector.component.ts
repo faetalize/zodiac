@@ -1,16 +1,34 @@
+import { isImageGenerationAvailable } from "../../services/Supabase.service";
+
 const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel");
 if (!imageEditModelSelector) {
     console.error("Image edit model selector component initialization failed");
     throw new Error("Missing DOM element: #selectedImageEditingModel");
 }
 
+// Dispatch event when model changes
+imageEditModelSelector.addEventListener("change", () => {
+    window.dispatchEvent(new CustomEvent('edit-model-changed', {
+        detail: { model: imageEditModelSelector.value }
+    }));
+});
+
 async function updateImageEditModelSelectorState() {
     if (!imageEditModelSelector) return;
-    //for now disable always
-    imageEditModelSelector.disabled = true;
-    imageEditModelSelector.style.opacity = "0.6";
-    imageEditModelSelector.style.cursor = "not-allowed";
-    imageEditModelSelector.title = "Image editing models are currently disabled";
+    const imageGenStatus = await isImageGenerationAvailable();
+    if(imageGenStatus.type === "google_only"){
+        imageEditModelSelector.disabled = true;
+        imageEditModelSelector.style.opacity = "0.6";
+        imageEditModelSelector.style.cursor = "not-allowed";
+        imageEditModelSelector.title = "Image editing not available with current settings";
+    }
+    else if(imageGenStatus.type=== "all"){
+        imageEditModelSelector.disabled = false;
+        imageEditModelSelector.style.opacity = "1";
+        imageEditModelSelector.style.cursor = "initial";
+        imageEditModelSelector.title = "";
+    }
+
     return;
 
 
@@ -42,3 +60,10 @@ window.addEventListener('auth-state-changed', () => {
 window.addEventListener('subscription-updated', () => {
     updateImageEditModelSelectorState();
 });
+
+/**
+ * Get the currently selected image editing model
+ */
+export function getSelectedEditingModel(): string {
+    return imageEditModelSelector?.value || "seedream";
+}

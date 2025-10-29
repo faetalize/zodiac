@@ -10,6 +10,9 @@ interface TabView {
 }
 
 for (const tabGroup of tabGroups) {
+    if (tabGroup.dataset.tabview === "manual") {
+        continue;
+    }
     const tabHighlight = tabGroup.querySelector<HTMLElement>(".navbar-tab-highlight");
     const tabs = tabGroup.querySelectorAll<HTMLElement>(".navbar-tab");
     const views = document.querySelector(`#${tabGroup.dataset.targetId}`)!.children as HTMLCollectionOf<HTMLElement>;
@@ -51,7 +54,7 @@ for (const tabGroup of tabGroups) {
             const targetView = t.views[targetIndex];
             const targetTab = t.tabs[targetIndex];
             targetTab.classList.add("navbar-tab-active");
-            tabHighlight!.style.left = `calc(100% / ${tabs.length} * ${targetIndex})`;
+            tabHighlight!.style.left = `calc(100% / ${tabs.length} * ${targetIndex} - var(--navbar-tab-highlight-padding))`;
             helpers.hideElement(currentView);
             t.activeTabIndex = targetIndex;
             helpers.showElement(targetView, true);
