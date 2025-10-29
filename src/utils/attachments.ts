@@ -1,7 +1,5 @@
 const SUPPORTED_MIME_PATTERNS: RegExp[] = [
     /^image\//i,
-    /^video\//i,
-    /^audio\//i,
     /^application\/pdf$/i,
     /^text\/plain$/i,
 ];
@@ -19,8 +17,8 @@ AUDIO_EXTENSIONS.forEach(ext => EXTENSION_CATALOG.set(ext, "audio"));
 TEXT_EXTENSIONS.forEach(ext => EXTENSION_CATALOG.set(ext, "text"));
 PDF_EXTENSIONS.forEach(ext => EXTENSION_CATALOG.set(ext, "pdf"));
 
-export const SUPPORTED_ACCEPT_ATTRIBUTE = "image/*,video/*,audio/*,application/pdf,text/plain";
-export const SUPPORTED_TYPES_LABEL = "images, videos, audio, PDF, plain text";
+export const SUPPORTED_ACCEPT_ATTRIBUTE = "image/*,application/pdf,text/plain";
+export const SUPPORTED_TYPES_LABEL = "images, PDF, plain text";
 export const MAX_ATTACHMENTS = 5;
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; //10MB
 

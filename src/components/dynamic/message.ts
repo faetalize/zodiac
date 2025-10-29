@@ -91,6 +91,8 @@ export const messageElement = async (
                 <div class="generated-image-wrapper" data-index="${idx}">
                     <img class="generated-image" src="data:${img.mimeType};base64,${img.base64}" loading="lazy" />
                     <div class="generated-image-overlay">
+                        <button class="btn-textual btn-image-action btn-edit material-symbols-outlined" title="Edit this image">edit</button>
+                        <button class="btn-textual btn-image-action btn-attach material-symbols-outlined" title="Attach this image">attachment</button>
                         <button class="btn-textual btn-image-action btn-download material-symbols-outlined" title="Download">download</button>
                         <button class="btn-textual btn-image-action btn-expand material-symbols-outlined" title="Expand">open_in_full</button>
                     </div>
@@ -447,16 +449,63 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
     }
 }
 
-// Adds overlay button interactions (download + expand) & a lightweight lightbox
+// Adds overlay button interactions (download + expand + edit + attach) & a lightweight lightbox
 function setupGeneratedImageInteractions(root: HTMLElement) {
     const wrappers = root.querySelectorAll<HTMLElement>(".generated-image-wrapper");
     if (!wrappers.length) return;
 
     wrappers.forEach(wrap => {
         const img = wrap.querySelector<HTMLImageElement>(".generated-image");
+        const editBtn = wrap.querySelector<HTMLButtonElement>(".btn-edit");
+        const attachBtn = wrap.querySelector<HTMLButtonElement>(".btn-attach");
         const downloadBtn = wrap.querySelector<HTMLButtonElement>(".btn-download");
         const expandBtn = wrap.querySelector<HTMLButtonElement>(".btn-expand");
         if (!img) return;
+
+        // Helper to convert base64 image to File
+        const imageToFile = async (): Promise<File> => {
+            const base64Data = img.src.split(',')[1];
+            const mimeType = img.src.match(/data:(.*?);/)?.[1] || 'image/png';
+            const byteString = atob(base64Data);
+            const arrayBuffer = new ArrayBuffer(byteString.length);
+            const uint8Array = new Uint8Array(arrayBuffer);
+            for (let i = 0; i < byteString.length; i++) {
+                uint8Array[i] = byteString.charCodeAt(i);
+            }
+            const blob = new Blob([uint8Array], { type: mimeType });
+            const ext = mimeType.split('/')[1];
+            return new File([blob], `image-${Date.now()}.${ext}`, { type: mimeType });
+        };
+
+        // Edit button: attach image + toggle editing mode
+        editBtn?.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+                const file = await imageToFile();
+                
+                // Dispatch custom event instead of manually modifying input
+                window.dispatchEvent(new CustomEvent('attach-image-from-chat', {
+                    detail: { file, toggleEditing: true }
+                }));
+            } catch (err) {
+                console.error('Failed to attach image for editing', err);
+            }
+        });
+
+        // Attach button: just attach image without toggling editing
+        attachBtn?.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+                const file = await imageToFile();
+                
+                // Dispatch custom event instead of manually modifying input
+                window.dispatchEvent(new CustomEvent('attach-image-from-chat', {
+                    detail: { file, toggleEditing: false }
+                }));
+            } catch (err) {
+                console.error('Failed to attach image', err);
+            }
+        });
 
         downloadBtn?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -494,23 +543,6 @@ function setupGeneratedImageInteractions(root: HTMLElement) {
 
             // Dynamically adjust sizing to ensure containment within viewport preserving aspect
             const lightboxImg = overlay.querySelector<HTMLImageElement>('.lightbox-image');
-            function fit() {
-                if (!lightboxImg || !lightboxImg.naturalWidth) return;
-                const vw = window.innerWidth * 0.95;
-                const vh = window.innerHeight * 0.95;
-                const { naturalWidth: iw, naturalHeight: ih } = lightboxImg;
-                const ratio = Math.min(vw / iw, vh / ih, 1);
-                lightboxImg.style.width = Math.round(iw * ratio) + 'px';
-                lightboxImg.style.height = Math.round(ih * ratio) + 'px';
-            }
-            if (lightboxImg?.complete) {
-                fit();
-            } else {
-                lightboxImg?.addEventListener('load', fit, { once: true });
-            }
-            window.addEventListener('resize', fit, { passive: true });
-            // Cleanup resize listener when closed
-            overlay.addEventListener('remove', () => window.removeEventListener('resize', fit));
         }
 
         expandBtn?.addEventListener('click', (e) => { e.stopPropagation(); openLightbox(); });

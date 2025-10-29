@@ -1381,6 +1381,13 @@ form {
     padding-top: 1rem;
 }
 
+/* when an image is attached we should increase the padding of scrollable-chat-container by an extra 4 rem */
+/* we check if #attachment-preview has more than 2 elements */
+
+body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
+  padding-bottom: 11rem;
+}
+
 .message-text {
     margin-top: 1rem;
 }
@@ -1571,11 +1578,12 @@ form {
     bottom: 0;
     display: flex;
     justify-content: flex-end;
-    gap: 0.25rem;
+    gap: 0.5rem;
     padding: 0.4rem 0.45rem 0.5rem 0.45rem;
     background: linear-gradient(0deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.22) 70%, rgba(0, 0, 0, 0) 100%);
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
+    font-size: x-large;
 }
 
 .generated-image-wrapper:hover .generated-image-overlay,
@@ -1583,24 +1591,7 @@ form {
     opacity: 1;
 }
 
-.btn-image-action {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.08) !important;
-    backdrop-filter: blur(4px) saturate(140%);
-    -webkit-backdrop-filter: blur(4px) saturate(140%);
-    border-radius: 0.4rem;
-    padding: 0.15rem 0.35rem;
-    font-size: 1.1rem;
-    line-height: 1;
-}
 
-.btn-image-action:hover {
-    background: rgba(255, 255, 255, 0.18) !important;
-}
-
-.btn-image-action:active {
-    background: rgba(255, 255, 255, 0.28) !important;
-}
 
 /* Lightbox (shared theme colors will adjust via dark/light styles for bg tokens) */
 .lightbox {
@@ -1649,7 +1640,7 @@ form {
     position: absolute;
     top: 0.25rem;
     right: 0.25rem;
-    background: rgba(0, 0, 0, 0.6) !important;
+    background: rgba(0, 0, 0, 0.74) !important;
     color: #fff !important;
     border-radius: 0.5rem;
     padding: 0.35rem;
@@ -1657,7 +1648,7 @@ form {
 }
 
 .lightbox-close:hover {
-    background: rgba(0, 0, 0, 0.75) !important;
+    background: rgba(61, 61, 61, 0.75) !important;
 }
 
 @keyframes fadeIn {
@@ -2247,7 +2238,8 @@ form {
     backdrop-filter: blur(64px);
 }
 
-#image-generation-label {
+#image-generation-label,
+#image-editing-label {
     font-family: 'Noto Sans', sans-serif;
     width: 0;
     font-size: 0.875rem;
@@ -2256,16 +2248,24 @@ form {
     text-transform: capitalize;
 }
 
-#btn-image.btn-toggled #image-generation-label {
+#btn-image.btn-toggled #image-generation-label,
+#btn-edit.btn-toggled #image-editing-label {
     width: 100%;
 }
 
-#btn-image {
+#btn-image,
+#btn-edit {
     display: flex;
     width: fit-content;
     align-items: start;
     justify-content: start;
 }
+
+#btn-image:not(.btn-toggled),
+#btn-edit:not(.btn-toggled) {
+    gap: 0;
+}
+
 
 #zodiac-branding {
     display: flex;
@@ -3193,6 +3193,79 @@ input[name="currentChat"][value="none"] {
     background-color: rgba(220, 53, 69, 0.8) !important;
 }
 
+/* History Image Preview */
+.history-image-preview {
+    position: relative;
+    border: 2px solid rgba(var(--accent-color), 0.5);
+    box-shadow: 0 0 8px rgba(var(--accent-color), 0.3);
+    transition: all 0.2s ease;
+}
+
+.history-image-preview:hover {
+    border-color: rgba(var(--accent-color), 0.8);
+    box-shadow: 0 0 12px rgba(var(--accent-color), 0.5);
+    transform: scale(1.02);
+}
+
+.history-image-preview::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(var(--accent-color), 0.1), transparent);
+    pointer-events: none;
+}
+
+.history-image-thumbnail {
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    aspect-ratio: 1;
+}
+
+.history-image-badge {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-align: center;
+    padding: 2px 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+}
+
+.history-image-preview .btn-remove-attachment {
+    background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+.history-image-preview .btn-remove-attachment:hover {
+    background-color: rgba(220, 53, 69, 0.9) !important;
+}
+
+/* Message highlight animation when scrolled to */
+.message-highlighted {
+    animation: message-highlight 2s ease-in-out;
+}
+
+@keyframes message-highlight {
+    0% {
+        background-color: transparent;
+    }
+    10% {
+        background-color: rgba(var(--accent-color), 0.2);
+    }
+    90% {
+        background-color: rgba(var(--accent-color), 0.2);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
 
 .setting-label {
     display: flex;
@@ -3257,12 +3330,12 @@ input[name="currentChat"][value="none"] {
 
 .theme-btn:hover {
     transform: scale(1.1);
-    
+
 }
 
 .theme-btn.active {
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.37);
-    
+
 }
 
 .theme-btn.disabled {
@@ -3969,6 +4042,7 @@ input[name="currentChat"][value="none"] {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
 #onboarding-btn-theme-continue {
     margin-top: 1.5rem;
 }

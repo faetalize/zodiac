@@ -47,6 +47,7 @@
                 <button class="btn-neutral btn" id="btn-dialog-cancel">Cancel</button>
             </div>
         </div>
+
         <div class="sidebar">
             <div class="header" style="padding-block: 12px;">
                 <button class=" material-symbols-outlined btn-textual" id="btn-hide-sidebar">
@@ -82,7 +83,8 @@
                             <button id="btn-new-chat" class="split-button__main btn btn-primary">
                                 <span class="material-symbols-outlined">add</span> <span>New Chat</span>
                             </button>
-                            <button class="split-button__toggle btn btn-primary" aria-haspopup="true" aria-expanded="false">
+                            <button class="split-button__toggle btn btn-primary" aria-haspopup="true"
+                                aria-expanded="false">
                                 <span class="material-symbols-outlined">expand_more</span>
                             </button>
                             <div class="split-button__menu dropdown-menu" role="menu">
@@ -235,10 +237,10 @@
                                     info="Editing models allow you to edit images to add details, remove objects, or make other modifications.">
                                     info
                                 </span> </label>
-                            <select id="selectedImageEditingModel" class="input-field" disabled>
-                                <option value="qwen-image-edit" selected="true">Qwen Image Edit
+                            <select id="selectedImageEditingModel" class="input-field">
+                                <option value="qwen" selected="true">Qwen Image Edit
                                 </option>
-                                <option value="seadream-4.0-edit">Seadream 4.0 Edit</option>
+                                <option value="seedream">Seedream 4.0 Edit</option>
                             </select>
                         </div>
                         <div id="lora-settings">
@@ -256,16 +258,15 @@
                                     <div class="lora-add">
                                         <input type="url" id="lora-url-input" class="input-field"
                                             placeholder="Paste CivitAI LoRA URL" />
-                                        <button id="btn-add-lora" class="btn-icon btn btn-primary" aria-label="Add LoRA">
+                                        <button id="btn-add-lora" class="btn-icon btn btn-primary"
+                                            aria-label="Add LoRA">
                                             <span class="material-symbols-outlined">add_link</span>
                                         </button>
                                     </div>
                                 </div>
                                 <div id="lora-list"></div>
                             </div>
-
                         </div>
-
                     </div>
                     <h3>User Interface</h3>
                     <div class="ui-settings">
@@ -286,7 +287,7 @@
                         <div class="ui-setting">
                             <label class="setting-label">Theme</label>
                             <div class="theme-selector">
-                                <button class="theme-btn" data-theme="blue" aria-label="Blue theme" 
+                                <button class="theme-btn" data-theme="blue" aria-label="Blue theme"
                                     style="background: linear-gradient(135deg, #5f96c8 0%, #3c66a1 100%);"></button>
                                 <button class="theme-btn" data-theme="red" aria-label="Red theme"
                                     style="background: linear-gradient(135deg, #c8625f 0%, #a1473c 100%);"></button>
@@ -337,13 +338,15 @@
                     <h3 class="debug">Debug</h3>
                     <div class="btn-array-vertical debug">
                         <button class="btn btn-primary" id="btn-debug-chats">Generate 10 Random Chats</button>
-                        <button class="btn btn-primary" id="btn-debug-personalities">Generate 10 Random Personas</button>
+                        <button class="btn btn-primary" id="btn-debug-personalities">Generate 10 Random
+                            Personas</button>
                         <button class="btn btn-primary" id="btn-debug-toast-normal">Test Toast (Normal)</button>
                         <button class="btn btn-primary" id="btn-debug-toast-warning">Test Toast (Warning)</button>
                         <button class="btn btn-primary" id="btn-debug-toast-danger">Test Toast (Danger)</button>
                         <button class="btn btn-primary" id="btn-debug-toast-actions">Test Toast (With Actions)</button>
                         <button class="btn btn-primary" id="btn-debug-toast-spam">Test Toast Spam (5 Limit)</button>
-                        <button class="btn btn-primary" id="btn-debug-subscription-options">Open Subscription Options</button>
+                        <button class="btn btn-primary" id="btn-debug-subscription-options">Open Subscription
+                            Options</button>
                         <button class="btn btn-primary" id="btn-debug-onboarding">Test Onboarding</button>
                     </div>
 
@@ -382,6 +385,10 @@
                     <button type="button" class="btn-textual material-symbols-outlined btn" id="btn-image">
                         <div>brush</div>
                         <div id="image-generation-label">Image Generation</div>
+                    </button>
+                    <button type="button" class="btn-textual material-symbols-outlined btn" id="btn-edit">
+                        <div>imagesearch_roller</div>
+                        <div id="image-editing-label">Image Editing</div>
                     </button>
                     <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
                 </div>
@@ -485,7 +492,8 @@
                     <span id="password-reset-error-message">Passwords must match.</span>
                 </div>
                 <div class="overlay-actions">
-                    <button class="btn btn-primary" type="submit" id="btn-password-reset-submit">Update Password</button>
+                    <button class="btn btn-primary" type="submit" id="btn-password-reset-submit">Update
+                        Password</button>
                     <button type="button" id="btn-password-reset-cancel" class="btn-textual">Cancel</button>
                 </div>
             </form>
@@ -524,7 +532,8 @@
 
                     <li>Visit my Discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
-                    <li>You may also contact the project via email: <a href="mailto:zodiac@faetalize.dev">zodiac@faetalize.dev</a></li>
+                    <li>You may also contact the project via email: <a
+                            href="mailto:zodiac@faetalize.dev">zodiac@faetalize.dev</a></li>
                 </ul>
             </div>
 
@@ -821,14 +830,19 @@
                     <div class="onboarding-theme-mode-section">
                         <label class="onboarding-theme-label">Mode</label>
                         <div class="mode-selector">
-                            <button class="mode-btn" id="onboarding-mode-light" data-mode="light" aria-label="Light mode">
+                            <button class="mode-btn" id="onboarding-mode-light" data-mode="light"
+                                aria-label="Light mode">
                                 <span class="material-symbols-outlined">light_mode</span>
+                                Light
                             </button>
-                            <button class="mode-btn active" id="onboarding-mode-auto" data-mode="auto" aria-label="Auto mode">
+                            <button class="mode-btn active" id="onboarding-mode-auto" data-mode="auto"
+                                aria-label="Auto mode">
                                 <span class="material-symbols-outlined">contrast</span>
+                                Auto
                             </button>
                             <button class="mode-btn" id="onboarding-mode-dark" data-mode="dark" aria-label="Dark mode">
                                 <span class="material-symbols-outlined">dark_mode</span>
+                                Dark
                             </button>
                         </div>
                     </div>
@@ -837,27 +851,28 @@
                         <label class="onboarding-theme-label">Color Theme</label>
                         <div class="onboarding-theme-grid">
                             <button class="onboarding-theme-card active" id="onboarding-theme-blue" data-theme="blue">
-                                <div class="onboarding-theme-preview" 
+                                <div class="onboarding-theme-preview"
                                     style="background: linear-gradient(135deg, #5f96c8 0%, #3c66a1 100%);"></div>
                                 <span class="onboarding-theme-name">Blue</span>
                             </button>
                             <button class="onboarding-theme-card" id="onboarding-theme-red" data-theme="red">
-                                <div class="onboarding-theme-preview" 
+                                <div class="onboarding-theme-preview"
                                     style="background: linear-gradient(135deg, #c8625f 0%, #a1473c 100%);"></div>
                                 <span class="onboarding-theme-name">Red</span>
                             </button>
                             <button class="onboarding-theme-card" id="onboarding-theme-green" data-theme="green">
-                                <div class="onboarding-theme-preview" 
+                                <div class="onboarding-theme-preview"
                                     style="background: linear-gradient(135deg, #5fc88e 0%, #3ca170 100%);"></div>
                                 <span class="onboarding-theme-name">Green</span>
                             </button>
                             <button class="onboarding-theme-card" id="onboarding-theme-purple" data-theme="purple">
-                                <div class="onboarding-theme-preview" 
+                                <div class="onboarding-theme-preview"
                                     style="background: linear-gradient(135deg, #8e5fc8 0%, #6a3ca1 100%);"></div>
                                 <span class="onboarding-theme-name">Purple</span>
                             </button>
-                            <button class="onboarding-theme-card" id="onboarding-theme-monochrome" data-theme="monochrome">
-                                <div class="onboarding-theme-preview" 
+                            <button class="onboarding-theme-card" id="onboarding-theme-monochrome"
+                                data-theme="monochrome">
+                                <div class="onboarding-theme-preview"
                                     style="background: linear-gradient(135deg, #666666 0%, #333333 100%);"></div>
                                 <span class="onboarding-theme-name">Monochrome</span>
                             </button>

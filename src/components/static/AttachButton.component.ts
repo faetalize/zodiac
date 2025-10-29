@@ -11,7 +11,7 @@ attachButton.addEventListener("click", () => {
         return
     }
     input.value = ""; // Clear the input value to allow re-selection of the same file
-    input.accept = "image/*,video/*,audio/*,application/pdf,text/plain"; // Accept images, videos, audio files, and PDFs, and text files
+    input.accept = "image/*,application/pdf,text/plain"; // Accept images, PDFs, and text files
     input.multiple = true; // Allow multiple files to be selected
     input.click();
 });

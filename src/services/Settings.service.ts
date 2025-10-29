@@ -11,7 +11,8 @@ const autoscrollToggle = document.querySelector("#autoscroll") as HTMLInputEleme
 const streamResponsesToggle = document.querySelector("#streamResponses") as HTMLInputElement;
 const enableThinkingSelect = document.querySelector("#enableThinkingSelect") as HTMLSelectElement;
 const thinkingBudgetInput = document.querySelector("#thinkingBudget") as HTMLInputElement;
-if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput) {
+const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel") as HTMLSelectElement;
+if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector) {
     throw new Error("One or more settings elements are missing in the DOM.");
 }
 
@@ -26,6 +27,7 @@ export function initialize() {
     streamResponsesToggle.addEventListener("change", saveSettings);
     enableThinkingSelect.addEventListener("change", saveSettings);
     thinkingBudgetInput.addEventListener("input", saveSettings);
+    imageEditModelSelector.addEventListener("change", saveSettings);
 }
 
 export function loadSettings() {
@@ -34,6 +36,7 @@ export function loadSettings() {
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || "60";
     modelSelect.value = localStorage.getItem("model") || "gemini-flash-latest";
     imageModelSelect.value = localStorage.getItem("imageModel") || "imagen-4.0-ultra-generate-001";
+    imageEditModelSelector.value = localStorage.getItem("imageEditModel") || "qwen";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") ? localStorage.getItem("autoscroll") === "true" : true;
     // Default ON when not set
     streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";
@@ -52,6 +55,7 @@ export function saveSettings() {
     localStorage.setItem("TEMPERATURE", temperatureInput.value);
     localStorage.setItem("model", modelSelect.value);
     localStorage.setItem("imageModel", imageModelSelect.value);
+    localStorage.setItem("imageEditModel", imageEditModelSelector.value);
     localStorage.setItem("autoscroll", autoscrollToggle.checked.toString());
     localStorage.setItem("streamResponses", streamResponsesToggle.checked.toString());
     localStorage.setItem("enableThinking", (enableThinkingSelect.value === 'enabled').toString());
@@ -72,6 +76,7 @@ export function getSettings() {
         ],
         model: modelSelect.value,
         imageModel: imageModelSelect.value,
+        imageEditModel: imageEditModelSelector.value,
         autoscroll: autoscrollToggle.checked,
         streamResponses: streamResponsesToggle.checked,
         enableThinking: enableThinkingSelect.value === 'enabled',
