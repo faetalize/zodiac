@@ -1352,6 +1352,7 @@ form {
 
 #btn-hide-sidebar {
     display: none;
+    font-size: 1.75rem;
 }
 
 
@@ -1584,11 +1585,19 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
     font-size: x-large;
+    color: white;
 }
 
 .generated-image-wrapper:hover .generated-image-overlay,
 .generated-image-wrapper:focus-within .generated-image-overlay {
     opacity: 1;
+}
+.generated-image-overlay .btn-image-action {
+    color: #e4e4e4 !important
+}
+
+.generated-image-overlay .btn-image-action:hover {
+    --btn-textual-hover-shadow: 0 0 10px #ffffff, 0 0 5px #dfdfdf !important;
 }
 
 
@@ -2115,7 +2124,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
 }
 
 .card-personality .btn-textual:hover {
-    text-shadow: 0 0 2px #000000, 0 0 2px #000000;
+    text-shadow: 0 0 2px #000000, 0 0 2px #000000 !important;
     color: white;
 }
 
@@ -2523,6 +2532,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
 
 #btn-show-sidebar {
     display: none;
+    font-size: 1.75rem;
 }
 
 .header {

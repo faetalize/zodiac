@@ -86,7 +86,7 @@
     }
 
     .btn-textual:hover {
-        text-shadow: var(--btn-textual-hover-shadow);
+        text-shadow: var(--btn-textual-hover-shadow) ;
     }
 
 
