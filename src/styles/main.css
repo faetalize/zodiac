@@ -84,7 +84,7 @@ body.ime-open {
     overscroll-behavior-y: contain;
 }
 
-body.ime-open .container {
+body.ime-open #main-container {
     height: var(--vvh, 100dvh);
     min-height: var(--vvh, 100dvh);
     padding-bottom: env(safe-area-inset-bottom);
@@ -2208,7 +2208,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     height: 7rem;
 }
 
-.container {
+#main-container {
     box-sizing: border-box;
     display: flex;
     gap: 0.5rem;
@@ -4411,7 +4411,7 @@ input.onboarding-select {
     }
 
 
-    .container {
+    #main-container {
         padding: 0;
     }
 
