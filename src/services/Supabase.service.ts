@@ -372,7 +372,7 @@ export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionT
 }
 
 export function getBillingPortalUrlWithEmail(email: string | null): string {
-    const base = 'https://billing.stripe.com/p/login/9B614n85JdKwgNP2Yv2kw00';
+    const base = 'https://billing.stripe.com/p/login/5kQ8wQfgzcX6bfP8hNb7y00';
     if (!email) return base;
     const param = encodeURIComponent(email);
     return `${base}?prefilled_email=${param}`;
@@ -425,7 +425,7 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
                     console.log(sub)
                     const { data } = await supabase.functions.invoke("return-stripe-customer-portal", {
                         method: 'POST',
-                        body: JSON.stringify({ stripeCustomerId: sub?.stripe_customer_id }) // assuming user_id maps to stripe customer ID
+                        body: JSON.stringify({ stripeCustomerId: sub?.stripe_customer_id })
                     });
                     if (data) {
                         window.open(data.url, '_blank', 'noopener');
