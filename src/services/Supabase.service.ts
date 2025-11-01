@@ -1,6 +1,6 @@
 import { createClient, RealtimeChannel, Session, User as SupabaseUser } from '@supabase/supabase-js'
 import { User } from "../models/User";
-import { SubscriptionPriceIDs } from '../models/Price';
+import { SubscriptionPriceIDs, SubscriptionPriceIDsOld } from '../models/Price';
 import { ImageGenerationPermitted } from '../models/ImageGenerationTypes';
 import { danger, warn } from './Toast.service';
 
@@ -358,11 +358,17 @@ export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionT
         return 'canceled';
     }
     switch (sub.price_id) {
-        case 'price_1S0heGGiJrKwXclR69Ku7XEc':
+        case 'price_1S0heGGiJrKwXclR69Ku7XEc': //legacy 29.99 oldstripe
+        case 'price_1SDf2NGiJrKwXclRwDs7XOd0': //legacy oldstripe
+        case SubscriptionPriceIDsOld.MAX_MONTHLY:
+        case SubscriptionPriceIDsOld.MAX_YEARLY:
         case SubscriptionPriceIDs.MAX_MONTHLY:
         case SubscriptionPriceIDs.MAX_YEARLY:
             return 'max';
-        case 'price_1S0hdiGiJrKwXclRByeNLSPu':
+        case 'price_1S0hdiGiJrKwXclRByeNLSPu': //legacy 14.99 oldstripe
+        case 'price_1SDdbKGiJrKwXclR7hn7fF4s': //legacy oldstripe
+        case SubscriptionPriceIDsOld.PRO_MONTHLY:
+        case SubscriptionPriceIDsOld.PRO_YEARLY:
         case SubscriptionPriceIDs.PRO_MONTHLY:
         case SubscriptionPriceIDs.PRO_YEARLY:
             return 'pro';
