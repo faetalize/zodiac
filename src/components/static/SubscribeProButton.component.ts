@@ -1,7 +1,7 @@
 import { supabase } from "../../services/Supabase.service";
 import * as overlayService from "../../services/Overlay.service";
 
-// Pro tier ($14.99) subscription button inside the subscription form overlay
+// Pro tier ($30.00) subscription button inside the subscription form overlay
 const button = document.querySelector<HTMLButtonElement>("#btn-subscribe-pro");
 if (!button) {
     console.error("Subscribe Pro button not found");
