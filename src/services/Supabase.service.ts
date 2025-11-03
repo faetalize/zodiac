@@ -431,7 +431,7 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
                     console.log(sub)
                     const { data } = await supabase.functions.invoke("return-stripe-customer-portal", {
                         method: 'POST',
-                        body: JSON.stringify({ stripeCustomerId: sub?.stripe_customer_id })
+                        body: JSON.stringify({ stripeCustomerId: sub?.stripe_customer_id, email, user_id: session?.user.id })
                     });
                     if (data) {
                         window.open(data.url, '_blank', 'noopener');
