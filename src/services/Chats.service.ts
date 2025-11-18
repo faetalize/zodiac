@@ -1,12 +1,93 @@
 import * as messageService from "./Message.service"
 import * as helpers from "../utils/helpers"
 import { Db, db } from "./Db.service";
-import { Chat, DbChat } from "../models/Chat";
+import { Chat, ChatSortMode, DbChat } from "../models/Chat";
 import { Message } from "../models/Message";
 import hljs from "highlight.js";
 const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
+const scrollableChatContainerSelector = "#scrollable-chat-container";
 const chatHistorySection = document.querySelector<HTMLDivElement>("#chatHistorySection");
 const sidebar = document.querySelector<HTMLDivElement>(".sidebar");
+
+// Incremental loading state for the currently opened chat
+const PAGE_SIZE = 50; // number of messages to load per page
+let currentChatIdState: number | null = null;
+let currentChatMessages: Message[] = [];
+let loadedStartIndex = 0; // inclusive
+let loadedEndIndex = 0;   // exclusive
+let isLoadingOlder = false;
+let hasMoreOlder = false;
+let scrollListenerAttached = false;
+
+const CHAT_SORT_MODE_STORAGE_KEY = "chat-sort-mode";
+// Lazily initialized from localStorage on first access so that the initial
+// sort on load reflects the user's last choice instead of always defaulting
+// to "created_at".
+let currentChatSortMode: ChatSortMode | undefined;
+
+function loadChatSortModeFromStorage(): ChatSortMode {
+    try {
+        const stored = localStorage.getItem(CHAT_SORT_MODE_STORAGE_KEY);
+        if (stored === "created_at" || stored === "last_interaction" || stored === "alphabetical") {
+            return stored;
+        }
+    } catch (error) {
+        console.error("Failed to load chat sort mode from storage", error);
+    }
+    return "created_at";
+}
+
+function getLastInteractionTimestamp(chat: DbChat): number {
+    const raw = (chat as any).lastModified;
+    if (raw instanceof Date) {
+        const ts = raw.getTime();
+        if (!Number.isNaN(ts)) return ts;
+    } else if (typeof raw === "string" || typeof raw === "number") {
+        const ts = new Date(raw as any).getTime();
+        if (!Number.isNaN(ts)) return ts;
+    }
+
+    const lastMsg = chat.content && chat.content.length > 0
+        ? chat.content[chat.content.length - 1]
+        : undefined;
+
+    if (lastMsg && typeof (lastMsg as any).timestamp === "number") {
+        return (lastMsg as any).timestamp as number;
+    }
+
+    return chat.timestamp;
+}
+
+function sortChats(chats: DbChat[], mode: ChatSortMode): DbChat[] {
+    const list = [...chats];
+
+    if (mode === "alphabetical") {
+        list.sort((a, b) => {
+            const titleA = (a.title || "").toLocaleLowerCase();
+            const titleB = (b.title || "").toLocaleLowerCase();
+            // Alphabetical A → Z
+            if (titleA < titleB) return -1;
+            if (titleA > titleB) return 1;
+            return 0;
+        });
+        return list;
+    }
+
+    if (mode === "created_at") {
+        // Newest first (most recently created at the top)
+        list.sort((a, b) => b.timestamp - a.timestamp);
+        return list;
+    }
+
+    // last_interaction
+    list.sort((a, b) => {
+        const aLast = getLastInteractionTimestamp(a);
+        const bLast = getLastInteractionTimestamp(b);
+        // Most recent first (chat with latest activity at the top)
+        return bLast - aLast;
+    });
+    return list;
+}
 
 export function getCurrentChatId() {
     const currentChatElement = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
@@ -23,13 +104,82 @@ export async function initialize() {
         return;
     }
     chatContainer.innerHTML = "";
+    // Ensure sort mode is loaded from storage (or defaulted) before first render
+    const mode = getChatSortMode();
     const chats = await getAllChats(db);
-    for (let chat of chats) {
-        insertChatEntry(chat);
+    const sortedChats = sortChats(chats, mode);
+    // For initial render, append in sorted order so the first item in the
+    // sorted array appears at the top visually.
+    for (let chat of sortedChats) {
+        insertChatEntry(chat, "append");
     }
 }
 
-function insertChatEntry(chat: DbChat) {
+export function setChatSortMode(mode: ChatSortMode) {
+    currentChatSortMode = mode;
+    try {
+        localStorage.setItem(CHAT_SORT_MODE_STORAGE_KEY, mode);
+    } catch (error) {
+        console.error("Failed to persist chat sort mode", error);
+    }
+    // Do not fully reload the chat list here; instead, re-order existing DOM
+    // entries to preserve selection and avoid flashing.
+    void reorderChatListInDom();
+}
+
+export function getChatSortMode(): ChatSortMode {
+    if (!currentChatSortMode) {
+        currentChatSortMode = loadChatSortModeFromStorage();
+    }
+    return currentChatSortMode;
+}
+
+// Helper to get the current chat ordering based on the active sort mode,
+// using real data from Dexie so that created_at and last_interaction behave correctly.
+async function getSortedChatsSnapshotFromDb(): Promise<DbChat[]> {
+    const chats = await getAllChats(db);
+        const mode = getChatSortMode();
+        return sortChats(chats, mode);
+}
+
+// Reorder existing DOM nodes in #chatHistorySection to match the current sort mode
+async function reorderChatListInDom() {
+    if (!chatHistorySection) return;
+
+    const sorted = await getSortedChatsSnapshotFromDb();
+
+    const fragment = document.createDocumentFragment();
+    for (const chat of sorted) {
+        const identifier = "chat" + chat.id;
+        const radio = document.querySelector<HTMLInputElement>(`input[value='${identifier}']`);
+        const label = document.querySelector<HTMLLabelElement>(`label[for='${identifier}']`);
+        if (radio && label) {
+            fragment.appendChild(radio);
+            fragment.appendChild(label);
+        }
+    }
+
+    chatHistorySection.innerHTML = "";
+    chatHistorySection.appendChild(fragment);
+}
+
+// Rebuild the chat list according to the current sort mode after data changes
+// (e.g., when messages are persisted and lastModified is updated).
+export async function refreshChatListAfterActivity(db: Db): Promise<void> {
+    try {
+        const mode = getChatSortMode();
+
+        // When activity occurs, only adjust the DOM order instead of rebuilding from DB.
+        // This keeps the currently selected radio and avoids visual flashing.
+        if (mode === "last_interaction" || mode === "created_at" || mode === "alphabetical") {
+            await reorderChatListInDom();
+        }
+    } catch (error) {
+        console.error("Failed to refresh chat list after activity", error);
+    }
+}
+
+function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend") {
     //radio button
     const chatRadioButton = document.createElement("input");
     chatRadioButton.setAttribute("type", "radio");
@@ -214,7 +364,11 @@ function insertChatEntry(chat: DbChat) {
         }
     });
     if (chatHistorySection) {
-        chatHistorySection.prepend(chatRadioButton, chatLabel);
+        if (position === "append") {
+            chatHistorySection.append(chatRadioButton, chatLabel);
+        } else {
+            chatHistorySection.prepend(chatRadioButton, chatLabel);
+        }
     }
 }
 
@@ -225,7 +379,8 @@ export async function addChat(title: string, content?: Message[]) {
         content: content || []
     };
     const id = await db.chats.put(chat);
-    insertChatEntry({ ...chat, id });
+    // New chats should appear at the top when they are created.
+    insertChatEntry({ ...chat, id }, "prepend");
     return id;
 }
 
@@ -239,17 +394,33 @@ export async function getCurrentChat(db: Db) {
 
 export async function deleteAllChats(db: Db) {
     await db.chats.clear();
-    initialize();
+    // Clear chat list and messages without rebuilding from DB
+    if (chatHistorySection) {
+        chatHistorySection.innerHTML = "";
+    }
     newChat();
 }
 
 
 export async function deleteChat(id: number, db: Db) {
     await db.chats.delete(id);
-    if (getCurrentChatId() == id) {
+    const currentId = getCurrentChatId();
+
+    // Remove the radio + label for this chat from the DOM
+    const identifier = "chat" + id;
+    const radioButton = document.querySelector<HTMLInputElement>(`input[value='${identifier}']`);
+    const label = document.querySelector<HTMLLabelElement>(`label[for='${identifier}']`);
+    if (radioButton) {
+        radioButton.remove();
+    }
+    if (label) {
+        label.remove();
+    }
+
+    // If the deleted chat was selected, clear the messages and selection
+    if (currentId === id) {
         newChat();
     }
-    initialize();
 }
 
 export function newChat() {
@@ -257,11 +428,124 @@ export function newChat() {
         console.error("Message container not found");
         return;
     }
+    
+    // Clear DOM
     messageContainer.innerHTML = "";
     document.querySelector("#chat-title")!.textContent = "";
+    
+    // Reset pagination state
+    currentChatIdState = null;
+    currentChatMessages = [];
+    loadedStartIndex = 0;
+    loadedEndIndex = 0;
+    isLoadingOlder = false;
+    hasMoreOlder = false;
+    
+    // Uncheck current chat selection
     const checkedInput = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
     if (checkedInput) {
         checkedInput.checked = false;
+    }
+}
+
+async function renderMessagesSlice(start: number, end: number, prepend: boolean) {
+    if (!messageContainer) {
+        console.error("Message container not found while rendering messages slice");
+        return;
+    }
+
+    const slice = currentChatMessages.slice(start, end);
+    if (slice.length === 0) {
+        return;
+    }
+    const scrollContainer = document.querySelector<HTMLDivElement>(scrollableChatContainerSelector);
+    const previousScrollHeight = scrollContainer?.scrollHeight ?? 0;
+    const previousScrollTop = scrollContainer?.scrollTop ?? 0;
+
+    // For initial load (prepend = false), render slice in natural order (older -> newer)
+    if (!prepend) {
+        for (let offset = 0; offset < slice.length; offset++) {
+            const msg = slice[offset];
+            // The real index in chat.content/currentChatMessages
+            const chatIndex = start + offset;
+            await messageService.insertMessageV2(msg, chatIndex);
+        }
+    } else {
+        // For prepending older messages, iterate from newest to oldest in the slice
+        // and always insert each element at the very top, so final DOM order remains chronological.
+        for (let i = slice.length - 1; i >= 0; i--) {
+            const msg = slice[i];
+            // When prepending, slice[i] corresponds to chat index (start + i)
+            const chatIndex = start + i;
+            const element = await messageService.insertMessageV2(msg, chatIndex);
+            if (element) {
+                // If insertMessageV2 already appended it to the container, move it to the top
+                if (element.parentElement === messageContainer) {
+                    messageContainer.insertBefore(element, messageContainer.firstChild);
+                } else if (!element.parentElement) {
+                    // If insertMessageV2 just returns the element, manually prepend
+                    messageContainer.insertBefore(element, messageContainer.firstChild);
+                }
+            }
+        }
+    }
+
+    if (prepend && scrollContainer) {
+        const newScrollHeight = scrollContainer.scrollHeight;
+        scrollContainer.scrollTop = newScrollHeight - previousScrollHeight + previousScrollTop;
+    } else {
+        // For initial load, we want to end at the bottom
+        helpers.messageContainerScrollToBottom(true);
+    }
+
+    hljs.highlightAll();
+}
+
+function attachScrollListener() {
+    if (scrollListenerAttached) {
+        return;
+    }
+
+    const scrollContainer = document.querySelector<HTMLDivElement>(scrollableChatContainerSelector);
+    if (!scrollContainer) {
+        console.error("Scrollable chat container not found when attaching scroll listener");
+        return;
+    }
+
+    const onScroll = async () => {
+        if (!hasMoreOlder || isLoadingOlder) {
+            return;
+        }
+        // When the user scrolls near the top of the scrollable container, load older messages
+        const threshold = 200; // px
+        if (scrollContainer.scrollTop <= threshold) {
+            console.log("Loading older messages...");
+            await loadOlderMessages();
+        }
+    };
+
+    scrollContainer.addEventListener("scroll", onScroll);
+    scrollListenerAttached = true;
+}
+
+async function loadOlderMessages() {
+    if (isLoadingOlder) return;
+    isLoadingOlder = true;
+
+    try {
+        const nextStart = Math.max(0, loadedStartIndex - PAGE_SIZE);
+        if (nextStart === loadedStartIndex) {
+            hasMoreOlder = false;
+            return;
+        }
+
+        await renderMessagesSlice(nextStart, loadedStartIndex, true);
+        loadedStartIndex = nextStart;
+        hasMoreOlder = loadedStartIndex > 0;
+    } catch (error) {
+        console.error("Failed to load older messages", error);
+    } finally {
+        isLoadingOlder = false;
     }
 }
 
@@ -271,15 +555,38 @@ export async function loadChat(chatID: number, db: Db) {
             console.error("Chat ID is null or message container not found");
             throw new Error("Chat ID is null or message container not found");
         }
+
+        // Reset state for new chat
+        currentChatIdState = chatID;
+        currentChatMessages = [];
+        loadedStartIndex = 0;
+        loadedEndIndex = 0;
+        isLoadingOlder = false;
+        hasMoreOlder = false;
+
         messageContainer.innerHTML = ""; // Clear existing messages
         const chat = await db.chats.get(chatID);
-        document.querySelector("#chat-title")!.textContent = chat?.title || "";
-        for (const msg of chat?.content || []) {
-            await messageService.insertMessageV2(msg);
+        if (!chat) {
+            console.error("Chat not found", chatID);
+            document.querySelector("#chat-title")!.textContent = "";
+            return null;
         }
-        // Always scroll to bottom when loading a chat
-        helpers.messageContainerScrollToBottom(true);
-        hljs.highlightAll();
+
+        document.querySelector("#chat-title")!.textContent = chat.title || "";
+        currentChatMessages = chat.content || [];
+
+        const total = currentChatMessages.length;
+        if (total === 0) {
+            return chat;
+        }
+
+        loadedEndIndex = total;
+        loadedStartIndex = Math.max(0, total - PAGE_SIZE);
+        hasMoreOlder = loadedStartIndex > 0;
+
+        await renderMessagesSlice(loadedStartIndex, loadedEndIndex, false);
+        attachScrollListener();
+
         return chat;
     }
     catch (error) {
@@ -298,7 +605,8 @@ export async function editChat(id: number, title: string) {
     if (chat) {
         chat.title = title;
         await db.chats.put(chat);
-        initialize();
+        // Resort entries in place to reflect updated title without full reload
+        void reorderChatListInDom();
     }
 }
 
@@ -360,4 +668,14 @@ export async function importChats(files: FileList): Promise<void> {
     }
 
 
+}
+
+export async function moveChatDomEntryToTop(id: number) {
+    const identifier = "chat" + id;
+    const radioButton = document.querySelector<HTMLInputElement>(`input[value='${identifier}']`);
+    const label = document.querySelector<HTMLLabelElement>(`label[for='${identifier}']`);
+    if (radioButton && label && chatHistorySection) {
+        chatHistorySection.prepend(label);
+        chatHistorySection.prepend(radioButton);
+    }
 }

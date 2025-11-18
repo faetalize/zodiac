@@ -6,6 +6,7 @@ import * as onboardingService from "../../services/Onboarding.service"
 import { Message } from "../../models/Message";
 import { Personality } from "../../models/Personality";
 import { ToastSeverity } from "../../models/Toast";
+import { createPersonalityMarkerMessage } from "../../services/Message.service"
 
 
 
@@ -19,8 +20,10 @@ const testToastActionsButton = document.querySelector<HTMLButtonElement>("#btn-d
 const testToastSpamButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-spam");
 const showSubscriptionOptionsButton = document.querySelector<HTMLButtonElement>("#btn-debug-subscription-options");
 const testOnboardingButton = document.querySelector<HTMLButtonElement>("#btn-debug-onboarding");
+const generateLongChatButton = document.querySelector<HTMLButtonElement>("#btn-debug-longchat");
+const generateMediumChatButton = document.querySelector<HTMLButtonElement>("#btn-debug-mediumchat");
 
-if (!generateRandomChatsButton || !generateRandomPersonalitiesButton) {
+if (!generateRandomChatsButton || !generateRandomPersonalitiesButton || !testToastNormalButton || !testToastWarningButton || !testToastDangerButton || !testToastActionsButton || !testToastSpamButton || !showSubscriptionOptionsButton || !testOnboardingButton || !generateLongChatButton || !generateMediumChatButton) {
     console.error("Debug buttons not found");
     throw new Error("DebugButtons component is not properly initialized.");
 }
@@ -180,6 +183,42 @@ if (isLocalhost && generateRandomPersonalitiesButton) generateRandomPersonalitie
 
         await personalityService.add(randomPersonality);
     }
+});
+
+if (isLocalhost && generateLongChatButton) generateLongChatButton.addEventListener("click", async () => {
+    const longConversation: Message[] = [
+        createPersonalityMarkerMessage("-1")
+    ];
+    for (let i = 0; i < 5000; i++) {
+        longConversation.push({
+            role: "user",
+            parts: [{ text: `User message number ${i + 1}` }],
+        });
+        longConversation.push({
+            role: "model",
+            personalityid: "-1",
+            parts: [{ text: `Model response number ${i + 1}` }],
+        });
+    }
+    await chatService.addChat("Long Chat Test", longConversation);
+});
+
+if (isLocalhost && generateMediumChatButton) generateMediumChatButton.addEventListener("click", async () => {
+    const mediumConversation: Message[] = [
+        createPersonalityMarkerMessage("-1")
+    ];
+    for (let i = 0; i < 100; i++) {
+        mediumConversation.push({
+            role: "user",
+            parts: [{ text: `User message number ${i + 1}` }],
+        });
+        mediumConversation.push({
+            role: "model",
+            personalityid: "-1",
+            parts: [{ text: `Model response number ${i + 1}` }],
+        });
+    }
+    await chatService.addChat("Medium Chat Test", mediumConversation);
 });
 
 // Toast testing buttons

@@ -126,6 +126,18 @@ export async function setupDB() {
     db.version(9).stores({
         personalities_uuid: null
     });
+    
+
+    //v10 adds lastModified to chats
+    db.version(10).stores({
+        chats: `
+            ++id,
+            title,
+            timestamp,
+            content,
+            lastModified
+        `
+    });
     return db;
 }
 

@@ -26,6 +26,9 @@ window.addEventListener('image-generation-toggled', (event: any) => {
     if (event.detail.enabled && imageEditingEnabled) {
         imageEditingEnabled = false;
         imageEditingButton.classList.remove("btn-toggled");
+        window.dispatchEvent(new CustomEvent('image-editing-toggled', {
+            detail: { enabled: false }
+        }));
     }
 });
 
@@ -40,7 +43,9 @@ window.addEventListener('subscription-updated', () => {
 async function updateImageEditingState() {
     if (!imageEditingButton) return;
     try {
-        if ((await isImageGenerationAvailable()).enabled) {
+        const imageGenStatus = await isImageGenerationAvailable();
+        // Image editing is available when image generation is enabled
+        if (imageGenStatus.enabled) {
             imageEditingButton.style.display = "";
         } else {
             imageEditingButton.style.display = "none";
@@ -52,8 +57,8 @@ async function updateImageEditingState() {
         }
 
     } catch {
-        // If not logged in or error, show by default (probably Free tier)
-        imageEditingButton.style.display = "";
+        // If not logged in or error, hide by default
+        imageEditingButton.style.display = "none";
     }
 }
 

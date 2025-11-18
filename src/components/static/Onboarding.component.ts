@@ -11,6 +11,7 @@ import * as supabaseService from "../../services/Supabase.service";
 import * as settingsService from "../../services/Settings.service";
 import * as toastService from "../../services/Toast.service";
 import { themeService } from "../../services/Theme.service";
+import { ChatModel } from "../../models/Models";
 
 // Path selection buttons
 const easyPathButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-easy");
@@ -949,7 +950,7 @@ function setupAdvancedSettings(): void {
     const updateThinkingRestrictions = () => {
         const selectedModel = advancedModelSelect!.value;
         
-        if (selectedModel === "gemini-2.5-pro") {
+        if (selectedModel === ChatModel.PRO) {
             // Pro model: force thinking enabled
             advancedThinkingEnabled!.checked = true;
             advancedThinkingEnabled!.disabled = true;

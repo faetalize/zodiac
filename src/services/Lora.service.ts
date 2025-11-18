@@ -106,6 +106,8 @@ export function toggleLora(modelVersionId: string, enabled: boolean) {
     if (state) {
         state.enabled = enabled;
         upsertLoraState(state);
+        // Dispatch event to notify components that LoRA state changed
+        window.dispatchEvent(new CustomEvent('lora-state-changed'));
     }
 }
 
@@ -114,5 +116,7 @@ export function setLoraStrength(modelVersionId: string, strength: number) {
     if (state) {
         state.strength = strength;
         upsertLoraState(state);
+        // Dispatch event to notify components that LoRA state changed
+        window.dispatchEvent(new CustomEvent('lora-state-changed'));
     }
 }

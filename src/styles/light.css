@@ -246,11 +246,11 @@
     }
 
     .api-key-valid {
-        border: 1px solid var(--api-key-valid-border);
+        border: var(--api-key-valid-border);
     }
 
     .api-key-invalid {
-        border: 1px solid var(--api-key-invalid-border);
+        border: var(--api-key-invalid-border);
     }
 
     .api-key-error {
@@ -392,5 +392,11 @@
     .hljs {
         background: #ffffff66 !important;
         /* Light background for code blocks */
+    }
+
+    .settings-list-item:hover,
+    .settings-list-item:focus-visible {
+        background-color: var(--card-hover-bg, rgba(59, 59, 59, 0.027));
+        border-color: var(--card-border-hover, rgba(22, 22, 22, 0.089));
     }
 }

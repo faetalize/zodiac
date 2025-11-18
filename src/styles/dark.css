@@ -241,11 +241,11 @@
     }
 
     .api-key-valid {
-        border: 1px solid var(--api-key-valid-border);
+        border: var(--api-key-valid-border);
     }
 
     .api-key-invalid {
-        border: 1px solid var(--api-key-invalid-border);
+        border: var(--api-key-invalid-border);
     }
 
     .api-key-error {

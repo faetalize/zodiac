@@ -229,7 +229,6 @@ export function messageContainerScrollToBottom(force?: boolean) {
     const container = document.querySelector("#scrollable-chat-container");
     container?.scrollBy({
         top: container.scrollHeight,
-        behavior: 'smooth',
     });
 }
 

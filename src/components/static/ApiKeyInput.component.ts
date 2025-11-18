@@ -3,34 +3,54 @@ import { getSubscriptionTier, type SubscriptionTier } from "../../services/Supab
 
 const apiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
 const apiKeyGroup = document.querySelector<HTMLDivElement>(".api-key");
-const noNeedMsg = document.querySelector<HTMLElement>("#apiKeyNoNeedMsg");
+const preferPremiumToggle = document.querySelector<HTMLDivElement>("#prefer-premium-endpoint-toggle");
+const preferPremiumCheckbox = document.querySelector<HTMLInputElement>("#preferPremiumEndpoint");
 
-if (!apiKeyInput || !apiKeyGroup || !noNeedMsg) {
+if (!apiKeyInput || !apiKeyGroup || !preferPremiumToggle || !preferPremiumCheckbox) {
     console.error("One or more API key input elements are missing.");
     throw new Error("API key input initialization failed.");
 }
 
+// API key input is always editable regardless of subscription status
+
+// Load saved preference - default to true for subscribers
+const savedPreference = localStorage.getItem('preferPremiumEndpoint');
+if (savedPreference !== null) {
+    preferPremiumCheckbox.checked = savedPreference === 'true';
+} else {
+    // Default to true (prefer premium ON by default)
+    preferPremiumCheckbox.checked = true;
+}
+
+// Save preference when changed
+preferPremiumCheckbox.addEventListener('change', () => {
+    localStorage.setItem('preferPremiumEndpoint', preferPremiumCheckbox.checked.toString());
+    // Dispatch event to notify other components
+    window.dispatchEvent(new CustomEvent('premium-endpoint-preference-changed', {
+        detail: { preferPremium: preferPremiumCheckbox.checked }
+    }));
+});
+
+// Show/hide the toggle based on subscription status
 window.addEventListener('auth-state-changed', (event: CustomEventInit) => {
     const { subscription: sub } = event.detail;
     if (!sub) {
-        apiKeyInput.placeholder = "Paste API key here";
+        preferPremiumToggle.classList.add('hidden');
+        preferPremiumCheckbox.checked = false; // Turn OFF for free users
         return;
     }
-    else {
-        // we blur/disable the api key input if we're on pro/max
-        const tier: SubscriptionTier = getSubscriptionTier(sub);
-        if (tier === 'pro' || tier === 'max') {
-            if (apiKeyInput) {
-                apiKeyInput.disabled = true;
-                apiKeyInput.placeholder = "API key not needed!";
-                // Clear any existing error states
-                apiKeyInput.classList.remove('api-key-invalid');
-                document.querySelector<HTMLElement>(".api-key-error")?.classList.add('hidden');
-            }
-            if (noNeedMsg) {
-                noNeedMsg.classList.remove('hidden');
-            }
+    
+    const tier: SubscriptionTier = getSubscriptionTier(sub);
+    if (tier === 'pro' || tier === 'max') {
+        preferPremiumToggle.classList.remove('hidden');
+        // Set default to ON for subscribers if not previously saved
+        if (savedPreference === null) {
+            preferPremiumCheckbox.checked = true;
+            localStorage.setItem('preferPremiumEndpoint', 'true');
         }
+    } else {
+        preferPremiumToggle.classList.add('hidden');
+        preferPremiumCheckbox.checked = false; // Turn OFF for free users
     }
 });
 
@@ -59,4 +79,14 @@ apiKeyInput?.addEventListener("input", () => {
         }
     }, 750);
 });
+
+/**
+ * Check if user prefers to use premium endpoint over their API key
+ * @returns true if premium endpoint should be preferred (default), false otherwise
+ */
+export function shouldPreferPremiumEndpoint(): boolean {
+    const saved = localStorage.getItem('preferPremiumEndpoint');
+    // Default to true (prefer premium) if not set
+    return saved === null ? true : saved === 'true';
+}
 

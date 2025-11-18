@@ -10,6 +10,8 @@ import { db } from '../../services/Db.service';
 import { findLastEditableImage, EditableImage } from '../../utils/imageHistory';
 import { historyImagePreviewElement } from '../dynamic/HistoryImagePreview';
 import { getSelectedEditingModel } from './ImageEditModelSelector.component';
+import { updateImageCreditsLabelVisibility } from './ImageCreditsLabel.component';
+
 interface AttachmentRemovedDetail {
     signature: string;
 }
@@ -45,6 +47,8 @@ let isInternetSearchEnabled = false;
 let dragDepth = 0;
 let currentHistoryImagePreview: HTMLElement | null = null;
 let isImageEditingActive = false;
+let isImageModeActive = false;
+let hasInsufficientImageCredits = false;
 
 internetSearchToggle.addEventListener("click", () => {
     isInternetSearchEnabled = !isInternetSearchEnabled;
@@ -57,6 +61,14 @@ messageInput.addEventListener("keydown", (e: KeyboardEvent) => {
 
     if (e.key === "Enter" && !e.shiftKey && !isMobile) {
         e.preventDefault();
+        // Don't send if insufficient credits
+        if (hasInsufficientImageCredits) {
+            toastService.warn({
+                title: "Insufficient Image Credits",
+                text: "You don't have enough credits for this image request. Please buy more credits or disable image mode."
+            });
+            return;
+        }
         sendMessageButton.click();
     }
 });
@@ -133,6 +145,15 @@ messageInput.addEventListener("dragleave", handleDragLeave);
 messageInput.addEventListener("drop", handleDrop);
 
 sendMessageButton.addEventListener("click", async () => {
+    // Check for insufficient credits before sending
+    if (hasInsufficientImageCredits) {
+        toastService.warn({
+            title: "Insufficient Image Credits",
+            text: "You don't have enough credits for this image request. Please buy more credits or disable image mode."
+        });
+        return;
+    }
+    
     try {
         const message = helpers.getEncoded(messageInput.innerHTML);
         messageInput.innerHTML = "";
@@ -193,6 +214,14 @@ window.addEventListener('image-editing-toggled', async (event: any) => {
             enforceQwenSingleImageConstraint();
         }
     }
+
+    updateImageCreditsLabelVisibility();
+});
+
+// Listen for image generation toggle events
+window.addEventListener('image-generation-toggled', (event: any) => {
+    isImageModeActive = !!event.detail?.enabled;
+    updateImageCreditsLabelVisibility();
 });
 
 // Listen for attachment changes
@@ -238,6 +267,24 @@ window.addEventListener('edit-model-changed', (event: any) => {
     const model = event.detail.model;
     if (model === 'qwen' && isImageEditingActive) {
         enforceQwenSingleImageConstraint();
+    }
+});
+
+// Listen for insufficient image credits state changes
+window.addEventListener('insufficient-image-credits', (event: any) => {
+    hasInsufficientImageCredits = event.detail.insufficient;
+    
+    // Update send button disabled state
+    if (hasInsufficientImageCredits) {
+        sendMessageButton.disabled = true;
+        sendMessageButton.classList.add('disabled');
+        sendMessageButton.setAttribute('aria-disabled', 'true');
+        sendMessageButton.title = 'Insufficient image credits';
+    } else {
+        sendMessageButton.disabled = false;
+        sendMessageButton.classList.remove('disabled');
+        sendMessageButton.setAttribute('aria-disabled', 'false');
+        sendMessageButton.title = '';
     }
 });
 
