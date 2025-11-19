@@ -4,6 +4,7 @@ import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
 import * as loraService from "./Lora.service";
+import * as supabaseService from "./Supabase.service";
 import * as helpers from "../utils/helpers";
 import hljs from 'highlight.js';
 import { db } from "./Db.service";
@@ -23,11 +24,12 @@ import { DbPersonality } from "../models/Personality";
 import { PremiumEndpoint } from "../models/PremiumEndpoint";
 import { danger, warn } from "./Toast.service";
 import { TONE_QUESTIONS } from "../constants/ToneQuestions";
+import { shouldPreferPremiumEndpoint } from "../components/static/ApiKeyInput.component";
 
 const PERSONALITY_MARKER_PREFIX = "__personality_marker__|";
 
 
-export async function send(msg: string) {
+export async function send(msg: string): Promise<HTMLElement | undefined> {
     const settings = settingsService.getSettings();
     const selectedPersonality = await personalityService.getSelected();
     const selectedPersonalityId = getSelectedPersonalityId();
@@ -37,10 +39,10 @@ export async function send(msg: string) {
         console.error("Missing #attachments input in the DOM");
         throw new Error("Missing DOM element");
     }
-    
+
     // Capture history image BEFORE clearing previews (for image editing mode)
     const historyImageDataUri = getCurrentHistoryImageDataUri();
-    
+
     //structuredClone is unreliable for FileList
     const attachmentFiles: FileList = (() => {
         const dt = new DataTransfer();
@@ -59,11 +61,45 @@ export async function send(msg: string) {
     }
     // Determine subscription tier to decide backend route
     const subscription = await getUserSubscription();
-    const isPremiumEndpointPreferred = await getSubscriptionTier(subscription) === 'pro' || await getSubscriptionTier(subscription) === 'max';
+    const tier = await getSubscriptionTier(subscription);
+    const hasSubscription = tier === 'pro' || tier === 'max';
+    const isPremiumEndpointPreferred = hasSubscription && shouldPreferPremiumEndpoint();
     const isImagePremiumEndpointPreferred = (await isImageGenerationAvailable()).type === "all";
 
     if (!isPremiumEndpointPreferred && settings.apiKey === "") {
-        alert("Please enter an API key");
+        warn({
+            title: "API Key Required",
+            text: "Please enter your Google AI API key in settings to continue.",
+            actions: [
+                {
+                    label: "Go to Settings",
+                    onClick(dismiss) {
+                        dismiss();
+                        
+                        // Show sidebar on mobile if needed
+                        const sidebar = document.querySelector<HTMLDivElement>(".sidebar");
+                        if (sidebar && window.innerWidth <= 1032) {
+                            sidebar.style.display = "flex";
+                            helpers.showElement(sidebar, false);
+                        }
+                        
+                        // Navigate to settings and then to API key section
+                        const settingsTab = document.querySelector<HTMLDivElement>('.navbar-tab:nth-child(3)');
+                        settingsTab?.click();
+                        // After settings opens, click the API key settings item
+                        setTimeout(() => {
+                            const apiKeySettingsButton = document.querySelector<HTMLButtonElement>('[data-settings-target="api"]');
+                            apiKeySettingsButton?.click();
+                            // Focus the API key input
+                            setTimeout(() => {
+                                const apiKeyInput = document.querySelector<HTMLInputElement>('#apiKeyInput');
+                                apiKeyInput?.focus();
+                            }, 100);
+                        }, 100);
+                    }
+                }
+            ]
+        });
         return;
     }
     if (!msg) {
@@ -94,14 +130,21 @@ export async function send(msg: string) {
     const { history: chatHistory, pinnedHistoryIndices } = await constructGeminiChatHistoryFromLocalChat(currentChat, { id: getSelectedPersonalityId(), ...selectedPersonality });
     console.log(structuredClone(chatHistory));
 
-    //insert user's message element
+    // Insert user's message element using the current tail index in chat
+    // so that it aligns with chat.content and remains regenerable/editable.
     const userMessage: Message = { role: "user", parts: [{ text: msg, attachments: attachmentFiles }] };
-    const userMessageElement = await insertMessageV2(userMessage);
+    const userIndex = currentChat.content.length;
+    const userMessageElement = await insertMessageV2(userMessage, userIndex);
     hljs.highlightAll();
     helpers.messageContainerScrollToBottom(true);
 
-    //insert model message placeholder
-    const responseElement = await insertMessageV2(createModelPlaceholderMessage(selectedPersonalityId, ""));
+    // Insert model message placeholder just after the user message index.
+    // This placeholder is not persisted, but we still give it a concrete
+    // position relative to chat.content so that DOM ordering stays coherent.
+    const responseElement = await insertMessageV2(
+        createModelPlaceholderMessage(selectedPersonalityId, ""),
+        userIndex + 1,
+    );
     helpers.messageContainerScrollToBottom(true);
     const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
     let thinkingWrapper = responseElement.querySelector<HTMLElement>(".message-thinking");
@@ -142,7 +185,7 @@ export async function send(msg: string) {
     // Handle image editing mode
     if (isImageEditingActive()) {
         const imagesToEdit: string[] = [];
-        
+
         // Priority 1: User attachments (images only)
         const imageAttachments = Array.from(attachmentFiles).filter(f => f.type.startsWith('image/'));
         if (imageAttachments.length > 0) {
@@ -160,9 +203,9 @@ export async function send(msg: string) {
 
         // Validate that we have images to edit
         if (imagesToEdit.length === 0) {
-            danger({ 
-                title: "No images to edit", 
-                text: "Please attach an image or select an image for editing." 
+            danger({
+                title: "No images to edit",
+                text: "Please attach an image or select an image for editing."
             });
             // Remove placeholder elements
             responseElement.remove();
@@ -171,7 +214,7 @@ export async function send(msg: string) {
         }
 
         const editingModel = getSelectedEditingModel();
-        
+
         // Validate Qwen single-image constraint
         if (editingModel === 'qwen' && imagesToEdit.length > 1) {
             warn({
@@ -198,35 +241,43 @@ export async function send(msg: string) {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                danger({ 
-                    text: errorData.error || "Unknown error", 
-                    title: "Image editing failed" 
+                danger({
+                    text: errorData.error || "Unknown error",
+                    title: "Image editing failed"
                 });
                 const modelMessage: Message = createImageEditingErrorMessage(selectedPersonalityId);
-                const newElm = await messageElement(modelMessage);
-                responseElement.replaceWith(newElm);
-                helpers.messageContainerScrollToBottom(true);
                 await persistUserAndModel(userMessage, modelMessage);
+                const updatedChat = await chatsService.getCurrentChat(db);
+                if (updatedChat) {
+                    const modelIndex = updatedChat.content.length - 1;
+                    const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                    responseElement.replaceWith(newElm);
+                }
+                helpers.messageContainerScrollToBottom(true);
                 return userMessageElement;
             }
 
             // Backend returns the final edited image directly
             const result = await response.json();
-            
+
             // Extract base64 image data from response
             const editedImageBase64 = result.image;
             const mimeType = result.mimeType || "image/png";
-            
+
             if (!editedImageBase64) {
-                danger({ 
-                    title: "Image editing failed", 
-                    text: "No image data returned from server." 
+                danger({
+                    title: "Image editing failed",
+                    text: "No image data returned from server."
                 });
                 const modelMessage: Message = createImageEditingErrorMessage(selectedPersonalityId);
-                const newElm = await messageElement(modelMessage);
-                responseElement.replaceWith(newElm);
-                helpers.messageContainerScrollToBottom(true);
                 await persistUserAndModel(userMessage, modelMessage);
+                const updatedChat = await chatsService.getCurrentChat(db);
+                if (updatedChat) {
+                    const modelIndex = updatedChat.content.length - 1;
+                    const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                    responseElement.replaceWith(newElm);
+                }
+                helpers.messageContainerScrollToBottom(true);
                 return userMessageElement;
             }
 
@@ -237,22 +288,31 @@ export async function send(msg: string) {
                 personalityid: selectedPersonalityId,
                 generatedImages: [{ mimeType, base64: editedImageBase64 }],
             };
-            const newElm = await messageElement(modelMessage);
-            responseElement.replaceWith(newElm);
-            helpers.messageContainerScrollToBottom();
             await persistUserAndModel(userMessage, modelMessage);
+            const updatedChat = await chatsService.getCurrentChat(db);
+            if (updatedChat) {
+                const modelIndex = updatedChat.content.length - 1;
+                const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                responseElement.replaceWith(newElm);
+            }
+            helpers.messageContainerScrollToBottom();
+            supabaseService.refreshImageGenerationRecord();
             return userMessageElement;
         } catch (error: any) {
             console.error("Image editing error:", error);
-            danger({ 
-                title: "Image editing failed", 
-                text: error.message || "An unexpected error occurred" 
+            danger({
+                title: "Image editing failed",
+                text: error.message || "An unexpected error occurred"
             });
             const modelMessage: Message = createImageEditingErrorMessage(selectedPersonalityId);
-            const newElm = await messageElement(modelMessage);
-            responseElement.replaceWith(newElm);
-            helpers.messageContainerScrollToBottom(true);
             await persistUserAndModel(userMessage, modelMessage);
+            const updatedChat = await chatsService.getCurrentChat(db);
+            if (updatedChat) {
+                const modelIndex = updatedChat.content.length - 1;
+                const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                responseElement.replaceWith(newElm);
+            }
+            helpers.messageContainerScrollToBottom(true);
             return userMessageElement;
         }
     }
@@ -289,10 +349,14 @@ export async function send(msg: string) {
                 const responseError = (await response.json()).error;
                 danger({ text: responseError, title: "Image generation failed" });
                 const modelMessage: Message = createImageGenerationErrorMessage(selectedPersonalityId);
-                const newElm = await messageElement(modelMessage);
-                responseElement.replaceWith(newElm);
-                helpers.messageContainerScrollToBottom(true);
                 await persistUserAndModel(userMessage, modelMessage);
+                const updatedChat = await chatsService.getCurrentChat(db);
+                if (updatedChat) {
+                    const modelIndex = updatedChat.content.length - 1;
+                    const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                    responseElement.replaceWith(newElm);
+                }
+                helpers.messageContainerScrollToBottom(true);
                 return userMessageElement;
             }
             // the edge function returns an image directly (binary body)
@@ -307,10 +371,14 @@ export async function send(msg: string) {
                 const extraMessage = (response?.generatedImages?.[0]?.raiFilteredReason);
                 danger({ text: `${extraMessage ? "Reason: " + extraMessage : ""}`, title: "Image generation failed" });
                 const modelMessage: Message = createImageGenerationErrorMessage(selectedPersonalityId);
-                const newElm = await messageElement(modelMessage);
-                responseElement.replaceWith(newElm);
-                helpers.messageContainerScrollToBottom(true);
                 await persistUserAndModel(userMessage, modelMessage);
+                const updatedChat = await chatsService.getCurrentChat(db);
+                if (updatedChat) {
+                    const modelIndex = updatedChat.content.length - 1;
+                    const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                    responseElement.replaceWith(newElm);
+                }
+                helpers.messageContainerScrollToBottom(true);
                 return userMessageElement;
             }
             b64 = response.generatedImages?.[0].image?.imageBytes!;
@@ -325,11 +393,18 @@ export async function send(msg: string) {
             generatedImages: [{ mimeType: returnedMimeType, base64: b64 }],
         };
 
-        const newElm = await messageElement(modelMessage);
-        responseElement.replaceWith(newElm);
+        await persistUserAndModel(userMessage, modelMessage);
+        const updatedChat = await chatsService.getCurrentChat(db);
+        if (updatedChat) {
+            const modelIndex = updatedChat.content.length - 1;
+            const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+            responseElement.replaceWith(newElm);
+        }
         helpers.messageContainerScrollToBottom();
 
-        await persistUserAndModel(userMessage, modelMessage);
+        //trigger image credit related event
+        supabaseService.refreshImageGenerationRecord();
+
         return userMessageElement;
     }
 
@@ -518,10 +593,14 @@ export async function send(msg: string) {
         } catch (err) {
             console.error(err);
             const modelMessage: Message = createModelErrorMessage(selectedPersonalityId);
-            const newElm = await messageElement(modelMessage);
-            responseElement.replaceWith(newElm);
-            helpers.messageContainerScrollToBottom(true);
             await persistUserAndModel(userMessage, modelMessage);
+            const updatedChat = await chatsService.getCurrentChat(db);
+            if (updatedChat) {
+                const modelIndex = updatedChat.content.length - 1;
+                const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                responseElement.replaceWith(newElm);
+            }
+            helpers.messageContainerScrollToBottom(true);
             throw err;
         }
 
@@ -609,10 +688,14 @@ export async function send(msg: string) {
             }
         } catch (err) {
             const modelMessage: Message = createModelErrorMessage(selectedPersonalityId)
-            const newElm = await messageElement(modelMessage);
-            responseElement.replaceWith(newElm);
-            helpers.messageContainerScrollToBottom(true);
             await persistUserAndModel(userMessage, modelMessage);
+            const updatedChat = await chatsService.getCurrentChat(db);
+            if (updatedChat) {
+                const modelIndex = updatedChat.content.length - 1;
+                const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                responseElement.replaceWith(newElm);
+            }
+            helpers.messageContainerScrollToBottom(true);
             console.error(err);
             throw err;
         }
@@ -655,20 +738,19 @@ export async function send(msg: string) {
         thinking: thinking || undefined,
         generatedImages: generatedImage ? [generatedImage] : undefined
     }
-    // Update the placeholder element with the image via re-render
-    const newElm = await messageElement(modelMessage);
-    responseElement.replaceWith(newElm);
+    // Persist final messages first so we can render with the correct index
+    await persistUserAndModel(userMessage, modelMessage);
+    const updatedChat = await chatsService.getCurrentChat(db);
+    if (updatedChat) {
+        const modelIndex = updatedChat.content.length - 1;
+        const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+        responseElement.replaceWith(newElm);
+    }
 
     //finalize
     hljs.highlightAll();
     helpers.messageContainerScrollToBottom();
 
-    //save chat history and settings (persist after success only)
-    await persistUserAndModel(
-        userMessage,
-        modelMessage
-
-    );
     return userMessageElement;
 }
 
@@ -688,27 +770,18 @@ function createImageEditingErrorMessage(selectedPersonalityId: string): Message 
     return { role: "model", parts: [{ text: "I'm sorry, I couldn't edit the image. Please try again or check that the image is valid." }], personalityid: selectedPersonalityId };
 }
 
-export async function regenerate(responseElement: HTMLElement) {
-    //basically, we remove every message after the response we wish to regenerate, then send the message again.
-    const elementIndex = [...(responseElement.parentElement?.children || [])].indexOf(responseElement);
-
-
-    if (elementIndex === -1) {
-        console.error("Message index not found on element");
-        return;
-    }
-
-
+export async function regenerate(modelMessageIndex: number) {
     const chat = await chatsService.getCurrentChat(db);
-    const message: Message = chat?.content[elementIndex - 1]!; //user message is always before the model message
+    const message: Message = chat?.content[modelMessageIndex - 1]!; // user message is always before the model message
     if (!chat || !message) {
         console.error("No chat or message found");
-        console.log({ chat, message, elementIndex });
+        console.log({ chat, message, elementIndex: modelMessageIndex });
         return;
     }
+
     // Remove the user message we're regenerating and any legacy hidden intro messages
     // that may precede it, while preserving personality markers.
-    const userIndex = elementIndex - 1;
+    const userIndex = modelMessageIndex - 1;
     let deletionStart = userIndex;
     for (let i = userIndex - 1; i >= 0; i--) {
         const candidate = chat.content[i];
@@ -720,12 +793,37 @@ export async function regenerate(responseElement: HTMLElement) {
         }
         deletionStart = i;
     }
+
+    // Prune chat history in the database
     chat.content = chat.content.slice(0, deletionStart);
     pruneTrailingPersonalityMarkers(chat);
     await db.chats.put(chat);
-    await chatsService.loadChat(chat.id, db);
-    //we also should reattach the attachments to the message box
-    const attachments = message.parts[0].attachments || {} as FileList;
+
+    // Prune the DOM without reloading the entire chat.
+    // Important: in long chats we only render a slice of chat.content, so
+    // DOM child indices do NOT necessarily match chat indices. Instead of
+    // treating deletionStart as a DOM index, we walk all rendered children
+    // and rely on the data-chat-index attribute set by messageElement to
+    // decide which nodes belong to pruned messages.
+    const container = document.querySelector<HTMLDivElement>(".message-container");
+    if (container) {
+        const toRemove: Element[] = [];
+        for (const child of Array.from(container.children)) {
+            const indexAttr = child.getAttribute("data-chat-index");
+            if (!indexAttr) continue;
+            const chatIndex = Number.parseInt(indexAttr, 10);
+            if (!Number.isFinite(chatIndex)) continue;
+            if (chatIndex >= deletionStart) {
+                toRemove.push(child);
+            }
+        }
+        for (const node of toRemove) {
+            node.remove();
+        }
+    }
+
+    // Reattach the attachments to the input so resend can include them
+    const attachments = message.parts[0].attachments || ({} as FileList);
     const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
     if (attachmentsInput && attachments.length > 0) {
         const dataTransfer = new DataTransfer();
@@ -739,12 +837,17 @@ export async function regenerate(responseElement: HTMLElement) {
     } catch (error: any) {
         const modelMessage: Message = createModelErrorMessage(getSelectedPersonalityId());
         const userMessage: Message = { role: "user", parts: [{ text: message.parts[0].text || "", attachments: attachments }] };
-        const userMessageElement = await messageElement(userMessage);
-        const responseMessageElement = await messageElement(modelMessage);
-        document.querySelector(".message-container")?.append(userMessageElement);
-        document.querySelector(".message-container")?.append(responseMessageElement);
+        await persistUserAndModel(userMessage, modelMessage);
+        const updatedChat = await chatsService.getCurrentChat(db);
+        if (updatedChat) {
+            const userIndex = updatedChat.content.length - 2;
+            const modelIndex = updatedChat.content.length - 1;
+            const userMessageElement = await messageElement(updatedChat.content[userIndex], userIndex);
+            const responseMessageElement = await messageElement(updatedChat.content[modelIndex], modelIndex);
+            document.querySelector(".message-container")?.append(userMessageElement);
+            document.querySelector(".message-container")?.append(responseMessageElement);
+        }
         helpers.messageContainerScrollToBottom(true);
-        await persistUserAndModel(message, modelMessage);
         danger({
             title: "Error regenerating message",
             text: JSON.stringify(error.message || error),
@@ -754,13 +857,16 @@ export async function regenerate(responseElement: HTMLElement) {
     }
 }
 
-export async function insertMessageV2(message: Message) {
-    const messageElm = await messageElement(message);
+export async function insertMessageV2(message: Message, index: number) {
+    // When rendering via this helper from Chats.service, index should match
+    // the position in chat.content/currentChatMessages. For ad-hoc renders
+    // (e.g., during send before persistence), pass the best-known index.
+    const messageElm = await messageElement(message, index);
     const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
     if (messageContainer) {
         messageContainer.append(messageElm);
     }
-    helpers.messageContainerScrollToBottom();
+
     return messageElm;
 }
 
@@ -782,7 +888,12 @@ async function persistUserAndModel(user: Message, model: Message): Promise<void>
     if (!chat) return;
     chat.content.push(user);
     chat.content.push(model);
+    chat.lastModified = new Date();
     await db.chats.put(chat);
+
+    // After persisting new messages, refresh the chat list so that the sidebar
+    // reflects the latest activity according to the current sort mode
+    await chatsService.refreshChatListAfterActivity(db);
 }
 
 export interface GeminiHistoryBuildResult {
@@ -898,7 +1009,7 @@ export async function constructGeminiChatHistoryFromLocalChat(currentChat: Chat,
     return { history, pinnedHistoryIndices };
 }
 
-function createPersonalityMarkerMessage(personalityId: string): Message {
+export function createPersonalityMarkerMessage(personalityId: string): Message {
     return {
         role: "model",
         parts: [{ text: `${PERSONALITY_MARKER_PREFIX}${personalityId}|${new Date().toISOString()}` }],
@@ -1058,7 +1169,10 @@ async function insertHiddenMessageIntoDom(message: Message, index: number): Prom
     if (!container) {
         return;
     }
-    const element = await messageElement(message);
+    // Hidden/system messages align 1:1 with chat.content indices, so we
+    // always pass the target chat index here. They don't expose regenerate
+    // actions, but keeping the index consistent avoids surprises elsewhere.
+    const element = await messageElement(message, index);
     const referenceNode = container.children[index] ?? null;
     container.insertBefore(element, referenceNode);
 }

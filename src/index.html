@@ -61,7 +61,7 @@
                             <span id="badge-version"></span>
                         </button>
                     </div>
-                    <div id="gemini-pro-branding">Gemini 2.5</div>
+                    <div id="gemini-pro-branding">Gemini 3.0</div>
                 </div>
 
                 <button id="btn-login" class="logged-out-component btn btn-primary">
@@ -99,7 +99,16 @@
                         </button>
                     </div>
 
-                    <input type="text" id="chat-search-input" class="input-field" placeholder="Search chats...">
+                    <div class="filter-group chat-filter-group">
+                        <div class="chat-search-wrapper">
+                            <span class="material-symbols-outlined chat-search-icon">search</span>
+                            <input type="text" id="chat-search-input" placeholder="Search chats...">
+                            <button class="chat-sort-toggle btn-textual" id="btn-chat-sort" aria-label="Sort chats" aria-haspopup="true" aria-expanded="false">
+                                <span class="material-symbols-outlined chat-sort-icon">sort</span>
+                                <span class="chat-sort-label" id="chat-sort-label">Created</span>
+                            </button>
+                        </div>
+                    </div>
 
                     <input type="radio" name="currentChat" value="none" checked>
                     <div id="chatHistorySection">
@@ -120,234 +129,350 @@
                 </div>
 
                 <div class="sidebar-section hidden" id="settings-section">
-                    <h3>API Key</h3>
-                    <div class="api-key-group">
-                        <div class="api-key">
-                            <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
-                                class="input-field"></input>
-                            <button class="material-symbols-outlined btn-textual"
-                                onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')">
-                                help
-                            </button>
-                        </div>
-                        <div class="api-key-error hidden">
-                            <span class="material-symbols-outlined">error</span> Invalid API Key
-                        </div>
-                        <div id="apiKeyNoNeedMsg" class="hint hidden">No API key required, enjoy!</div>
-                    </div>
-                    <div id="or-divider" style="text-align: center; font-weight: 800; text-transform: uppercase;">or
-                    </div>
-                    <button class="btn" id="btn-show-subscription-options">Upgrade</button>
-                    <h3>Generation Settings</h3>
-                    <div class="generation-settings">
-                        <div>
-                            <label class="setting-label" for="selectedModel"><span
-                                    class="material-symbols-outlined">neurology</span>Model
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="Pro model has a very low daily limit. It is recommmended to stick to Flash or Flash Lite, only falling back to pro for high priority requests.">
-                                    info
-                                </span> </label>
-                            <select id="selectedModel" class="input-field">
-                                <option value="gemini-flash-lite-latest">Flash Lite</option>
-                                <option value="gemini-flash-latest" selected="true">Flash</option>
-                                <option value="gemini-2.5-flash-image-preview">Flash Image (Nano Banana)</option>
-                                <option value="gemini-2.5-pro">Pro</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="setting-label" for="maxTokens"><span
-                                    class="material-symbols-outlined">generating_tokens</span><span>
-                                    Max Output
-                                    Tokens
-                                </span>
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="Dictates the maximum length of the model's response. If responses get cut off, increase this value.">
-                                    info
-                                </span>
-                            </label>
-                            <input type="number" id="maxTokens" class="input-field" min="1" max="65536" value="1000"
-                                step="1"></input>
-                        </div>
-                        <div>
-                            <label class="setting-label" for="enableThinkingSelect">
-                                <span class="material-symbols-outlined">psychology</span>
-                                <span>Thinking</span>
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="Controls whether the model includes internal reasoning (thoughts). Required for Pro model and automatically enabled there.">info</span>
-                            </label>
-                            <select id="enableThinkingSelect" class="input-field">
-                                <option value="enabled" selected>Enabled</option>
-                                <option value="disabled">Disabled</option>
-                            </select>
-                            <div id="thinking-required-hint" class="hint" style="display:none">
-                                Required when using Pro model</div>
-                        </div>
-                        <div>
-                            <label class="setting-label" for="thinkingBudget">
-                                <span class="material-symbols-outlined">speed</span>
-                                <span>Thinking Budget</span>
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="Number of output tokens allocated for the model's internal reasoning. Higher values may improve quality but increase latency. Set to -1 to enable dynamic thinking budget.">info</span>
-                            </label>
-                            <input type="number" id="thinkingBudget" class="input-field" min="-1" max="200000"
-                                value="500">
-                        </div>
-                        <div>
-                            <label class="setting-label" for="temperature">
-                                <span class="material-symbols-outlined">thermostat</span>
-                                <span>Temperature</span>
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="Lower values are more deterministic, higher values are more creative. The recommended range is between 0.5 and 1.25.">
-                                    info
-                                </span>
-                            </label>
-                            <div class="btn-array">
-                                <input type="range" min="0" max="200" id="temperature" class="slider">
-                                <label id="label-temperature" for="temperature">0</label>
+                    <div class="settings-nav-container">
+                        <div id="settings-home" class="settings-home">
+                            <div class="settings-list">
+                                <button class="settings-list-item" data-settings-target="api">
+                                    <span class="settings-list-item-icon material-symbols-outlined">vpn_key</span>
+                                    <span class="settings-list-item-text">
+                                        <span class="settings-list-item-title">API Key</span>
+                                        <span class="settings-list-item-subtitle">Configure your Google Gemini API key</span>
+                                    </span>
+                                    <span class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
+                                </button>
+                                <button class="settings-list-item" data-settings-target="chat">
+                                    <span class="settings-list-item-icon material-symbols-outlined">tune</span>
+                                    <span class="settings-list-item-text">
+                                        <span class="settings-list-item-title">Chat Settings</span>
+                                        <span class="settings-list-item-subtitle">Model, tokens, thinking, and behavior</span>
+                                    </span>
+                                    <span class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
+                                </button>
+                                <button class="settings-list-item" data-settings-target="image">
+                                    <span class="settings-list-item-icon material-symbols-outlined">image</span>
+                                    <span class="settings-list-item-text">
+                                        <span class="settings-list-item-title">Image Settings</span>
+                                        <span class="settings-list-item-subtitle">Image generation and editing models</span>
+                                    </span>
+                                    <span class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
+                                </button>
+                                <button class="settings-list-item" data-settings-target="personalisation">
+                                    <span class="settings-list-item-icon material-symbols-outlined">person</span>
+                                    <span class="settings-list-item-text">
+                                        <span class="settings-list-item-title">Personalisation</span>
+                                        <span class="settings-list-item-subtitle">Tailor Zodiac to your preferences</span>
+                                    </span>
+                                    <span class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
+                                </button>
+                                <button class="settings-list-item" data-settings-target="data">
+                                    <span class="settings-list-item-icon material-symbols-outlined">storage</span>
+                                    <span class="settings-list-item-text">
+                                        <span class="settings-list-item-title">Data Management</span>
+                                        <span class="settings-list-item-subtitle">Import, export, and wipe local data</span>
+                                    </span>
+                                    <span class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
+                                </button>
                             </div>
                         </div>
-                    </div>
-                    <h3>Image Settings</h3>
-                    <div class="generation-settings">
-                        <div>
-                            <label class="setting-label" for="selectedImageModel"><span
-                                    class="material-symbols-outlined">image</span>Image Model
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="Image generation models allow you to generate images from text prompts.">
-                                    info
-                                </span> </label>
-                            <select id="selectedImageModel" class="input-field">
-                                <option value="imagen-4.0-ultra-generate-001" selected="true">Imagen 4 Ultra
-                                </option>
-                                <option value="illustrious">Illustrious (Anime)</option>
-                                <option value="biglust">BLXL (Realism)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="setting-label" for="selectedImageEditingModel"><span
-                                    class="material-symbols-outlined">imagesearch_roller</span>Image Editing Model
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="Editing models allow you to edit images to add details, remove objects, or make other modifications.">
-                                    info
-                                </span> </label>
-                            <select id="selectedImageEditingModel" class="input-field">
-                                <option value="qwen" selected="true">Qwen Image Edit
-                                </option>
-                                <option value="seedream">Seedream 4.0 Edit</option>
-                            </select>
-                        </div>
-                        <div id="lora-settings">
-                            <label class="setting-label" for="lora-section">
-                                <span class="material-symbols-outlined">style</span>
-                                <span>LoRAs</span>
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="LoRAs are small models that can be applied on top of the base model to change its style or introduce new concepts.">
-                                    info
-                                </span>
-                            </label>
-                            <div id="lora-section">
-                                <div id="lora-add-card" class="card-add-lora">
-                                    <div class="lora-add">
-                                        <input type="url" id="lora-url-input" class="input-field"
-                                            placeholder="Paste CivitAI LoRA URL" />
-                                        <button id="btn-add-lora" class="btn-icon btn btn-primary"
-                                            aria-label="Add LoRA">
-                                            <span class="material-symbols-outlined">add_link</span>
+
+                        <div class="settings-page" data-settings-page="api">
+                            <div class="settings-page-header">
+                                <button class="settings-page-back btn-textual" type="button" data-settings-back>
+                                    <span class="material-symbols-outlined">arrow_back</span>
+                                </button>
+                                <h3 class="settings-page-title">API Key</h3>
+                            </div>
+                            <div class="settings-page-content">
+                                <div class="api-key-group">
+                                    <div class="api-key">
+                                        <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
+                                            class="input-field"></input>
+                                        <button class="material-symbols-outlined btn-textual"
+                                            onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')">
+                                            help
                                         </button>
                                     </div>
+                                    <div class="api-key-error hidden">
+                                        <span class="material-symbols-outlined">error</span> Invalid API Key
+                                    </div>
                                 </div>
-                                <div id="lora-list"></div>
+                                <div id="prefer-premium-endpoint-toggle" class="settings-item hidden">
+                                    <div class="settings-item-label">
+                                        <span class="settings-item-title">Use Premium Endpoint</span>
+                                        <span class="settings-item-subtitle">Recommended to turn this on.</span>
+                                    </div>
+                                    <input type="checkbox" id="preferPremiumEndpoint" checked>
+                                </div>
+                                <div id="or-divider" class="settings-or-divider">or</div>
+                                <button class="btn" id="btn-show-subscription-options">Upgrade</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-page" data-settings-page="chat">
+                            <div class="settings-page-header">
+                                <button class="settings-page-back btn-textual" type="button" data-settings-back>
+                                    <span class="material-symbols-outlined">arrow_back</span>
+                                </button>
+                                <h3 class="settings-page-title">Chat Settings</h3>
+                            </div>
+                            <div class="settings-page-content">
+                                <div class="generation-settings">
+                                    <div>
+                                        <label class="setting-label" for="selectedModel"><span
+                                                class="material-symbols-outlined">neurology</span>Model
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Pro model has a very low daily limit. It is recommmended to stick to Flash or Flash Lite, only falling back to pro for high priority requests.">
+                                                info
+                                            </span> </label>
+                                        <select id="selectedModel" class="input-field">
+                                            <option value="gemini-flash-lite-latest">Flash Lite</option>
+                                            <option value="gemini-flash-latest" selected="true">Flash</option>
+                                            <option value="gemini-2.5-flash-image-preview">Flash Image (Nano Banana)</option>
+                                            <option value="gemini-3-pro-preview">Pro</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="setting-label" for="maxTokens"><span
+                                                class="material-symbols-outlined">generating_tokens</span><span>
+                                                Max Output
+                                                Tokens
+                                            </span>
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Dictates the maximum length of the model's response. If responses get cut off, increase this value.">
+                                                info
+                                            </span>
+                                        </label>
+                                        <input type="number" id="maxTokens" class="input-field" min="1" max="65536" value="1000"
+                                            step="1"></input>
+                                    </div>
+                                    <div>
+                                        <label class="setting-label" for="enableThinkingSelect">
+                                            <span class="material-symbols-outlined">psychology</span>
+                                            <span>Thinking</span>
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Controls whether the model includes internal reasoning (thoughts). Required for Pro model and automatically enabled there.">info</span>
+                                        </label>
+                                        <select id="enableThinkingSelect" class="input-field">
+                                            <option value="enabled" selected>Enabled</option>
+                                            <option value="disabled">Disabled</option>
+                                        </select>
+                                        <div id="thinking-required-hint" class="hint" style="display:none">
+                                            Required when using Pro model</div>
+                                    </div>
+                                    <div>
+                                        <label class="setting-label" for="thinkingBudget">
+                                            <span class="material-symbols-outlined">speed</span>
+                                            <span>Thinking Budget</span>
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Number of output tokens allocated for the model's internal reasoning. Higher values may improve quality but increase latency. Set to -1 to enable dynamic thinking budget.">info</span>
+                                        </label>
+                                        <input type="number" id="thinkingBudget" class="input-field" min="-1" max="200000"
+                                            value="500">
+                                    </div>
+                                    <div>
+                                        <label class="setting-label" for="temperature">
+                                            <span class="material-symbols-outlined">thermostat</span>
+                                            <span>Temperature</span>
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Lower values are more deterministic, higher values are more creative. The recommended range is between 0.5 and 1.25.">
+                                                info
+                                            </span>
+                                        </label>
+                                        <div class="btn-array">
+                                            <input type="range" min="0" max="200" id="temperature" class="slider">
+                                            <label id="label-temperature" for="temperature">0</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="settings-page" data-settings-page="image">
+                            <div class="settings-page-header">
+                                <button class="settings-page-back btn-textual" type="button" data-settings-back>
+                                    <span class="material-symbols-outlined">arrow_back</span>
+                                </button>
+                                <h3 class="settings-page-title">Image Settings</h3>
+                            </div>
+                            <div class="settings-page-content">
+                                <div class="generation-settings">
+                                    <div>
+                                        <label class="setting-label" for="selectedImageModel"><span
+                                                class="material-symbols-outlined">image</span>Image Model
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Image generation models allow you to generate images from text prompts.">
+                                                info
+                                            </span> </label>
+                                        <select id="selectedImageModel" class="input-field">
+                                            <option value="imagen-4.0-ultra-generate-001" selected="true">Imagen 4 Ultra
+                                            </option>
+                                            <option value="illustrious">Illustrious (Anime)</option>
+                                            <option value="biglust">BLXL (Realism)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="setting-label" for="selectedImageEditingModel"><span
+                                                class="material-symbols-outlined">imagesearch_roller</span>Image Editing Model
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Editing models allow you to edit images to add details, remove objects, or make other modifications.">
+                                                info
+                                            </span> </label>
+                                        <select id="selectedImageEditingModel" class="input-field">
+                                            <option value="qwen" selected="true">Qwen Image Edit
+                                            </option>
+                                            <option value="seedream">Seedream 4.0 Edit</option>
+                                        </select>
+                                    </div>
+                                    <div id="lora-settings">
+                                        <label class="setting-label" for="lora-section">
+                                            <span class="material-symbols-outlined">style</span>
+                                            <span>LoRAs</span>
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="LoRAs are small models that can be applied on top of the base model to change its style or introduce new concepts.">
+                                                info
+                                            </span>
+                                        </label>
+                                        <div id="lora-section">
+                                            <div id="lora-add-card" class="card-add-lora">
+                                                <div class="lora-add">
+                                                    <input type="url" id="lora-url-input" class="input-field"
+                                                        placeholder="Paste CivitAI LoRA URL" />
+                                                    <button id="btn-add-lora" class="btn-icon btn btn-primary"
+                                                        aria-label="Add LoRA">
+                                                        <span class="material-symbols-outlined">add_link</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div id="lora-list"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-page" data-settings-page="personalisation">
+                            <div class="settings-page-header">
+                                <button class="settings-page-back btn-textual" type="button" data-settings-back>
+                                    <span class="material-symbols-outlined">arrow_back</span>
+                                </button>
+                                <h3 class="settings-page-title">Personalisation</h3>
+                            </div>
+                            <div class="settings-page-content">
+                                <div class="ui-settings">
+                                    <div class="ui-setting">
+                                        <label class="setting-label">Mode</label>
+                                        <div class="mode-selector">
+                                            <button class="mode-btn" data-mode="light" aria-label="Light mode">
+                                                <span class="material-symbols-outlined">light_mode</span>
+                                            </button>
+                                            <button class="mode-btn" data-mode="auto" aria-label="Auto mode">
+                                                <span class="material-symbols-outlined">contrast</span>
+                                            </button>
+                                            <button class="mode-btn" data-mode="dark" aria-label="Dark mode">
+                                                <span class="material-symbols-outlined">dark_mode</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="ui-setting">
+                                        <label class="setting-label">Theme</label>
+                                        <div class="theme-selector">
+                                            <button class="theme-btn" data-theme="blue" aria-label="Blue theme"
+                                                style="background: linear-gradient(135deg, #5f96c8 0%, #3c66a1 100%);"></button>
+                                            <button class="theme-btn" data-theme="red" aria-label="Red theme"
+                                                style="background: linear-gradient(135deg, #c8625f 0%, #a1473c 100%);"></button>
+                                            <button class="theme-btn" data-theme="green" aria-label="Green theme"
+                                                style="background: linear-gradient(135deg, #5fc88e 0%, #3ca170 100%);"></button>
+                                            <button class="theme-btn" data-theme="purple" aria-label="Purple theme"
+                                                style="background: linear-gradient(135deg, #8e5fc8 0%, #6a3ca1 100%);"></button>
+                                            <button class="theme-btn" data-theme="monochrome" aria-label="Monochrome theme"
+                                                style="background: linear-gradient(135deg, #666666 0%, #333333 100%);"></button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="settings-ux-group">
+                                    <div class="setting-toggle-row">
+                                        <label for="autoscroll">Autoscroll</label>
+                                        <input class="uxtoggle" id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
+                                    </div>
+                                    <div class="setting-toggle-row">
+                                        <label for="streamResponses">Stream Responses</label>
+                                        <input class="uxtoggle" id="streamResponses" type="checkbox" name="streamResponsesEnabled" checked></input>
+                                    </div>
+                                </div>
+
+                                <div class="settings-personalisation-note">
+                                    <p>For more advanced personalisation, open the Profile panel from the overlay to edit your preferred name and system prompt.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-page" data-settings-page="data">
+                            <div class="settings-page-header">
+                                <button class="settings-page-back btn-textual" type="button" data-settings-back>
+                                    <span class="material-symbols-outlined">arrow_back</span>
+                                </button>
+                                <h3 class="settings-page-title">Data Management</h3>
+                            </div>
+                            <div class="settings-page-content">
+                                <div class="btn-array-vertical">
+                                    <div class="btn-array">
+                                        <button class="btn btn-primary" id="btn-bulk-import-chats">Import Chats</button>
+                                        <button class="btn btn-primary" id="btn-bulk-import-personas">Import Personas</button>
+                                    </div>
+                                    <div class="btn-array">
+                                        <button class="btn btn-primary" id="btn-export-all-chats">Export All Chats</button>
+                                        <button class="btn btn-primary" id="btn-export-all-personas">Export All Personas</button>
+                                    </div>
+                                    <button id="btn-clear-all-data" class="btn btn-danger">Wipe Everything</button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <h3>User Interface</h3>
-                    <div class="ui-settings">
-                        <div class="ui-setting">
-                            <label class="setting-label">Mode</label>
-                            <div class="mode-selector">
-                                <button class="mode-btn" data-mode="light" aria-label="Light mode">
-                                    <span class="material-symbols-outlined">light_mode</span>
-                                </button>
-                                <button class="mode-btn" data-mode="auto" aria-label="Auto mode">
-                                    <span class="material-symbols-outlined">contrast</span>
-                                </button>
-                                <button class="mode-btn" data-mode="dark" aria-label="Dark mode">
-                                    <span class="material-symbols-outlined">dark_mode</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="ui-setting">
-                            <label class="setting-label">Theme</label>
-                            <div class="theme-selector">
-                                <button class="theme-btn" data-theme="blue" aria-label="Blue theme"
-                                    style="background: linear-gradient(135deg, #5f96c8 0%, #3c66a1 100%);"></button>
-                                <button class="theme-btn" data-theme="red" aria-label="Red theme"
-                                    style="background: linear-gradient(135deg, #c8625f 0%, #a1473c 100%);"></button>
-                                <button class="theme-btn" data-theme="green" aria-label="Green theme"
-                                    style="background: linear-gradient(135deg, #5fc88e 0%, #3ca170 100%);"></button>
-                                <button class="theme-btn" data-theme="purple" aria-label="Purple theme"
-                                    style="background: linear-gradient(135deg, #8e5fc8 0%, #6a3ca1 100%);"></button>
-                                <button class="theme-btn" data-theme="monochrome" aria-label="Monochrome theme"
-                                    style="background: linear-gradient(135deg, #666666 0%, #333333 100%);"></button>
-                            </div>
+
+                    <div class="settings-list-item" id="tip-me-section">
+                        <h3>Tip Me</h3>
+                        <div class="btn-array">
+                            <a href="https://patreon.com/faetalize" target="_blank" rel="noopener noreferrer"
+                                class="card card-patreon">
+                                <span class="patreon-logo">PATREON</span>
+                            </a>
+                            <a href="https://liberapay.com/faetalize" target="_blank" rel="noopener noreferrer"
+                                class="card card-liberapay">
+                                <span class="liberapay-logo">liberapay</span>
+                            </a>
+                            <a href="https://www.paypal.com/paypalme/alskdjaoiwdawwfq" target="_blank"
+                                rel="noopener noreferrer" class="card card-paypal">
+                                <span class="paypal-logo1">Pay</span><span class="paypal-logo2">Pal</span>
+                            </a>
                         </div>
                     </div>
-                    <h3>User Experience</h3>
-                    <div>
-                        <div
-                            style="display: flex; gap: 0.25rem; align-items: center; width: 100%; justify-content: space-between;">
-                            <label for="autoscroll">Autoscroll</label>
-                            <input class="uxtoggle" id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
+                    <div class="settings-list-item" id="debug-section">
+                        <h3 class="debug">Debug</h3>
+                        <div class="btn-array-vertical debug">
+                            <button class="btn btn-primary" id="btn-debug-chats">Generate 10 Random Chats</button>
+                            <button class="btn btn-primary" id="btn-debug-longchat">Generate a Long Chat (5000 pairs)</button>
+                            <button class="btn btn-primary" id="btn-debug-mediumchat">Generate a Medium Chat (100 pairs)</button>
+                            <button class="btn btn-primary" id="btn-debug-personalities">Generate 10 Random
+                                Personas</button>
+                            <button class="btn btn-primary" id="btn-debug-toast-normal">Test Toast (Normal)</button>
+                            <button class="btn btn-primary" id="btn-debug-toast-warning">Test Toast (Warning)</button>
+                            <button class="btn btn-primary" id="btn-debug-toast-danger">Test Toast (Danger)</button>
+                            <button class="btn btn-primary" id="btn-debug-toast-actions">Test Toast (With Actions)</button>
+                            <button class="btn btn-primary" id="btn-debug-toast-spam">Test Toast Spam (5 Limit)</button>
+                            <button class="btn btn-primary" id="btn-debug-subscription-options">Open Subscription
+                                Options</button>
+                            <button class="btn btn-primary" id="btn-debug-onboarding">Test Onboarding</button>
                         </div>
-                        <div
-                            style="display: flex; gap: 0.25rem; align-items: center; margin-top: 0.5rem; width: 100%; justify-content: space-between;">
-                            <label for="streamResponses">Stream Responses</label>
-                            <input class="uxtoggle" id="streamResponses" type="checkbox" name="streamResponsesEnabled"
-                                checked></input>
-                        </div>
-                    </div>
-                    <h3>Data Management</h3>
-                    <div class="btn-array-vertical">
-                        <button class="btn btn-primary" id="btn-bulk-import-chats">Bulk Import Chats</button>
-                        <button class="btn btn-primary" id="btn-export-all-chats">Export All Chats</button>
-                        <button id="btn-clear-all-data" class="btn btn-danger">Wipe Everything</button>
-                    </div>
-                    <h3>Tip Me</h3>
-                    <div class="btn-array">
-                        <a href="https://patreon.com/faetalize" target="_blank" rel="noopener noreferrer"
-                            class="card card-patreon">
-                            <span class="patreon-logo">PATREON</span>
-                        </a>
-                        <a href="https://liberapay.com/faetalize" target="_blank" rel="noopener noreferrer"
-                            class="card card-liberapay">
-                            <span class="liberapay-logo">liberapay</span>
-                        </a>
-                        <a href="https://www.paypal.com/paypalme/alskdjaoiwdawwfq" target="_blank"
-                            rel="noopener noreferrer" class="card card-paypal">
-                            <span class="paypal-logo1">Pay</span><span class="paypal-logo2">Pal</span>
-                        </a>
-                    </div>
-                    <h3 class="debug">Debug</h3>
-                    <div class="btn-array-vertical debug">
-                        <button class="btn btn-primary" id="btn-debug-chats">Generate 10 Random Chats</button>
-                        <button class="btn btn-primary" id="btn-debug-personalities">Generate 10 Random
-                            Personas</button>
-                        <button class="btn btn-primary" id="btn-debug-toast-normal">Test Toast (Normal)</button>
-                        <button class="btn btn-primary" id="btn-debug-toast-warning">Test Toast (Warning)</button>
-                        <button class="btn btn-primary" id="btn-debug-toast-danger">Test Toast (Danger)</button>
-                        <button class="btn btn-primary" id="btn-debug-toast-actions">Test Toast (With Actions)</button>
-                        <button class="btn btn-primary" id="btn-debug-toast-spam">Test Toast Spam (5 Limit)</button>
-                        <button class="btn btn-primary" id="btn-debug-subscription-options">Open Subscription
-                            Options</button>
-                        <button class="btn btn-primary" id="btn-debug-onboarding">Test Onboarding</button>
                     </div>
 
                 </div>
@@ -390,11 +515,17 @@
                         <div>imagesearch_roller</div>
                         <div id="image-editing-label">Image Editing</div>
                     </button>
-                    <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
+                    <div class="message-box-right">
+                        <div id="image-credits-label" class="image-credits-label hidden">— image credits left</div>
+                        <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Image Credits Popover -->
+    <div id="image-credits-popover" class="image-credits-popover hidden"></div>
 
     <div class="overlay hidden" id="overlay">
         <div class="header">
@@ -519,10 +650,11 @@
             <div id="whats-new" class="hidden">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li><b>Themes:</b> Customize your interface to your liking</li>
-                    <li><b>Image Editing:</b> You can now iterate on images using natural language using Seedream 4.0 and Qwen, which are state of the art image editing models.</li>
-                    <li><b>Mobile related improvements:</b> Improved performance and usability on mobile devices.</li>
-                    <li><b>Improved UX:</b> Lots of improvements and stability enhancements.</li>
+                    <li><b>Gemini 3.0 is here:</b> It's sick. Enjoy! For now only Gemini 3.0 Pro preview is available, be on the lookout for the flash version</li>
+                    <li><b>QOL:</b> Pro subscribers can choose to route their requests through their own API key endpoints if they so choose</li>
+                    <li><b>QOL:</b> Chat filtering and searching revamped</li>
+                    <li><b>Mobile related improvements:</b> Improved performance and usability on mobile devices</li>
+                    <li><b>Improved UX:</b> Lots of improvements and stability enhancements</li>
 
                     <li>Visit my Discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
@@ -1299,7 +1431,7 @@
                             <select id="onboarding-model-select" class="onboarding-select">
                                 <option value="gemini-flash-lite-latest">Gemini 2.5 Flash Lite (Fastest)</option>
                                 <option value="gemini-flash-latest">Gemini 2.5 Flash (Balanced)</option>
-                                <option value="gemini-2.5-pro">Gemini 2.5 Pro (Most Capable)</option>
+                                <option value="gemini-3-pro-preview">Gemini 3 Pro (Most Capable)</option>
                             </select>
                             <p class="setting-hint">Flash is faster, Pro provides deeper reasoning</p>
                         </div>

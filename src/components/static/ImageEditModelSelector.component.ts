@@ -16,17 +16,18 @@ imageEditModelSelector.addEventListener("change", () => {
 async function updateImageEditModelSelectorState() {
     if (!imageEditModelSelector) return;
     const imageGenStatus = await isImageGenerationAvailable();
-    if(imageGenStatus.type === "google_only"){
-        imageEditModelSelector.disabled = true;
-        imageEditModelSelector.style.opacity = "0.6";
-        imageEditModelSelector.style.cursor = "not-allowed";
-        imageEditModelSelector.title = "Image editing not available with current settings";
-    }
-    else if(imageGenStatus.type=== "all"){
+    
+    // Image edit model selector is always enabled when image generation is available
+    if (imageGenStatus.enabled) {
         imageEditModelSelector.disabled = false;
         imageEditModelSelector.style.opacity = "1";
         imageEditModelSelector.style.cursor = "initial";
         imageEditModelSelector.title = "";
+    } else {
+        imageEditModelSelector.disabled = true;
+        imageEditModelSelector.style.opacity = "0.6";
+        imageEditModelSelector.style.cursor = "not-allowed";
+        imageEditModelSelector.title = "Image editing not available";
     }
 
     return;

@@ -26,6 +26,9 @@ window.addEventListener('image-editing-toggled', (event: any) => {
     if (event.detail.enabled && isImageModeEnabled) {
         isImageModeEnabled = false;
         imageButton.classList.remove("btn-toggled");
+        window.dispatchEvent(new CustomEvent('image-generation-toggled', {
+            detail: { enabled: false }
+        }));
     }
 });
 

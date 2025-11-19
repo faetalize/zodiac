@@ -15,6 +15,8 @@ const importPersonalityButton = document.querySelector("#btn-import-personality"
 const clearAllDataButton = document.querySelector("#btn-clear-all-data");
 const bulkImportChatsButton = document.querySelector("#btn-bulk-import-chats");
 const exportAllChatsButton = document.querySelector("#btn-export-all-chats");
+const bulkImportPersonasButton = document.querySelector("#btn-bulk-import-personas");
+const exportAllPersonasButton = document.querySelector("#btn-export-all-personas");
 
 if (!sidebar ||
     !hideSidebarButton ||
@@ -25,7 +27,9 @@ if (!sidebar ||
     !importPersonalityButton ||
     !exportAllChatsButton ||
     !bulkImportChatsButton ||
-    !clearAllDataButton) {
+    !clearAllDataButton ||
+    !bulkImportPersonasButton ||
+    !exportAllPersonasButton) {
     console.error("Sidebar component is missing some elements. Please check the HTML structure.");
     throw new Error("Sidebar component is not properly initialized.");
 }
@@ -69,16 +73,66 @@ importPersonalityButton.addEventListener("click", () => {
     fileInput.type = 'file';
     fileInput.accept = '.json,.personality';
     fileInput.addEventListener('change', () => {
-        const file = fileInput.files![0];
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
         const reader = new FileReader();
         reader.onload = function (e) {
-            const personality = JSON.parse(e.target?.result?.toString() || '{}');
-            personalityService.add(personality, personality?.id);
+            try {
+                const persona = JSON.parse(e.target?.result?.toString() || '{}');
+                personalityService.add(persona, persona?.id);
+            } catch (err) {
+                console.error("Failed to import personality", err);
+                alert("Failed to import personality. Please ensure the file is valid JSON.");
+            }
         };
         reader.readAsText(file);
     });
     fileInput.click();
     fileInput.remove();
+});
+
+bulkImportPersonasButton.addEventListener("click", () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json,.personality';
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                const parsed = JSON.parse(e.target?.result?.toString() || '{}');
+                const personas = Array.isArray(parsed) ? parsed : [parsed];
+                personas.forEach((persona: any) => {
+                    personalityService.add(persona, persona?.id);
+                });
+            } catch (err) {
+                console.error("Failed to import personas", err);
+                alert("Failed to import personas. Please ensure the file is valid JSON.");
+            }
+        };
+        reader.readAsText(file);
+    });
+    fileInput.click();
+    fileInput.remove();
+});
+
+exportAllPersonasButton.addEventListener("click", async () => {
+    try {
+        const personalities = await personalityService.getAll();
+        const blob = new Blob([JSON.stringify(personalities, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'personas.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error("Failed to export personas", err);
+        alert("Failed to export personas.");
+    }
 });
 
 clearAllDataButton.addEventListener("click", async () => {

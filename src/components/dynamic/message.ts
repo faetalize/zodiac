@@ -11,9 +11,14 @@ import { enhanceCodeBlocks, stripCodeBlockEnhancements } from "../../utils/codeB
 import * as settingsService from "../../services/Settings.service";
 
 export const messageElement = async (
-    message: Message
+    message: Message,
+    index: number,
 ): Promise<HTMLElement> => {
     const messageDiv = document.createElement("div");
+    // Keep the chat index on the DOM node so that downstream logic (e.g.
+    // regeneration, pruning) can reliably map rendered elements back to
+    // chat.content even when only a slice of messages is in the DOM.
+    messageDiv.dataset.chatIndex = String(index);
     if (message.hidden) {
         messageDiv.style.display = "none"; // Hide system messages from normal view
         return messageDiv;
@@ -125,7 +130,7 @@ export const messageElement = async (
 
     enhanceCodeBlocks(messageDiv);
 
-    setupMessageRegeneration(messageDiv);
+    setupMessageRegeneration(messageDiv, index);
     setupMessageClipboard(messageDiv);
     setupMessageEditing(messageDiv);
     setupGeneratedImageInteractions(messageDiv);
@@ -306,7 +311,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
             const updatedMessage = currentChat.content[messageIndex];
             // Import the module to get a reference to the function
             const { messageElement: createMessageElementFunction } = await import("./message");
-            const newMessageElement = await createMessageElementFunction(updatedMessage);
+            const newMessageElement = await createMessageElementFunction(updatedMessage, messageIndex);
 
             messageElement.replaceWith(newMessageElement);
         }
@@ -373,7 +378,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
     });
 }
 
-function setupMessageRegeneration(messageElement: HTMLElement) {
+function setupMessageRegeneration(messageElement: HTMLElement, index: number) {
     const refreshButton = messageElement.querySelector<HTMLButtonElement>(".btn-refresh");
     if (!refreshButton) {
         console.error("Refresh button not found");
@@ -383,7 +388,7 @@ function setupMessageRegeneration(messageElement: HTMLElement) {
     refreshButton.addEventListener("click", async () => {
         const confirmation = await helpers.confirmDialogDanger("This action will also clear messages after the response you wish to regenerate. This action cannot be undone!");
         if (confirmation) {
-            await messageService.regenerate(messageElement);
+            await messageService.regenerate(index);
         }
     });
 }

@@ -16,6 +16,12 @@
     --primary-hover: #b6b6b6;
     --primary-active: #a3a3a3;
 
+    /* Warning colors */
+    --warning-bg: rgba(255, 176, 59, 0.15);
+    --warning-fg: #ffb03b;
+    --warning-border: rgba(255, 176, 59, 0.3);
+    --warning-icon: #ffb03b;
+
     /* Body */
     --body-bg: #000000;
     --body-fg: #e4e4e4;
@@ -99,8 +105,10 @@
 
     /* Badges */
     --badge-bg: #252525;
+    --badge-bg-hover: #313131;
     --badge-hover-bg: #313131;
     --badge-border: 1px solid rgba(119, 119, 119, 0.508);
+    --badge-border-hover: rgba(119, 119, 119, 0.7);
     --badge-fg: #b6b6b6;
     --badge-active-bg: #202020;
 
@@ -130,6 +138,8 @@
     --message-box-bg: #13131398;
 
     /* Cards */
+    --card-bg: #111111;
+    --card-border: #2a2a2a;
     --subscription-status-card-bg: #111111;
     --subscription-status-card-border: #2a2a2a;
     --profile-info-card-bg: #111111;
