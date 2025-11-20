@@ -1,4 +1,5 @@
 export enum ChatModel  {
+    PRO_LEGACY = "gemini-2.5-pro",
     PRO = "gemini-3-pro-preview",
     FLASH = "gemini-2.5-flash",
     FLASH_LATEST = "gemini-flash-latest",

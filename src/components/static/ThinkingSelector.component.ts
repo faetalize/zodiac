@@ -25,7 +25,7 @@ document.addEventListener("chat-model-changed", (event: CustomEventInit) => {
 
     if (!model) return;
 
-    if (model === ChatModel.PRO) {
+    if (model === ChatModel.PRO || model === ChatModel.PRO_LEGACY) {
         thinkingSelector.value = 'enabled';
         thinkingHint.style.display = '';
         thinkingSelector.dispatchEvent(new Event('change'));
