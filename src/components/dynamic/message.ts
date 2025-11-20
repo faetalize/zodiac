@@ -10,6 +10,23 @@ import * as chatsService from "../../services/Chats.service";
 import { enhanceCodeBlocks, stripCodeBlockEnhancements } from "../../utils/codeBlocks";
 import * as settingsService from "../../services/Settings.service";
 
+function resolveChatIndex(element: HTMLElement): number {
+    const attr = element.dataset.chatIndex;
+    if (attr) {
+        const parsed = Number.parseInt(attr, 10);
+        if (!Number.isNaN(parsed)) {
+            return parsed;
+        }
+    }
+
+    const container = element.closest<HTMLDivElement>(".message-container");
+    if (!container) {
+        return -1;
+    }
+
+    return Array.from(container.children).indexOf(element);
+}
+
 export const messageElement = async (
     message: Message,
     index: number,
@@ -158,9 +175,8 @@ function setupMessageEditing(messageElement: HTMLElement) {
         stripCodeBlockEnhancements(messageText);
 
         // Get current message's attachments
-        const messageContainer = document.querySelector(".message-container");
-        if (messageContainer) {
-            const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
+        const messageIndex = resolveChatIndex(messageElement);
+        if (messageIndex >= 0) {
             const currentChat = await chatsService.getCurrentChat(db);
             if (currentChat && currentChat.content[messageIndex]) {
                 originalAttachments = currentChat.content[messageIndex].parts[0].attachments;
@@ -297,10 +313,11 @@ function setupMessageEditing(messageElement: HTMLElement) {
         saveButton.style.display = "none";
 
         // Get the message index to update the correct message in chat history
-        const messageContainer = document.querySelector(".message-container");
-        if (!messageContainer) return;
-        const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
-
+        const messageIndex = resolveChatIndex(messageElement);
+        if (messageIndex < 0) {
+            console.error("Unable to resolve chat index during save");
+            return;
+        }
 
         // Update the chat history in database with both text and attachments
         await updateMessageInDatabase(markdownContent, messageIndex, editingAttachments);

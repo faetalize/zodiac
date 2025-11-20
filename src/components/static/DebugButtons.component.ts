@@ -10,7 +10,7 @@ import { createPersonalityMarkerMessage } from "../../services/Message.service"
 
 
 
-const debugElements = document.querySelectorAll<HTMLDivElement>(".debug");
+const debugSection = document.querySelector<HTMLDivElement>("#debug-section");
 const generateRandomChatsButton = document.querySelector<HTMLButtonElement>("#btn-debug-chats");
 const generateRandomPersonalitiesButton = document.querySelector<HTMLButtonElement>("#btn-debug-personalities");
 const testToastNormalButton = document.querySelector<HTMLButtonElement>("#btn-debug-toast-normal");
@@ -33,13 +33,13 @@ const isLocalhost = ["localhost", "127.0.0.1", "::1", "192.168.1.1"].includes(wi
 
 if (!isLocalhost) {
     // Hide debug UI entirely in non-local environments
-    if (debugElements) {
-        debugElements.forEach(element => element.classList.add("hidden"));
+    if (debugSection) {
+        debugSection.classList.add("hidden");
     }
 } else {
     // Ensure required buttons exist in localhost
-    if (debugElements) {
-        debugElements.forEach(element => element.classList.remove("hidden"));
+    if (debugSection) {
+        debugSection.classList.remove("hidden");
     }
 
 }

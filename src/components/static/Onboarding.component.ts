@@ -950,7 +950,7 @@ function setupAdvancedSettings(): void {
     const updateThinkingRestrictions = () => {
         const selectedModel = advancedModelSelect!.value;
         
-        if (selectedModel === ChatModel.PRO) {
+        if (selectedModel === ChatModel.PRO || selectedModel === ChatModel.PRO_LEGACY) {
             // Pro model: force thinking enabled
             advancedThinkingEnabled!.checked = true;
             advancedThinkingEnabled!.disabled = true;
