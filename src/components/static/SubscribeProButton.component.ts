@@ -14,9 +14,9 @@ button.addEventListener("click", async () => {
         // Optionally close the overlay to avoid double clicks during redirect
         overlayService.closeOverlay();
 
-        const { data, error } = await supabase.functions.invoke("create-checkout-session", {
+        const { data, error } = await supabase.functions.invoke("stripe", {
             method: "POST",
-            body: JSON.stringify({ priceId: "hi" })
+            body: JSON.stringify({ purchaseType: "pro_monthly" })
         });
 
         if (error) {
@@ -24,7 +24,7 @@ button.addEventListener("click", async () => {
             throw new Error(error.message || "Stripe checkout failed");
         }
 
-        const url = data.checkoutUrl;
+        const url = data.url;
         if (!url) {
             console.error("Stripe returned no URL", data);
             throw new Error("No checkout URL returned");
