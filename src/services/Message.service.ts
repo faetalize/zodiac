@@ -835,24 +835,12 @@ export async function regenerate(modelMessageIndex: number) {
     try {
         await send(message.parts[0].text || "");
     } catch (error: any) {
-        const modelMessage: Message = createModelErrorMessage(getSelectedPersonalityId());
-        const userMessage: Message = { role: "user", parts: [{ text: message.parts[0].text || "", attachments: attachments }] };
-        await persistUserAndModel(userMessage, modelMessage);
-        const updatedChat = await chatsService.getCurrentChat(db);
-        if (updatedChat) {
-            const userIndex = updatedChat.content.length - 2;
-            const modelIndex = updatedChat.content.length - 1;
-            const userMessageElement = await messageElement(updatedChat.content[userIndex], userIndex);
-            const responseMessageElement = await messageElement(updatedChat.content[modelIndex], modelIndex);
-            document.querySelector(".message-container")?.append(userMessageElement);
-            document.querySelector(".message-container")?.append(responseMessageElement);
-        }
-        helpers.messageContainerScrollToBottom(true);
+        console.error(error);
         danger({
             title: "Error regenerating message",
             text: JSON.stringify(error.message || error),
         });
-        console.error(error);
+        helpers.messageContainerScrollToBottom(true);
         return;
     }
 }

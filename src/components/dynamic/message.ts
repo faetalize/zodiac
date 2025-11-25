@@ -9,6 +9,7 @@ import * as parserService from "../../services/Parser.service";
 import * as chatsService from "../../services/Chats.service";
 import { enhanceCodeBlocks, stripCodeBlockEnhancements } from "../../utils/codeBlocks";
 import * as settingsService from "../../services/Settings.service";
+import * as toastService from "../../services/Toast.service";
 
 function resolveChatIndex(element: HTMLElement): number {
     const attr = element.dataset.chatIndex;
@@ -146,6 +147,7 @@ export const messageElement = async (
     }
 
     enhanceCodeBlocks(messageDiv);
+    setupPersonaSwitching(messageDiv, message);
 
     setupMessageRegeneration(messageDiv, index);
     setupMessageClipboard(messageDiv);
@@ -571,4 +573,76 @@ function setupGeneratedImageInteractions(root: HTMLElement) {
         // also click image to expand
         img.addEventListener('click', openLightbox);
     });
+}
+
+function setupPersonaSwitching(container: HTMLElement, message: Message): void {
+    const personalityId = message.personalityid;
+    if (!personalityId) {
+        return;
+    }
+
+    const avatar = container.querySelector<HTMLElement>(".pfp");
+    const name = container.querySelector<HTMLElement>(".message-role");
+    const personaName = name?.textContent?.trim() || "Selected persona";
+
+    const triggerElements = [avatar, name].filter((node): node is HTMLElement => Boolean(node));
+    if (!triggerElements.length) {
+        return;
+    }
+
+    const handleClick = (event: Event) => {
+        event.stopPropagation();
+        attemptPersonaSwitch(String(personalityId), personaName);
+    };
+
+    triggerElements.forEach((element) => {
+        element.classList.add("persona-switch-trigger");
+        element.setAttribute("title", "Click to switch to this persona");
+        element.addEventListener("click", handleClick);
+    });
+}
+
+function attemptPersonaSwitch(personalityId: string, personaName: string): void {
+    const targetInput = findPersonaInput(personalityId);
+    if (!targetInput) {
+        toastService.warn({
+            title: "Persona unavailable",
+            text: "This persona is no longer available in your library.",
+        });
+        return;
+    }
+
+    if (targetInput.checked) {
+        toastService.info({
+            title: "Persona already active",
+            text: `${personaName} is already selected.`,
+        });
+        return;
+    }
+
+    targetInput.click();
+    toastService.info({
+        title: "Persona switched",
+        text: `Now chatting as ${personaName}.`,
+    });
+}
+
+function findPersonaInput(personalityId: string): HTMLInputElement | null {
+    if (personalityId && personalityId !== "-1") {
+        const existing = document.querySelector<HTMLInputElement>(`#personality-${personalityId} input[name='personality']`);
+        if (existing) {
+            return existing;
+        }
+    }
+
+    if (personalityId === "-1") {
+        const defaultCardInput = document
+            .querySelector<HTMLDivElement>("#personalitiesDiv")
+            ?.querySelector<HTMLInputElement>("input[name='personality']");
+        if (defaultCardInput) {
+            return defaultCardInput;
+        }
+    }
+
+    return null;
 }

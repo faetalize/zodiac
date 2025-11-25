@@ -3170,6 +3170,10 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     }
 }
 
+.persona-switch-trigger {
+    cursor: pointer;
+}
+
 .message-actions {
     display: flex;
     gap: 0.5rem;
