@@ -150,9 +150,3 @@ cloudflare-workers/*
 .github/instructions
 .github/instructions/*
 src/services/GLM.service.ts
-
-
-#subproject
-PersonaMarketplace-main
-PersonaMarketplace-main/*
-PersonaMarketplace-main/.gitignore
