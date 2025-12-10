@@ -399,4 +399,31 @@
         background-color: var(--card-hover-bg, rgba(59, 59, 59, 0.027));
         border-color: var(--card-border-hover, rgba(22, 22, 22, 0.089));
     }
+
+    /* Marketplace Banner - Light Mode */
+    .marketplace-banner {
+        background: linear-gradient(135deg, rgba(242, 199, 91, 0.25) 0%, rgba(212, 168, 67, 0.15) 100%);
+        border-color: rgba(180, 140, 40, 0.35);
+    }
+
+    .marketplace-banner:hover {
+        background: linear-gradient(135deg, rgba(242, 199, 91, 0.35) 0%, rgba(212, 168, 67, 0.25) 100%);
+        border-color: rgba(180, 140, 40, 0.5);
+    }
+
+    .marketplace-banner-title {
+        color: #9a7b1e;
+    }
+
+    .marketplace-banner-subtitle {
+        color: #5a4a20;
+    }
+
+    .marketplace-banner-arrow {
+        color: #7a6520;
+    }
+
+    .marketplace-banner-dismiss {
+        color: #5a4a20;
+    }
 }

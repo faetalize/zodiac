@@ -2955,6 +2955,93 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     /* allow inner scroll areas to size correctly in flex */
 }
 
+/* Marketplace Banner */
+.marketplace-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, rgba(242, 199, 91, 0.15) 0%, rgba(212, 168, 67, 0.1) 100%);
+    border: 1px solid rgba(242, 199, 91, 0.3);
+    border-radius: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.marketplace-banner:hover {
+    background: linear-gradient(135deg, rgba(242, 199, 91, 0.25) 0%, rgba(212, 168, 67, 0.15) 100%);
+    border-color: rgba(242, 199, 91, 0.5);
+}
+
+.marketplace-banner-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.marketplace-banner-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.marketplace-banner-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+}
+
+.marketplace-banner-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #f2c75b;
+}
+
+.marketplace-banner-subtitle {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+.marketplace-banner-arrow {
+    font-size: 1.25rem;
+    opacity: 0.6;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.marketplace-banner:hover .marketplace-banner-arrow {
+    transform: translateX(2px);
+    opacity: 1;
+}
+
+.marketplace-banner-dismiss {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    padding: 0.25rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.marketplace-banner-dismiss:hover {
+    opacity: 0.8;
+}
+
+.marketplace-banner-dismiss .material-symbols-outlined {
+    font-size: 1rem;
+}
+
 /* Ensure collapsible cards in the Settings sidebar don't shrink; let container scroll */
 .sidebar-section .profile-card {
     flex-shrink: 0;

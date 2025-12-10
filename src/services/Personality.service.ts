@@ -14,6 +14,9 @@ export type SyncInfo = {
 };
 
 export async function initialize() {
+    //setup marketplace banner dismiss
+    setupMarketplaceBanner();
+
     //default personality setup
     const defaultPersonalityCard = insert(getDefault(), "-1");
     if (!defaultPersonalityCard) {
@@ -603,5 +606,30 @@ async function refreshCard(id: string) {
     //generate new card and replace old one in place
     const newCard = generateCard(personality, id, syncInfo);
     oldCard.replaceWith(newCard);
+}
+
+/**
+ * Setup marketplace banner dismiss functionality
+ */
+function setupMarketplaceBanner() {
+    const banner = document.querySelector<HTMLElement>('#marketplace-banner');
+    const dismissBtn = document.querySelector<HTMLButtonElement>('#btn-dismiss-marketplace-banner');
+    
+    if (!banner || !dismissBtn) return;
+    
+    //check if banner was dismissed
+    const dismissed = localStorage.getItem('marketplace-banner-dismissed');
+    if (dismissed === 'true') {
+        banner.classList.add('hidden');
+        return;
+    }
+    
+    //handle dismiss button click
+    dismissBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        localStorage.setItem('marketplace-banner-dismissed', 'true');
+        banner.classList.add('hidden');
+    });
 }
 
