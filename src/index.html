@@ -117,6 +117,20 @@
                 </div>
 
                 <div class="sidebar-section hidden" id="personalitySection">
+                    <!-- Marketplace Banner -->
+                    <a href="https://zodiac-marketplace.com" target="_blank" class="marketplace-banner" id="marketplace-banner">
+                        <div class="marketplace-banner-content">
+                            <span class="marketplace-banner-icon">✨</span>
+                            <div class="marketplace-banner-text">
+                                <span class="marketplace-banner-title">Persona Marketplace is Live!</span>
+                                <span class="marketplace-banner-subtitle">Browse, rate & share personas</span>
+                            </div>
+                        </div>
+                        <button class="marketplace-banner-dismiss" id="btn-dismiss-marketplace-banner" aria-label="Dismiss">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </a>
+
                     <div class="btn-array">
                         <button class="btn btn-primary" id="btn-import-personality">
                             <span class="material-symbols-outlined">upload</span>Import
@@ -228,7 +242,7 @@
                                         <select id="selectedModel" class="input-field">
                                             <option value="gemini-flash-lite-latest">Flash Lite</option>
                                             <option value="gemini-flash-latest" selected="true">Flash</option>
-                                            <option value="gemini-2.5-flash-image-preview">Flash Image (Nano Banana)</option>
+                                            <option value="gemini-2.5-flash-image">Flash Image (Nano Banana)</option>
                                             <option value="gemini-2.5-pro">Pro (Legacy)</option>
                                             <option value="gemini-3-pro-preview">Pro (Recommended)</option>
                                         </select>
@@ -570,6 +584,14 @@
                                 <option value="2">2</option>
                                 <option value="3">3</option>
                             </datalist>
+                            <label for="independence">Independence:</label>
+                            <input type="range" name="independence" min="0" max="3" step="1" list="independence-steps">
+                            <datalist id="independence-steps">
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </datalist>
                             <h3>Tweaks</h3>
                             <!-- internet access toggle -->
                             <div style="display: flex; gap: 0.25rem; align-items: center;">
@@ -651,17 +673,58 @@
             <div id="whats-new" class="hidden">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li><b>Gemini 3.0 is here:</b> It's sick. Enjoy! For now only Gemini 3.0 Pro preview is available, be on the lookout for the flash version</li>
-                    <li><b>QOL:</b> Pro subscribers can choose to route their requests through their own API key endpoints if they so choose</li>
-                    <li><b>QOL:</b> Chat filtering and searching revamped</li>
-                    <li><b>Mobile related improvements:</b> Improved performance and usability on mobile devices</li>
-                    <li><b>Improved UX:</b> Lots of improvements and stability enhancements</li>
+                    <li><b>Mobile stability:</b> Various mobile-related stability fixes</li>
+                    <li><b>Stop streaming:</b> Ability to stop a request/stream midway</li>
+                    <li><b>Persona Marketplace:</b> Compatibility with Zodiac Persona Marketplace to get the latest updates on personas</li>
+                    <li><b>Quick persona switch:</b> Click the name of a character in a chat to automatically select their corresponding persona</li>
 
                     <li>Visit my Discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
                     <li>You may also contact the project via email: <a
                             href="mailto:zodiac@faetalize.dev">zodiac@faetalize.dev</a></li>
                 </ul>
+            </div>
+
+            <!-- Add Persona Modal -->
+            <div id="modal-add-persona" class="hidden">
+                <span class="material-symbols-outlined sync-modal-icon">person_add</span>
+                <h1>Add Persona</h1>
+                <p class="overlay-description">
+                    Create a new persona locally or browse the Zodiac Marketplace.
+                </p>
+                <div class="overlay-actions overlay-actions-vertical">
+                    <button class="btn btn-primary add-persona-marketplace-btn">
+                        <span class="material-symbols-outlined">storefront</span>
+                        Browse Marketplace
+                    </button>
+                    <button class="btn btn-secondary add-persona-local-btn">
+                        <span class="material-symbols-outlined">edit</span>
+                        Create Local
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sync Update Modal -->
+            <div id="modal-sync-update" class="hidden">
+                <span class="material-symbols-outlined sync-modal-icon">sync</span>
+                <h1>Update Available</h1>
+                <p class="overlay-description">
+                    A newer version of "<strong id="sync-modal-persona-name">this persona</strong>" is available from the Marketplace.
+                </p>
+                <div class="overlay-actions overlay-actions-vertical">
+                    <button class="btn btn-primary sync-update-btn">
+                        <span class="material-symbols-outlined">download</span>
+                        Update Persona
+                    </button>
+                    <button class="btn btn-secondary sync-duplicate-btn">
+                        <span class="material-symbols-outlined">content_copy</span>
+                        Keep Backup & Update
+                    </button>
+                </div>
+                <p class="sync-modal-hint">
+                    <span class="material-symbols-outlined">info</span>
+                    "Keep Backup" saves a copy of your current version before updating.
+                </p>
             </div>
 
             <div id="login-register-tabs" class="hidden">
@@ -905,7 +968,7 @@
                     </button>
                 </div>
                 <p>Each image credit grants you an image generation. However, LoRA usage may incur additional credit
-                    costs. Every 2 LoRA calls will consume 1 additional image credit, with a minimum of 1 credit
+                    costs. Every 2 LoRA calls will consume 1 additional credit, with a minimum of 1 credit
                     required.</p>
             </div>
         </div>

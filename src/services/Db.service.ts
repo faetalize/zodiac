@@ -138,6 +138,46 @@ export async function setupDB() {
             lastModified
         `
     });
+
+    //v11 adds independence and nsfw to personalities
+    db.version(11).stores({
+        personalities: `
+            id,
+            name,
+            image,
+            prompt,
+            aggressiveness,
+            sensuality,
+            independence,
+            nsfw,
+            internetEnabled,
+            roleplayEnabled,
+            toneExamples
+        `
+    });
+
+    // v12: Add marketplace sync fields (tags, category, syncedFrom, version, localModifications)
+    db.version(12).stores({
+        personalities: `
+            id,
+            name,
+            image,
+            prompt,
+            aggressiveness,
+            sensuality,
+            independence,
+            nsfw,
+            internetEnabled,
+            roleplayEnabled,
+            toneExamples,
+            tags,
+            category,
+            syncedFrom,
+            version,
+            localModifications
+        `
+    });
+
     return db;
 }
 

@@ -28,6 +28,27 @@ import { shouldPreferPremiumEndpoint } from "../components/static/ApiKeyInput.co
 
 const PERSONALITY_MARKER_PREFIX = "__personality_marker__|";
 
+//abort controller for interrupting message generation
+let currentAbortController: AbortController | null = null;
+let isGenerating = false;
+
+export function abortGeneration(): void {
+    if (currentAbortController) {
+        currentAbortController.abort();
+        currentAbortController = null;
+    }
+}
+
+export function getIsGenerating(): boolean {
+    return isGenerating;
+}
+
+function endGeneration(): void {
+    isGenerating = false;
+    currentAbortController = null;
+    window.dispatchEvent(new CustomEvent('generation-state-changed', { detail: { isGenerating: false } }));
+}
+
 
 export async function send(msg: string): Promise<HTMLElement | undefined> {
     const settings = settingsService.getSettings();
@@ -105,6 +126,11 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
     if (!msg) {
         return;
     }
+
+    //initialize abort controller and set generating state
+    currentAbortController = new AbortController();
+    isGenerating = true;
+    window.dispatchEvent(new CustomEvent('generation-state-changed', { detail: { isGenerating: true } }));
 
     const thinkingConfig = generateThinkingConfig(settings.model, settings.enableThinking, settings);
 
@@ -236,7 +262,8 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                     images: imagesToEdit,
                     prompt: msg,
                     editingModel: editingModel
-                })
+                }),
+                signal: currentAbortController?.signal,
             });
 
             if (!response.ok) {
@@ -254,6 +281,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                     responseElement.replaceWith(newElm);
                 }
                 helpers.messageContainerScrollToBottom(true);
+                endGeneration();
                 return userMessageElement;
             }
 
@@ -278,6 +306,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                     responseElement.replaceWith(newElm);
                 }
                 helpers.messageContainerScrollToBottom(true);
+                endGeneration();
                 return userMessageElement;
             }
 
@@ -297,6 +326,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
             }
             helpers.messageContainerScrollToBottom();
             supabaseService.refreshImageGenerationRecord();
+            endGeneration();
             return userMessageElement;
         } catch (error: any) {
             console.error("Image editing error:", error);
@@ -313,6 +343,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                 responseElement.replaceWith(newElm);
             }
             helpers.messageContainerScrollToBottom(true);
+            endGeneration();
             return userMessageElement;
         }
     }
@@ -342,7 +373,8 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                     ...(await getAuthHeaders()),
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: currentAbortController?.signal,
             });
             //case: fail
             if (!response.ok) {
@@ -357,6 +389,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                     responseElement.replaceWith(newElm);
                 }
                 helpers.messageContainerScrollToBottom(true);
+                endGeneration();
                 return userMessageElement;
             }
             // the edge function returns an image directly (binary body)
@@ -379,6 +412,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                     responseElement.replaceWith(newElm);
                 }
                 helpers.messageContainerScrollToBottom(true);
+                endGeneration();
                 return userMessageElement;
             }
             b64 = response.generatedImages?.[0].image?.imageBytes!;
@@ -405,6 +439,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
         //trigger image credit related event
         supabaseService.refreshImageGenerationRecord();
 
+        endGeneration();
         return userMessageElement;
     }
 
@@ -440,6 +475,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                     method: 'POST',
                     headers: await getAuthHeaders(),
                     body: form,
+                    signal: currentAbortController?.signal,
                 });
             } else {
                 const payload: PremiumEndpoint.Request = {
@@ -454,7 +490,8 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                         ...(await getAuthHeaders()),
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    signal: currentAbortController?.signal,
                 });
             }
 
@@ -471,7 +508,14 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                 const decoder = new TextDecoder();
                 let buffer = '';
                 let isFallbackMode = false;
+                let wasAborted = false;
                 while (true) {
+                    //check if aborted
+                    if (currentAbortController?.signal.aborted) {
+                        wasAborted = true;
+                        reader.cancel();
+                        break;
+                    }
                     const { value, done } = await reader.read();
                     if (done) break;
                     buffer += decoder.decode(value, { stream: true });
@@ -554,6 +598,29 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                         }
                     }
                 }
+                //handle abort: save partial content if streaming was interrupted
+                if (wasAborted) {
+                    const modelMessage: Message = {
+                        role: "model",
+                        personalityid: selectedPersonalityId,
+                        parts: [{ text: rawText || "*Response interrupted.*" }],
+                        groundingContent: groundingContent || "",
+                        thinking: thinking || undefined,
+                        generatedImages: generatedImage ? [generatedImage] : undefined,
+                        interrupted: true
+                    };
+                    await persistUserAndModel(userMessage, modelMessage);
+                    const updatedChat = await chatsService.getCurrentChat(db);
+                    if (updatedChat) {
+                        const modelIndex = updatedChat.content.length - 1;
+                        const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                        responseElement.replaceWith(newElm);
+                    }
+                    responseElement.querySelector('.message-text')?.classList.remove('is-loading');
+                    helpers.messageContainerScrollToBottom(true);
+                    endGeneration();
+                    return userMessageElement;
+                }
             } else { //non-streaming
                 const json = await res.json();
                 if (json) {
@@ -590,7 +657,30 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                 messageContent.innerHTML = await parseMarkdownToHtml(rawText);
 
             }
-        } catch (err) {
+        } catch (err: any) {
+            //handle abort error gracefully
+            if (err?.name === 'AbortError' || currentAbortController?.signal.aborted) {
+                const modelMessage: Message = {
+                    role: "model",
+                    personalityid: selectedPersonalityId,
+                    parts: [{ text: rawText || "*Response interrupted.*" }],
+                    groundingContent: groundingContent || "",
+                    thinking: thinking || undefined,
+                    generatedImages: generatedImage ? [generatedImage] : undefined,
+                    interrupted: true
+                };
+                await persistUserAndModel(userMessage, modelMessage);
+                const updatedChat = await chatsService.getCurrentChat(db);
+                if (updatedChat) {
+                    const modelIndex = updatedChat.content.length - 1;
+                    const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                    responseElement.replaceWith(newElm);
+                }
+                responseElement.querySelector('.message-text')?.classList.remove('is-loading');
+                helpers.messageContainerScrollToBottom(true);
+                endGeneration();
+                return userMessageElement;
+            }
             console.error(err);
             const modelMessage: Message = createModelErrorMessage(selectedPersonalityId);
             await persistUserAndModel(userMessage, modelMessage);
@@ -601,6 +691,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                 responseElement.replaceWith(newElm);
             }
             helpers.messageContainerScrollToBottom(true);
+            endGeneration();
             throw err;
         }
 
@@ -626,9 +717,15 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
         };
 
         try {
+            let wasAborted = false;
             if (settings.streamResponses) {
                 let stream: AsyncGenerator<GenerateContentResponse> = await chat.sendMessageStream(messagePayload);
                 for await (const chunk of stream) {
+                    //check if aborted
+                    if (currentAbortController?.signal.aborted) {
+                        wasAborted = true;
+                        break;
+                    }
                     if (chunk) {
                         finishReason = chunk.candidates?.[0]?.finishReason || chunk.promptFeedback?.blockReason; //finish reason
                         if (config.thinkingConfig?.includeThoughts) {
@@ -658,6 +755,29 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                         helpers.messageContainerScrollToBottom();
                     }
                 }
+                //handle abort: save partial content
+                if (wasAborted) {
+                    const modelMessage: Message = {
+                        role: "model",
+                        personalityid: selectedPersonalityId,
+                        parts: [{ text: rawText || "*Response interrupted.*" }],
+                        groundingContent: groundingContent || "",
+                        thinking: thinking || undefined,
+                        generatedImages: generatedImage ? [generatedImage] : undefined,
+                        interrupted: true
+                    };
+                    await persistUserAndModel(userMessage, modelMessage);
+                    const updatedChat = await chatsService.getCurrentChat(db);
+                    if (updatedChat) {
+                        const modelIndex = updatedChat.content.length - 1;
+                        const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                        responseElement.replaceWith(newElm);
+                    }
+                    responseElement.querySelector('.message-text')?.classList.remove('is-loading');
+                    helpers.messageContainerScrollToBottom(true);
+                    endGeneration();
+                    return userMessageElement;
+                }
             } else {
                 const response = await chat.sendMessage(messagePayload);
                 if (response) {
@@ -686,7 +806,30 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                     }
                 }
             }
-        } catch (err) {
+        } catch (err: any) {
+            //handle abort error gracefully
+            if (err?.name === 'AbortError' || currentAbortController?.signal.aborted) {
+                const modelMessage: Message = {
+                    role: "model",
+                    personalityid: selectedPersonalityId,
+                    parts: [{ text: rawText || "*Response interrupted.*" }],
+                    groundingContent: groundingContent || "",
+                    thinking: thinking || undefined,
+                    generatedImages: generatedImage ? [generatedImage] : undefined,
+                    interrupted: true
+                };
+                await persistUserAndModel(userMessage, modelMessage);
+                const updatedChat = await chatsService.getCurrentChat(db);
+                if (updatedChat) {
+                    const modelIndex = updatedChat.content.length - 1;
+                    const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                    responseElement.replaceWith(newElm);
+                }
+                responseElement.querySelector('.message-text')?.classList.remove('is-loading');
+                helpers.messageContainerScrollToBottom(true);
+                endGeneration();
+                return userMessageElement;
+            }
             const modelMessage: Message = createModelErrorMessage(selectedPersonalityId)
             await persistUserAndModel(userMessage, modelMessage);
             const updatedChat = await chatsService.getCurrentChat(db);
@@ -696,6 +839,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                 responseElement.replaceWith(newElm);
             }
             helpers.messageContainerScrollToBottom(true);
+            endGeneration();
             console.error(err);
             throw err;
         }
@@ -750,6 +894,8 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
     //finalize
     hljs.highlightAll();
     helpers.messageContainerScrollToBottom();
+
+    endGeneration();
 
     return userMessageElement;
 }
@@ -835,24 +981,12 @@ export async function regenerate(modelMessageIndex: number) {
     try {
         await send(message.parts[0].text || "");
     } catch (error: any) {
-        const modelMessage: Message = createModelErrorMessage(getSelectedPersonalityId());
-        const userMessage: Message = { role: "user", parts: [{ text: message.parts[0].text || "", attachments: attachments }] };
-        await persistUserAndModel(userMessage, modelMessage);
-        const updatedChat = await chatsService.getCurrentChat(db);
-        if (updatedChat) {
-            const userIndex = updatedChat.content.length - 2;
-            const modelIndex = updatedChat.content.length - 1;
-            const userMessageElement = await messageElement(updatedChat.content[userIndex], userIndex);
-            const responseMessageElement = await messageElement(updatedChat.content[modelIndex], modelIndex);
-            document.querySelector(".message-container")?.append(userMessageElement);
-            document.querySelector(".message-container")?.append(responseMessageElement);
-        }
-        helpers.messageContainerScrollToBottom(true);
+        console.error(error);
         danger({
             title: "Error regenerating message",
             text: JSON.stringify(error.message || error),
         });
-        console.error(error);
+        helpers.messageContainerScrollToBottom(true);
         return;
     }
 }

@@ -178,6 +178,10 @@ form.submit = () => {
         prompt: '',
         roleplayEnabled: false,
         sensuality: 0,
+        independence: 0,
+        nsfw: false,
+        category: 'assistant',
+        tags: [],
         toneExamples: []
     };
     const data = new FormData(form);
@@ -191,13 +195,18 @@ form.submit = () => {
         if (key === 'id') {
             continue;
         }
-        if (key === 'aggressiveness' || key === 'sensuality') {
+        if (key === 'aggressiveness' || key === 'sensuality' || key === 'independence') {
             personality[key] = Number(value);
         } else if (key === 'description' || key === 'image' || key === 'name' || key === 'prompt') {
             personality[key] = value.toString();
-        }
-        else if (key === 'internetEnabled' || key === 'roleplayEnabled') {
+        } else if (key === 'internetEnabled' || key === 'roleplayEnabled' || key === 'nsfw') {
             personality[key] = Boolean(value);
+        } else if (key === 'category') {
+            personality.category = value.toString() as 'character' | 'assistant';
+        } else if (key === 'tags') {
+            //tags are already comma-separated in hidden input by TagsInput component
+            const tagsString = value.toString().trim();
+            personality.tags = tagsString ? tagsString.split(',').filter(t => t.length > 0) : [];
         } else {
             console.warn(`Unhandled form key: ${key}`);
         }

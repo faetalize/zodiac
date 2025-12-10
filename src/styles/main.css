@@ -654,6 +654,77 @@ form {
     transform: scale(0.96);
 }
 
+/* Tags chip input */
+.tags-input-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem;
+    border: 1px solid var(--input-border, #ccc);
+    border-radius: 0.5rem;
+    background: var(--input-bg, #fff);
+    min-height: 2.5rem;
+    cursor: text;
+}
+
+.tags-input-container:focus-within {
+    outline: 2px solid var(--accent-color, #007bff);
+    outline-offset: -1px;
+}
+
+.tags-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--accent-color, #007bff);
+    color: var(--accent-fg, #fff);
+    border-radius: 1rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.tag-chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1rem;
+    line-height: 1;
+    color: inherit;
+    opacity: 0.7;
+    transition: opacity 0.15s ease;
+}
+
+.tag-chip-remove:hover {
+    opacity: 1;
+}
+
+.tags-input {
+    flex: 1 1 auto;
+    min-width: 8rem;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.9rem;
+    padding: 0.25rem;
+}
+
+.tags-input::placeholder {
+    color: var(--input-placeholder, #999);
+}
+
 #login-register-tabs {
     display: flex;
     flex-direction: column;
@@ -2322,6 +2393,10 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     pointer-events: none;
 }
 
+#message-box-buttons button.generating {
+    color: var(--danger);
+}
+
 .message-box-right {
     display: inline-flex;
     align-items: center;
@@ -2880,6 +2955,93 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     /* allow inner scroll areas to size correctly in flex */
 }
 
+/* Marketplace Banner */
+.marketplace-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, rgba(242, 199, 91, 0.15) 0%, rgba(212, 168, 67, 0.1) 100%);
+    border: 1px solid rgba(242, 199, 91, 0.3);
+    border-radius: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.marketplace-banner:hover {
+    background: linear-gradient(135deg, rgba(242, 199, 91, 0.25) 0%, rgba(212, 168, 67, 0.15) 100%);
+    border-color: rgba(242, 199, 91, 0.5);
+}
+
+.marketplace-banner-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.marketplace-banner-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.marketplace-banner-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+}
+
+.marketplace-banner-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #f2c75b;
+}
+
+.marketplace-banner-subtitle {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+.marketplace-banner-arrow {
+    font-size: 1.25rem;
+    opacity: 0.6;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.marketplace-banner:hover .marketplace-banner-arrow {
+    transform: translateX(2px);
+    opacity: 1;
+}
+
+.marketplace-banner-dismiss {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    padding: 0.25rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.marketplace-banner-dismiss:hover {
+    opacity: 0.8;
+}
+
+.marketplace-banner-dismiss .material-symbols-outlined {
+    font-size: 1rem;
+}
+
 /* Ensure collapsible cards in the Settings sidebar don't shrink; let container scroll */
 .sidebar-section .profile-card {
     flex-shrink: 0;
@@ -3170,6 +3332,10 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     }
 }
 
+.persona-switch-trigger {
+    cursor: pointer;
+}
+
 .message-actions {
     display: flex;
     gap: 0.5rem;
@@ -3269,6 +3435,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     min-height: 3.5rem;
     text-wrap: nowrap;
     padding: 1rem;
+    gap: 0.5rem;
 
     -webkit-tap-highlight-color: transparent;
     cursor: pointer;
@@ -3307,11 +3474,23 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
 
 .personality-info * {
     margin: 0;
-    padding-left: 0.5rem;
+    padding-inline: 0.5rem;
+}
+
+.personality-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-left: 0;
+    min-width: 0;
 }
 
 .personality-title {
-    text-wrap: nowrap;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex-shrink: 1;
 }
 
 .personality-prompt {
@@ -3361,6 +3540,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     flex-direction: column;
     justify-content: space-between;
     flex-direction: column;
+    gap: 0;
 }
 
 .pfp {
@@ -3376,6 +3556,148 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     -webkit-line-clamp: 2;
     line-clamp: 2;
     -webkit-box-orient: vertical;
+}
+
+/* Sync status badges */
+.sync-badge {
+    display: inline-flex;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.3rem;
+    font-size: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-shadow: none;
+    pointer-events: auto;
+}
+
+.sync-badge-local {
+    background: rgba(184, 184, 184, 0.144);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    filter: drop-shadow(0 0 1px #000000ea);
+}
+
+.sync-badge-uptodate {
+    background: rgba(34, 197, 94, 0.25);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.sync-badge-outdated {
+    background: rgba(234, 179, 8, 0.25);
+    color: #fbbf24;
+    border: 1px solid rgba(234, 179, 8, 0.4);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sync-badge-outdated:hover {
+    background: rgba(234, 179, 8, 0.4);
+    transform: scale(1.05);
+}
+
+.sync-badge-deleted {
+    background: rgba(239, 68, 68, 0.25);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+/* When card is expanded (checked), move badge to top-left corner */
+.card-personality:has(input[name="personality"]:checked) .sync-badge {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.6rem;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-radius: 0.5rem;
+}
+
+/* Sync Update Modal */
+#modal-sync-update {
+    max-width: 380px;
+    text-align: center;
+}
+
+#modal-sync-update h1 {
+    margin: 0.5rem 0 0;
+}
+
+#modal-sync-update .overlay-description {
+    text-align: center;
+}
+
+#modal-sync-update .overlay-description strong {
+    color: #f59e0b;
+}
+
+.sync-modal-icon {
+    font-size: 2.5rem;
+    color: #fbbf24;
+    background: rgba(234, 179, 8, 0.15);
+    width: 4rem;
+    height: 4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin: 0 auto;
+}
+
+.overlay-actions-vertical {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.overlay-actions-vertical .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+}
+
+.overlay-actions-vertical .btn .material-symbols-outlined {
+    font-size: 1.1rem;
+}
+
+.overlay-actions-vertical .btn-primary {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #1a1a1a;
+    border: none;
+}
+
+.overlay-actions-vertical .btn-primary:hover {
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+}
+
+.overlay-actions-vertical .btn-secondary {
+    background: rgba(128, 128, 128, 0.15);
+    color: var(--text-primary);
+    border: 1px solid rgba(128, 128, 128, 0.3);
+}
+
+.overlay-actions-vertical .btn-secondary:hover {
+    background: rgba(128, 128, 128, 0.25);
+}
+
+.sync-modal-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: left;
+    margin: 1rem 0 0;
+}
+
+.sync-modal-hint .material-symbols-outlined {
+    font-size: 1rem;
+    flex-shrink: 0;
 }
 
 .card-add-personality {
