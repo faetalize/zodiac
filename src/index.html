@@ -228,7 +228,7 @@
                                         <select id="selectedModel" class="input-field">
                                             <option value="gemini-flash-lite-latest">Flash Lite</option>
                                             <option value="gemini-flash-latest" selected="true">Flash</option>
-                                            <option value="gemini-2.5-flash-image-preview">Flash Image (Nano Banana)</option>
+                                            <option value="gemini-2.5-flash-image">Flash Image (Nano Banana)</option>
                                             <option value="gemini-2.5-pro">Pro (Legacy)</option>
                                             <option value="gemini-3-pro-preview">Pro (Recommended)</option>
                                         </select>
@@ -570,6 +570,14 @@
                                 <option value="2">2</option>
                                 <option value="3">3</option>
                             </datalist>
+                            <label for="independence">Independence:</label>
+                            <input type="range" name="independence" min="0" max="3" step="1" list="independence-steps">
+                            <datalist id="independence-steps">
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </datalist>
                             <h3>Tweaks</h3>
                             <!-- internet access toggle -->
                             <div style="display: flex; gap: 0.25rem; align-items: center;">
@@ -662,6 +670,48 @@
                     <li>You may also contact the project via email: <a
                             href="mailto:zodiac@faetalize.dev">zodiac@faetalize.dev</a></li>
                 </ul>
+            </div>
+
+            <!-- Add Persona Modal -->
+            <div id="modal-add-persona" class="hidden">
+                <span class="material-symbols-outlined sync-modal-icon">person_add</span>
+                <h1>Add Persona</h1>
+                <p class="overlay-description">
+                    Create a new persona locally or browse the Zodiac Marketplace.
+                </p>
+                <div class="overlay-actions overlay-actions-vertical">
+                    <button class="btn btn-primary add-persona-marketplace-btn">
+                        <span class="material-symbols-outlined">storefront</span>
+                        Browse Marketplace
+                    </button>
+                    <button class="btn btn-secondary add-persona-local-btn">
+                        <span class="material-symbols-outlined">edit</span>
+                        Create Local
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sync Update Modal -->
+            <div id="modal-sync-update" class="hidden">
+                <span class="material-symbols-outlined sync-modal-icon">sync</span>
+                <h1>Update Available</h1>
+                <p class="overlay-description">
+                    A newer version of "<strong id="sync-modal-persona-name">this persona</strong>" is available from the Marketplace.
+                </p>
+                <div class="overlay-actions overlay-actions-vertical">
+                    <button class="btn btn-primary sync-update-btn">
+                        <span class="material-symbols-outlined">download</span>
+                        Update Persona
+                    </button>
+                    <button class="btn btn-secondary sync-duplicate-btn">
+                        <span class="material-symbols-outlined">content_copy</span>
+                        Keep Backup & Update
+                    </button>
+                </div>
+                <p class="sync-modal-hint">
+                    <span class="material-symbols-outlined">info</span>
+                    "Keep Backup" saves a copy of your current version before updating.
+                </p>
             </div>
 
             <div id="login-register-tabs" class="hidden">
@@ -905,7 +955,7 @@
                     </button>
                 </div>
                 <p>Each image credit grants you an image generation. However, LoRA usage may incur additional credit
-                    costs. Every 2 LoRA calls will consume 1 additional image credit, with a minimum of 1 credit
+                    costs. Every 2 LoRA calls will consume 1 additional credit, with a minimum of 1 credit
                     required.</p>
             </div>
         </div>

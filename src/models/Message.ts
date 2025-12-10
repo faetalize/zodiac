@@ -19,4 +19,6 @@ export interface Message {
     thinking?: string;
     // Whether this message is hidden from the normal chat view (e.g. system prompts)
     hidden?: boolean;
+    // Whether this message was interrupted by the user
+    interrupted?: boolean;
 }

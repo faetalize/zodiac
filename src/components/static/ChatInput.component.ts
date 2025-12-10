@@ -144,7 +144,16 @@ messageInput.addEventListener("dragover", handleDragOver);
 messageInput.addEventListener("dragleave", handleDragLeave);
 messageInput.addEventListener("drop", handleDrop);
 
+//track if currently generating a response
+let isCurrentlyGenerating = false;
+
 sendMessageButton.addEventListener("click", async () => {
+    //if generating, abort instead of send
+    if (isCurrentlyGenerating) {
+        messageService.abortGeneration();
+        return;
+    }
+
     // Check for insufficient credits before sending
     if (hasInsufficientImageCredits) {
         toastService.warn({
@@ -165,6 +174,20 @@ sendMessageButton.addEventListener("click", async () => {
         });
         console.error(error);
         return;
+    }
+});
+
+//listen for generation state changes to toggle send/stop button
+window.addEventListener('generation-state-changed', (event: any) => {
+    isCurrentlyGenerating = event.detail.isGenerating;
+    if (isCurrentlyGenerating) {
+        sendMessageButton.textContent = 'stop';
+        sendMessageButton.title = 'Stop generating';
+        sendMessageButton.classList.add('generating');
+    } else {
+        sendMessageButton.textContent = 'send';
+        sendMessageButton.title = '';
+        sendMessageButton.classList.remove('generating');
     }
 });
 

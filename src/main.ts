@@ -22,6 +22,8 @@ settingsService.initialize();
 // Initialize database
 await chatsService.initialize();
 await personalityService.initialize();
+personalityService.initSyncModalHandlers();
+personalityService.initAddPersonaModalHandlers();
 
 //event listeners
 const hideOverlayButton = document.querySelector("#btn-hide-overlay");

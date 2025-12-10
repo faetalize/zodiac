@@ -525,3 +525,94 @@ export async function refreshImageGenerationRecord() {
         console.error('Error refreshing image generation record:', error);
     }
 }
+
+// -------------------- Marketplace Sync --------------------
+
+export type MarketplacePersonaInfo = {
+    id: string;
+    version: number;
+    name: string;
+    exists: true;
+} | {
+    exists: false;
+};
+
+/**
+ * Check if a persona exists in the marketplace and get its current version.
+ * Used to determine sync status (up-to-date, outdated, or deleted from marketplace).
+ */
+export async function getMarketplacePersonaVersion(personaId: string): Promise<MarketplacePersonaInfo> {
+    const { data, error } = await supabase
+        .from('personas')
+        .select('id, version, name')
+        .eq('id', personaId)
+        .maybeSingle();
+
+    if (error || !data) {
+        return { exists: false };
+    }
+
+    return {
+        id: data.id,
+        version: data.version,
+        name: data.name,
+        exists: true,
+    };
+}
+
+/**
+ * Batch check multiple persona IDs for their marketplace versions.
+ * More efficient than individual calls when checking all personalities.
+ */
+export async function getMarketplacePersonaVersions(personaIds: string[]): Promise<Map<string, MarketplacePersonaInfo>> {
+    if (personaIds.length === 0) {
+        return new Map();
+    }
+
+    const { data, error } = await supabase
+        .from('personas')
+        .select('id, version, name')
+        .in('id', personaIds);
+
+    const result = new Map<string, MarketplacePersonaInfo>();
+
+    //initialize all as not existing
+    for (const id of personaIds) {
+        result.set(id, { exists: false });
+    }
+
+    if (error || !data) {
+        console.error('Failed to fetch marketplace persona versions:', error);
+        return result;
+    }
+
+    //update with found personas
+    for (const persona of data) {
+        result.set(persona.id, {
+            id: persona.id,
+            version: persona.version,
+            name: persona.name,
+            exists: true,
+        });
+    }
+
+    return result;
+}
+
+/**
+ * Fetch full persona data from marketplace for updating local copy.
+ */
+export async function fetchMarketplacePersona(personaId: string) {
+    const { data, error } = await supabase
+        .from('personas')
+        .select('*')
+        .eq('id', personaId)
+        .single();
+
+    if (error || !data) {
+        console.error('Failed to fetch marketplace persona:', error);
+        return null;
+    }
+
+    return data;
+}

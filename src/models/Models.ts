@@ -5,7 +5,7 @@ export enum ChatModel  {
     FLASH_LATEST = "gemini-flash-latest",
     FLASH_LITE = "gemini-2.5-flash-lite",
     FLASH_LITE_LATEST = "gemini-flash-lite-latest",
-    NANO_BANANA = "gemini-2.5-flash-image-preview"
+    NANO_BANANA = "gemini-2.5-flash-image"
 }
 
 export enum ImageModel {
