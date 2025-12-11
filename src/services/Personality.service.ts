@@ -192,7 +192,7 @@ export function share(personality: Personality & { id?: string }, explicitId?: s
     document.body.removeChild(element);
 }
 
-const MARKETPLACE_URL = 'https://zodiac-marketplace.vercel.app';
+const MARKETPLACE_URL = 'https://zodiac-marketplace.com/';
 
 export function createAddPersonalityCard() {
     const card = document.createElement("div");
