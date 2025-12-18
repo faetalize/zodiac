@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { getSubscriptionTier, type SubscriptionTier } from "../../services/Supabase.service";
+import { ChatModel } from "../../models/Models";
 
 const apiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
 const apiKeyGroup = document.querySelector<HTMLDivElement>(".api-key");
@@ -66,7 +67,7 @@ apiKeyInput?.addEventListener("input", () => {
         try {
             // Test the API key with a simple query
             await ai.models.generateContent({
-                model: "gemini-2.5-flash-lite",
+                model: ChatModel.FLASH_LITE_LATEST,
                 contents: "test"
             });
             apiKeyInput.classList.add("api-key-valid");

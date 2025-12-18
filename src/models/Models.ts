@@ -1,11 +1,13 @@
 export enum ChatModel  {
     PRO_LEGACY = "gemini-2.5-pro",
     PRO = "gemini-3-pro-preview",
-    FLASH = "gemini-2.5-flash",
+    FLASH_LEGACY = "gemini-2.5-flash",
     FLASH_LATEST = "gemini-flash-latest",
+    FLASH = "gemini-3-flash-preview",
     FLASH_LITE = "gemini-2.5-flash-lite",
     FLASH_LITE_LATEST = "gemini-flash-lite-latest",
-    NANO_BANANA = "gemini-2.5-flash-image"
+    NANO_BANANA = "gemini-2.5-flash-image",
+    NANO_BANANA_PRO = "gemini-3-pro-image-preview"
 }
 
 export enum ImageModel {

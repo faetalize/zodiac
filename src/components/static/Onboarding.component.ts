@@ -449,7 +449,7 @@ function setupApiKeySetup(): void {
             // Test the API key with a simple call to Gemini 2.5 Flash Lite
             const ai = new GoogleGenAI({ apiKey });
             await ai.models.generateContent({
-                model: "gemini-flash-lite-latest",
+                model: ChatModel.FLASH_LITE_LATEST,
                 contents: "Say 'Hello' in one word."
             });
             
@@ -785,7 +785,7 @@ function applyEasyPathSettings(): void {
     // Set Easy path defaults in localStorage
     localStorage.setItem("autoscroll", "true");
     localStorage.setItem("streamResponses", "true");
-    localStorage.setItem("model", "gemini-flash-latest");
+    localStorage.setItem("model", ChatModel.FLASH_LATEST);
     localStorage.setItem("maxTokens", "1000");
     localStorage.setItem("enableThinking", "true");
     localStorage.setItem("thinkingBudget", "500");
@@ -926,7 +926,7 @@ function setupSubscriptionConfirmation(): void {
 function setupAdvancedSettings(): void {
     // Load current or default settings
     const loadDefaultSettings = () => {
-        advancedModelSelect!.value = localStorage.getItem("model") || "gemini-flash-latest";
+        advancedModelSelect!.value = localStorage.getItem("model") || ChatModel.FLASH_LATEST;
         advancedTemperature!.value = localStorage.getItem("TEMPERATURE") || "60";
         updateTemperatureDisplay();
         advancedThinkingEnabled!.checked = localStorage.getItem("enableThinking") !== "false";
