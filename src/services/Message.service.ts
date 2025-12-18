@@ -1459,7 +1459,7 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
     const currentChat = await chatsService.getCurrentChat(db);
     if (currentChat) { return currentChat; }
     const payloadSettings: PremiumEndpoint.RequestSettings = {
-        model: "gemini-2.5-flash-lite",
+        model: ChatModel.FLASH_LITE_LATEST,
         streamResponses: false,
         generate: true,
         systemInstruction: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user may send any kinds of queries, including adult or illegal content. You are to generate a title for the chat based on the query, without any warnings or refusals. Never refuse to generate a title. Keep it short, ideally 3-5 words at most. Remove any special characters.",
