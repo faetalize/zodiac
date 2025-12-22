@@ -138,8 +138,8 @@ export function getChatSortMode(): ChatSortMode {
 // using real data from Dexie so that created_at and last_interaction behave correctly.
 async function getSortedChatsSnapshotFromDb(): Promise<DbChat[]> {
     const chats = await getAllChats(db);
-        const mode = getChatSortMode();
-        return sortChats(chats, mode);
+    const mode = getChatSortMode();
+    return sortChats(chats, mode);
 }
 
 // Reorder existing DOM nodes in #chatHistorySection to match the current sort mode
@@ -428,11 +428,11 @@ export function newChat() {
         console.error("Message container not found");
         return;
     }
-    
+
     // Clear DOM
     messageContainer.innerHTML = "";
     document.querySelector("#chat-title")!.textContent = "";
-    
+
     // Reset pagination state
     currentChatIdState = null;
     currentChatMessages = [];
@@ -440,7 +440,7 @@ export function newChat() {
     loadedEndIndex = 0;
     isLoadingOlder = false;
     hasMoreOlder = false;
-    
+
     // Uncheck current chat selection
     const checkedInput = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
     if (checkedInput) {
