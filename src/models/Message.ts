@@ -3,6 +3,8 @@ import { Content } from "@google/genai";
 export interface GeneratedImage {
     mimeType: string;
     base64: string; // raw base64 bytes without data: prefix
+    thoughtSignature?: string;
+    thought?: boolean;
 }
 
 export interface Message {
@@ -10,6 +12,7 @@ export interface Message {
     parts: Array<{
         text: string;
         attachments?: FileList;
+        thoughtSignature?: string;
     }>;
     personalityid?: string;
     groundingContent?: string;

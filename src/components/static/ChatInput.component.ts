@@ -21,10 +21,11 @@ const messageBox = document.querySelector<HTMLDivElement>("#message-box");
 const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
 const attachmentPreview = document.querySelector<HTMLDivElement>("#attachment-preview");
 const sendMessageButton = document.querySelector<HTMLButtonElement>("#btn-send");
+const triggerAiButton = document.querySelector<HTMLButtonElement>("#btn-trigger-ai");
 const internetSearchToggle = document.querySelector<HTMLButtonElement>("#btn-internet");
 const roleplayActionsMenu = document.querySelector<HTMLButtonElement>("#btn-roleplay");
 
-if (!messageInput || !messageBox || !attachmentsInput || !attachmentPreview || !sendMessageButton || !internetSearchToggle || !roleplayActionsMenu) {
+if (!messageInput || !messageBox || !attachmentsInput || !attachmentPreview || !sendMessageButton || !triggerAiButton || !internetSearchToggle || !roleplayActionsMenu) {
     console.error("Chat input component is missing some elements. Please check the HTML structure.");
     throw new Error("Chat input component is not properly initialized.");
 }
@@ -184,10 +185,41 @@ window.addEventListener('generation-state-changed', (event: any) => {
         sendMessageButton.textContent = 'stop';
         sendMessageButton.title = 'Stop generating';
         sendMessageButton.classList.add('generating');
+        triggerAiButton.classList.add('hidden');
     } else {
         sendMessageButton.textContent = 'send';
         sendMessageButton.title = '';
         sendMessageButton.classList.remove('generating');
+        
+        // Re-show trigger button if it's a group chat
+        void chatsService.getCurrentChat(db).then(chat => {
+            if (chat?.groupChat?.mode === "rpg") {
+                triggerAiButton.classList.remove('hidden');
+            }
+        });
+    }
+});
+
+triggerAiButton.addEventListener("click", async () => {
+    if (isCurrentlyGenerating) return;
+    
+    try {
+        // Send empty message to trigger AI turn in group chat
+        await messageService.send("");
+    } catch (error: any) {
+        toastService.danger({
+            title: "Error triggering AI",
+            text: JSON.stringify(error.message || error),
+        });
+    }
+});
+
+window.addEventListener("chat-loaded", (e: any) => {
+    const chat = e.detail.chat;
+    if (chat?.groupChat?.mode === "rpg") {
+        triggerAiButton.classList.remove("hidden");
+    } else {
+        triggerAiButton.classList.add("hidden");
     }
 });
 

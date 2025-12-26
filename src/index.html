@@ -88,6 +88,10 @@
                                 <span class="material-symbols-outlined">expand_more</span>
                             </button>
                             <div class="split-button__menu dropdown-menu" role="menu">
+                                <button class="split-button__menu-item" role="menuitem" id="btn-new-group-chat" disabled title="Temporarily disabled">
+                                    <span class="material-symbols-outlined">groups</span>
+                                    <span>Group Chat</span>
+                                </button>
                                 <button class="split-button__menu-item" role="menuitem" id="btn-chat-import">
                                     <span class="material-symbols-outlined">upload</span>
                                     <span>Import</span></button>
@@ -441,15 +445,19 @@
                                 <h3 class="settings-page-title">Data Management</h3>
                             </div>
                             <div class="settings-page-content">
+                                
                                 <div class="btn-array-vertical">
+                                    <label>Import</label>
                                     <div class="btn-array">
                                         <button class="btn btn-primary" id="btn-bulk-import-chats">Import Chats</button>
                                         <button class="btn btn-primary" id="btn-bulk-import-personas">Import Personas</button>
                                     </div>
+                                    <label>Export</label>
                                     <div class="btn-array">
                                         <button class="btn btn-primary" id="btn-export-all-chats">Export All Chats</button>
                                         <button class="btn btn-primary" id="btn-export-all-personas">Export All Personas</button>
                                     </div>
+                                    <label>Deletion</label>
                                     <button id="btn-clear-all-data" class="btn btn-danger">Wipe Everything</button>
                                 </div>
                             </div>
@@ -524,6 +532,8 @@
                         id="btn-internet">language</button>
                     <button type="button" class="btn-textual material-symbols-outlined btn"
                         id="btn-roleplay">pan_tool</button>
+                    <button type="button" class="btn-textual material-symbols-outlined btn hidden"
+                        id="btn-trigger-ai" title="Trigger AI turn">play_arrow</button>
                     <button type="button" class="btn-textual material-symbols-outlined btn" id="btn-image">
                         <div>brush</div>
                         <div id="image-generation-label">Image Generation</div>
@@ -636,6 +646,66 @@
                 </div>
             </form>
 
+            <form id="form-create-group-chat" class="hidden">
+                <div class="stepper first-step" id="stepper-create-group-chat">
+                    <div class="stepper-content">
+                        <div class="step active">
+                            <h1>Create Group Chat</h1>
+                            <p class="overlay-description">Choose up to 5 participants.</p>
+
+                            <div class="group-chat-participant-search">
+                                <input type="text" id="group-chat-persona-search" class="input-field" placeholder="Search personas...">
+                                <div class="group-chat-selected-count" id="group-chat-selected-count">0/5 selected</div>
+                            </div>
+
+                            <div id="group-chat-persona-list" class="group-chat-persona-list"></div>
+                        </div>
+
+                        <div class="step">
+                            <h1>Mode</h1>
+                            <p class="overlay-description">Choose how participants take turns.</p>
+
+                            <div class="group-chat-mode-cards">
+                                <label class="group-chat-mode-card group-chat-mode-card--disabled">
+                                    <input type="radio" name="group-chat-mode" value="dynamic" disabled>
+                                    <div class="group-chat-mode-card-title">Dynamic (coming soon)</div>
+                                    <div class="group-chat-mode-card-desc">Like a real group chat where participants can talk at their leisure.</div>
+                                </label>
+
+                                <label class="group-chat-mode-card">
+                                    <input type="radio" name="group-chat-mode" value="rpg" checked>
+                                    <div class="group-chat-mode-card-title">RPG (turn-based)</div>
+                                    <div class="group-chat-mode-card-desc">You send a message, then participants respond one-by-one in a configurable order.</div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <h1>RPG Settings</h1>
+                            <p class="overlay-description">Configure turn order and optional scene setup.</p>
+
+                            <label for="group-chat-scenario">Starting scenario (optional):</label>
+                            <textarea id="group-chat-scenario" class="input-field" placeholder="Set the scene..." rows="4"></textarea>
+
+                            <div class="group-chat-toggle-row">
+                                <input type="checkbox" id="group-chat-narrator">
+                                <label for="group-chat-narrator">Narrator enabled</label>
+                            </div>
+
+                            <h3>Turn order</h3>
+                            <div id="group-chat-turn-order" class="group-chat-turn-order"></div>
+                        </div>
+                    </div>
+
+                    <div class="stepper-footer">
+                        <button class="btn-stepper-previous btn btn-primary" type="button">Previous</button>
+                        <div class="stepper-progress"></div>
+                        <button class="btn-stepper-next btn btn-primary" type="button">Next</button>
+                        <button class="btn-stepper-submit btn btn-primary" type="submit">Create</button>
+                    </div>
+                </div>
+            </form>
+
             <form id="form-password-reset" class="hidden">
                 <h1>Reset Password</h1>
                 <p class="overlay-description">Enter and confirm your new password to finish resetting your account.</p>
@@ -675,10 +745,9 @@
             <div id="whats-new" class="hidden">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li><b>Mobile stability:</b> Various mobile-related stability fixes</li>
-                    <li><b>Stop streaming:</b> Ability to stop a request/stream midway</li>
-                    <li><b>Persona Marketplace:</b> Compatibility with Zodiac Persona Marketplace to get the latest updates on personas</li>
-                    <li><b>Quick persona switch:</b> Click the name of a character in a chat to automatically select their corresponding persona</li>
+                    <li><b>Thinking / reasoning:</b> Improved reasoning handling and display stability</li>
+                    <li><b>Group chats:</b> Initial groundwork and stability improvements</li>
+                    <li><b>Stability:</b> More robust history handling to reduce unnecessary summarization</li>
 
                     <li>Visit my Discord if you'd like to connect regarding the project, need support, or have any
                         questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>

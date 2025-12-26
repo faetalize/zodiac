@@ -25,6 +25,18 @@ for (const stepper of steppers) {
     submit.addEventListener("click", (e) => {
         e.preventDefault();
         //delegate the submit to the form containing the stepper
-        form.submit();
+        //Use requestSubmit when available so the form's submit event handlers run
+        //and can prevent navigation. Fall back to dispatching a cancelable submit
+        //event for older browsers.
+        try {
+            if (typeof (form as any).requestSubmit === 'function') {
+                (form as any).requestSubmit();
+            } else {
+                form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            }
+        } catch (err) {
+            console.error('Stepper submit delegation failed, falling back to native submit', err);
+            form.submit();
+        }
     });
 }

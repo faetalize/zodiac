@@ -182,3 +182,13 @@ export async function setupDB() {
 }
 
 export const db = await setupDB();
+
+// Debug helper: expose DB on window for quick DevTools inspection during development
+try {
+    if (typeof window !== 'undefined') {
+        (window as any).zodiac_db = db;
+        console.log('Db.service: exported zodiac_db for DevTools inspection');
+    }
+} catch (e) {
+    // ignore
+}
