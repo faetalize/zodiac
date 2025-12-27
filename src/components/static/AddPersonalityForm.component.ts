@@ -13,6 +13,8 @@ if (!form || !btn || !toneStep) {
     throw new Error("Form or tone example controls are misconfigured, abort");
 }
 
+const formEl = form;
+
 const toneExamplesContainer = document.createElement('div');
 toneExamplesContainer.classList.add('tone-example-list');
 toneStep.insertBefore(toneExamplesContainer, btn);
@@ -155,7 +157,7 @@ if (initialInput) {
     addToneExample('', true);
 }
 
-form.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
+formEl.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault(); // Prevent form submission on Enter key
@@ -167,7 +169,7 @@ form.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
     );
 });
 
-form.submit = () => {
+function handleFormSubmit() {
     //turn all the form data into a personality object
     const personality: Personality = {
         name: '',
@@ -184,7 +186,7 @@ form.submit = () => {
         tags: [],
         toneExamples: []
     };
-    const data = new FormData(form);
+    const data = new FormData(formEl);
     for (const [key, value] of data.entries()) {
         if (key.includes("tone")) {
             if (value) {
@@ -222,7 +224,18 @@ form.submit = () => {
     }
 
     overlayService.closeOverlay();
+
 }
+
+formEl.addEventListener('submit', (e) => {
+    e.preventDefault();
+    handleFormSubmit();
+});
+
+//fallback for any programmatic submit calls that bypass the submit event
+formEl.submit = () => {
+    handleFormSubmit();
+};
 
 //this code is for setting up the `add tone example` button
 btn.addEventListener('click', (e) => {

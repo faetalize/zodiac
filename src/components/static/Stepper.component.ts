@@ -14,6 +14,11 @@ for (const stepper of steppers) {
         console.log(stepper);
         continue;
     }
+
+    //prevent native form navigation for stepper forms; actual handling is JS-driven
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+    }, { capture: true });
     next.addEventListener("click", () => {
         stepper.step++;
         stepperService.update(stepper);
@@ -30,13 +35,14 @@ for (const stepper of steppers) {
         //event for older browsers.
         try {
             if (typeof (form as any).requestSubmit === 'function') {
-                (form as any).requestSubmit();
+                (form as any).requestSubmit(submit);
             } else {
                 form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
             }
         } catch (err) {
             console.error('Stepper submit delegation failed, falling back to native submit', err);
-            form.submit();
+            //Never call native form.submit() here: it bypasses submit event handlers and can hard-navigate.
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         }
     });
 }
