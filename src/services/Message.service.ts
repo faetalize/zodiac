@@ -27,6 +27,7 @@ import { TONE_QUESTIONS } from "../constants/ToneQuestions";
 import { shouldPreferPremiumEndpoint } from "../components/static/ApiKeyInput.component";
 
 const PERSONALITY_MARKER_PREFIX = "__personality_marker__|";
+const SKIP_THOUGHT_SIGNATURE_VALIDATOR = "skip_thought_signature_validator";
 
 type GroupTurnDecision = {
     kind: "reply" | "skip" | "refusal";
@@ -79,6 +80,8 @@ function endGeneration(): void {
 
 export async function send(msg: string): Promise<HTMLElement | undefined> {
     const settings = settingsService.getSettings();
+    const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
+    const shouldEnforceThoughtSignaturesInHistory = settings.model === ChatModel.NANO_BANANA_PRO;
     const selectedPersonality = await personalityService.getSelected();
     const selectedPersonalityId = getSelectedPersonalityId();
     const isInternetSearchEnabled = document.querySelector<HTMLButtonElement>("#btn-internet")?.classList.contains("btn-toggled");
@@ -159,7 +162,10 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain",
         tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
-        thinkingConfig: thinkingConfig
+        thinkingConfig: thinkingConfig,
+        imageConfig: settings.model === ChatModel.NANO_BANANA_PRO ? {
+            imageSize: "4K"
+        } : undefined
     };
 
     const currentChat = isPremiumEndpointPreferred ? await createChatIfAbsentPremium(msg) : await createChatIfAbsent(ai, msg);
@@ -168,7 +174,11 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
         return;
     }
 
-    const { history: chatHistory, pinnedHistoryIndices } = await constructGeminiChatHistoryFromLocalChat(currentChat, { id: getSelectedPersonalityId(), ...selectedPersonality });
+    const { history: chatHistory, pinnedHistoryIndices } = await constructGeminiChatHistoryFromLocalChat(
+        currentChat,
+        { id: getSelectedPersonalityId(), ...selectedPersonality },
+        { enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory }
+    );
     console.log(structuredClone(chatHistory));
 
     // Insert user's message element using the current tail index in chat
@@ -328,9 +338,9 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
             // Display edited image
             const modelMessage: Message = {
                 role: "model",
-                parts: [{ text: "Here's your edited image~" }],
+                parts: [{ text: "Here's your edited image~", thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
                 personalityid: selectedPersonalityId,
-                generatedImages: [{ mimeType, base64: editedImageBase64 }],
+                generatedImages: [{ mimeType, base64: editedImageBase64, thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
             };
             await persistUserAndModel(userMessage, modelMessage);
             const updatedChat = await chatsService.getCurrentChat(db);
@@ -437,9 +447,9 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
         // Update the placeholder element with the image via re-render
         const modelMessage: Message = {
             role: "model",
-            parts: [{ text: "Here's the image you requested~" }],
+            parts: [{ text: "Here's the image you requested~", thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
             personalityid: selectedPersonalityId,
-            generatedImages: [{ mimeType: returnedMimeType, base64: b64 }],
+            generatedImages: [{ mimeType: returnedMimeType, base64: b64, thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
         };
 
         await persistUserAndModel(userMessage, modelMessage);
@@ -465,6 +475,12 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
     let finishReason: FinishReason | BlockedReason | undefined;
     let groundingContent = "";
     let generatedImages: GeneratedImage[] = [];
+
+    const ensureTextSignature = () => {
+        if (shouldUseSkipThoughtSignature && !textSignature && rawText.trim().length > 0) {
+            textSignature = SKIP_THOUGHT_SIGNATURE_VALIDATOR;
+        }
+    };
 
     // If Pro/Max, call Supabase Edge Function; else use SDK directly
     if (isPremiumEndpointPreferred) {
@@ -593,8 +609,8 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
 
                                     }
                                     else if (part.text) { // direct text
-                                        if (!textSignature && part.thoughtSignature) {
-                                            textSignature = part.thoughtSignature;
+                                        if (!textSignature) {
+                                            textSignature = part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
                                         }
                                         rawText += part.text;
                                         responseElement.querySelector('.message-text')?.classList.remove('is-loading');
@@ -604,7 +620,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                                         generatedImages.push({
                                             mimeType: part.inlineData.mimeType || "image/png",
                                             base64: part.inlineData.data || "",
-                                            thoughtSignature: part.thoughtSignature,
+                                            thoughtSignature: part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
                                             thought: part.thought
                                         });
                                     }
@@ -624,6 +640,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                 }
                 //handle abort: save partial content if streaming was interrupted
                 if (wasAborted) {
+                    ensureTextSignature();
                     const modelParts = [];
                     if (rawText.trim().length > 0 || textSignature) {
                         modelParts.push({ text: rawText, thoughtSignature: textSignature });
@@ -669,8 +686,8 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                                 thinkingContentElm.textContent = thinking;
                             }
                             else if (part.text) { //direct text
-                                if (!textSignature && part.thoughtSignature) {
-                                    textSignature = part.thoughtSignature;
+                                if (!textSignature) {
+                                    textSignature = part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
                                 }
                                 rawText += part.text;
                             }
@@ -678,7 +695,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                                 generatedImages.push({
                                     mimeType: part.inlineData.mimeType || "image/png",
                                     base64: part.inlineData.data || "",
-                                    thoughtSignature: part.thoughtSignature,
+                                    thoughtSignature: part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
                                     thought: part.thought
                                 });
                             }
@@ -699,6 +716,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
         } catch (err: any) {
             //handle abort error gracefully
             if (err?.name === 'AbortError' || currentAbortController?.signal.aborted) {
+                ensureTextSignature();
                 const modelParts = [];
                 if (rawText.trim().length > 0 || textSignature) {
                     modelParts.push({ text: rawText, thoughtSignature: textSignature });
@@ -783,8 +801,8 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                                 thinkingContentElm.textContent = thinking;
                             }
                             else if (part.text) { // direct text
-                                if (!textSignature && part.thoughtSignature) {
-                                    textSignature = part.thoughtSignature;
+                                if (!textSignature) {
+                                    textSignature = part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
                                 }
                                 rawText += part.text;
                                 responseElement.querySelector('.message-text')?.classList.remove('is-loading');
@@ -794,7 +812,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                                 generatedImages.push({
                                     mimeType: part.inlineData.mimeType || "image/png",
                                     base64: part.inlineData.data || "",
-                                    thoughtSignature: part.thoughtSignature,
+                                    thoughtSignature: part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
                                     thought: part.thought
                                 });
                             }
@@ -811,6 +829,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                 }
                 //handle abort: save partial content
                 if (wasAborted) {
+                    ensureTextSignature();
                     const modelParts = [];
                     if (rawText.trim().length > 0 || textSignature) {
                         modelParts.push({ text: rawText, thoughtSignature: textSignature });
@@ -852,8 +871,8 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                             thinkingContentElm.textContent = thinking;
                         }
                         else if (part.text) { //direct text
-                            if (!textSignature && part.thoughtSignature) {
-                                textSignature = part.thoughtSignature;
+                            if (!textSignature) {
+                                textSignature = part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
                             }
                             rawText += part.text;
                         }
@@ -861,7 +880,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                             generatedImages.push({
                                 mimeType: part.inlineData.mimeType || "image/png",
                                 base64: part.inlineData.data || "",
-                                thoughtSignature: part.thoughtSignature,
+                                thoughtSignature: part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
                                 thought: part.thought
                             });
                         }
@@ -878,6 +897,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
         } catch (err: any) {
             //handle abort error gracefully
             if (err?.name === 'AbortError' || currentAbortController?.signal.aborted) {
+                ensureTextSignature();
                 const modelParts = [];
                 if (rawText.trim().length > 0 || textSignature) {
                     modelParts.push({ text: rawText, thoughtSignature: textSignature });
@@ -950,6 +970,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
 
 
     const modelParts = [];
+    ensureTextSignature();
     if (rawText.trim().length > 0 || textSignature) {
         modelParts.push({ text: rawText, thoughtSignature: textSignature });
     }
@@ -1136,6 +1157,7 @@ async function sendGroupChatRpg(args: {
     isPremiumEndpointPreferred: boolean;
 }): Promise<HTMLElement | undefined> {
     const settings = settingsService.getSettings();
+    const shouldEnforceThoughtSignaturesInHistory = settings.model === ChatModel.NANO_BANANA_PRO;
     let workingChat = await chatsService.getCurrentChat(db);
     if (!workingChat) {
         console.error("Group chat send called without an active chat");
@@ -1231,7 +1253,11 @@ async function sendGroupChatRpg(args: {
             endGeneration();
             return userElm;
         }
-        const { history, pinnedHistoryIndices } = await constructGeminiChatHistoryFromLocalChat(chatSnapshot, selectedPersona);
+        const { history, pinnedHistoryIndices } = await constructGeminiChatHistoryFromLocalChat(
+            chatSnapshot,
+            selectedPersona,
+            { enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory }
+        );
 
         const roll = Math.random();
         const skipChance = meta.independence / 5; //0.0 -> 0.6
@@ -1380,9 +1406,15 @@ export interface GeminiHistoryBuildResult {
     pinnedHistoryIndices: number[];
 }
 
-export async function constructGeminiChatHistoryFromLocalChat(currentChat: Chat, selectedPersonality: DbPersonality): Promise<GeminiHistoryBuildResult> {
+export async function constructGeminiChatHistoryFromLocalChat(
+    currentChat: Chat,
+    selectedPersonality: DbPersonality,
+    options?: { enforceThoughtSignatures?: boolean }
+): Promise<GeminiHistoryBuildResult> {
     const history: Content[] = [];
     const pinnedHistoryIndices: number[] = [];
+
+    const shouldEnforceThoughtSignatures = options?.enforceThoughtSignatures === true;
 
     const migrated = await migrateLegacyPersonalityMarkers(currentChat);
     const backfilled = await backfillMissingPersonalityMarkers(currentChat);
@@ -1457,9 +1489,7 @@ export async function constructGeminiChatHistoryFromLocalChat(currentChat: Chat,
             // Only include the text part if it has content or a signature
             if (text.trim().length > 0 || part.thoughtSignature) {
                 const partObj: Part = { text };
-                if (part.thoughtSignature) {
-                    partObj.thoughtSignature = part.thoughtSignature;
-                }
+                partObj.thoughtSignature = part.thoughtSignature ?? (shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
                 aggregatedParts.push(partObj);
             }
 
@@ -1486,9 +1516,7 @@ export async function constructGeminiChatHistoryFromLocalChat(currentChat: Chat,
                     const part: Part = {
                         inlineData: { data: img.base64, mimeType: img.mimeType }
                     };
-                    if (img.thoughtSignature) {
-                        part.thoughtSignature = img.thoughtSignature;
-                    }
+                    part.thoughtSignature = img.thoughtSignature ?? (shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
                     if (img.thought) {
                         part.thought = img.thought;
                     }
