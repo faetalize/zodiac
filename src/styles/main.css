@@ -1492,7 +1492,7 @@ form {
 }
 
 .group-chat-persona-name {
-    font-weight: 750;
+    font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
