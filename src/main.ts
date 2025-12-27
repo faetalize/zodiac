@@ -8,10 +8,9 @@ import * as onboardingService from './services/Onboarding.service';
 import * as supabaseService from './services/Supabase.service';
 
 //load all component code
-const components = import.meta.glob('./components/static/*.ts');
-for (const path in components) {
-    components[path]();
-}
+//eager ensures the modules execute at startup (no async race / ordering surprises)
+const components = import.meta.glob('./components/static/*.ts', { eager: true });
+void components;
 
 // Initialize theme service first (before DOM is fully rendered)
 themeService.initialize();
