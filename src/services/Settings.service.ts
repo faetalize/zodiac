@@ -1,4 +1,4 @@
-import { Content, ContentUnion, HarmBlockThreshold, HarmCategory } from "@google/genai";
+import { Content, HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
 import { User } from "../models/User";
 import { ChatModel } from "../models/Models";

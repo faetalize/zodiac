@@ -1356,7 +1356,7 @@ ${narratorEnabled ? "Narrator is enabled: you may include brief scene narration 
         // Refresh working chat after each persisted model message
         workingChat = await chatsService.getCurrentChat(db);
 
-        const updatedChat = await chatsService.getCurrentChat(db);
+        const updatedChat = workingChat;
         if (updatedChat) {
             const modelIndex = updatedChat.content.length - 1;
             const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
