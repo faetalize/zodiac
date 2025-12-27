@@ -59,9 +59,9 @@ export const messageElement = async (
             </div>
         </div>
         <div class="message-role-api" style="display: none;">${message.role}</div>
-        <div class="message-text">${await helpers.getDecoded(message.parts[0].text)}</div>
+        <div class="message-text">${await helpers.getDecoded(message.parts[0]?.text || "")}</div>
         <div class="attachment-preview-container">
-            ${Array.from(message.parts[0].attachments || []).map((attachment: File) => {
+            ${Array.from(message.parts[0]?.attachments || []).map((attachment: File) => {
                 if (attachment.type.startsWith("image/")) {
                     return `<div class="attachment-container">
                         <img src="${URL.createObjectURL(attachment)}" alt="${attachment.name}" class="attachment-image">
@@ -83,7 +83,7 @@ export const messageElement = async (
     else {
         const personality: Personality = await personalityService.get(String(message.personalityid)) || personalityService.getDefault();
         messageDiv.classList.add("message-model");
-        const rawInitial = message.parts[0].text || "";
+        const rawInitial = message.parts[0]?.text || "";
         const initialHtml = await helpers.getDecoded(rawInitial) || "";
         // If we already have generated images, don't show loading spinner even if text is empty
         const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
@@ -181,7 +181,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
         if (messageIndex >= 0) {
             const currentChat = await chatsService.getCurrentChat(db);
             if (currentChat && currentChat.content[messageIndex]) {
-                originalAttachments = currentChat.content[messageIndex].parts[0].attachments;
+                originalAttachments = currentChat.content[messageIndex].parts[0]?.attachments;
                 editingAttachments = originalAttachments ? Array.from(originalAttachments) : [];
             }
         }
@@ -454,14 +454,22 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
         if (!currentChat || !currentChat.content[messageIndex] || !markdownContent) return;
 
         // Update the message content in the parts array
-        currentChat.content[messageIndex].parts[0].text = markdownContent;
+        if (currentChat.content[messageIndex].parts.length === 0) {
+            currentChat.content[messageIndex].parts.push({ text: markdownContent });
+        } else {
+            currentChat.content[messageIndex].parts[0].text = markdownContent;
+        }
 
         // Update attachments if provided
         if (attachments !== undefined) {
             // Convert File[] to FileList
             const dataTransfer = new DataTransfer();
             attachments.forEach(file => dataTransfer.items.add(file));
-            currentChat.content[messageIndex].parts[0].attachments = dataTransfer.files;
+            if (currentChat.content[messageIndex].parts.length === 0) {
+                currentChat.content[messageIndex].parts.push({ text: "", attachments: dataTransfer.files });
+            } else {
+                currentChat.content[messageIndex].parts[0].attachments = dataTransfer.files;
+            }
         }
 
         // Save the updated chat back to the database

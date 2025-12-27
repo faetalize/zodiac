@@ -53,6 +53,10 @@ hr {
     opacity: 0.5;
 }
 
+h4{
+    font-weight: bold;
+}
+
 .hidden {
     --tone-example-remove-hover: rgba(0, 0, 0, 0.08);
     --tone-example-remove-active: rgba(0, 0, 0, 0.12);
@@ -772,6 +776,22 @@ form {
     height: 32rem;
 }
 
+/* Match persona creation stepper sizing for group chat creation */
+#form-create-group-chat {
+    display: flex;
+    width: 32rem;
+    height: 32rem;
+}
+
+/* Responsive: allow the overlay to shrink on small viewports */
+@media (max-width: 520px) {
+    #form-add-personality,
+    #form-create-group-chat {
+        width: 95%;
+        height: auto;
+    }
+}
+
 #form-subscription {
     display: flex;
     flex-direction: column;
@@ -1392,6 +1412,225 @@ form {
     gap: 0.75rem;
     justify-content: flex-end;
     margin-top: 1rem;
+}
+
+/* Group chat creation overlay */
+.group-chat-participant-search {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    position: relative; /* allow absolute placement of the count */
+    background-color: var(--input-bg);
+    border: 1px solid var(--input-text-border);
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.5rem;
+}
+
+/* Ensure the search input grows while the count sits inside it on the right */
+.group-chat-participant-search input#group-chat-persona-search,
+.group-chat-participant-search .input-field {
+    flex: 1 1 auto;
+    border: none;
+    background: transparent;
+    padding: 0;
+    padding-right: 5.25rem; /* reserve ~84px space for the badge (77px badge + margin) */
+    font-size: 0.9rem;
+}
+
+.group-chat-participant-search input#group-chat-persona-search:focus-visible,
+.group-chat-participant-search .input-field:focus-visible {
+    outline: none;
+}
+
+.group-chat-selected-count {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.85rem;
+    opacity: 0.8;
+    white-space: nowrap;
+    pointer-events: none; /* non-interactive, clicking passes to the input */
+    color: var(--text-muted, currentColor);
+}
+
+.group-chat-persona-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 320px;
+    overflow: auto;
+    padding-right: 0.25rem;
+}
+
+.group-chat-persona-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--input-text-border);
+    border-radius: 0.75rem;
+    cursor: pointer; /* make entire row feel clickable */
+}
+
+.group-chat-persona-item * {
+    cursor: inherit; /* ensure inner elements don't override the pointer */
+}
+
+.group-chat-persona-item:hover {
+    background-color: var(--dropdown-menu-item-hover-bg);
+}
+
+.group-chat-persona-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    object-fit: cover;
+    flex: 0 0 auto;
+    margin-right: 0.5rem;
+}
+
+.group-chat-persona-name {
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Ensure the checkbox stays compact at the end of the row */
+.group-chat-persona-checkbox {
+    flex: 0 0 auto;
+    margin-left: 0.5rem;
+}
+
+.group-chat-mode-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.group-chat-mode-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    gap: 0.5rem 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--input-text-border);
+    border-radius: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+    align-items: start;
+}
+
+.group-chat-mode-card:hover {
+    background-color: var(--dropdown-menu-item-hover-bg);
+}
+
+.group-chat-mode-card input {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    margin-top: 0.15rem;
+    align-self: start;
+    justify-self: start;
+}
+
+.group-chat-mode-card--disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.group-chat-mode-card--disabled:hover {
+    background-color: transparent;
+}
+
+.group-chat-mode-card-title {
+    font-weight: 800;
+}
+
+.group-chat-mode-card-desc {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-top: 0.15rem;
+}
+
+/* Stack title and description vertically while keeping radio on the left */
+.group-chat-mode-card-title {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.group-chat-mode-card-desc {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.group-chat-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.75rem 0 1rem;
+}
+
+.group-chat-turn-order {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.group-chat-turn-order-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border: 1px solid var(--input-text-border);
+    border-radius: 0.75rem;
+    padding: 0.55rem 0.75rem;
+    background: var(--body-bg);
+}
+
+.group-chat-turn-order-item.dragging {
+    opacity: 0.5;
+    background-color: var(--navbar-tab-hover-bg);
+    border-style: dashed;
+}
+
+.group-chat-turn-order-item.dragging *,
+.group-chat-turn-order-item.drag-over * {
+    pointer-events: none;
+}
+
+.group-chat-turn-order-item.drag-over {
+    border-color: var(--primary);
+    background-color: var(--navbar-tab-highlight-bg);
+}
+
+.group-chat-turn-order-handle {
+    cursor: grab;
+    user-select: none;
+    opacity: 0.5;
+    font-size: 1.25rem;
+}
+
+.group-chat-turn-order-handle:active {
+    cursor: grabbing;
+}
+
+.group-chat-turn-order.is-dragging {
+    cursor: grabbing;
+}
+
+.group-chat-turn-order.is-dragging .group-chat-turn-order-item {
+    cursor: grabbing;
+}
+
+/* No special styling for the user entry; it should match other items */
+
+.group-chat-turn-order-actions {
+    display: flex;
+    gap: 0.25rem;
 }
 
 
@@ -2078,6 +2317,15 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     cursor: inherit;
 }
 
+/* Icon used for chat entries (prevents shrinking and ensures consistent size) */
+.chat-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.125rem;
+}
+
 .label-currentchat:not(:hover) {
     opacity: 0.7;
 }
@@ -2263,13 +2511,18 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     transition: background 0.1s ease;
 }
 
-.split-button__menu-item:hover,
-.split-button__menu-item:focus-visible {
+.split-button__menu-item:hover:not(:disabled),
+.split-button__menu-item:focus-visible:not(:disabled) {
     background: var(--dropdown-menu-item-hover-bg);
 }
 
-.split-button__menu-item:active {
+.split-button__menu-item:active:not(:disabled) {
     background: var(--dropdown-menu-item-active-bg);
+}
+
+.split-button__menu-item:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 
@@ -2395,6 +2648,14 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
 
 #message-box-buttons button.generating {
     color: var(--danger);
+}
+
+#btn-trigger-ai {
+    color: var(--primary);
+}
+
+#btn-trigger-ai:hover {
+    background: var(--navbar-tab-hover-bg);
 }
 
 .message-box-right {
@@ -2587,7 +2848,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
 #tip-me-section {
     flex-direction: column;
     align-items: start;
-        padding: 1rem;
+    padding: 1rem;
 
 }
 
@@ -2602,7 +2863,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
 #debug-section {
     flex-direction: column;
     align-items: start;
-        padding: 1rem;
+    padding: 1rem;
 
 }
 

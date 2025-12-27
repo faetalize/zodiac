@@ -138,8 +138,8 @@ export function getChatSortMode(): ChatSortMode {
 // using real data from Dexie so that created_at and last_interaction behave correctly.
 async function getSortedChatsSnapshotFromDb(): Promise<DbChat[]> {
     const chats = await getAllChats(db);
-        const mode = getChatSortMode();
-        return sortChats(chats, mode);
+    const mode = getChatSortMode();
+    return sortChats(chats, mode);
 }
 
 // Reorder existing DOM nodes in #chatHistorySection to match the current sort mode
@@ -205,7 +205,9 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
     // chat icon
     const chatIcon = document.createElement("span");
     chatIcon.classList.add("material-symbols-outlined");
-    chatIcon.textContent = "chat_bubble";
+    // Use a distinct icon for group chats
+    chatIcon.classList.add("chat-icon");
+    chatIcon.textContent = chat.groupChat ? "groups" : "chat_bubble";
 
     // actions dropdown (ellipsis + menu)
     const actionsWrapper = document.createElement("div");
@@ -305,6 +307,22 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
         closeMenu();
         deleteChat(chat.id, db);
     });
+
+    // Group settings (only for group chats)
+    let groupSettingsItem: HTMLButtonElement | null = null;
+    if (chat.groupChat) {
+        groupSettingsItem = document.createElement("button");
+        groupSettingsItem.classList.add("chat-actions-item");
+        groupSettingsItem.setAttribute("role", "menuitem");
+        groupSettingsItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">settings</span><span>Group Settings</span>`;
+        groupSettingsItem.addEventListener("click", (e) => {
+            e.stopPropagation();
+            closeMenu();
+            // Dispatch custom event to open group chat editor
+            window.dispatchEvent(new CustomEvent("open-group-chat-editor", { detail: { chatId: chat.id } }));
+        });
+    }
+
     // export single chat
     const exportItem = document.createElement("button");
     exportItem.classList.add("chat-actions-item");
@@ -316,6 +334,9 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
         await exportChat(chat.id);
     });
 
+    if (groupSettingsItem) {
+        menu.append(groupSettingsItem);
+    }
     menu.append(editItem, exportItem, deleteItem);
     actionsWrapper.append(actionsButton, menu);
 
@@ -384,6 +405,28 @@ export async function addChat(title: string, content?: Message[]) {
     return id;
 }
 
+export async function addChatRecord(chat: Chat): Promise<number> {
+    const normalized: Chat = {
+        title: chat.title,
+        timestamp: chat.timestamp ?? Date.now(),
+        content: chat.content || [],
+        lastModified: (chat as any).lastModified,
+        groupChat: (chat as any).groupChat,
+    };
+    try {
+        const id = await db.chats.add(normalized as any);
+        console.log(`addChatRecord: inserted chat id=${id}`, normalized);
+        insertChatEntry({ ...(normalized as any), id }, "prepend");
+        return id;
+    } catch (error) {
+        // Fall back to put for updates if add fails (e.g., id collision), but log the error.
+        console.error("addChatRecord: failed to add chat, falling back to put", error, normalized);
+        const id = await db.chats.put(normalized as any);
+        insertChatEntry({ ...(normalized as any), id }, "prepend");
+        return id;
+    }
+}
+
 export async function getCurrentChat(db: Db) {
     const id = getCurrentChatId();
     if (!id) {
@@ -428,11 +471,11 @@ export function newChat() {
         console.error("Message container not found");
         return;
     }
-    
+
     // Clear DOM
     messageContainer.innerHTML = "";
     document.querySelector("#chat-title")!.textContent = "";
-    
+
     // Reset pagination state
     currentChatIdState = null;
     currentChatMessages = [];
@@ -440,7 +483,7 @@ export function newChat() {
     loadedEndIndex = 0;
     isLoadingOlder = false;
     hasMoreOlder = false;
-    
+
     // Uncheck current chat selection
     const checkedInput = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
     if (checkedInput) {
@@ -586,6 +629,8 @@ export async function loadChat(chatID: number, db: Db) {
 
         await renderMessagesSlice(loadedStartIndex, loadedEndIndex, false);
         attachScrollListener();
+
+        window.dispatchEvent(new CustomEvent("chat-loaded", { detail: { chat } }));
 
         return chat;
     }
