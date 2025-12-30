@@ -88,7 +88,7 @@
                                 <span class="material-symbols-outlined">expand_more</span>
                             </button>
                             <div class="split-button__menu dropdown-menu" role="menu">
-                                <button class="split-button__menu-item" role="menuitem" id="btn-new-group-chat" disabled title="Temporarily disabled">
+                                <button class="split-button__menu-item" role="menuitem" id="btn-new-group-chat">
                                     <span class="material-symbols-outlined">groups</span>
                                     <span>Group Chat</span>
                                 </button>
@@ -107,7 +107,8 @@
                         <div class="chat-search-wrapper">
                             <span class="material-symbols-outlined chat-search-icon">search</span>
                             <input type="text" id="chat-search-input" placeholder="Search chats...">
-                            <button class="chat-sort-toggle btn-textual" id="btn-chat-sort" aria-label="Sort chats" aria-haspopup="true" aria-expanded="false">
+                            <button class="chat-sort-toggle btn-textual" id="btn-chat-sort" aria-label="Sort chats"
+                                aria-haspopup="true" aria-expanded="false">
                                 <span class="material-symbols-outlined chat-sort-icon">sort</span>
                                 <span class="chat-sort-label" id="chat-sort-label">Created</span>
                             </button>
@@ -122,7 +123,8 @@
 
                 <div class="sidebar-section hidden" id="personalitySection">
                     <!-- Marketplace Banner -->
-                    <a href="https://zodiac-marketplace.com" target="_blank" class="marketplace-banner" id="marketplace-banner">
+                    <a href="https://zodiac-marketplace.com" target="_blank" class="marketplace-banner"
+                        id="marketplace-banner">
                         <div class="marketplace-banner-content">
                             <span class="marketplace-banner-icon">✨</span>
                             <div class="marketplace-banner-text">
@@ -130,7 +132,8 @@
                                 <span class="marketplace-banner-subtitle">Browse, rate & share personas</span>
                             </div>
                         </div>
-                        <button class="marketplace-banner-dismiss" id="btn-dismiss-marketplace-banner" aria-label="Dismiss">
+                        <button class="marketplace-banner-dismiss" id="btn-dismiss-marketplace-banner"
+                            aria-label="Dismiss">
                             <span class="material-symbols-outlined">close</span>
                         </button>
                     </a>
@@ -154,41 +157,51 @@
                                     <span class="settings-list-item-icon material-symbols-outlined">vpn_key</span>
                                     <span class="settings-list-item-text">
                                         <span class="settings-list-item-title">API Key</span>
-                                        <span class="settings-list-item-subtitle">Configure your Google Gemini API key</span>
+                                        <span class="settings-list-item-subtitle">Configure your Google Gemini API
+                                            key</span>
                                     </span>
-                                    <span class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
+                                    <span
+                                        class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
                                 </button>
                                 <button class="settings-list-item" data-settings-target="chat">
                                     <span class="settings-list-item-icon material-symbols-outlined">tune</span>
                                     <span class="settings-list-item-text">
                                         <span class="settings-list-item-title">Chat Settings</span>
-                                        <span class="settings-list-item-subtitle">Model, tokens, thinking, and behavior</span>
+                                        <span class="settings-list-item-subtitle">Model, tokens, thinking, and
+                                            behavior</span>
                                     </span>
-                                    <span class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
+                                    <span
+                                        class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
                                 </button>
                                 <button class="settings-list-item" data-settings-target="image">
                                     <span class="settings-list-item-icon material-symbols-outlined">image</span>
                                     <span class="settings-list-item-text">
                                         <span class="settings-list-item-title">Image Settings</span>
-                                        <span class="settings-list-item-subtitle">Image generation and editing models</span>
+                                        <span class="settings-list-item-subtitle">Image generation and editing
+                                            models</span>
                                     </span>
-                                    <span class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
+                                    <span
+                                        class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
                                 </button>
                                 <button class="settings-list-item" data-settings-target="personalisation">
                                     <span class="settings-list-item-icon material-symbols-outlined">person</span>
                                     <span class="settings-list-item-text">
                                         <span class="settings-list-item-title">Personalisation</span>
-                                        <span class="settings-list-item-subtitle">Tailor Zodiac to your preferences</span>
+                                        <span class="settings-list-item-subtitle">Tailor Zodiac to your
+                                            preferences</span>
                                     </span>
-                                    <span class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
+                                    <span
+                                        class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
                                 </button>
                                 <button class="settings-list-item" data-settings-target="data">
                                     <span class="settings-list-item-icon material-symbols-outlined">storage</span>
                                     <span class="settings-list-item-text">
                                         <span class="settings-list-item-title">Data Management</span>
-                                        <span class="settings-list-item-subtitle">Import, export, and wipe local data</span>
+                                        <span class="settings-list-item-subtitle">Import, export, and wipe local
+                                            data</span>
                                     </span>
-                                    <span class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
+                                    <span
+                                        class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
                                 </button>
                             </div>
                         </div>
@@ -203,8 +216,8 @@
                             <div class="settings-page-content">
                                 <div class="api-key-group">
                                     <div class="api-key">
-                                        <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
-                                            class="input-field"></input>
+                                        <input type="password" autocomplete="off" placeholder="Paste API key here"
+                                            id="apiKeyInput" class="input-field"></input>
                                         <button class="material-symbols-outlined btn-textual"
                                             onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')">
                                             help
@@ -250,7 +263,8 @@
                                             <option value="gemini-2.5-flash-image">Flash Image (Nano Banana)</option>
                                             <option value="gemini-2.5-pro">Pro (Legacy)</option>
                                             <option value="gemini-3-pro-preview">Pro (Recommended)</option>
-                                            <option value="gemini-3-pro-image-preview">Pro Image (Nano Banana Pro)</option>
+                                            <option value="gemini-3-pro-image-preview">Pro Image (Nano Banana Pro)
+                                            </option>
                                         </select>
                                     </div>
                                     <div>
@@ -265,8 +279,8 @@
                                                 info
                                             </span>
                                         </label>
-                                        <input type="number" id="maxTokens" class="input-field" min="1" max="65536" value="1000"
-                                            step="1"></input>
+                                        <input type="number" id="maxTokens" class="input-field" min="1" max="65536"
+                                            value="1000" step="1"></input>
                                     </div>
                                     <div>
                                         <label class="setting-label" for="enableThinkingSelect">
@@ -291,8 +305,8 @@
                                                 style="font-size: 0.885rem; opacity: 0.6; cursor:default"
                                                 info="Number of output tokens allocated for the model's internal reasoning. Higher values may improve quality but increase latency. Set to -1 to enable dynamic thinking budget.">info</span>
                                         </label>
-                                        <input type="number" id="thinkingBudget" class="input-field" min="-1" max="200000"
-                                            value="500">
+                                        <input type="number" id="thinkingBudget" class="input-field" min="-1"
+                                            max="200000" value="500">
                                     </div>
                                     <div>
                                         <label class="setting-label" for="temperature">
@@ -340,7 +354,8 @@
                                     </div>
                                     <div>
                                         <label class="setting-label" for="selectedImageEditingModel"><span
-                                                class="material-symbols-outlined">imagesearch_roller</span>Image Editing Model
+                                                class="material-symbols-outlined">imagesearch_roller</span>Image Editing
+                                            Model
                                             <span class="material-symbols-outlined tooltip"
                                                 style="font-size: 0.885rem; opacity: 0.6; cursor:default"
                                                 info="Editing models allow you to edit images to add details, remove objects, or make other modifications.">
@@ -414,7 +429,8 @@
                                                 style="background: linear-gradient(135deg, #5fc88e 0%, #3ca170 100%);"></button>
                                             <button class="theme-btn" data-theme="purple" aria-label="Purple theme"
                                                 style="background: linear-gradient(135deg, #8e5fc8 0%, #6a3ca1 100%);"></button>
-                                            <button class="theme-btn" data-theme="monochrome" aria-label="Monochrome theme"
+                                            <button class="theme-btn" data-theme="monochrome"
+                                                aria-label="Monochrome theme"
                                                 style="background: linear-gradient(135deg, #666666 0%, #333333 100%);"></button>
                                         </div>
                                     </div>
@@ -423,16 +439,19 @@
                                 <div class="settings-ux-group">
                                     <div class="setting-toggle-row">
                                         <label for="autoscroll">Autoscroll</label>
-                                        <input class="uxtoggle" id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
+                                        <input class="uxtoggle" id="autoscroll" type="checkbox"
+                                            name="autoscrollEnabled"></input>
                                     </div>
                                     <div class="setting-toggle-row">
                                         <label for="streamResponses">Stream Responses</label>
-                                        <input class="uxtoggle" id="streamResponses" type="checkbox" name="streamResponsesEnabled" checked></input>
+                                        <input class="uxtoggle" id="streamResponses" type="checkbox"
+                                            name="streamResponsesEnabled" checked></input>
                                     </div>
                                 </div>
 
                                 <div class="settings-personalisation-note">
-                                    <p>For more advanced personalisation, open the Profile panel from the overlay to edit your preferred name and system prompt.</p>
+                                    <p>For more advanced personalisation, open the Profile panel from the overlay to
+                                        edit your preferred name and system prompt.</p>
                                 </div>
                             </div>
                         </div>
@@ -445,17 +464,20 @@
                                 <h3 class="settings-page-title">Data Management</h3>
                             </div>
                             <div class="settings-page-content">
-                                
+
                                 <div class="btn-array-vertical">
                                     <label>Import</label>
                                     <div class="btn-array">
                                         <button class="btn btn-primary" id="btn-bulk-import-chats">Import Chats</button>
-                                        <button class="btn btn-primary" id="btn-bulk-import-personas">Import Personas</button>
+                                        <button class="btn btn-primary" id="btn-bulk-import-personas">Import
+                                            Personas</button>
                                     </div>
                                     <label>Export</label>
                                     <div class="btn-array">
-                                        <button class="btn btn-primary" id="btn-export-all-chats">Export All Chats</button>
-                                        <button class="btn btn-primary" id="btn-export-all-personas">Export All Personas</button>
+                                        <button class="btn btn-primary" id="btn-export-all-chats">Export All
+                                            Chats</button>
+                                        <button class="btn btn-primary" id="btn-export-all-personas">Export All
+                                            Personas</button>
                                     </div>
                                     <label>Deletion</label>
                                     <button id="btn-clear-all-data" class="btn btn-danger">Wipe Everything</button>
@@ -485,14 +507,17 @@
                         <h3 class="debug">Debug</h3>
                         <div class="btn-array-vertical debug">
                             <button class="btn btn-primary" id="btn-debug-chats">Generate 10 Random Chats</button>
-                            <button class="btn btn-primary" id="btn-debug-longchat">Generate a Long Chat (5000 pairs)</button>
-                            <button class="btn btn-primary" id="btn-debug-mediumchat">Generate a Medium Chat (100 pairs)</button>
+                            <button class="btn btn-primary" id="btn-debug-longchat">Generate a Long Chat (5000
+                                pairs)</button>
+                            <button class="btn btn-primary" id="btn-debug-mediumchat">Generate a Medium Chat (100
+                                pairs)</button>
                             <button class="btn btn-primary" id="btn-debug-personalities">Generate 10 Random
                                 Personas</button>
                             <button class="btn btn-primary" id="btn-debug-toast-normal">Test Toast (Normal)</button>
                             <button class="btn btn-primary" id="btn-debug-toast-warning">Test Toast (Warning)</button>
                             <button class="btn btn-primary" id="btn-debug-toast-danger">Test Toast (Danger)</button>
-                            <button class="btn btn-primary" id="btn-debug-toast-actions">Test Toast (With Actions)</button>
+                            <button class="btn btn-primary" id="btn-debug-toast-actions">Test Toast (With
+                                Actions)</button>
                             <button class="btn btn-primary" id="btn-debug-toast-spam">Test Toast Spam (5 Limit)</button>
                             <button class="btn btn-primary" id="btn-debug-subscription-options">Open Subscription
                                 Options</button>
@@ -532,8 +557,8 @@
                         id="btn-internet">language</button>
                     <button type="button" class="btn-textual material-symbols-outlined btn"
                         id="btn-roleplay">pan_tool</button>
-                    <button type="button" class="btn-textual material-symbols-outlined btn hidden"
-                        id="btn-trigger-ai" title="Trigger AI turn">play_arrow</button>
+                    <button type="button" class="btn-textual material-symbols-outlined btn hidden" id="btn-trigger-ai"
+                        title="Trigger AI turn">play_arrow</button>
                     <button type="button" class="btn-textual material-symbols-outlined btn" id="btn-image">
                         <div>brush</div>
                         <div id="image-generation-label">Image Generation</div>
@@ -654,7 +679,8 @@
                             <p class="overlay-description">Choose up to 5 participants.</p>
 
                             <div class="group-chat-participant-search">
-                                <input type="text" id="group-chat-persona-search" class="input-field" placeholder="Search personas...">
+                                <input type="text" id="group-chat-persona-search" class="input-field"
+                                    placeholder="Search personas...">
                                 <div class="group-chat-selected-count" id="group-chat-selected-count">0/5 selected</div>
                             </div>
 
@@ -669,13 +695,15 @@
                                 <label class="group-chat-mode-card group-chat-mode-card--disabled">
                                     <input type="radio" name="group-chat-mode" value="dynamic" disabled>
                                     <div class="group-chat-mode-card-title">Dynamic (coming soon)</div>
-                                    <div class="group-chat-mode-card-desc">Like a real group chat where participants can talk at their leisure.</div>
+                                    <div class="group-chat-mode-card-desc">Like a real group chat where participants can
+                                        talk at their leisure.</div>
                                 </label>
 
                                 <label class="group-chat-mode-card">
                                     <input type="radio" name="group-chat-mode" value="rpg" checked>
                                     <div class="group-chat-mode-card-title">RPG (turn-based)</div>
-                                    <div class="group-chat-mode-card-desc">You send a message, then participants respond one-by-one in a configurable order.</div>
+                                    <div class="group-chat-mode-card-desc">You send a message, then participants respond
+                                        one-by-one in a configurable order.</div>
                                 </label>
                             </div>
                         </div>
@@ -685,7 +713,8 @@
                             <p class="overlay-description">Configure turn order and optional scene setup.</p>
 
                             <label for="group-chat-scenario">Starting scenario (optional):</label>
-                            <textarea id="group-chat-scenario" class="input-field" placeholder="Set the scene..." rows="4"></textarea>
+                            <textarea id="group-chat-scenario" class="input-field" placeholder="Set the scene..."
+                                rows="4"></textarea>
 
                             <div class="group-chat-toggle-row">
                                 <input type="checkbox" id="group-chat-narrator">
@@ -780,7 +809,8 @@
                 <span class="material-symbols-outlined sync-modal-icon">sync</span>
                 <h1>Update Available</h1>
                 <p class="overlay-description">
-                    A newer version of "<strong id="sync-modal-persona-name">this persona</strong>" is available from the Marketplace.
+                    A newer version of "<strong id="sync-modal-persona-name">this persona</strong>" is available from
+                    the Marketplace.
                 </p>
                 <div class="overlay-actions overlay-actions-vertical">
                     <button class="btn btn-primary sync-update-btn">
