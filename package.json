@@ -28,6 +28,7 @@
     "dev": "vite",
     "devlocal": "vite --host",
     "build": "npm run type-check && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync-types": "cp ../shared/persona-schema/database.types.ts src/types/database.types.ts"
   }
 }
