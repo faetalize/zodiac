@@ -24,9 +24,10 @@
     "uuid": "^9.0.1"
   },
   "scripts": {
+    "type-check": "tsc --noEmit",
     "dev": "vite",
     "devlocal": "vite --host",
-    "build": "vite build",
+    "build": "npm run type-check && vite build",
     "preview": "vite preview"
   }
 }

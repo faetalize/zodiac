@@ -173,6 +173,15 @@
                                     <span
                                         class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
                                 </button>
+                                <button class="settings-list-item" data-settings-target="groupchat">
+                                    <span class="settings-list-item-icon material-symbols-outlined">groups</span>
+                                    <span class="settings-list-item-text">
+                                        <span class="settings-list-item-title">Group chat Settings</span>
+                                        <span class="settings-list-item-subtitle">Dynamic + RPG group chat options</span>
+                                    </span>
+                                    <span
+                                        class="settings-list-item-chevron material-symbols-outlined">chevron_right</span>
+                                </button>
                                 <button class="settings-list-item" data-settings-target="image">
                                     <span class="settings-list-item-icon material-symbols-outlined">image</span>
                                     <span class="settings-list-item-text">
@@ -325,6 +334,30 @@
                                     </div>
                                 </div>
 
+                            </div>
+                        </div>
+
+                        <div class="settings-page" data-settings-page="groupchat">
+                            <div class="settings-page-header">
+                                <button class="settings-page-back btn-textual" type="button" data-settings-back>
+                                    <span class="material-symbols-outlined">arrow_back</span>
+                                </button>
+                                <h3 class="settings-page-title">Group chat Settings</h3>
+                            </div>
+                            <div class="settings-page-content">
+                                <h4>Dynamic group chats</h4>
+                                <div class="settings-personalisation-note">
+                                    <p>No settings yet.</p>
+                                </div>
+
+                                <h4>RPG group chats</h4>
+                                <div class="settings-ux-group">
+                                    <div class="setting-toggle-row">
+                                        <label for="rpgGroupChatsProgressAutomatically">RPG group chats progress automatically</label>
+                                        <input class="uxtoggle" id="rpgGroupChatsProgressAutomatically" type="checkbox"
+                                            name="rpgGroupChatsProgressAutomatically"></input>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -544,6 +577,18 @@
             </div>
             <div id="scrollable-chat-container">
                 <div class="message-container"></div>
+            </div>
+            <!-- Round Control Panel for RPG group chats (above message input) -->
+            <div id="turn-control-panel" class="turn-control-panel hidden">
+                <span class="turn-control-label" id="turn-control-label">Your Turn</span>
+                <button type="button" class="btn btn-primary hidden" id="btn-start-turn">
+                    <span class="material-symbols-outlined">play_arrow</span>
+                    <span id="start-round-text">Start Round</span>
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-skip-turn">
+                    <span class="material-symbols-outlined">skip_next</span>
+                    Skip Turn
+                </button>
             </div>
             <div id="message-box">
                 <div contenteditable placeholder="Send a message to" id="messageInput" class="input-field"></div>

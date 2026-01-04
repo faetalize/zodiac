@@ -1,4 +1,5 @@
 import * as messageService from "./Message.service"
+import { messageElement } from "../components/dynamic/message";
 import * as helpers from "../utils/helpers"
 import { Db, db } from "./Db.service";
 import { Chat, ChatSortMode, DbChat } from "../models/Chat";
@@ -489,6 +490,9 @@ export function newChat() {
     if (checkedInput) {
         checkedInput.checked = false;
     }
+
+    //dispatch event with null chat to reset UI (e.g., hide Turn Control panel)
+    window.dispatchEvent(new CustomEvent("chat-loaded", { detail: { chat: null } }));
 }
 
 async function renderMessagesSlice(start: number, end: number, prepend: boolean) {
@@ -514,22 +518,63 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean)
             await messageService.insertMessageV2(msg, chatIndex);
         }
     } else {
-        // For prepending older messages, iterate from newest to oldest in the slice
-        // and always insert each element at the very top, so final DOM order remains chronological.
-        for (let i = slice.length - 1; i >= 0; i--) {
+        // For prepending older messages:
+        // 1. Render them into a DocumentFragment to minimize reflows.
+        // 2. Iterate chronological (Old -> New) within the slice to build proper blocks.
+        // 3. Prepend the entire fragment.
+        // 4. Handle boundary merging with the existing first block.
+        const fragment = document.createDocumentFragment();
+
+        for (let i = 0; i < slice.length; i++) {
             const msg = slice[i];
-            // When prepending, slice[i] corresponds to chat index (start + i)
             const chatIndex = start + i;
-            const element = await messageService.insertMessageV2(msg, chatIndex);
-            if (element) {
-                // If insertMessageV2 already appended it to the container, move it to the top
-                if (element.parentElement === messageContainer) {
-                    messageContainer.insertBefore(element, messageContainer.firstChild);
-                } else if (!element.parentElement) {
-                    // If insertMessageV2 just returns the element, manually prepend
-                    messageContainer.insertBefore(element, messageContainer.firstChild);
-                }
+            const element = await messageElement(msg, chatIndex);
+
+            // Turn Grouping Logic (Fragment Building)
+            const lastBlock = fragment.lastElementChild as HTMLElement;
+            const currentRoundIndex = msg.roundIndex;
+
+            if (
+                typeof currentRoundIndex === 'number' &&
+                lastBlock?.classList.contains('round-block') &&
+                lastBlock.dataset.roundIndex === String(currentRoundIndex)
+            ) {
+                lastBlock.append(element);
+            } else if (typeof currentRoundIndex === 'number') {
+                const block = document.createElement("div");
+                block.classList.add("round-block");
+                block.dataset.roundIndex = String(currentRoundIndex);
+                messageService.ensureRoundBlockUi(block as HTMLDivElement, currentRoundIndex);
+                block.append(element);
+                fragment.append(block);
+            } else {
+                fragment.append(element);
             }
+        }
+
+        // Boundary merging: If the last block of the fragment matches the first block of the DOM
+        if (messageContainer.firstElementChild) {
+            const firstBlockInDom = messageContainer.firstElementChild as HTMLElement;
+            const lastBlockInFragment = fragment.lastElementChild as HTMLElement;
+
+            if (
+                firstBlockInDom?.classList.contains('round-block') &&
+                lastBlockInFragment?.classList.contains('round-block') &&
+                firstBlockInDom.dataset.roundIndex === lastBlockInFragment.dataset.roundIndex
+            ) {
+                // Merge DOM block's children into fragment's last block (appending them)
+                // Fragment: [Msg A]
+                // DOM: [Msg B]
+                // Result Fragment: [Msg A, Msg B]
+                while (firstBlockInDom.firstChild) {
+                    lastBlockInFragment.append(firstBlockInDom.firstChild);
+                }
+                firstBlockInDom.remove();
+            }
+        }
+
+        if (messageContainer) {
+            messageContainer.prepend(fragment);
         }
     }
 
@@ -620,6 +665,8 @@ export async function loadChat(chatID: number, db: Db) {
 
         const total = currentChatMessages.length;
         if (total === 0) {
+            //dispatch event even for empty chats so UI can update
+            window.dispatchEvent(new CustomEvent("chat-loaded", { detail: { chat } }));
             return chat;
         }
 
@@ -724,3 +771,4 @@ export async function moveChatDomEntryToTop(id: number) {
         chatHistorySection.prepend(radioButton);
     }
 }
+

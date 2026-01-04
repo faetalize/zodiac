@@ -25,14 +25,53 @@ import { PremiumEndpoint } from "../models/PremiumEndpoint";
 import { danger, warn } from "./Toast.service";
 import { TONE_QUESTIONS } from "../constants/ToneQuestions";
 import { shouldPreferPremiumEndpoint } from "../components/static/ApiKeyInput.component";
+import { isGeminiBlockedFinishReason, processGeminiLocalSdkResponse, processGeminiLocalSdkStream, throwGeminiBlocked } from "./GeminiResponseProcessor.service";
+
+function showGeminiProhibitedContentToast(args: { finishReason?: unknown; detail?: unknown }): void {
+    const finishReasonText = (args.finishReason ?? "").toString().trim();
+    const detailText = (args.detail ?? "").toString().trim();
+    const suffix = finishReasonText ? ` ${finishReasonText}` : "";
+    const detailSuffix = detailText && detailText !== finishReasonText ? ` ${detailText}` : "";
+
+    warn({
+        title: "Message blocked by Gemini",
+        text: "The AI refused to answer this message. Try rephrasing it, or upgrade to Pro to get a fully unrestricted experience." + suffix + detailSuffix,
+        actions: [
+            {
+                label: "Upgrade",
+                onClick(dismiss) {
+                    document.querySelector<HTMLButtonElement>("#btn-show-subscription-options")?.click();
+                    dismiss();
+                },
+            },
+        ],
+    });
+}
+import { processPremiumEndpointSse } from "./PremiumEndpointResponseProcessor.service";
 
 const PERSONALITY_MARKER_PREFIX = "__personality_marker__|";
 const SKIP_THOUGHT_SIGNATURE_VALIDATOR = "skip_thought_signature_validator";
 
+export const USER_SKIP_TURN_MARKER_TEXT = "__user_skip_turn__";
+
+type GroupChatParticipantPersona = {
+    id: string;
+    name: string;
+    description: string;
+    prompt: string;
+    aggressiveness?: number;
+    sensuality?: number;
+    independence?: number;
+};
+
 type GroupTurnDecision = {
-    kind: "reply" | "skip" | "refusal";
+    kind: "reply" | "skip";
     text: string | null;
-    refusalReason: string | null;
+};
+
+type TextAndThinking = {
+    text: string;
+    thinking: string;
 };
 
 const GROUP_TURN_DECISION_SCHEMA: any = {
@@ -41,24 +80,21 @@ const GROUP_TURN_DECISION_SCHEMA: any = {
     properties: {
         kind: {
             type: "string",
-            enum: ["reply", "skip", "refusal"],
-            description: "Whether the participant replies this turn, skips, or refuses."
+            enum: ["reply", "skip"],
+            description: "Whether the participant replies this turn or skips."
         },
         text: {
             type: ["string", "null"],
             description: "If kind is 'reply', the message text to send. Otherwise null."
-        },
-        refusalReason: {
-            type: ["string", "null"],
-            description: "If kind is 'refusal', a short reason. Otherwise null."
         }
     },
-    required: ["kind", "text", "refusalReason"],
+    required: ["kind", "text"],
 };
 
 //abort controller for interrupting message generation
 let currentAbortController: AbortController | null = null;
 let isGenerating = false;
+let sendInFlight = false;
 
 export function abortGeneration(): void {
     if (currentAbortController) {
@@ -78,7 +114,14 @@ function endGeneration(): void {
 }
 
 
-export async function send(msg: string): Promise<HTMLElement | undefined> {
+export async function send(msg: string, skipTurn: boolean = false): Promise<HTMLElement | undefined> {
+    // Guard against overlapping sends (can happen via regen + autoprogress/chat-loaded)
+    if (sendInFlight) {
+        return;
+    }
+    sendInFlight = true;
+
+    try {
     const settings = settingsService.getSettings();
     const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
     const shouldEnforceThoughtSignaturesInHistory = settings.model === ChatModel.NANO_BANANA_PRO;
@@ -120,7 +163,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
     if (!isPremiumEndpointPreferred && settings.apiKey === "") {
         // ... (omitted for brevity in thought, but I'll include it in the tool call)
     }
-    
+
     const existingChat = await chatsService.getCurrentChat(db);
     const isGroupChat = (existingChat as any)?.groupChat?.mode === "rpg";
 
@@ -142,6 +185,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
             attachmentFiles,
             isInternetSearchEnabled: !!isInternetSearchEnabled,
             isPremiumEndpointPreferred,
+            skipTurn,
         });
     }
 
@@ -535,111 +579,67 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
 
             //process response in streaming or non-streaming mode
             if (settings.streamResponses) {
-                // SSE parse
-                const reader = res.body!.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-                let isFallbackMode = false;
-                let wasAborted = false;
-                while (true) {
-                    //check if aborted
-                    if (currentAbortController?.signal.aborted) {
-                        wasAborted = true;
-                        reader.cancel();
-                        break;
-                    }
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-                    let delemiterIndex;
-                    while ((delemiterIndex = buffer.indexOf('\n\n')) !== -1) {
-                        const eventBlock = buffer.slice(0, delemiterIndex);
-                        buffer = buffer.slice(delemiterIndex + 2);
-                        if (!eventBlock) continue;
-                        if (eventBlock.startsWith(':')) continue;
-                        const lines = eventBlock.split('\n');
-                        let eventName = 'message';
-                        let data = '';
-                        for (const line of lines) {
-                            if (line.startsWith('event: ')) eventName = line.slice(7).trim();
-                            else if (line.startsWith('data: ')) data += line.slice(6);
-                        }
-                        if (eventName === 'error') throw new Error(data);
-                        if (eventName === 'done') break;
-                        //handle glm fallback event
-                        if (eventName === 'fallback') {
-                            //we have to process the data differently now
-                            isFallbackMode = true;
-                            //first, we clear the current buffers and the html elements as a new decensored stream will start
-                            thinking = "";
-                            rawText = "";
-                            finishReason = undefined;
-                            groundingContent = "";
-                            generatedImages = [];
-                            responseElement.querySelector('.message-text')?.classList.add('is-loading');
-                            messageContent.innerHTML = "";
-                            if (thinkingContentElm) thinkingContentElm.textContent = "";
-                            groundingRendered.innerHTML = "";
-                        }
-                        if (data) {
-                            if (isFallbackMode) {
-                                if (data === "[DONE]") break;
-                                if (data === "{}") continue;
-                                const glmPayload = JSON.parse(data) as OpenRouterResponse;
-                                const content = (glmPayload.choices[0] as StreamingChoice).delta.content;
-                                const reasoning = (glmPayload.choices[0] as StreamingChoice).delta.reasoning;
-                                if (content) {
-                                    // Process the content for fallback mode
-                                    rawText += content;
-                                    responseElement.querySelector('.message-text')?.classList.remove('is-loading');
-                                    messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-                                }
-                                if (reasoning && thinkingContentElm) {
-                                    thinking += reasoning;
+                const result = await processPremiumEndpointSse({
+                    res,
+                    process: {
+                        signal: currentAbortController?.signal ?? undefined,
+                        abortMode: "return",
+                        includeThoughts: !!config.thinkingConfig?.includeThoughts,
+                        useSkipThoughtSignature: shouldUseSkipThoughtSignature,
+                        skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+                        throwOnBlocked: () => false,
+                        onBlocked: () => {
+                            // should never be called because throwOnBlocked is false
+                            throw new Error("Blocked");
+                        },
+                        callbacks: {
+                            onFallbackStart: () => {
+                                // NOTE: We intentionally keep rawText/thinking/messageContent intact.
+                                // The backend strips any echoed prefix from GLM (de-duplication),
+                                // so we preserve what Gemini already streamed and continue appending.
+                                // Only reset metadata that truly restarts.
+                                finishReason = undefined;
+                                groundingContent = "";
+                                generatedImages = [];
+                                groundingRendered.innerHTML = "";
+                            },
+                            onText: async ({ text }) => {
+                                rawText = text;
+                                responseElement.querySelector('.message-text')?.classList.remove('is-loading');
+                                messageContent.innerHTML = await parseMarkdownToHtml(rawText);
+                                helpers.messageContainerScrollToBottom();
+                            },
+                            onThinking: async ({ thinking: thinkingSoFar }) => {
+                                thinking = thinkingSoFar;
+                                if (thinkingContentElm) {
                                     thinkingContentElm.innerHTML = await parseMarkdownToHtml(thinking);
                                 }
-                            }
-                            const payload = JSON.parse(data) as GenerateContentResponse;
-                            if (payload) {
-                                finishReason = payload.candidates?.[0]?.finishReason || payload.promptFeedback?.blockReason; //finish reason
-                                for (const part of payload.candidates?.[0]?.content?.parts || []) { 
-                                    if (part.thought && part.text && thinkingContentElm) { // thinking block
-                                        thinking += part.text;
-                                        thinkingContentElm.innerHTML = await parseMarkdownToHtml(thinking);
-
-                                    }
-                                    else if (part.text) { // direct text
-                                        if (!textSignature) {
-                                            textSignature = part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
-                                        }
-                                        rawText += part.text;
-                                        responseElement.querySelector('.message-text')?.classList.remove('is-loading');
-                                        messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-                                    }
-                                    else if (part.inlineData) {
-                                        generatedImages.push({
-                                            mimeType: part.inlineData.mimeType || "image/png",
-                                            base64: part.inlineData.data || "",
-                                            thoughtSignature: part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
-                                            thought: part.thought
-                                        });
-                                    }
-                                }
-                                if (payload.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
-                                    groundingContent = payload.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
-                                    const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
-                                    shadow.innerHTML = groundingContent;
-                                    const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
-                                    if (carousel) carousel.style.scrollbarWidth = "unset";
-                                }
-
                                 helpers.messageContainerScrollToBottom();
-                            }
-                        }
-                    }
-                }
+                            },
+                            onGrounding: ({ renderedContent }) => {
+                                groundingContent = renderedContent;
+                                const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
+                                shadow.innerHTML = groundingContent;
+                                const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
+                                if (carousel) carousel.style.scrollbarWidth = "unset";
+                                helpers.messageContainerScrollToBottom();
+                            },
+                            onImage: (img) => {
+                                generatedImages.push(img);
+                            },
+                        },
+                    },
+                });
+
+                finishReason = result.finishReason as any;
+                thinking = result.thinking;
+                rawText = result.text;
+                textSignature = result.textSignature;
+                groundingContent = result.groundingContent;
+                generatedImages = result.images;
+
                 //handle abort: save partial content if streaming was interrupted
-                if (wasAborted) {
+                if (result.wasAborted) {
                     ensureTextSignature();
                     const modelParts = [];
                     if (rawText.trim().length > 0 || textSignature) {
@@ -781,54 +781,55 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
         };
 
         try {
-            let wasAborted = false;
             if (settings.streamResponses) {
-                let stream: AsyncGenerator<GenerateContentResponse> = await chat.sendMessageStream(messagePayload);
-                for await (const chunk of stream) {
-                    //check if aborted
-                    if (currentAbortController?.signal.aborted) {
-                        wasAborted = true;
-                        break;
-                    }
-                    if (chunk) {
-                        finishReason = chunk.candidates?.[0]?.finishReason || chunk.promptFeedback?.blockReason; //finish reason
-                        if (config.thinkingConfig?.includeThoughts) {
-                            ensureThinkingElements();
-                        }
-                        for (const part of chunk.candidates?.[0]?.content?.parts || []) { // thinking block
-                            if (part.thought && part.text && thinkingContentElm) {
-                                thinking += part.text;
-                                thinkingContentElm.textContent = thinking;
-                            }
-                            else if (part.text) { // direct text
-                                if (!textSignature) {
-                                    textSignature = part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+                if (config.thinkingConfig?.includeThoughts) {
+                    ensureThinkingElements();
+                }
+
+                const result = await processGeminiLocalSdkStream({
+                    stream: await chat.sendMessageStream(messagePayload),
+                    process: {
+                        includeThoughts: !!config.thinkingConfig?.includeThoughts,
+                        useSkipThoughtSignature: shouldUseSkipThoughtSignature,
+                        skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+                        signal: currentAbortController?.signal ?? undefined,
+                        abortMode: "return",
+                        throwOnBlocked: false,
+                        callbacks: {
+                            onThinking: ({ thinking: thinkingSoFar }) => {
+                                thinking = thinkingSoFar;
+                                if (thinkingContentElm) {
+                                    thinkingContentElm.textContent = thinking;
                                 }
-                                rawText += part.text;
+                                helpers.messageContainerScrollToBottom();
+                            },
+                            onText: async ({ text }) => {
+                                rawText = text;
                                 responseElement.querySelector('.message-text')?.classList.remove('is-loading');
                                 messageContent.innerHTML = await parseMarkdownToHtml(rawText);
-                            }
-                            else if (part.inlineData) {
-                                generatedImages.push({
-                                    mimeType: part.inlineData.mimeType || "image/png",
-                                    base64: part.inlineData.data || "",
-                                    thoughtSignature: part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
-                                    thought: part.thought
-                                });
-                            }
-                        }
-                        if (chunk.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
-                            groundingContent = chunk.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
-                            const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
-                            shadow.innerHTML = groundingContent;
-                            const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
-                            if (carousel) carousel.style.scrollbarWidth = "unset";
-                        }
-                        helpers.messageContainerScrollToBottom();
-                    }
-                }
+                                helpers.messageContainerScrollToBottom();
+                            },
+                            onGrounding: ({ renderedContent }) => {
+                                groundingContent = renderedContent;
+                                const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
+                                shadow.innerHTML = groundingContent;
+                                const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
+                                if (carousel) carousel.style.scrollbarWidth = "unset";
+                                helpers.messageContainerScrollToBottom();
+                            },
+                        },
+                    },
+                });
+
+                finishReason = result.finishReason as any;
+                thinking = result.thinking;
+                rawText = result.text;
+                textSignature = result.textSignature;
+                groundingContent = result.groundingContent;
+                generatedImages = result.images;
+
                 //handle abort: save partial content
-                if (wasAborted) {
+                if (result.wasAborted) {
                     ensureTextSignature();
                     const modelParts = [];
                     if (rawText.trim().length > 0 || textSignature) {
@@ -859,39 +860,39 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                     return userMessageElement;
                 }
             } else {
+                if (config.thinkingConfig?.includeThoughts) {
+                    ensureThinkingElements();
+                }
+
                 const response = await chat.sendMessage(messagePayload);
-                if (response) {
-                    finishReason = response.candidates?.[0]?.finishReason || response.promptFeedback?.blockReason; //finish reason
-                    if (config.thinkingConfig?.includeThoughts) {
-                        ensureThinkingElements();
-                    }
-                    for (const part of response.candidates?.[0]?.content?.parts || []) {
-                        if (part.thought && part.text && thinkingContentElm) { //thinking block
-                            thinking += part.text;
-                            thinkingContentElm.textContent = thinking;
-                        }
-                        else if (part.text) { //direct text
-                            if (!textSignature) {
-                                textSignature = part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
-                            }
-                            rawText += part.text;
-                        }
-                        else if (part.inlineData) {
-                            generatedImages.push({
-                                mimeType: part.inlineData.mimeType || "image/png",
-                                base64: part.inlineData.data || "",
-                                thoughtSignature: part.thoughtSignature ?? (shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
-                                thought: part.thought
-                            });
-                        }
-                    }
-                    if (response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) { // grounding block
-                        groundingContent = response.candidates[0].groundingMetadata.searchEntryPoint.renderedContent;
-                        const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
-                        shadow.innerHTML = groundingContent;
-                        const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
-                        if (carousel) carousel.style.scrollbarWidth = "unset";
-                    }
+                const result = await processGeminiLocalSdkResponse({
+                    response,
+                    process: {
+                        includeThoughts: !!config.thinkingConfig?.includeThoughts,
+                        useSkipThoughtSignature: shouldUseSkipThoughtSignature,
+                        skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+                        signal: currentAbortController?.signal ?? undefined,
+                        abortMode: "return",
+                        throwOnBlocked: false,
+                    },
+                });
+
+                finishReason = result.finishReason as any;
+                thinking = result.thinking;
+                rawText = result.text;
+                textSignature = result.textSignature;
+                groundingContent = result.groundingContent;
+                generatedImages = result.images;
+
+                if (config.thinkingConfig?.includeThoughts && thinkingContentElm) {
+                    thinkingContentElm.textContent = thinking;
+                }
+
+                if (groundingContent) {
+                    const shadow = groundingRendered.shadowRoot ?? groundingRendered.attachShadow({ mode: "open" });
+                    shadow.innerHTML = groundingContent;
+                    const carousel = shadow.querySelector<HTMLDivElement>(".carousel");
+                    if (carousel) carousel.style.scrollbarWidth = "unset";
                 }
             }
         } catch (err: any) {
@@ -953,19 +954,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
         // });
         // console.log(response);
 
-        warn({
-            title: "Message blocked by Gemini",
-            text: "The AI refused to answer this message. Try rephrasing it, or upgrade to Pro to get a fully unrestricted experience. " + finishReason,
-            actions: [
-                {
-                    label: "Upgrade",
-                    onClick(dismiss) {
-                        document.querySelector<HTMLButtonElement>("#btn-show-subscription-options")?.click();
-                        dismiss();
-                    },
-                }
-            ]
-        })
+        showGeminiProhibitedContentToast({ finishReason });
     }
 
 
@@ -1000,6 +989,9 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
     endGeneration();
 
     return userMessageElement;
+    } finally {
+        sendInFlight = false;
+    }
 }
 
 function createModelErrorMessage(selectedPersonalityId: string): Message {
@@ -1020,9 +1012,67 @@ function createImageEditingErrorMessage(selectedPersonalityId: string): Message 
 
 export async function regenerate(modelMessageIndex: number) {
     const chat = await chatsService.getCurrentChat(db);
-    const message: Message = chat?.content[modelMessageIndex - 1]!; // user message is always before the model message
-    if (!chat || !message) {
-        console.error("No chat or message found");
+    if (!chat) {
+        console.error("No chat found");
+        console.log({ chat, elementIndex: modelMessageIndex });
+        return;
+    }
+
+    // Group chats do not guarantee that a model message has a user message immediately
+    // before it. For these chats, "regenerate" means: prune from the selected message
+    // onward, then let send("") re-run progression from that point.
+    if (chat.groupChat) {
+        const deletionStart = modelMessageIndex;
+        if (deletionStart < 0 || deletionStart >= chat.content.length) {
+            console.error("Invalid message index for regeneration", { deletionStart, chatLen: chat.content.length });
+            return;
+        }
+
+        chat.content = chat.content.slice(0, deletionStart);
+        pruneTrailingPersonalityMarkers(chat);
+        await db.chats.put(chat);
+
+        const container = document.querySelector<HTMLDivElement>(".message-container");
+        if (container) {
+            // In RPG mode, visible messages may be nested inside .round-block
+            // wrappers, so we must remove by data-chat-index across descendants.
+            for (const node of Array.from(container.querySelectorAll<HTMLElement>("[data-chat-index]"))) {
+                const indexAttr = node.getAttribute("data-chat-index");
+                if (!indexAttr) continue;
+                const chatIndex = Number.parseInt(indexAttr, 10);
+                if (!Number.isFinite(chatIndex)) continue;
+                if (chatIndex >= deletionStart) {
+                    node.remove();
+                }
+            }
+
+            // Clean up any now-empty round blocks.
+            for (const block of Array.from(container.querySelectorAll<HTMLDivElement>(".round-block"))) {
+                const hasAnyMessages = !!block.querySelector<HTMLElement>("[data-chat-index]");
+                if (!hasAnyMessages) {
+                    block.remove();
+                }
+            }
+        }
+
+        try {
+            await send("");
+        } catch (error: any) {
+            console.error(error);
+            danger({
+                title: "Error regenerating message",
+                text: JSON.stringify(error.message || error),
+            });
+            helpers.messageContainerScrollToBottom(true);
+            return;
+        }
+
+        return;
+    }
+
+    const message: Message | undefined = chat.content[modelMessageIndex - 1]; // user message is always before the model message
+    if (!message) {
+        console.error("No message found");
         console.log({ chat, message, elementIndex: modelMessageIndex });
         return;
     }
@@ -1093,6 +1143,109 @@ export async function regenerate(modelMessageIndex: number) {
     }
 }
 
+export function ensureRoundBlockUi(block: HTMLDivElement, roundIndex: number): void {
+    if (block.querySelector('.round-header')) {
+        return;
+    }
+
+    const header = document.createElement('div');
+    header.className = 'round-header';
+
+    const badge = document.createElement('div');
+    badge.className = 'round-badge';
+    badge.textContent = `Round ${roundIndex}`;
+
+    const actions = document.createElement('div');
+    actions.className = 'round-actions';
+
+    const regenBtn = document.createElement('button');
+    regenBtn.className = 'btn-textual material-symbols-outlined round-action-btn';
+    regenBtn.type = 'button';
+    regenBtn.textContent = 'refresh';
+    regenBtn.title = 'Regenerate from this round';
+    regenBtn.setAttribute('aria-label', 'Regenerate from this round');
+    regenBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const ok = await helpers.confirmDialogDanger(
+            `Regenerate from Round ${roundIndex}? This will delete Round ${roundIndex} and any later rounds, then re-run the AI from this point.`
+        );
+        if (!ok) return;
+        await regenerateRound(roundIndex);
+    });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn-textual material-symbols-outlined round-action-btn';
+    deleteBtn.type = 'button';
+    deleteBtn.textContent = 'delete';
+    deleteBtn.title = 'Delete this round';
+    deleteBtn.setAttribute('aria-label', 'Delete this round');
+    deleteBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const ok = await helpers.confirmDialogDanger(
+            `Delete Round ${roundIndex}? This will permanently remove all messages in this round.`
+        );
+        if (!ok) return;
+        await deleteRound(roundIndex);
+    });
+
+    actions.append(regenBtn, deleteBtn);
+    header.append(badge, actions);
+    block.prepend(header);
+}
+
+export async function deleteRound(roundIndex: number): Promise<void> {
+    const chat = await chatsService.getCurrentChat(db);
+    if (!chat) {
+        return;
+    }
+
+    const beforeLen = chat.content.length;
+    chat.content = (chat.content || []).filter(m => m.roundIndex !== roundIndex);
+    if (chat.content.length === beforeLen) {
+        return;
+    }
+
+    pruneTrailingPersonalityMarkers(chat);
+    await db.chats.put(chat);
+    await chatsService.refreshChatListAfterActivity(db);
+    await chatsService.loadChat((chat as any).id, db);
+}
+
+export async function regenerateRound(roundIndex: number): Promise<void> {
+    const chat = await chatsService.getCurrentChat(db);
+    if (!chat) {
+        return;
+    }
+
+    const startIndex = (chat.content || []).findIndex(m => m.roundIndex === roundIndex);
+    if (startIndex < 0) {
+        return;
+    }
+
+    chat.content = chat.content.slice(0, startIndex);
+    pruneTrailingPersonalityMarkers(chat);
+    await db.chats.put(chat);
+    await chatsService.refreshChatListAfterActivity(db);
+    await chatsService.loadChat((chat as any).id, db);
+
+    try {
+        // Avoid double-triggering when RPG auto-progress is enabled;
+        // chat-loaded will start the next round automatically.
+        if (!settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
+            // Trigger the round again (AI participants before user)
+            await send("");
+        }
+    } catch (error: any) {
+        console.error(error);
+        danger({
+            title: "Error regenerating round",
+            text: JSON.stringify(error.message || error),
+        });
+    }
+}
+
 export async function insertMessageV2(message: Message, index: number) {
     // When rendering via this helper from Chats.service, index should match
     // the position in chat.content/currentChatMessages. For ad-hoc renders
@@ -1100,7 +1253,31 @@ export async function insertMessageV2(message: Message, index: number) {
     const messageElm = await messageElement(message, index);
     const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
     if (messageContainer) {
-        messageContainer.append(messageElm);
+        const currentRoundIndex = message.roundIndex;
+
+        if (typeof currentRoundIndex === 'number') {
+            // Round GROUPING: Find existing block with same roundIndex
+            let targetBlock = messageContainer.querySelector<HTMLDivElement>(
+                `.round-block[data-round-index="${currentRoundIndex}"]`
+            );
+
+            if (targetBlock) {
+                ensureRoundBlockUi(targetBlock, currentRoundIndex);
+                // Append to existing block
+                targetBlock.append(messageElm);
+            } else {
+                // Create new block
+                const block = document.createElement("div");
+                block.classList.add("round-block");
+                block.dataset.roundIndex = String(currentRoundIndex);
+                ensureRoundBlockUi(block, currentRoundIndex);
+                block.append(messageElm);
+                messageContainer.append(block);
+            }
+        } else {
+            // No Round index (orphaned message), append directly
+            messageContainer.append(messageElm);
+        }
     }
 
     return messageElm;
@@ -1113,9 +1290,10 @@ function getSelectedPersonalityId(): string {
     return parentId.startsWith("personality-") ? parentId.slice("personality-".length) : "-1";
 }
 
-function createModelPlaceholderMessage(personalityid: string, groundingContent?: string): Message {
+function createModelPlaceholderMessage(personalityid: string, groundingContent?: string, roundIndex?: number): Message {
     const m: Message = { role: "model", parts: [{ text: "" }], personalityid };
     if (groundingContent !== undefined) (m as any).groundingContent = groundingContent;
+    if (roundIndex !== undefined) m.roundIndex = roundIndex;
     return m;
 }
 
@@ -1133,20 +1311,601 @@ async function persistMessages(messages: Message[]): Promise<void> {
 }
 
 async function parseGroupTurnDecision(rawText: string): Promise<GroupTurnDecision> {
+    // First, try standard JSON parse
     try {
         const parsed = JSON.parse(rawText) as Partial<GroupTurnDecision>;
         const kind = parsed.kind;
-        if (kind !== "reply" && kind !== "skip" && kind !== "refusal") {
+        if (kind !== "reply" && kind !== "skip") {
             throw new Error("invalid kind");
         }
         return {
             kind,
             text: typeof parsed.text === "string" ? parsed.text : null,
-            refusalReason: typeof parsed.refusalReason === "string" ? parsed.refusalReason : null,
         };
     } catch {
-        // If parsing fails, treat as a normal reply.
-        return { kind: "reply", text: rawText || "", refusalReason: null };
+        // JSON.parse failed - this might be malformed output from GLM fallback
+        // where GLM closed the partial Gemini JSON and started a new one
+        // e.g. {"kind": "reply", "text": "partial..."} {"kind": "reply", "text": "full..."}
+    }
+
+    // Try to find the last complete JSON object (GLM's restarted response)
+    const lastJsonStart = rawText.lastIndexOf('{"kind"');
+    if (lastJsonStart > 0) {
+        const lastPart = rawText.slice(lastJsonStart);
+        // Find where this JSON object ends
+        let braceCount = 0;
+        let endIndex = -1;
+        for (let i = 0; i < lastPart.length; i++) {
+            if (lastPart[i] === '{') braceCount++;
+            else if (lastPart[i] === '}') {
+                braceCount--;
+                if (braceCount === 0) {
+                    endIndex = i + 1;
+                    break;
+                }
+            }
+        }
+        if (endIndex > 0) {
+            try {
+                const lastJson = JSON.parse(lastPart.slice(0, endIndex)) as Partial<GroupTurnDecision>;
+                const kind = lastJson.kind;
+                if (kind === "reply" || kind === "skip") {
+                    return {
+                        kind,
+                        text: typeof lastJson.text === "string" ? lastJson.text : null,
+                    };
+                }
+            } catch {
+                // Still failed, continue to fallback
+            }
+        }
+    }
+
+    // Last resort: use partial JSON extractor
+    const extractedText = extractGroupTurnDecisionTextFromPossiblyMalformedJson(rawText);
+    if (extractedText !== null) {
+        // Determine kind from partial JSON
+        const hasSkipKind = rawText.includes('"kind"') && rawText.includes('"skip"');
+        return {
+            kind: hasSkipKind ? "skip" : "reply",
+            text: extractedText,
+        };
+    }
+
+    // Ultimate fallback: treat raw text as the reply
+    return { kind: "reply", text: rawText || "" };
+}
+
+function extractPartialJsonStringProperty(raw: string, propertyName: string): string | null {
+    const key = `"${propertyName}"`;
+    const keyIndex = raw.indexOf(key);
+    if (keyIndex < 0) {
+        return null;
+    }
+
+    let i = keyIndex + key.length;
+    while (i < raw.length && raw[i] !== ':') i++;
+    if (i >= raw.length) {
+        return null;
+    }
+    i++; //skip ':'
+
+    while (i < raw.length && /\s/.test(raw[i] || '')) i++;
+    if (i >= raw.length) {
+        return null;
+    }
+
+    // Handle explicit null
+    if (raw.slice(i, i + 4) === 'null') {
+        return "";
+    }
+
+    if (raw[i] !== '"') {
+        return null;
+    }
+    i++; //skip opening quote
+
+    let out = "";
+    for (; i < raw.length; i++) {
+        const ch = raw[i];
+        if (ch === '"') {
+            return out;
+        }
+        if (ch === '\\') {
+            i++;
+            if (i >= raw.length) {
+                return out;
+            }
+            const esc = raw[i];
+            switch (esc) {
+                case '"':
+                    out += '"';
+                    break;
+                case '\\':
+                    out += '\\';
+                    break;
+                case '/':
+                    out += '/';
+                    break;
+                case 'b':
+                    out += '\b';
+                    break;
+                case 'f':
+                    out += '\f';
+                    break;
+                case 'n':
+                    out += '\n';
+                    break;
+                case 'r':
+                    out += '\r';
+                    break;
+                case 't':
+                    out += '\t';
+                    break;
+                case 'u': {
+                    const hex = raw.slice(i + 1, i + 5);
+                    if (hex.length < 4 || !/^[0-9a-fA-F]{4}$/.test(hex)) {
+                        return out;
+                    }
+                    out += String.fromCharCode(parseInt(hex, 16));
+                    i += 4;
+                    break;
+                }
+                default:
+                    out += esc;
+                    break;
+            }
+            continue;
+        }
+        out += ch;
+    }
+
+    return out;
+}
+
+function extractGroupTurnDecisionTextPreview(raw: string): string | null {
+    return extractPartialJsonStringProperty(raw, "text");
+}
+
+/**
+ * When GLM fallback occurs in "continue" mode for JSON schema responses,
+ * GLM often closes the partial JSON and starts a new one instead of truly continuing.
+ * This results in malformed combined output like:
+ *   {"kind": "reply", "text": "partial..."}  {"kind": "reply", "text": "full..."}
+ * 
+ * This function extracts the "text" field from the LAST valid JSON object in the stream,
+ * falling back to partial extraction if needed.
+ */
+function extractGroupTurnDecisionTextFromPossiblyMalformedJson(raw: string): string | null {
+    // Try to find the last complete JSON object
+    // Look for the last occurrence of {"kind" which likely starts a new JSON object
+    const lastJsonStart = raw.lastIndexOf('{"kind"');
+    
+    if (lastJsonStart > 0) {
+        // There's a second JSON object - GLM restarted instead of continuing
+        // Try to parse the last JSON object first
+        const lastPart = raw.slice(lastJsonStart);
+        const lastText = extractPartialJsonStringProperty(lastPart, "text");
+        if (lastText !== null && lastText.length > 0) {
+            return lastText;
+        }
+    }
+    
+    // Fall back to extracting from the beginning (partial or single JSON)
+    return extractPartialJsonStringProperty(raw, "text");
+}
+
+function extractTextAndThinkingFromResponse(payload: any): TextAndThinking {
+    // Premium endpoint fallback shape (non-streaming)
+    if (payload && typeof payload === "object" && payload.decensored) {
+        return {
+            text: (payload.text ?? "").toString(),
+            thinking: (payload.reasoning ?? "").toString(),
+        };
+    }
+
+    // Gemini-like shape
+    const parts = payload?.candidates?.[0]?.content?.parts;
+    if (Array.isArray(parts)) {
+        let thinking = "";
+        let text = "";
+        for (const part of parts) {
+            if (part?.thought && part?.text) {
+                thinking += part.text;
+            } else if (part?.text) {
+                text += part.text;
+            }
+        }
+
+        return {
+            text: text || (payload?.text ?? "").toString(),
+            thinking,
+        };
+    }
+
+    // Minimal shape: just a `text` field
+    return {
+        text: (payload?.text ?? "").toString(),
+        thinking: "",
+    };
+}
+
+async function readPremiumEndpointTextAndThinkingFromSse(args: {
+    res: Response;
+    signal?: AbortSignal;
+}): Promise<TextAndThinking> {
+    const { res, signal } = args;
+    if (!res.body) {
+        return { text: "", thinking: "" };
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let isFallbackMode = false;
+    let text = "";
+    let thinking = "";
+
+    const throwAbort = () => {
+        const err = new Error("Aborted");
+        (err as any).name = "AbortError";
+        throw err;
+    };
+
+    while (true) {
+        if (signal?.aborted) {
+            try {
+                await reader.cancel();
+            } catch {
+                //noop
+            }
+            throwAbort();
+        }
+
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        let delimiterIndex: number;
+        while ((delimiterIndex = buffer.indexOf("\n\n")) !== -1) {
+            const eventBlock = buffer.slice(0, delimiterIndex);
+            buffer = buffer.slice(delimiterIndex + 2);
+            if (!eventBlock) continue;
+            if (eventBlock.startsWith(":")) continue;
+
+            const lines = eventBlock.split("\n");
+            let eventName = "message";
+            let data = "";
+            for (const line of lines) {
+                if (line.startsWith("event: ")) eventName = line.slice(7).trim();
+                else if (line.startsWith("data: ")) data += line.slice(6);
+            }
+
+            if (eventName === "error") {
+                throw new Error(data);
+            }
+            if (eventName === "done") {
+                return { text, thinking };
+            }
+            if (eventName === "fallback") {
+                isFallbackMode = true;
+                text = "";
+                thinking = "";
+                continue;
+            }
+            if (!data) {
+                continue;
+            }
+
+            if (isFallbackMode) {
+                if (data === "[DONE]") {
+                    return { text, thinking };
+                }
+                if (data === "{}") {
+                    continue;
+                }
+                const glmPayload = JSON.parse(data) as OpenRouterResponse;
+                const choice = glmPayload.choices?.[0] as StreamingChoice | undefined;
+                const delta = choice?.delta;
+                if (delta?.content) {
+                    text += delta.content;
+                }
+                if (delta?.reasoning) {
+                    thinking += delta.reasoning;
+                }
+                continue;
+            }
+
+            const payload = JSON.parse(data) as GenerateContentResponse;
+            for (const part of payload?.candidates?.[0]?.content?.parts || []) {
+                if (part?.thought && part?.text) {
+                    thinking += part.text;
+                } else if (part?.text) {
+                    text += part.text;
+                }
+            }
+        }
+    }
+
+    return { text, thinking };
+}
+
+function ensureThinkingUiOnMessageElement(messageElement: HTMLElement): HTMLDivElement | null {
+    const existing = messageElement.querySelector<HTMLDivElement>(".thinking-content");
+    if (existing) {
+        return existing;
+    }
+
+    const messageTextWrapper = messageElement.querySelector<HTMLDivElement>(".message-text");
+    if (!messageTextWrapper) {
+        return null;
+    }
+
+    const thinkingWrap = document.createElement("div");
+    thinkingWrap.className = "message-thinking";
+    thinkingWrap.innerHTML =
+        `<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
+        `<div class="thinking-content" hidden></div>`;
+
+    messageTextWrapper.insertAdjacentElement("beforebegin", thinkingWrap);
+
+    const toggle = thinkingWrap.querySelector<HTMLButtonElement>(".thinking-toggle");
+    const content = thinkingWrap.querySelector<HTMLDivElement>(".thinking-content");
+    toggle?.addEventListener("click", () => {
+        if (!toggle || !content) return;
+        const expanded = toggle.getAttribute("aria-expanded") === "true";
+        if (expanded) {
+            toggle.setAttribute("aria-expanded", "false");
+            toggle.textContent = "Show reasoning";
+            content.setAttribute("hidden", "");
+        } else {
+            toggle.setAttribute("aria-expanded", "true");
+            toggle.textContent = "Hide reasoning";
+            content.removeAttribute("hidden");
+        }
+    });
+
+    return content ?? null;
+}
+
+async function runLocalSdkRpgTurn(args: {
+    settings: ReturnType<typeof settingsService.getSettings>;
+    history: Content[];
+    config: GenerateContentConfig;
+    turnInstruction: string;
+    signal?: AbortSignal;
+    onThinking?: (thinkingSoFar: string) => void;
+    onText?: (textSoFar: string) => void | Promise<void>;
+}): Promise<TextAndThinking> {
+    const { settings, history, config, turnInstruction, signal, onThinking, onText } = args;
+
+    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
+    const chat = ai.chats.create({ model: settings.model, history, config });
+
+    if (settings.streamResponses) {
+        const result = await processGeminiLocalSdkStream({
+            stream: await chat.sendMessageStream({ message: [{ text: turnInstruction }] }),
+            process: {
+                includeThoughts: true,
+                useSkipThoughtSignature: false,
+                skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+                signal,
+                abortMode: "throw",
+                throwOnBlocked: true,
+                callbacks: {
+                    onThinking: ({ thinking }) => {
+                        onThinking?.(thinking);
+                    },
+                    onText: async ({ text }) => {
+                        await onText?.(text);
+                    },
+                },
+            },
+        });
+
+        return { text: result.text, thinking: result.thinking };
+    }
+
+    const response = await chat.sendMessage({ message: [{ text: turnInstruction }] });
+    const result = await processGeminiLocalSdkResponse({
+        response,
+        process: {
+            includeThoughts: true,
+            useSkipThoughtSignature: false,
+            skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+            signal,
+            abortMode: "throw",
+            throwOnBlocked: true,
+        },
+    });
+
+    return { text: result.text, thinking: result.thinking };
+}
+
+const NARRATOR_PERSONALITY_ID = "__narrator__";
+
+type NarratorMode = "before_first" | "before" | "after" | "interjection";
+
+async function generateNarratorMessageResilient(args: {
+    mode: NarratorMode;
+    history: Content[];
+    scenarioPrompt: string;
+    participantNames: string[];
+    userName: string;
+    rosterSystemPrompt: string;
+    settings: ReturnType<typeof settingsService.getSettings>;
+    isPremiumEndpointPreferred: boolean;
+    signal?: AbortSignal;
+}): Promise<TextAndThinking | null> {
+    const primary = await generateNarratorMessage(args);
+    if (primary?.text?.trim()) {
+        return { text: primary.text.trim(), thinking: "" };
+    }
+    if (args.signal?.aborted) {
+        return null;
+    }
+
+    // Retry once with empty history. This helps when the chat history contains
+    // content that causes the narrator call to be blocked or return empty.
+    try {
+        const retry = await generateNarratorMessage({ ...args, history: [] });
+        if (retry?.text?.trim()) {
+            return { text: retry.text.trim(), thinking: "" };
+        }
+    } catch {
+        // Ignore and fall back to caller-provided fallback text.
+    }
+
+    return null;
+}
+
+async function generateNarratorMessage(args: {
+    mode: NarratorMode;
+    history: Content[];
+    scenarioPrompt: string;
+    participantNames: string[];
+    userName: string;
+    rosterSystemPrompt: string;
+    settings: ReturnType<typeof settingsService.getSettings>;
+    isPremiumEndpointPreferred: boolean;
+    signal?: AbortSignal;
+}): Promise<TextAndThinking | null> {
+    const { mode, history, scenarioPrompt, participantNames, userName, rosterSystemPrompt, settings, isPremiumEndpointPreferred, signal } = args;
+
+    const narratorSystemInstructionText = (
+        "You are a creative narrator for a roleplay." +
+        (rosterSystemPrompt?.trim() ? `\n${rosterSystemPrompt}` : "")
+    ).trim();
+
+    // Narration should be stable and independent of the user's chat model selection.
+    // Some user-selectable models require thinking mode and will error if we send thinkingBudget: 0.
+    // Always use Gemini 3 Flash for narrator.
+    const narratorModel = ChatModel.FLASH;
+
+    let narratorPrompt = "";
+    const allNames = [userName, ...participantNames].join(", ");
+
+    switch (mode) {
+        case "before_first":
+            if (scenarioPrompt.trim()) {
+                narratorPrompt = `<system>You are the narrator. Set the scene and expand on this scenario: "${scenarioPrompt}". Introduce the characters present: ${allNames}. Write in second or third person. Be evocative but concise (2-4 sentences).</system>`;
+            } else {
+                narratorPrompt = `<system>You are the narrator. A fateful meeting brings together: ${allNames}. Describe the setting where they meet and set the tone for their interaction. Write in second or third person. Be evocative but concise (2-4 sentences).</system>`;
+            }
+            break;
+        case "before":
+            narratorPrompt = `<system>You are the narrator. Provide brief scene narration before the next round of conversation. You may describe the atmosphere, advance time, note environmental changes, or create tension. Be brief (1-3 sentences). Do not speak for the characters.</system>`;
+            break;
+        case "after":
+            narratorPrompt = `<system>You are the narrator. The characters have just finished speaking. Provide closing narration for this turn: emphasize key moments, create tension, advance the plot, or describe reactions and atmosphere. Be brief (1-3 sentences). Do not speak for the characters.</system>`;
+            break;
+        case "interjection":
+            narratorPrompt = `<system>You are the narrator. Something unexpected happens! Generate a brief special event: a sudden change in scenery, someone trips or does something by accident, an interruption, a twist, or inject some spice into the scene. Be brief and impactful (1-2 sentences). This should create an interesting moment for the characters to react to.</system>`;
+            break;
+    }
+
+    try {
+        let raw = "";
+        // Narrator must never use/store reasoning/thinking, regardless of the user's setting.
+        // We still keep a local variable for compatibility with the existing return type.
+        let thinking = "";
+        console.log(`[Narrator] Starting generation, mode=${mode}, model=${narratorModel}, isPremium=${isPremiumEndpointPreferred}, historyLen=${history.length}`);
+        if (isPremiumEndpointPreferred) {
+            const payloadSettings: PremiumEndpoint.RequestSettings = {
+                model: narratorModel,
+                streamResponses: settings.streamResponses,
+                generate: false,
+                maxOutputTokens: parseInt(settings.maxTokens),
+                temperature: 1.0,
+                systemInstruction: { parts: [{ text: narratorSystemInstructionText }] } as Content,
+                safetySettings: settings.safetySettings,
+                thinkingConfig: generateThinkingConfig(narratorModel, false, settings),
+            } as any;
+
+            const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+            const resp = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    ...(await getAuthHeaders()),
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    message: narratorPrompt,
+                    settings: payloadSettings,
+                    history,
+                } satisfies PremiumEndpoint.Request),
+                signal,
+            });
+            if (!resp.ok) {
+                console.error("[Narrator] Premium endpoint failed:", resp.status, await resp.text().catch(() => ""));
+                return null;
+            }
+            console.log(`[Narrator] Premium endpoint responded OK, streaming=${settings.streamResponses}`);
+            if (settings.streamResponses) {
+                const streamed = await readPremiumEndpointTextAndThinkingFromSse({ res: resp, signal });
+                raw = streamed.text;
+                console.log(`[Narrator] SSE streamed text length: ${raw.length}`);
+                thinking = "";
+            } else {
+                const json = await resp.json();
+                console.log(`[Narrator] Non-streaming response:`, JSON.stringify(json).slice(0, 500));
+                const extracted = extractTextAndThinkingFromResponse(json);
+                raw = extracted.text;
+                thinking = "";
+            }
+        } else {
+            console.log(`[Narrator] Using local SDK`);
+            const ai = new GoogleGenAI({ apiKey: settings.apiKey });
+            const config: GenerateContentConfig = {
+                maxOutputTokens: parseInt(settings.maxTokens),
+                temperature: 1.0,
+                systemInstruction: { parts: [{ text: narratorSystemInstructionText }] } as Content,
+                safetySettings: settings.safetySettings,
+                thinkingConfig: generateThinkingConfig(narratorModel, false, settings),
+            };
+
+            const chat = ai.chats.create({ model: narratorModel, history, config });
+            if (settings.streamResponses) {
+                let stream: AsyncGenerator<GenerateContentResponse> = await chat.sendMessageStream({
+                    message: [{ text: narratorPrompt }],
+                });
+                for await (const chunk of stream) {
+                    if (signal?.aborted) {
+                        const err = new Error("Aborted");
+                        (err as any).name = "AbortError";
+                        throw err;
+                    }
+                    const extracted = extractTextAndThinkingFromResponse(chunk);
+                    raw += extracted.text;
+                    // Intentionally ignore narrator thinking.
+                }
+            } else {
+                const response = await chat.sendMessage({
+                    message: [{ text: narratorPrompt }],
+                });
+                const extracted = extractTextAndThinkingFromResponse(response);
+                raw = extracted.text;
+                thinking = "";
+            }
+        }
+
+        const trimmed = raw.trim();
+        if (!trimmed) {
+            console.warn(`[Narrator] Empty response after trim, raw was: "${raw}"`);
+            return null;
+        }
+        console.log(`[Narrator] Success, text length: ${trimmed.length}`);
+        return {
+            text: trimmed,
+            thinking: "",
+        };
+    } catch (err: any) {
+        if (err?.name === "AbortError") {
+            console.warn(`[Narrator] Aborted`);
+            return null;
+        }
+        console.error("[Narrator] Generation error:", err);
+        return null;
     }
 }
 
@@ -1155,6 +1914,7 @@ async function sendGroupChatRpg(args: {
     attachmentFiles: FileList;
     isInternetSearchEnabled: boolean;
     isPremiumEndpointPreferred: boolean;
+    skipTurn?: boolean;
 }): Promise<HTMLElement | undefined> {
     const settings = settingsService.getSettings();
     const shouldEnforceThoughtSignaturesInHistory = settings.model === ChatModel.NANO_BANANA_PRO;
@@ -1170,16 +1930,152 @@ async function sendGroupChatRpg(args: {
     const scenarioPrompt: string = (rpg?.scenarioPrompt ?? "").toString();
     const narratorEnabled: boolean = !!rpg?.narratorEnabled;
 
+    //calculate current Round index
+    //if there's an existing round in progress (AI has spoken but user hasn't yet), continue it
+    //otherwise start a new round
+    const chatContent = workingChat?.content ?? [];
+    const existingRoundIndices = chatContent
+        .filter(m => typeof m.roundIndex === "number")
+        .map(m => m.roundIndex as number);
+
+    let currentRoundIndex = 1; // Start from Round 1
+    if (existingRoundIndices.length > 0) {
+        const maxRoundIndex = Math.max(...existingRoundIndices);
+        //check if user has already spoken in the current max round
+        const userSpokenInCurrentRound = chatContent.some(
+            m => m.roundIndex === maxRoundIndex && m.role === "user"
+        );
+        //if user already spoke in this round, start a new one; otherwise continue the current
+        currentRoundIndex = userSpokenInCurrentRound ? maxRoundIndex + 1 : maxRoundIndex;
+    }
+
+    // Persist a hidden marker when the user skips their turn.
+    // Without this, the next "Start Round" recalculates state as if the user never acted,
+    // causing an infinite loop of "skip" prompts.
+    if (!!args.skipTurn && !args.msg) {
+        const hasSkipMarkerForRound = chatContent.some(m => {
+            if (!m || m.role !== "user" || !m.hidden || m.roundIndex !== currentRoundIndex) return false;
+            const parts = Array.isArray(m.parts) ? m.parts : [];
+            return parts.some(p => (p?.text ?? "").toString() === USER_SKIP_TURN_MARKER_TEXT);
+        });
+
+        if (!hasSkipMarkerForRound) {
+            const skipMarker: Message = {
+                role: "user",
+                hidden: true,
+                roundIndex: currentRoundIndex,
+                parts: [{ text: USER_SKIP_TURN_MARKER_TEXT }],
+            };
+            await persistMessages([skipMarker]);
+            workingChat = await chatsService.getCurrentChat(db);
+            if (!workingChat) {
+                return;
+            }
+        }
+    }
+
     //initialize abort controller and set generating state
     currentAbortController = new AbortController();
     isGenerating = true;
     window.dispatchEvent(new CustomEvent('generation-state-changed', { detail: { isGenerating: true } }));
 
+    // Get user display name (Moved up for use in Immediate Narrator)
+    let userName = "User";
+    try {
+        const userProfile = await supabaseService.getUserProfile();
+        userName = userProfile?.preferredName || "User";
+    } catch {
+        // Not logged in, use default
+    }
+
+    // Resolve all participant info once (names + prompts) for prompt context
+    const participants: string[] = Array.isArray(groupChat?.participantIds) ? groupChat.participantIds : [];
+    const participantPersonas: GroupChatParticipantPersona[] = [];
+    const speakerNameById = new Map<string, string>();
+    speakerNameById.set(NARRATOR_PERSONALITY_ID, "Narrator");
+
+    for (const personaId of participants) {
+        const persona = await personalityService.get(personaId);
+        const name = (persona?.name || "Unknown").toString();
+        speakerNameById.set(personaId, name);
+        participantPersonas.push({
+            id: personaId,
+            name,
+            description: (persona?.description ?? "").toString(),
+            prompt: (persona?.prompt ?? "").toString(),
+            aggressiveness: Number((persona as any)?.aggressiveness ?? 0),
+            sensuality: Number((persona as any)?.sensuality ?? 0),
+            independence: Number((persona as any)?.independence ?? 0),
+        });
+    }
+    const allParticipantNames = participantPersonas.map(p => p.name);
+
+    const rosterSystemPrompt = buildGroupChatRosterSystemPrompt({
+        participantPersonas,
+        userName,
+        scenarioPrompt,
+        narratorEnabled,
+    });
+
+    // --- NARRATOR BEFORE FIRST ROUND ---
+    // The narrator should always open the scene on round 1, even if the user goes first.
+    // We emit this only when the chat has no visible messages yet.
+    if (narratorEnabled && !currentAbortController?.signal.aborted) {
+        const visibleAtStart = (workingChat?.content ?? []).filter(m => !m.hidden);
+        if (visibleAtStart.length === 0) {
+            const { history: beforeHistory } = await constructGeminiChatHistoryForGroupChatRpg(
+                workingChat,
+                {
+                    speakerNameById,
+                    userName,
+                    enforceThoughtSignatures: false,
+                }
+            );
+
+            const before = await generateNarratorMessage({
+                mode: "before_first",
+                history: beforeHistory,
+                scenarioPrompt,
+                participantNames: allParticipantNames,
+                userName,
+                rosterSystemPrompt,
+                settings,
+                isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
+                signal: currentAbortController?.signal,
+            });
+
+            if (before && !currentAbortController?.signal.aborted) {
+                const narratorMessage: Message = {
+                    role: "model",
+                    personalityid: NARRATOR_PERSONALITY_ID,
+                    parts: [{ text: before.text }],
+                    roundIndex: currentRoundIndex,
+                };
+
+                const narratorIndex = workingChat.content.length;
+                await insertMessageV2(narratorMessage, narratorIndex);
+                await persistMessages([narratorMessage]);
+                hljs.highlightAll();
+                helpers.messageContainerScrollToBottom(true);
+
+                workingChat = await chatsService.getCurrentChat(db);
+                if (!workingChat) {
+                    endGeneration();
+                    return;
+                }
+            }
+        }
+    }
+
     let userElm: HTMLElement | undefined = undefined;
 
     if (args.msg) {
-        // Insert + persist user's message first
-        const userMessage: Message = { role: "user", parts: [{ text: args.msg, attachments: args.attachmentFiles }] };
+        //insert + persist user's message first
+        const userMessage: Message = {
+            role: "user",
+            parts: [{ text: args.msg, attachments: args.attachmentFiles }],
+            roundIndex: currentRoundIndex,
+        };
         const userIndex = workingChat.content.length;
         userElm = await insertMessageV2(userMessage, userIndex);
         await persistMessages([userMessage]);
@@ -1191,44 +2087,96 @@ async function sendGroupChatRpg(args: {
         }
         hljs.highlightAll();
         helpers.messageContainerScrollToBottom(true);
+
+        // --- IMMEDIATE NARRATOR CHECK (Post-User) ---
+        // Narrator-after is handled later as a unified end-of-round step.
     }
 
-    // If no explicit order is stored, fall back to participantIds order
-    const participants: string[] = Array.isArray(groupChat?.participantIds) ? groupChat.participantIds : [];
+    //if no explicit order is stored, fall back to participantIds order
     const effectiveOrder = turnOrder.length > 0 ? turnOrder : [...participants, "user"];
 
-    // Find the starting position in the turn order
+    //find the starting position in the Round order
     const userIndexInOrder = effectiveOrder.indexOf("user");
     let startIndex = userIndexInOrder;
 
     if (!args.msg) {
-        // If triggered without a user message, start after the last speaker in the chat
-        const lastMessage = workingChat.content[workingChat.content.length - 1];
-        if (lastMessage) {
-            const lastSpeakerId = lastMessage.role === "user" ? "user" : lastMessage.personalityid;
-            const lastSpeakerIndex = effectiveOrder.indexOf(String(lastSpeakerId));
-            if (lastSpeakerIndex !== -1) {
-                startIndex = lastSpeakerIndex;
+        // If triggered without a user message, determine where to start.
+        // IMPORTANT: for "new round" starts, the previous round's last speaker
+        // should not influence turn order. Anchor within the current round.
+
+        const content = workingChat?.content ?? [];
+
+        const currentRoundHasAnyTurnMessages = content.some(m => {
+            if (!m || m.roundIndex !== currentRoundIndex) return false;
+            if (m.hidden) return false;
+            if (isPersonalityMarker(m)) return false;
+            if (isLegacyPersonalityIntro(m)) return false;
+            if (m.role === "user") return true;
+            return typeof m.personalityid === "string" && m.personalityid !== NARRATOR_PERSONALITY_ID;
+        });
+
+        if (!currentRoundHasAnyTurnMessages) {
+            // Fresh round (no messages yet): start from -1 so loop begins at 0.
+            startIndex = -1;
+        } else {
+            // Continuing an in-progress round: continue from the last turn-relevant speaker.
+            const lastTurnMessageInRound = (() => {
+                for (let i = content.length - 1; i >= 0; i--) {
+                    const candidate = content[i];
+                    if (!candidate || candidate.roundIndex !== currentRoundIndex) continue;
+                    if (candidate.hidden) continue;
+                    if (isPersonalityMarker(candidate)) continue;
+                    if (isLegacyPersonalityIntro(candidate)) continue;
+                    if (candidate.role === "model" && candidate.personalityid === NARRATOR_PERSONALITY_ID) continue;
+                    return candidate;
+                }
+                return undefined;
+            })();
+
+            if (lastTurnMessageInRound) {
+                const lastSpeakerId = lastTurnMessageInRound.role === "user" ? "user" : lastTurnMessageInRound.personalityid;
+                const lastSpeakerIndex = effectiveOrder.indexOf(String(lastSpeakerId));
+                startIndex = lastSpeakerIndex !== -1 ? lastSpeakerIndex : -1;
+            } else {
+                startIndex = -1;
             }
         }
     }
 
     const nextParticipants: string[] = [];
-    if (startIndex !== -1) {
-        // Start from the participant immediately after the last speaker and go until we hit the user again
-        for (let i = 1; i < effectiveOrder.length; i++) {
-            const idx = (startIndex + i) % effectiveOrder.length;
-            const id = effectiveOrder[idx];
-            if (id === "user") break; 
-            nextParticipants.push(id);
+    let stoppedForUser = false; // Track if we stopped because it's the user's turn
+
+    // Only collect AI participants when triggered via Start Round (no message AND not skipping)
+    // Skip Turn should end the round, not trigger more AI responses
+    if (!args.msg && !args.skipTurn) {
+        if (startIndex !== -1) {
+            //start from the participant immediately after the last speaker and go until we hit the user again
+            for (let i = 1; i < effectiveOrder.length; i++) {
+                const idx = (startIndex + i) % effectiveOrder.length;
+                const id = effectiveOrder[idx];
+                if (id === "user") {
+                    stoppedForUser = true;
+                    break;
+                }
+                nextParticipants.push(id);
+            }
+        } else {
+            //fresh start: go from beginning until user
+            for (const id of effectiveOrder) {
+                if (id === "user") {
+                    stoppedForUser = true;
+                    break;
+                }
+                nextParticipants.push(id);
+            }
         }
-    } else {
-        // Fallback: just use all personas if we can't determine order
-        nextParticipants.push(...effectiveOrder.filter(id => id !== "user"));
     }
 
     // Resolve participant names once for better prompting
     const participantMeta: Array<{ id: string; name: string; independence: number }> = [];
+    // ... logic for nextParticipants meta ...
+    // Note: We already calculated allParticipantNames at top, but we keep participantMeta for independence logic.
+    // Re-calculating specific meta for this batch:
     for (const personaId of nextParticipants) {
         const persona = await personalityService.get(personaId);
         participantMeta.push({
@@ -1238,14 +2186,71 @@ async function sendGroupChatRpg(args: {
         });
     }
 
+    // Use allParticipantNames for prompt context instead of just nextParticipants
+    const participantNames = allParticipantNames;
+
     for (const meta of participantMeta) {
         if (currentAbortController?.signal.aborted) {
             endGeneration();
             return userElm;
         }
 
+        // --- 5% MID-ROUND INTERJECTION ---
+        if (narratorEnabled && Math.random() < 0.05) {
+            const chatForInterjection = await chatsService.getCurrentChat(db);
+            const { history: interjectionHistory } = chatForInterjection
+                ? await constructGeminiChatHistoryForGroupChatRpg(chatForInterjection, {
+                    speakerNameById,
+                    userName,
+                    enforceThoughtSignatures: false,
+                })
+                : { history: [] };
+
+            const interjection = await generateNarratorMessage({
+                mode: "interjection",
+                history: interjectionHistory,
+                scenarioPrompt,
+                participantNames,
+                userName,
+                rosterSystemPrompt,
+                settings,
+                isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
+                signal: currentAbortController?.signal,
+            });
+
+            if (interjection && !currentAbortController?.signal.aborted) {
+                const interjectionMessage: Message = {
+                    role: "model",
+                    personalityid: NARRATOR_PERSONALITY_ID,
+                    parts: [{ text: interjection.text }],
+                    roundIndex: currentRoundIndex,
+                };
+
+                const interjectionIndex = (await chatsService.getCurrentChat(db))?.content.length ?? -1;
+                if (interjectionIndex >= 0) {
+                    await insertMessageV2(interjectionMessage, interjectionIndex);
+                    await persistMessages([interjectionMessage]);
+                    hljs.highlightAll();
+                    helpers.messageContainerScrollToBottom(true);
+                }
+
+                workingChat = await chatsService.getCurrentChat(db);
+                if (!workingChat) {
+                    endGeneration();
+                    return userElm;
+                }
+            }
+        }
+
         const persona = await personalityService.get(meta.id);
         const selectedPersona = { id: meta.id, ...(persona as any) } as DbPersonality;
+        const toneExamplesForSpeaker = Array.isArray((persona as any)?.toneExamples)
+            ? ((persona as any).toneExamples as unknown[]).map(v => (v ?? "").toString()).filter(v => v.trim().length > 0)
+            : [];
+        const speakerToneSystemPrompt = buildSpeakerToneExamplesSystemPrompt({
+            speakerName: meta.name,
+            toneExamples: toneExamplesForSpeaker,
+        });
         // Always build history from the latest chat object to avoid overwriting
         // freshly persisted messages inside marker migrations.
         const chatSnapshot = await chatsService.getCurrentChat(db);
@@ -1253,50 +2258,64 @@ async function sendGroupChatRpg(args: {
             endGeneration();
             return userElm;
         }
-        const { history, pinnedHistoryIndices } = await constructGeminiChatHistoryFromLocalChat(
+        const { history, pinnedHistoryIndices } = await constructGeminiChatHistoryForGroupChatRpg(
             chatSnapshot,
-            selectedPersona,
-            { enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory }
+            {
+                speakerNameById,
+                userName,
+                enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory,
+            }
         );
 
-        const roll = Math.random();
-        const skipChance = meta.independence / 5; //0.0 -> 0.6
+        const useIndependentAction = shouldTriggerIndependentAction(meta.independence);
 
         const participantsLine = participantMeta.map(p => `${p.name} (${p.id})`).join(", ");
-        const turnInstruction = `<system>You are participating in a turn-based group chat. Participants: ${participantsLine}.
+
+        // Build the turn instruction based on whether an independent action was triggered
+        let turnInstruction: string;
+        if (useIndependentAction) {
+            // Independent action prompt: encourage the character to do something on their own
+            turnInstruction = `<system>You are participating in a turn-based group chat. Participants: ${participantsLine}.
 It is now ${meta.name}'s turn to respond.
 
-Independence: ${meta.independence} out of 3. Random roll: ${roll.toFixed(4)}. Suggested skip chance: ${skipChance.toFixed(2)}.
-Higher independence means you are more selective and may skip if you have nothing useful to add.
+${meta.name} is feeling independent right now. They should progress the story on their own terms - perhaps start an activity, pursue a personal goal, engage with another character, or do something that doesn't revolve around the user. The user doesn't need to be involved in everything.
 
 If you reply, write ONLY what ${meta.name} would send as a single chat message (no prefixes like "${meta.name}:").
-If you choose to skip, set kind to "skip".
-If you must refuse, set kind to "refusal" and provide a short refusalReason.
-
-${scenarioPrompt.trim() !== "" ? `Starting scenario: ${scenarioPrompt.trim()}` : ""}
-${narratorEnabled ? "Narrator is enabled: you may include brief scene narration using *italics* when appropriate." : ""}
+If you choose to skip this turn entirely, set kind to "skip".
 </system>`;
+        } else {
+            // Normal turn prompt
+            turnInstruction = `<system>You are participating in a turn-based group chat. Participants: ${participantsLine}.
+It is now ${meta.name}'s turn to respond.
+
+Respond naturally as ${meta.name}, staying true to their independence level and personality.
+
+If you reply, write ONLY what ${meta.name} would send as a single chat message (no prefixes like "${meta.name}:").
+If you choose to skip this turn entirely, set kind to "skip".
+</system>`;
+        }
 
         const placeholderIndex = (await chatsService.getCurrentChat(db))?.content.length ?? -1;
         const placeholderElm = placeholderIndex >= 0
-            ? await insertMessageV2(createModelPlaceholderMessage(meta.id, ""), placeholderIndex)
+            ? await insertMessageV2(createModelPlaceholderMessage(meta.id, "", currentRoundIndex), placeholderIndex)
             : undefined;
         helpers.messageContainerScrollToBottom(true);
 
         let raw = "";
+        let turnThinking = "";
+        let lastRenderedPreviewText = "";
+        let fallbackMode: "continue" | "restart" | null = null;
         try {
             if (args.isPremiumEndpointPreferred) {
                 const payloadSettings: PremiumEndpoint.RequestSettings = {
                     model: settings.model,
-                    streamResponses: false,
+                    streamResponses: settings.streamResponses,
                     generate: false,
                     maxOutputTokens: parseInt(settings.maxTokens),
                     temperature: parseInt(settings.temperature) / 100,
                     systemInstruction: ({
                         parts: [{
-                            text: (await settingsService.getSystemPrompt()).parts?.[0].text
-                                +
-                                (scenarioPrompt.trim() !== "" ? `\n<system>Group chat scenario: ${scenarioPrompt.trim()}</system>` : ""),
+                            text: ((await settingsService.getSystemPrompt()).parts?.[0].text ?? "") + rosterSystemPrompt + speakerToneSystemPrompt,
                         }]
                     }) as Content,
                     safetySettings: settings.safetySettings,
@@ -1324,18 +2343,86 @@ ${narratorEnabled ? "Narrator is enabled: you may include brief scene narration 
                 if (!resp.ok) {
                     throw new Error(`Edge function error: ${resp.status}`);
                 }
-                const json = await resp.json();
-                raw = (json.text ?? "").toString();
+                if (settings.streamResponses) {
+                    let thinkingContentElm: HTMLDivElement | null = null;
+                    let isJsonSchemaFallback = false;
+                    const result = await processPremiumEndpointSse({
+                        res: resp,
+                        process: {
+                            signal: currentAbortController?.signal ?? undefined,
+                            abortMode: "throw",
+                            includeThoughts: true,
+                            useSkipThoughtSignature: false,
+                            skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+                            throwOnBlocked: (finishReason) => isGeminiBlockedFinishReason(finishReason),
+                            onBlocked: ({ finishReason, finishMessage }) => {
+                                throwGeminiBlocked({ finishReason, finishMessage });
+                            },
+                            callbacks: {
+                                onFallbackStart: (args) => {
+                                    fallbackMode = args?.mode ?? "restart";
+                                    isJsonSchemaFallback = !!args?.hasJsonSchema;
+                                    // For JSON schema fallback, clear everything - backend will stream plain text
+                                    // and wrap it as JSON at the end
+                                    raw = "";
+                                    lastRenderedPreviewText = "";
+                                },
+                                onText: async ({ text }) => {
+                                    raw = text;
+                                    if (!placeholderElm) return;
+
+                                    // In JSON schema fallback mode, backend streams plain text directly
+                                    // (not JSON), so render it as-is
+                                    let preview: string | null;
+                                    if (isJsonSchemaFallback) {
+                                        preview = raw;
+                                    } else {
+                                        // Normal Gemini JSON schema response - extract text field
+                                        preview = extractGroupTurnDecisionTextPreview(raw);
+                                    }
+                                    if (preview === null) return;
+
+                                    const finalPreview = stripLeadingSpeakerPrefix(preview, meta.name);
+                                    if (finalPreview === lastRenderedPreviewText) return;
+                                    lastRenderedPreviewText = finalPreview;
+
+                                    placeholderElm.querySelector('.message-text')?.classList.remove('is-loading');
+                                    const contentElm = placeholderElm.querySelector<HTMLElement>(".message-text .message-text-content");
+                                    if (contentElm) {
+                                        contentElm.innerHTML = await parseMarkdownToHtml(finalPreview);
+                                        helpers.messageContainerScrollToBottom();
+                                    }
+                                },
+                                onThinking: ({ thinking: thinkingSoFar }) => {
+                                    turnThinking = thinkingSoFar;
+                                    if (!placeholderElm) return;
+                                    thinkingContentElm ??= ensureThinkingUiOnMessageElement(placeholderElm);
+                                    if (thinkingContentElm) thinkingContentElm.textContent = turnThinking;
+                                },
+                            },
+                        },
+                    });
+
+                    raw = result.text;
+                    turnThinking = result.thinking;
+                } else {
+                    const json = await resp.json();
+                    const finishReason = json?.candidates?.[0]?.finishReason || json?.promptFeedback?.blockReason;
+                    if (isGeminiBlockedFinishReason(finishReason)) {
+                        const finishMessage = (json?.candidates?.[0] as any)?.finishMessage;
+                        throwGeminiBlocked({ finishReason, finishMessage });
+                    }
+                    const extracted = extractTextAndThinkingFromResponse(json);
+                    raw = extracted.text;
+                    turnThinking = extracted.thinking;
+                }
             } else {
-                const ai = new GoogleGenAI({ apiKey: settings.apiKey });
                 const config: GenerateContentConfig = {
                     maxOutputTokens: parseInt(settings.maxTokens),
                     temperature: parseInt(settings.temperature) / 100,
                     systemInstruction: ({
                         parts: [{
-                            text: (await settingsService.getSystemPrompt()).parts?.[0].text
-                                +
-                                (scenarioPrompt.trim() !== "" ? `\n<system>Group chat scenario: ${scenarioPrompt.trim()}</system>` : ""),
+                            text: ((await settingsService.getSystemPrompt()).parts?.[0].text ?? "") + rosterSystemPrompt + speakerToneSystemPrompt,
                         }]
                     }) as Content,
                     safetySettings: settings.safetySettings,
@@ -1345,12 +2432,39 @@ ${narratorEnabled ? "Narrator is enabled: you may include brief scene narration 
                     thinkingConfig: generateThinkingConfig(settings.model, settings.enableThinking, settings),
                 } as any;
 
-                const response = await ai.models.generateContent({
-                    model: settings.model,
-                    contents: [...history, { role: "user", parts: [{ text: turnInstruction }] }],
+                let thinkingContentElm: HTMLDivElement | null = null;
+                const extracted = await runLocalSdkRpgTurn({
+                    settings,
+                    history,
                     config,
+                    turnInstruction,
+                    signal: currentAbortController?.signal,
+                    onThinking: (thinkingSoFar) => {
+                        if (!placeholderElm) return;
+                        thinkingContentElm ??= ensureThinkingUiOnMessageElement(placeholderElm);
+                        if (thinkingContentElm) thinkingContentElm.textContent = thinkingSoFar;
+                    },
+                    onText: async (textSoFar) => {
+                        raw = textSoFar;
+                        if (!placeholderElm) return;
+                        const preview = extractGroupTurnDecisionTextPreview(raw);
+                        if (preview === null) return;
+
+                        const finalPreview = stripLeadingSpeakerPrefix(preview, meta.name);
+                        if (finalPreview === lastRenderedPreviewText) return;
+                        lastRenderedPreviewText = finalPreview;
+
+                        placeholderElm.querySelector('.message-text')?.classList.remove('is-loading');
+                        const contentElm = placeholderElm.querySelector<HTMLElement>(".message-text .message-text-content");
+                        if (contentElm) {
+                            contentElm.innerHTML = await parseMarkdownToHtml(finalPreview);
+                            helpers.messageContainerScrollToBottom();
+                        }
+                    },
                 });
-                raw = response.text || "";
+
+                raw = extracted.text;
+                turnThinking = extracted.thinking;
             }
         } catch (error: any) {
             if (error?.name === "AbortError" || currentAbortController?.signal.aborted) {
@@ -1358,24 +2472,63 @@ ${narratorEnabled ? "Narrator is enabled: you may include brief scene narration 
                 endGeneration();
                 return userElm;
             }
-            console.error("Group chat turn generation failed", error);
-            raw = JSON.stringify({ kind: "refusal", text: null, refusalReason: "Generation failed" });
+
+            if (error?.name === "GeminiBlocked" || error?.finishReason) {
+                showGeminiProhibitedContentToast({ finishReason: error?.finishReason, detail: error?.message });
+            }
+            console.error("Group chat Round generation failed", error);
+
+            // Leave a visible failed placeholder so the user can regenerate from here.
+            const modelMessage: Message = {
+                ...createModelErrorMessage(meta.id),
+                thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
+                roundIndex: currentRoundIndex,
+            };
+            await persistMessages([modelMessage]);
+
+            // Refresh working chat after each persisted model message
+            workingChat = await chatsService.getCurrentChat(db);
+            const updatedChat = workingChat;
+            if (updatedChat) {
+                const modelIndex = updatedChat.content.length - 1;
+                const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
+                if (placeholderElm) {
+                    placeholderElm.replaceWith(newElm);
+                } else {
+                    await insertMessageV2(updatedChat.content[modelIndex], modelIndex);
+                }
+            }
+
+            hljs.highlightAll();
+            helpers.messageContainerScrollToBottom(true);
+            continue;
         }
 
         const decision = await parseGroupTurnDecision(raw);
         if (decision.kind === "skip") {
-            placeholderElm?.remove();
+            if (placeholderElm) {
+                const skipNotice = document.createElement("div");
+                skipNotice.className = "skip-notice";
+
+                const safeName = helpers.getSanitized(meta.name || "Someone");
+                const reason = (decision.text ?? "").toString().trim();
+                const safeReasonSuffix = reason ? `: ${helpers.getSanitized(reason)}` : "";
+
+                skipNotice.innerHTML = `<span class="material-symbols-outlined">skip_next</span> ${safeName} skipped their turn${safeReasonSuffix}`;
+                placeholderElm.replaceWith(skipNotice);
+            }
             continue;
         }
 
-        const finalText = decision.kind === "reply"
-            ? (decision.text || "")
-            : `*Refused to respond${decision.refusalReason ? `: ${decision.refusalReason}` : "."}*`;
+        // At this point decision.kind is "reply" (skip was handled above)
+        const finalText = stripLeadingSpeakerPrefix((decision.text || ""), meta.name);
 
         const modelMessage: Message = {
             role: "model",
             personalityid: meta.id,
             parts: [{ text: finalText }],
+            thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
+            roundIndex: currentRoundIndex,
         };
         await persistMessages([modelMessage]);
 
@@ -1397,6 +2550,78 @@ ${narratorEnabled ? "Narrator is enabled: you may include brief scene narration 
         helpers.messageContainerScrollToBottom(true);
     }
 
+    // --- NARRATOR AFTER ROUND ---
+    // A round is considered complete when the user sends a message OR skips.
+    // Emit the narrator "after" message at the end of each completed round.
+    // Avoid duplicates by only emitting if the last visible message in this round isn't already the narrator.
+    const userCompletedTurn = !!args.msg || !!args.skipTurn;
+    if (narratorEnabled && userCompletedTurn && !currentAbortController?.signal.aborted) {
+        const chatForAfter = await chatsService.getCurrentChat(db);
+        if (chatForAfter) {
+            const lastInRound = [...(chatForAfter.content || [])]
+                .reverse()
+                .find(m => !m.hidden && m.roundIndex === currentRoundIndex);
+
+            const lastInRoundIsNarrator = !!lastInRound && lastInRound.role === "model" && lastInRound.personalityid === NARRATOR_PERSONALITY_ID;
+            if (!lastInRoundIsNarrator) {
+                const { history: afterHistory } = await constructGeminiChatHistoryForGroupChatRpg(chatForAfter, {
+                    speakerNameById,
+                    userName,
+                    enforceThoughtSignatures: false,
+                });
+
+                const after = await generateNarratorMessageResilient({
+                    mode: "after",
+                    history: afterHistory,
+                    scenarioPrompt,
+                    participantNames: allParticipantNames,
+                    userName,
+                    rosterSystemPrompt,
+                    settings,
+                    isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
+                    signal: currentAbortController?.signal,
+                });
+
+                const afterText = after?.text?.trim() ? after.text.trim() : "";
+                if (!currentAbortController?.signal.aborted && afterText) {
+                    const afterMessage: Message = {
+                        role: "model",
+                        personalityid: NARRATOR_PERSONALITY_ID,
+                        parts: [{ text: afterText }],
+                        roundIndex: currentRoundIndex,
+                    };
+
+                    const afterIndex = (await chatsService.getCurrentChat(db))?.content.length ?? -1;
+                    if (afterIndex >= 0) {
+                        await insertMessageV2(afterMessage, afterIndex);
+                        await persistMessages([afterMessage]);
+                        hljs.highlightAll();
+                        helpers.messageContainerScrollToBottom(true);
+                    }
+                } else if (!currentAbortController?.signal.aborted && !afterText) {
+                    warn({
+                        title: "Narrator failed",
+                        text: "Could not generate the end-of-round narration.",
+                    });
+                }
+            }
+        }
+    }
+
+    // --- DISPATCH ROUND STATE FOR UI ---
+    // Determine whose turn is next after this processing
+    // If user sent a message OR skipped their turn, the round is complete
+    // If no user message and not a skip, AI spoke and now it's user's turn
+    const isUserTurnNext = !userCompletedTurn;
+    window.dispatchEvent(new CustomEvent('round-state-changed', {
+        detail: {
+            isUserTurn: isUserTurnNext,
+            currentRoundIndex,
+            roundComplete: userCompletedTurn, // Round is complete if user sent a message or skipped
+            nextRoundNumber: currentRoundIndex + 1, // Next round number for button display
+        }
+    }));
+
     endGeneration();
     return userElm;
 }
@@ -1404,6 +2629,222 @@ ${narratorEnabled ? "Narrator is enabled: you may include brief scene narration 
 export interface GeminiHistoryBuildResult {
     history: Content[];
     pinnedHistoryIndices: number[];
+}
+
+/**
+ * Determines whether an "independent action" prompt should be used for this turn.
+ * Independent action encourages the character to progress the story on their own
+ * or engage in activities that don't include the user.
+ *
+ * Thresholds by independence level:
+ * - 0/3: 0% chance (never triggers)
+ * - 1/3: 15% chance
+ * - 2/3: 35% chance
+ * - 3/3: 50% chance
+ */
+function shouldTriggerIndependentAction(independence: number): boolean {
+    const thresholds: Record<number, number> = {
+        0: 0.00,
+        1: 0.15,
+        2: 0.35,
+        3: 0.50,
+    };
+    const clampedIndependence = Math.max(0, Math.min(3, Math.trunc(independence)));
+    const threshold = thresholds[clampedIndependence] ?? 0;
+    return Math.random() < threshold;
+}
+
+function escapeRegExp(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripLeadingSpeakerPrefix(text: string, speakerName: string): string {
+    const trimmed = (text ?? "").toString();
+    const name = (speakerName ?? "").toString().trim();
+    if (!name) {
+        return trimmed;
+    }
+
+    // Remove a single leading "Name: " / "Name - " / "Name — " prefix if present.
+    const re = new RegExp(`^\\s*${escapeRegExp(name)}\\s*[:\\uFF1A\\u2013\\u2014-]\\s+`, "i");
+    return trimmed.replace(re, "");
+}
+
+function buildGroupChatRosterSystemPrompt(args: {
+    participantPersonas: GroupChatParticipantPersona[];
+    userName: string;
+    scenarioPrompt: string;
+    narratorEnabled: boolean;
+}): string {
+    const userName = (args.userName || "User").toString();
+    const scenario = (args.scenarioPrompt || "").toString().trim();
+    const participants = Array.isArray(args.participantPersonas) ? args.participantPersonas : [];
+
+    const lines: string[] = [];
+    lines.push("<system>Turn-based group chat RPG mode.");
+    lines.push("Participants are fixed for this chat.");
+    lines.push("When replying, write ONLY the message content (no speaker prefix like 'Name:').");
+    lines.push(`The user is: ${userName}.`);
+    if (scenario) {
+        lines.push(`Scenario: ${scenario}`);
+    }
+    lines.push("Participant roster:");
+
+    for (const p of participants) {
+        const name = (p.name || "Unknown").toString();
+        const desc = (p.description || "").toString().trim();
+        const prompt = (p.prompt || "").toString().trim();
+        const aggression = Number.isFinite(p.aggressiveness as number) ? Math.trunc(p.aggressiveness as number) : 0;
+        const sensuality = Number.isFinite(p.sensuality as number) ? Math.trunc(p.sensuality as number) : 0;
+        const independence = Number.isFinite(p.independence as number) ? Math.trunc(p.independence as number) : 0;
+
+        lines.push(`- ${name} (${p.id})`);
+        if (desc) lines.push(`  Description: ${desc}`);
+        if (prompt) lines.push(`  Prompt: ${prompt}`);
+        lines.push(`  Traits: aggression ${aggression}/3, sensuality ${sensuality}/3, independence ${independence}/3.`);
+    }
+
+    lines.push("Chat transcript format: each message begins with 'SpeakerName: ...'. Do not copy that formatting in your replies.");
+    lines.push("</system>");
+    return "\n" + lines.join("\n");
+}
+
+function buildSpeakerToneExamplesSystemPrompt(args: {
+    speakerName: string;
+    toneExamples: string[];
+}): string {
+    const speakerName = (args.speakerName ?? "").toString().trim();
+    const toneExamples = Array.isArray(args.toneExamples)
+        ? args.toneExamples.map(v => (v ?? "").toString().trim()).filter(Boolean)
+        : [];
+
+    if (!speakerName || toneExamples.length === 0) {
+        return "";
+    }
+
+    const lines: string[] = [];
+    lines.push(`<system>Tone examples for ${speakerName}. Use these as style guidance and stay in character. Do NOT include a speaker prefix like "${speakerName}:" in your reply.</system>`);
+    for (let i = 0; i < toneExamples.length; i++) {
+        const q = TONE_QUESTIONS[i] ?? "Give an example of how you would talk.";
+        const a = toneExamples[i];
+        lines.push(`<system>Q: ${q}\nA (as ${speakerName}): ${a}</system>`);
+    }
+    return "\n" + lines.join("\n");
+}
+
+async function constructGeminiChatHistoryForGroupChatRpg(
+    currentChat: Chat,
+    args: {
+        speakerNameById: Map<string, string>;
+        userName: string;
+        enforceThoughtSignatures?: boolean;
+    }
+): Promise<GeminiHistoryBuildResult> {
+    const history: Content[] = [];
+    const pinnedHistoryIndices: number[] = [];
+    const shouldEnforceThoughtSignatures = args.enforceThoughtSignatures === true;
+
+    const speakerNameForMessage = (m: Message): string => {
+        if (m.role === "user") {
+            return (args.userName || "User").toString();
+        }
+        if (m.personalityid === NARRATOR_PERSONALITY_ID) {
+            return "Narrator";
+        }
+        const id = (m.personalityid ?? "").toString();
+        return args.speakerNameById.get(id) ?? "Unknown";
+    };
+
+    const maybePrefixSpeaker = (text: string, speaker: string): string => {
+        const raw = (text ?? "").toString();
+        const s = (speaker ?? "").toString().trim();
+        if (!s) return raw;
+        const already = new RegExp(`^\\s*${escapeRegExp(s)}\\s*[:\\uFF1A\\u2013\\u2014-]\\s+`, "i");
+        if (already.test(raw)) return raw;
+        return `${s}: ${raw}`;
+    };
+
+    let lastImageIndex = -1;
+    for (let i = currentChat.content.length - 1; i >= 0; i--) {
+        const message = currentChat.content[i];
+        if (message.hidden) {
+            continue;
+        }
+        if (message.generatedImages && message.generatedImages.length > 0) {
+            lastImageIndex = i;
+            break;
+        }
+    }
+
+    let lastAttachmentIndex = -1;
+    for (let i = currentChat.content.length - 1; i >= 0; i--) {
+        const message = currentChat.content[i];
+        if (message.hidden) {
+            continue;
+        }
+        if (message.parts.some(part => part.attachments && part.attachments.length > 0)) {
+            lastAttachmentIndex = i;
+            break;
+        }
+    }
+
+    for (let index = 0; index < currentChat.content.length; index++) {
+        const dbMessage = currentChat.content[index];
+        if (dbMessage.hidden) {
+            continue;
+        }
+
+        const aggregatedParts: Part[] = [];
+        const speaker = speakerNameForMessage(dbMessage);
+
+        for (const part of dbMessage.parts) {
+            const text = (part.text || "").toString();
+            const attachments = part.attachments || [];
+
+            if (text.trim().length > 0 || part.thoughtSignature) {
+                const partObj: Part = { text: maybePrefixSpeaker(text, speaker) };
+                partObj.thoughtSignature = part.thoughtSignature ?? (shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+                aggregatedParts.push(partObj);
+            }
+
+            if (attachments.length > 0 && index === lastAttachmentIndex) {
+                for (const attachment of attachments) {
+                    aggregatedParts.push(
+                        await createPartFromBase64(
+                            await helpers.fileToBase64(attachment),
+                            attachment.type || "application/octet-stream"
+                        )
+                    );
+                }
+            }
+        }
+
+        const genAiMessage: Content = {
+            role: dbMessage.role,
+            parts: aggregatedParts,
+        };
+
+        if (dbMessage.generatedImages && index === lastImageIndex) {
+            genAiMessage.parts?.push(
+                ...(dbMessage.generatedImages.map(img => {
+                    const part: Part = {
+                        inlineData: { data: img.base64, mimeType: img.mimeType },
+                    };
+                    part.thoughtSignature = img.thoughtSignature ?? (shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+                    if (img.thought) {
+                        part.thought = img.thought;
+                    }
+                    return part;
+                }))
+            );
+        }
+
+        if (genAiMessage.parts && genAiMessage.parts.length > 0) {
+            history.push(genAiMessage);
+        }
+    }
+
+    return { history, pinnedHistoryIndices };
 }
 
 export async function constructGeminiChatHistoryFromLocalChat(
@@ -1455,6 +2896,11 @@ export async function constructGeminiChatHistoryFromLocalChat(
             if (!markerInfo) {
                 continue;
             }
+
+            if (markerInfo.personalityId === NARRATOR_PERSONALITY_ID) {
+                continue;
+            }
+
             let persona: DbPersonality | undefined;
             if (markerInfo.personalityId === selectedPersonality.id) {
                 persona = selectedPersonality;
@@ -1488,7 +2934,8 @@ export async function constructGeminiChatHistoryFromLocalChat(
 
             // Only include the text part if it has content or a signature
             if (text.trim().length > 0 || part.thoughtSignature) {
-                const partObj: Part = { text };
+                const partText = text;
+                const partObj: Part = { text: partText };
                 partObj.thoughtSignature = part.thoughtSignature ?? (shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
                 aggregatedParts.push(partObj);
             }

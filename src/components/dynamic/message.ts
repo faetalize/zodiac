@@ -33,12 +33,16 @@ export const messageElement = async (
     index: number,
 ): Promise<HTMLElement> => {
     const messageDiv = document.createElement("div");
-    // Keep the chat index on the DOM node so that downstream logic (e.g.
-    // regeneration, pruning) can reliably map rendered elements back to
-    // chat.content even when only a slice of messages is in the DOM.
+    //keep the chat index on the DOM node so that downstream logic (e.g.
+    //regeneration, pruning) can reliably map rendered elements back to
+    //chat.content even when only a slice of messages is in the DOM.
     messageDiv.dataset.chatIndex = String(index);
+    //add round index for visual grouping in RPG mode
+    if (typeof message.roundIndex === "number") {
+        messageDiv.dataset.roundIndex = String(message.roundIndex);
+    }
     if (message.hidden) {
-        messageDiv.style.display = "none"; // Hide system messages from normal view
+        messageDiv.style.display = "none"; //hide system messages from normal view
         return messageDiv;
     }
     messageDiv.classList.add("message");
@@ -81,68 +85,109 @@ export const messageElement = async (
     }
     //model message
     else {
-        const personality: Personality = await personalityService.get(String(message.personalityid)) || personalityService.getDefault();
+        const isNarrator = message.personalityid === "__narrator__";
+        const personality: Personality = isNarrator
+            ? { name: "Narrator", image: "" } as Personality
+            : await personalityService.get(String(message.personalityid)) || personalityService.getDefault();
         messageDiv.classList.add("message-model");
+        if (isNarrator) {
+            messageDiv.classList.add("message-narrator");
+        }
         const rawInitial = message.parts[0]?.text || "";
         const initialHtml = await helpers.getDecoded(rawInitial) || "";
         // If we already have generated images, don't show loading spinner even if text is empty
         const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
         const isLoading = rawInitial.trim().length === 0 && !hasImages;
         const hasThinking = !!message.thinking && message.thinking.trim().length > 0;
-        messageDiv.innerHTML =
-            `<div class="message-header">
-            <img class="pfp" src="${personality.image}" loading="lazy"></img>
-            <h3 class="message-role">${personality.name}</h3>
-            <div class="message-actions">
-                <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
-                <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
-                <button class="btn-clipboard btn-textual material-symbols-outlined">content_copy</button>
-                <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
+
+        if (isNarrator) {
+            // Simplified narrator header - no pfp, no persona switching
+            messageDiv.innerHTML =
+                `<div class="message-header narrator-header">
+                <span class="narrator-icon material-symbols-outlined">auto_stories</span>
+                <h3 class="message-role">Narrator</h3>
             </div>
-        </div>
-        <div class="message-role-api" style="display: none;">${message.role}</div>
-        ${hasThinking ? `<div class="message-thinking">` +
-                `<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
-                `<div class="thinking-content" hidden>${await helpers.getDecoded(message.thinking || '')}</div>` +
-                `</div>` : ''}
-            <div class="message-text${isLoading ? ' is-loading' : ''}">
-                <span class="message-spinner"></span>
-                <div class="message-text-content">${initialHtml}</div>
-        </div>
-        <div class="message-images">
-            ${hasImages ? message.generatedImages!.map((img, idx) => `
-                <div class="generated-image-wrapper" data-index="${idx}">
-                    <img class="generated-image" src="data:${img.mimeType};base64,${img.base64}" loading="lazy" />
-                    <div class="generated-image-overlay">
-                        <button class="btn-textual btn-image-action btn-edit material-symbols-outlined" title="Edit this image">edit</button>
-                        <button class="btn-textual btn-image-action btn-attach material-symbols-outlined" title="Attach this image">attachment</button>
-                        <button class="btn-textual btn-image-action btn-download material-symbols-outlined" title="Download">download</button>
-                        <button class="btn-textual btn-image-action btn-expand material-symbols-outlined" title="Expand">open_in_full</button>
-                    </div>
+            <div class="message-role-api" style="display: none;">${message.role}</div>
+            ${hasThinking ? `<div class="message-thinking">` +
+                    `<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
+                    `<div class="thinking-content" hidden>${await helpers.getDecoded(message.thinking || '')}</div>` +
+                    `</div>` : ''}
+                <div class="message-text${isLoading ? ' is-loading' : ''}">
+                    <span class="message-spinner"></span>
+                    <div class="message-text-content">${initialHtml}</div>
+            </div>`;
+            if (hasThinking) {
+                const toggle = messageDiv.querySelector<HTMLButtonElement>('.thinking-toggle');
+                const content = messageDiv.querySelector<HTMLElement>('.thinking-content');
+                toggle?.addEventListener('click', () => {
+                    const expanded = toggle.getAttribute('aria-expanded') === 'true';
+                    if (expanded) {
+                        toggle.setAttribute('aria-expanded', 'false');
+                        toggle.textContent = 'Show reasoning';
+                        content?.setAttribute('hidden', '');
+                    } else {
+                        toggle.setAttribute('aria-expanded', 'true');
+                        toggle.textContent = 'Hide reasoning';
+                        content?.removeAttribute('hidden');
+                    }
+                });
+            }
+        } else {
+            messageDiv.innerHTML =
+                `<div class="message-header">
+                <img class="pfp" src="${personality.image}" loading="lazy"></img>
+                <h3 class="message-role">${personality.name}</h3>
+                <div class="message-actions">
+                    <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
+                    <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
+                    <button class="btn-clipboard btn-textual material-symbols-outlined">content_copy</button>
+                    <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
                 </div>
-            `).join("") : ""}
-        </div>
-        <div class="message-grounding-rendered-content"></div>`;
-        if (hasThinking) {
-            const toggle = messageDiv.querySelector<HTMLButtonElement>('.thinking-toggle');
-            const content = messageDiv.querySelector<HTMLElement>('.thinking-content');
-            toggle?.addEventListener('click', () => {
-                const expanded = toggle.getAttribute('aria-expanded') === 'true';
-                if (expanded) {
-                    toggle.setAttribute('aria-expanded', 'false');
-                    toggle.textContent = 'Show reasoning';
-                    content?.setAttribute('hidden', '');
-                } else {
-                    toggle.setAttribute('aria-expanded', 'true');
-                    toggle.textContent = 'Hide reasoning';
-                    content?.removeAttribute('hidden');
-                }
-            });
-        }
-        if (message.groundingContent) {
-            const shadow = messageDiv.querySelector<HTMLElement>(".message-grounding-rendered-content")!.attachShadow({ mode: "open" });
-            shadow.innerHTML = message.groundingContent;
-            shadow.querySelector<HTMLDivElement>(".carousel")!.style.scrollbarWidth = "unset";
+            </div>
+            <div class="message-role-api" style="display: none;">${message.role}</div>
+            ${hasThinking ? `<div class="message-thinking">` +
+                    `<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
+                    `<div class="thinking-content" hidden>${await helpers.getDecoded(message.thinking || '')}</div>` +
+                    `</div>` : ''}
+                <div class="message-text${isLoading ? ' is-loading' : ''}">
+                    <span class="message-spinner"></span>
+                    <div class="message-text-content">${initialHtml}</div>
+            </div>
+            <div class="message-images">
+                ${hasImages ? message.generatedImages!.map((img, idx) => `
+                    <div class="generated-image-wrapper" data-index="${idx}">
+                        <img class="generated-image" src="data:${img.mimeType};base64,${img.base64}" loading="lazy" />
+                        <div class="generated-image-overlay">
+                            <button class="btn-textual btn-image-action btn-edit material-symbols-outlined" title="Edit this image">edit</button>
+                            <button class="btn-textual btn-image-action btn-attach material-symbols-outlined" title="Attach this image">attachment</button>
+                            <button class="btn-textual btn-image-action btn-download material-symbols-outlined" title="Download">download</button>
+                            <button class="btn-textual btn-image-action btn-expand material-symbols-outlined" title="Expand">open_in_full</button>
+                        </div>
+                    </div>
+                `).join("") : ""}
+            </div>
+            <div class="message-grounding-rendered-content"></div>`;
+            if (hasThinking) {
+                const toggle = messageDiv.querySelector<HTMLButtonElement>('.thinking-toggle');
+                const content = messageDiv.querySelector<HTMLElement>('.thinking-content');
+                toggle?.addEventListener('click', () => {
+                    const expanded = toggle.getAttribute('aria-expanded') === 'true';
+                    if (expanded) {
+                        toggle.setAttribute('aria-expanded', 'false');
+                        toggle.textContent = 'Show reasoning';
+                        content?.setAttribute('hidden', '');
+                    } else {
+                        toggle.setAttribute('aria-expanded', 'true');
+                        toggle.textContent = 'Hide reasoning';
+                        content?.removeAttribute('hidden');
+                    }
+                });
+            }
+            if (message.groundingContent) {
+                const shadow = messageDiv.querySelector<HTMLElement>(".message-grounding-rendered-content")!.attachShadow({ mode: "open" });
+                shadow.innerHTML = message.groundingContent;
+                shadow.querySelector<HTMLDivElement>(".carousel")!.style.scrollbarWidth = "unset";
+            }
         }
     }
 
@@ -514,7 +559,7 @@ function setupGeneratedImageInteractions(root: HTMLElement) {
             e.stopPropagation();
             try {
                 const file = await imageToFile();
-                
+
                 // Dispatch custom event instead of manually modifying input
                 window.dispatchEvent(new CustomEvent('attach-image-from-chat', {
                     detail: { file, toggleEditing: true }
@@ -529,7 +574,7 @@ function setupGeneratedImageInteractions(root: HTMLElement) {
             e.stopPropagation();
             try {
                 const file = await imageToFile();
-                
+
                 // Dispatch custom event instead of manually modifying input
                 window.dispatchEvent(new CustomEvent('attach-image-from-chat', {
                     detail: { file, toggleEditing: false }

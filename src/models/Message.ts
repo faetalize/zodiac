@@ -24,4 +24,6 @@ export interface Message {
     hidden?: boolean;
     // Whether this message was interrupted by the user
     interrupted?: boolean;
+    // Round index for group chat RPG mode (groups messages into rounds)
+    roundIndex?: number;
 }

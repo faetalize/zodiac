@@ -22,6 +22,8 @@
     --dialog-bg: #461010db;
     --dialog-shadow: 0 0 16px 5px rgb(0 0 0 / 25%);
 
+    --turn-control-outline: 1px solid rgba(255, 255, 255, 0.55);
+
 
     .message-text:focus-visible {
         outline: 1px solid var(--focus-outline);
