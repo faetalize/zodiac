@@ -27,6 +27,8 @@
     --dropdown-menu-item-hover-bg: rgba(105, 105, 105, 0.0685);
     --dropdown-menu-item-active-bg: rgba(105, 105, 105, 0.15);
 
+    --turn-control-outline: 1px solid rgba(0, 0, 0, 0.13);
+
 
     .message-text:focus-visible {
         outline: 1px solid var(--focus-outline);

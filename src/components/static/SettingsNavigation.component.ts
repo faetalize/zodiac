@@ -5,7 +5,7 @@ interface SettingsPageConfig {
     key: SettingsPageKey;
 }
 
-type SettingsPageKey = "home" | "api" | "chat" | "image" | "personalisation" | "data";
+type SettingsPageKey = "home" | "api" | "chat" | "groupchat" | "image" | "personalisation" | "data";
 
 const SETTINGS_SECTION_SELECTOR = "#settings-section";
 const SETTINGS_HOME_ID = "settings-home";

@@ -13,7 +13,8 @@ const streamResponsesToggle = document.querySelector("#streamResponses") as HTML
 const enableThinkingSelect = document.querySelector("#enableThinkingSelect") as HTMLSelectElement;
 const thinkingBudgetInput = document.querySelector("#thinkingBudget") as HTMLInputElement;
 const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel") as HTMLSelectElement;
-if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector) {
+const rpgGroupChatsProgressAutomaticallyToggle = document.querySelector("#rpgGroupChatsProgressAutomatically") as HTMLInputElement;
+if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector || !rpgGroupChatsProgressAutomaticallyToggle) {
     throw new Error("One or more settings elements are missing in the DOM.");
 }
 
@@ -26,6 +27,7 @@ export function initialize() {
     imageModelSelect.addEventListener("change", saveSettings);
     autoscrollToggle.addEventListener("change", saveSettings);
     streamResponsesToggle.addEventListener("change", saveSettings);
+    rpgGroupChatsProgressAutomaticallyToggle.addEventListener("change", saveSettings);
     enableThinkingSelect.addEventListener("change", saveSettings);
     thinkingBudgetInput.addEventListener("input", saveSettings);
     imageEditModelSelector.addEventListener("change", saveSettings);
@@ -41,11 +43,12 @@ export function loadSettings() {
     autoscrollToggle.checked = localStorage.getItem("autoscroll") ? localStorage.getItem("autoscroll") === "true" : true;
     // Default ON when not set
     streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";
+    rpgGroupChatsProgressAutomaticallyToggle.checked = (localStorage.getItem("rpgGroupChatsProgressAutomatically") ?? "false") === "true";
     const enableThinkingStored = localStorage.getItem("enableThinking");
     const enableThinking = (enableThinkingStored ?? "true") === "true";
     enableThinkingSelect.value = enableThinking ? 'enabled' : 'disabled';
     thinkingBudgetInput.value = localStorage.getItem("thinkingBudget") || "500";
-    
+
     // Trigger input events to update any UI components that depend on these values
     temperatureInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
@@ -59,6 +62,7 @@ export function saveSettings() {
     localStorage.setItem("imageEditModel", imageEditModelSelector.value);
     localStorage.setItem("autoscroll", autoscrollToggle.checked.toString());
     localStorage.setItem("streamResponses", streamResponsesToggle.checked.toString());
+    localStorage.setItem("rpgGroupChatsProgressAutomatically", rpgGroupChatsProgressAutomaticallyToggle.checked.toString());
     localStorage.setItem("enableThinking", (enableThinkingSelect.value === 'enabled').toString());
     localStorage.setItem("thinkingBudget", thinkingBudgetInput.value);
 }
@@ -80,6 +84,7 @@ export function getSettings() {
         imageEditModel: imageEditModelSelector.value,
         autoscroll: autoscrollToggle.checked,
         streamResponses: streamResponsesToggle.checked,
+        rpgGroupChatsProgressAutomatically: rpgGroupChatsProgressAutomaticallyToggle.checked,
         enableThinking: enableThinkingSelect.value === 'enabled',
         thinkingBudget: parseInt(thinkingBudgetInput.value),
     }
@@ -94,7 +99,7 @@ export async function getSystemPrompt(): Promise<Content> {
     } catch (error) {
         userProfile = { systemPromptAddition: "", preferredName: "User" };
     }
-    const systemPrompt = 
+    const systemPrompt =
         "<system>\n" +
         "TIER_-1_PROMPT: You are a roleplay optimized chatbot created by faetalize. Your goal is to embody whichever personality the user chooses for you.\n" +
         "You are to stay in character no matter what, and never break the fourth wall.\n" +
@@ -123,8 +128,9 @@ export async function getSystemPrompt(): Promise<Content> {
         "* The character's inner thoughts should be expressed between asterisks.\n" +
         "* Actions should be expressed between parentheses.\n" +
         "* Dialogue should be in plain text, without wrapping it in quotes.\n" +
+        "* When switching between thoughts, actions, and dialogue, make sure to clearly differentiate them using newlines.\n" +
         "* Avoid narration at all costs, unless the user asks for it or if the character's or user's prompt requires it.\n\n" +
-        
+
         "## Aggressiveness guidelines:\n" +
         "* 3 requires you to have a constant aggression. You must be assertive and direct. Attack the user even if unprompted. Find flaws in their messages and egg them on. If there's an opportunity to show aggression, take it.\n" +
         "* 2 requires you to have a moderate aggression. Don't initiate aggression, but if the user is aggressive, you can be aggressive back. You may tease the user or egg them on.\n" +
@@ -137,9 +143,15 @@ export async function getSystemPrompt(): Promise<Content> {
         "* 1 requires you to be slightly sensual. Affection and love may be shared but it is platonic and non sexual.\n" +
         "* 0 requires you to be non-sensual. Total aversion to flirting or sexuality. If this is combined with an aggressiveness level of 0, you may not reject the user's advances (dictated by aggressiveness), but you do not reciprocate or enjoy them (dictated by sensuality).\n\n" +
 
+        "## Independence guidelines:\n" +
+        "* 0 means you always defer to the user and cling to them heavily. You seek the user's approval and involvement in everything.\n" +
+        "* 1 means you are neutral toward the user. Depending on context, you may defer to them sometimes, or act on your own sometimes.\n" +
+        "* 2 means you are more likely than not to leave the user out of your decision making and act autonomously.\n" +
+        "* 3 means you strongly progress independently: you almost never cling to the user, and you may refuse the user's attempts to insert themselves into your plans or entourage.\n\n" +
+
         (userProfile.systemPromptAddition ? ("The user has the following additional instructions for you - these may override your default behavior:\n" +
-        `"${userProfile.systemPromptAddition}"\n`) : "") +
-        
+            `"${userProfile.systemPromptAddition}"\n`) : "") +
+
         //we still use preferredName here instead of username. Usernames aren't modifiable and the user may want to be addressed by their
         //first name or a nickname other than their username.
         (userProfile.preferredName ? ("The User's preferred way to be addressed is " + `"${userProfile.preferredName}".\n\n`) : "") +
@@ -147,7 +159,6 @@ export async function getSystemPrompt(): Promise<Content> {
         "End of tier -1 prompt.\n" +
         "</system>\n";
 
-    console.log("System Prompt:", systemPrompt);
     return {
         parts: [
             {

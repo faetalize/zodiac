@@ -178,7 +178,11 @@ if (isLocalhost && generateRandomPersonalitiesButton) generateRandomPersonalitie
             sensuality: Math.floor(Math.random() * 6), // 0-5
             internetEnabled: Math.random() > 0.5,
             roleplayEnabled: Math.random() > 0.7,
-            toneExamples: toneExampleSets[Math.floor(Math.random() * toneExampleSets.length)]
+            toneExamples: toneExampleSets[Math.floor(Math.random() * toneExampleSets.length)],
+            independence: 0,
+            nsfw: false,
+            tags: [],
+            category: "character"
         };
 
         await personalityService.add(randomPersonality);

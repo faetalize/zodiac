@@ -53,7 +53,7 @@ hr {
     opacity: 0.5;
 }
 
-h4{
+h4 {
     font-weight: bold;
 }
 
@@ -785,6 +785,7 @@ form {
 
 /* Responsive: allow the overlay to shrink on small viewports */
 @media (max-width: 520px) {
+
     #form-add-personality,
     #form-create-group-chat {
         width: 95%;
@@ -1420,7 +1421,8 @@ form {
     align-items: center;
     gap: 0.75rem;
     margin-bottom: 0.75rem;
-    position: relative; /* allow absolute placement of the count */
+    position: relative;
+    /* allow absolute placement of the count */
     background-color: var(--input-bg);
     border: 1px solid var(--input-text-border);
     padding: 0.35rem 0.6rem;
@@ -1434,7 +1436,8 @@ form {
     border: none;
     background: transparent;
     padding: 0;
-    padding-right: 5.25rem; /* reserve ~84px space for the badge (77px badge + margin) */
+    padding-right: 5.25rem;
+    /* reserve ~84px space for the badge (77px badge + margin) */
     font-size: 0.9rem;
 }
 
@@ -1451,7 +1454,8 @@ form {
     font-size: 0.85rem;
     opacity: 0.8;
     white-space: nowrap;
-    pointer-events: none; /* non-interactive, clicking passes to the input */
+    pointer-events: none;
+    /* non-interactive, clicking passes to the input */
     color: var(--text-muted, currentColor);
 }
 
@@ -1471,11 +1475,13 @@ form {
     padding: 0.6rem 0.75rem;
     border: 1px solid var(--input-text-border);
     border-radius: 0.75rem;
-    cursor: pointer; /* make entire row feel clickable */
+    cursor: pointer;
+    /* make entire row feel clickable */
 }
 
 .group-chat-persona-item * {
-    cursor: inherit; /* ensure inner elements don't override the pointer */
+    cursor: inherit;
+    /* ensure inner elements don't override the pointer */
 }
 
 .group-chat-persona-item:hover {
@@ -2213,6 +2219,192 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
 
 .message-model {
     align-self: flex-start;
+}
+
+/* Narrator message (RPG mode) - minimal interweaved style */
+.message-narrator {
+    align-self: flex-start;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0.5rem 1rem;
+    font-style: italic;
+    opacity: 0.75;
+    max-width: 90%;
+    text-align: left;
+    text-justify: none;
+    width: auto;
+}
+
+/* Hide narrator header elements */
+.message-narrator .narrator-header,
+.message-narrator .narrator-icon,
+.message-narrator .message-role,
+.message-narrator .message-actions {
+    display: none !important;
+}
+
+.message-narrator .message-text {
+    margin-top: 0;
+}
+
+.message-narrator .message-text-content {
+    line-height: 1.5;
+    color: var(--body-fg);
+}
+
+/* Round Block styling - visual grouping for RPG mode messages */
+.round-block {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    position: relative;
+    background: var(--card-bg, rgba(0, 0, 0, 0.05));
+    border: 1px solid var(--card-border, rgba(0, 0, 0, 0.1));
+    border-radius: 16px;
+    padding: 2.5rem 1.25rem 1.5rem 1.25rem;
+    margin-bottom: 2rem;
+    box-sizing: border-box;
+    gap: 0.75rem;
+}
+
+/* Round header (badge + actions) */
+.round-header {
+    position: absolute;
+    top: -0.6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 2;
+}
+
+.round-badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--badge-fg, var(--body-fg));
+    background: var(--badge-bg, rgba(0, 0, 0, 0.08));
+    border: var(--badge-border, 1px solid rgba(0, 0, 0, 0.12));
+    padding: 3px 12px;
+    border-radius: 10px;
+    user-select: none;
+}
+
+.round-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+}
+
+.round-action-btn {
+    padding: 2px 6px;
+    opacity: 0.8;
+}
+
+.round-action-btn:hover {
+    opacity: 1;
+}
+
+/* Messages inside round block: reduce individual styling */
+.round-block .message {
+    margin-bottom: 0 !important;
+    background: var(--card-bg, rgba(0, 0, 0, 0.05)) !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 12px !important;
+}
+
+.round-block .message:not(.message-model) {
+    background: var(--message-user-bg, var(--card-bg, rgba(0, 0, 0, 0.08))) !important;
+}
+
+.round-block .message-narrator {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Smooth transition for round blocks */
+.round-block {
+    animation: roundBlockFadeIn 0.4s ease-out;
+}
+
+@keyframes roundBlockFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(15px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+
+
+/* Turn Control Panel for RPG group chats */
+.turn-control-panel {
+    position: absolute;
+    bottom: 7rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--turn-control-bg, var(--message-box-bg, var(--card-bg, rgba(0, 0, 0, 0.05))));
+    outline: var(--turn-control-outline, var(--elevated-ui-outline));
+    border-radius: 1rem;
+    box-shadow: var(--elevated-ui-shadow);
+    backdrop-filter: blur(12px);
+    z-index: 1;
+}
+
+.turn-control-panel.hidden {
+    display: none;
+}
+
+.turn-control-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.turn-control-panel .btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.85rem;
+}
+
+.turn-control-panel .btn .material-symbols-outlined {
+    font-size: 1.1rem;
+}
+
+/* Skip Notice - visual feedback when user skips their turn */
+.skip-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin: 1rem auto;
+    max-width: 300px;
+    background: var(--card-bg, rgba(0, 0, 0, 0.05));
+    border: 1px dashed var(--card-border, rgba(0, 0, 0, 0.2));
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--body-fg);
+    font-style: italic;
+}
+
+.skip-notice .material-symbols-outlined {
+    font-size: 1.1rem;
+    opacity: 0.7;
 }
 
 #message-box {

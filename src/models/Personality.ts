@@ -1,4 +1,4 @@
-import type { Database } from '../../../shared/persona-schema/database.types'
+import type { Database } from '../types/database.types'
 
 // Use Supabase enum as source of truth
 export type PersonaCategory = Database['public']['Enums']['persona_category']

@@ -21,11 +21,18 @@ const messageBox = document.querySelector<HTMLDivElement>("#message-box");
 const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
 const attachmentPreview = document.querySelector<HTMLDivElement>("#attachment-preview");
 const sendMessageButton = document.querySelector<HTMLButtonElement>("#btn-send");
-const triggerAiButton = document.querySelector<HTMLButtonElement>("#btn-trigger-ai");
 const internetSearchToggle = document.querySelector<HTMLButtonElement>("#btn-internet");
 const roleplayActionsMenu = document.querySelector<HTMLButtonElement>("#btn-roleplay");
 
-if (!messageInput || !messageBox || !attachmentsInput || !attachmentPreview || !sendMessageButton || !triggerAiButton || !internetSearchToggle || !roleplayActionsMenu) {
+//turn control elements (optional - for group chats)
+const turnControlPanel = document.querySelector<HTMLDivElement>("#turn-control-panel");
+const turnControlLabel = document.querySelector<HTMLSpanElement>("#turn-control-label");
+const startTurnBtn = document.querySelector<HTMLButtonElement>("#btn-start-turn");
+const startRoundText = document.querySelector<HTMLSpanElement>("#start-round-text");
+const skipTurnBtn = document.querySelector<HTMLButtonElement>("#btn-skip-turn");
+const triggerAiButton = document.querySelector<HTMLButtonElement>("#btn-trigger-ai");
+
+if (!messageInput || !messageBox || !attachmentsInput || !attachmentPreview || !sendMessageButton || !internetSearchToggle || !roleplayActionsMenu) {
     console.error("Chat input component is missing some elements. Please check the HTML structure.");
     throw new Error("Chat input component is not properly initialized.");
 }
@@ -163,7 +170,7 @@ sendMessageButton.addEventListener("click", async () => {
         });
         return;
     }
-    
+
     try {
         const message = helpers.getEncoded(messageInput.innerHTML);
         messageInput.innerHTML = "";
@@ -185,26 +192,141 @@ window.addEventListener('generation-state-changed', (event: any) => {
         sendMessageButton.textContent = 'stop';
         sendMessageButton.title = 'Stop generating';
         sendMessageButton.classList.add('generating');
-        triggerAiButton.classList.add('hidden');
+        turnControlPanel?.classList.add('hidden');
+        if (turnControlLabel) turnControlLabel.textContent = "AI responding...";
     } else {
         sendMessageButton.textContent = 'send';
         sendMessageButton.title = '';
         sendMessageButton.classList.remove('generating');
-        
-        // Re-show trigger button if it's a group chat
+
+        //re-show turn control if it's an RPG group chat
         void chatsService.getCurrentChat(db).then(chat => {
             if (chat?.groupChat?.mode === "rpg") {
-                triggerAiButton.classList.remove('hidden');
+                turnControlPanel?.classList.remove('hidden');
             }
         });
     }
 });
 
-triggerAiButton.addEventListener("click", async () => {
+//listen for round state changes to update UI dynamically
+window.addEventListener('round-state-changed', (event: any) => {
+    const { isUserTurn, roundComplete, nextRoundNumber } = event.detail;
+
+    void chatsService.getCurrentChat(db).then(chat => {
+        if (chat?.groupChat?.mode !== "rpg") return;
+
+        if (isUserTurn) {
+            //user's turn to speak or skip
+            if (turnControlLabel) turnControlLabel.textContent = "Your turn";
+            startTurnBtn?.classList.add("hidden");
+            skipTurnBtn?.classList.remove("hidden");
+        } else {
+            //AI's turn next (user needs to start it if order requires)
+            if (turnControlLabel) turnControlLabel.textContent = "Round complete";
+            startTurnBtn?.classList.remove("hidden");
+            skipTurnBtn?.classList.add("hidden");
+            //update button text with next round number
+            if (startRoundText && typeof nextRoundNumber === "number") {
+                startRoundText.textContent = `Start Round ${nextRoundNumber}`;
+            }
+        }
+    });
+
+    //auto-progress RPG rounds (no need to press start round)
+    if (!isUserTurn && roundComplete && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
+        const startNextRoundIfIdle = async () => {
+            if (isCurrentlyGenerating) return;
+            const chat = await chatsService.getCurrentChat(db);
+            if (chat?.groupChat?.mode !== "rpg") return;
+            await messageService.send("");
+        };
+
+        //round-state-changed is dispatched before generation-state-changed(false),
+        //so wait for generation to finish, then kick off the next round.
+        const onGenerationState = async (e: any) => {
+            if (e?.detail?.isGenerating) return;
+            window.removeEventListener('generation-state-changed', onGenerationState as any);
+            try {
+                // Let the originating send() fully unwind (sendInFlight reset, etc.)
+                // before we trigger the next round.
+                window.setTimeout(() => {
+                    void startNextRoundIfIdle();
+                }, 0);
+            } catch (error: any) {
+                toastService.danger({
+                    title: "Error starting next round",
+                    text: JSON.stringify(error?.message || error),
+                });
+            }
+        };
+        window.addEventListener('generation-state-changed', onGenerationState as any);
+    }
+});
+
+//helper to insert skip feedback message into current round block
+function insertSkipFeedback() {
+    const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
+    if (!messageContainer) return;
+
+    const skipNotice = document.createElement("div");
+    skipNotice.className = "skip-notice";
+    skipNotice.innerHTML = `<span class="material-symbols-outlined">skip_next</span> You skipped your turn`;
+
+    //find the last round block and append there, or fallback to message container
+    const roundBlocks = messageContainer.querySelectorAll<HTMLDivElement>(".round-block");
+    const lastRoundBlock = roundBlocks[roundBlocks.length - 1];
+    if (lastRoundBlock) {
+        lastRoundBlock.append(skipNotice);
+    } else {
+        messageContainer.append(skipNotice);
+    }
+
+    //scroll to bottom
+    const scrollContainer = document.querySelector<HTMLDivElement>("#scrollable-chat-container");
+    if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    }
+}
+
+//skip turn button - skips user's turn and triggers next round
+skipTurnBtn?.addEventListener("click", async () => {
     if (isCurrentlyGenerating) return;
-    
+
     try {
-        // Send empty message to trigger AI turn in group chat
+        //insert visual feedback into current round
+        insertSkipFeedback();
+
+        //send with skipTurn=true to signal round completion
+        await messageService.send("", true);
+        //UI update is handled by round-state-changed event
+    } catch (error: any) {
+        toastService.danger({
+            title: "Error skipping turn",
+            text: JSON.stringify(error.message || error),
+        });
+    }
+});
+
+//start turn button - triggers AI participants before user's turn
+startTurnBtn?.addEventListener("click", async () => {
+    if (isCurrentlyGenerating) return;
+
+    try {
+        //send empty message to trigger AI turn (participants before user will respond)
+        await messageService.send("");
+    } catch (error: any) {
+        toastService.danger({
+            title: "Error starting turn",
+            text: JSON.stringify(error.message || error),
+        });
+    }
+});
+
+//restore trigger ai button logic for dynamic chats
+triggerAiButton?.addEventListener("click", async () => {
+    if (isCurrentlyGenerating) return;
+
+    try {
         await messageService.send("");
     } catch (error: any) {
         toastService.danger({
@@ -216,10 +338,98 @@ triggerAiButton.addEventListener("click", async () => {
 
 window.addEventListener("chat-loaded", (e: any) => {
     const chat = e.detail.chat;
+
     if (chat?.groupChat?.mode === "rpg") {
-        triggerAiButton.classList.remove("hidden");
+        turnControlPanel?.classList.remove("hidden");
+        triggerAiButton?.classList.add("hidden"); //hide trigger button in RPG mode (use panel instead)
+
+        //determine turn state from chat content
+        const rpg = chat.groupChat?.rpg;
+        const turnOrder: string[] = Array.isArray(rpg?.turnOrder) ? rpg.turnOrder : [];
+        const participants: string[] = Array.isArray(chat.groupChat?.participantIds) ? chat.groupChat.participantIds : [];
+        const effectiveOrder = turnOrder.length > 0 ? turnOrder : [...participants, "user"];
+        const userIndex = effectiveOrder.indexOf("user");
+
+        const allMessages = (chat.content || []) as any[];
+        const isSkipTurnMarker = (m: any): boolean => {
+            if (!m || m.role !== "user" || !m.hidden) return false;
+            const parts = Array.isArray(m.parts) ? m.parts : [];
+            return parts.some((p: any) => (p?.text ?? "").toString() === messageService.USER_SKIP_TURN_MARKER_TEXT);
+        };
+
+        //use "turn relevant" messages to determine current state
+        //this includes the hidden skip-turn marker (counts as user completing their turn)
+        const turnRelevantMessages = allMessages.filter((m: any) => !m.hidden || isSkipTurnMarker(m));
+        const lastMessage = turnRelevantMessages[turnRelevantMessages.length - 1];
+
+        let isUserTurn = false;
+
+        if (turnRelevantMessages.length === 0) {
+            //empty chat: is user first in order?
+            isUserTurn = userIndex === 0 || userIndex === -1;
+        } else {
+            //determine whose turn is next based on last speaker
+            const lastSpeakerId = lastMessage.role === "user" ? "user" : lastMessage.personalityid;
+
+            //skip narrator messages when determining turn
+            let effectiveLastSpeaker = lastSpeakerId;
+            if (lastSpeakerId === "__narrator__") {
+                //look backwards for non-narrator message
+                for (let i = turnRelevantMessages.length - 2; i >= 0; i--) {
+                    const msg = turnRelevantMessages[i];
+                    const speakerId = msg.role === "user" ? "user" : msg.personalityid;
+                    if (speakerId !== "__narrator__") {
+                        effectiveLastSpeaker = speakerId;
+                        break;
+                    }
+                }
+            }
+
+            const lastSpeakerIndex = effectiveOrder.indexOf(String(effectiveLastSpeaker));
+            if (lastSpeakerIndex === -1) {
+                //unknown speaker, default to user's turn
+                isUserTurn = true;
+            } else {
+                //next speaker is the one after lastSpeaker in the order
+                const nextIndex = (lastSpeakerIndex + 1) % effectiveOrder.length;
+                const nextSpeaker = effectiveOrder[nextIndex];
+                isUserTurn = nextSpeaker === "user";
+            }
+        }
+
+        if (isUserTurn) {
+            if (turnControlLabel) turnControlLabel.textContent = "Your turn";
+            startTurnBtn?.classList.add("hidden");
+            skipTurnBtn?.classList.remove("hidden");
+        } else {
+            //calculate next round number from existing messages
+            const roundIndices = (chat.content || [])
+                .filter((m: any) => typeof m.roundIndex === "number")
+                .map((m: any) => m.roundIndex as number);
+            const maxRoundIndex = roundIndices.length > 0 ? Math.max(...roundIndices) : 0;
+            const nextRoundNumber = maxRoundIndex + 1;
+
+            if (turnControlLabel) turnControlLabel.textContent = maxRoundIndex > 0 ? "Round complete" : "Ready";
+            startTurnBtn?.classList.remove("hidden");
+            skipTurnBtn?.classList.add("hidden");
+            if (startRoundText) startRoundText.textContent = `Start Round ${nextRoundNumber}`;
+        }
+
+        //auto-progress when loading into a state that requires starting the next round
+        if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
+            //avoid double-triggers during initial load
+            if (!isCurrentlyGenerating) {
+                void messageService.send("");
+            }
+        }
+    } else if (chat?.groupChat) {
+        //Dynamic group chat - show generic trigger button
+        turnControlPanel?.classList.add("hidden");
+        triggerAiButton?.classList.remove("hidden");
     } else {
-        triggerAiButton.classList.add("hidden");
+        //Normal chat or empty
+        turnControlPanel?.classList.add("hidden");
+        triggerAiButton?.classList.add("hidden");
     }
 });
 
@@ -258,7 +468,7 @@ await setupBottomBar();
 // Listen for image editing toggle events
 window.addEventListener('image-editing-toggled', async (event: any) => {
     isImageEditingActive = event.detail.enabled;
-    
+
     if (!isImageEditingActive) {
         // Clear history preview when editing is disabled
         clearHistoryPreview();
@@ -301,13 +511,13 @@ window.addEventListener('history-image-removed', () => {
 window.addEventListener('attach-image-from-chat', (event: any) => {
     const { file, toggleEditing } = event.detail;
     if (!file) return;
-    
+
     // Mark this file as coming from chat history
     (file as any)._fromChatHistory = true;
-    
+
     // Add the file using the existing addAttachments function
     addAttachments([file]);
-    
+
     // Toggle editing mode if requested
     if (toggleEditing) {
         const editButton = document.querySelector<HTMLButtonElement>("#btn-edit");
@@ -328,7 +538,7 @@ window.addEventListener('edit-model-changed', (event: any) => {
 // Listen for insufficient image credits state changes
 window.addEventListener('insufficient-image-credits', (event: any) => {
     hasInsufficientImageCredits = event.detail.insufficient;
-    
+
     // Update send button disabled state
     if (hasInsufficientImageCredits) {
         sendMessageButton.disabled = true;
@@ -398,7 +608,7 @@ function addAttachments(rawFiles: File[]): void {
                 });
             }
         }
-        
+
         attachmentState = [...attachmentState, ...finalAdded];
         syncAttachmentInput();
         for (const file of finalAdded) {
@@ -605,7 +815,7 @@ function clearHistoryPreview(): void {
         currentHistoryImagePreview.remove();
         currentHistoryImagePreview = null;
     }
-    
+
     // Also remove any orphaned history previews that might exist in the DOM
     const orphanedPreviews = attachmentPreview?.querySelectorAll('.history-image-preview');
     orphanedPreviews?.forEach(preview => preview.remove());
@@ -616,7 +826,7 @@ function clearHistoryPreview(): void {
  */
 function enforceQwenSingleImageConstraint(): void {
     const imageAttachmentCount = getAttachmentCount();
-    
+
     if (imageAttachmentCount <= 1) {
         return; // No action needed
     }
@@ -673,7 +883,7 @@ export function getCurrentHistoryImageDataUri(): string | null {
     if (!currentHistoryImagePreview) {
         return null;
     }
-    
+
     const img = currentHistoryImagePreview.querySelector<HTMLImageElement>('.history-image-thumbnail');
     return img?.src || null;
 }
