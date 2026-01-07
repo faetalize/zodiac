@@ -1,0 +1,5 @@
+# Code Owners for Zodiac
+# These owners will be requested for review on PRs that touch these files
+
+# Database types are auto-generated - only maintainer can update
+src/types/database.types.ts @faetalize
