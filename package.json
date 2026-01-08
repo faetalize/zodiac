@@ -30,6 +30,7 @@
     "devlocal": "vite --host",
     "build": "npm run type-check && vite build",
     "preview": "vite preview",
-    "sync-db-types": "node scripts/sync-db-types.mjs"
+    "sync-db-types": "node scripts/sync-db-types.mjs",
+    "create-worktree": "node scripts/create-worktree.mjs"
   }
 }
