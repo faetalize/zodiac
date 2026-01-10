@@ -1,6 +1,7 @@
 import * as overlayService from "../../services/Overlay.service";
 import * as supabaseService from "../../services/Supabase.service";
 import * as toastService from "../../services/Toast.service";
+import { dispatchAppEvent, onAppEvent } from "../../events";
 
 const emailUpdateForm = document.querySelector<HTMLFormElement>("#form-email-update");
 const newEmailInput = document.querySelector<HTMLInputElement>("#email-update-new");
@@ -74,7 +75,7 @@ async function handleSubmit(event: SubmitEvent) {
             title: "Email Update Requested",
             text: "Check your inbox to confirm the new email address."
         });
-        window.dispatchEvent(new CustomEvent('account-email-changed', { detail: { email: newEmail } }));
+        dispatchAppEvent('account-email-changed', { email: newEmail });
         overlayService.closeOverlay();
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to update email address.";
@@ -97,7 +98,7 @@ hideOverlayButtonEl.addEventListener("click", () => {
     }
 });
 
-window.addEventListener('open-email-update', (event: Event) => {
-    const detail = (event as CustomEvent).detail ?? {};
-    openEmailUpdateForm(detail.currentEmail ?? null);
+onAppEvent('open-email-update', (event) => {
+    const { currentEmail } = event.detail;
+    openEmailUpdateForm(currentEmail ?? null);
 });

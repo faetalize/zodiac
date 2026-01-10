@@ -2,8 +2,9 @@ import * as messageService from "./Message.service"
 import { messageElement } from "../components/dynamic/message";
 import * as helpers from "../utils/helpers"
 import { Db, db } from "./Db.service";
-import { Chat, ChatSortMode, DbChat } from "../models/Chat";
-import { Message } from "../models/Message";
+import { Chat, ChatSortMode, DbChat } from "../types/Chat";
+import { Message } from "../types/Message";
+import { dispatchAppEvent } from "../events";
 import hljs from "highlight.js";
 const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
 const scrollableChatContainerSelector = "#scrollable-chat-container";
@@ -320,7 +321,7 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
             e.stopPropagation();
             closeMenu();
             // Dispatch custom event to open group chat editor
-            window.dispatchEvent(new CustomEvent("open-group-chat-editor", { detail: { chatId: chat.id } }));
+            dispatchAppEvent('open-group-chat-editor', { chatId: chat.id });
         });
     }
 
@@ -492,7 +493,7 @@ export function newChat() {
     }
 
     //dispatch event with null chat to reset UI (e.g., hide Turn Control panel)
-    window.dispatchEvent(new CustomEvent("chat-loaded", { detail: { chat: null } }));
+    dispatchAppEvent('chat-loaded', { chat: null });
 }
 
 async function renderMessagesSlice(start: number, end: number, prepend: boolean) {
@@ -515,7 +516,7 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean)
             const msg = slice[offset];
             // The real index in chat.content/currentChatMessages
             const chatIndex = start + offset;
-            await messageService.insertMessageV2(msg, chatIndex);
+            await messageService.insertMessage(msg, chatIndex);
         }
     } else {
         // For prepending older messages:
@@ -666,7 +667,7 @@ export async function loadChat(chatID: number, db: Db) {
         const total = currentChatMessages.length;
         if (total === 0) {
             //dispatch event even for empty chats so UI can update
-            window.dispatchEvent(new CustomEvent("chat-loaded", { detail: { chat } }));
+            dispatchAppEvent('chat-loaded', { chat });
             return chat;
         }
 
@@ -677,7 +678,7 @@ export async function loadChat(chatID: number, db: Db) {
         await renderMessagesSlice(loadedStartIndex, loadedEndIndex, false);
         attachScrollListener();
 
-        window.dispatchEvent(new CustomEvent("chat-loaded", { detail: { chat } }));
+        dispatchAppEvent('chat-loaded', { chat });
 
         return chat;
     }

@@ -1,7 +1,7 @@
 import { themeService } from '../../services/Theme.service';
-import type { ColorTheme } from '../../models/Theme';
+import type { ColorTheme } from '../../types/Theme';
 import * as toastService from '../../services/Toast.service';
-import { ToastSeverity } from '../../models/Toast';
+import { ToastSeverity } from '../../types/Toast';
 
 // Query all required elements
 const modeButtons = document.querySelectorAll<HTMLButtonElement>('.mode-btn');

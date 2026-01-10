@@ -1,5 +1,6 @@
-import { LoRAInfo, LORA_STORAGE_KEY, LoRAState } from "../models/Lora";
+import { LoRAInfo, LORA_STORAGE_KEY, LoRAState } from "../types/Lora";
 import { supabase } from "./Supabase.service";
+import { dispatchEmptyAppEvent } from "../events";
 
 let loras: LoRAInfo[] = [];
 let loraState: LoRAState[] = [];
@@ -107,7 +108,7 @@ export function toggleLora(modelVersionId: string, enabled: boolean) {
         state.enabled = enabled;
         upsertLoraState(state);
         // Dispatch event to notify components that LoRA state changed
-        window.dispatchEvent(new CustomEvent('lora-state-changed'));
+        dispatchEmptyAppEvent('lora-state-changed');
     }
 }
 
@@ -117,6 +118,6 @@ export function setLoraStrength(modelVersionId: string, strength: number) {
         state.strength = strength;
         upsertLoraState(state);
         // Dispatch event to notify components that LoRA state changed
-        window.dispatchEvent(new CustomEvent('lora-state-changed'));
+        dispatchEmptyAppEvent('lora-state-changed');
     }
 }

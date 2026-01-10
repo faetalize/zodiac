@@ -1,17 +1,13 @@
-import { Dexie, EntityTable } from 'dexie';
+import { Dexie } from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
-import { DbChat } from '../models/Chat';
-import { DbPersonality } from '../models/Personality';
+import { DbChat } from '../types/Chat';
+import { DbPersonality } from '../types/Personality';
+import type { Db } from '../types/Db';
 
-export interface Db extends Dexie {
-    chats: EntityTable<DbChat, 'id'>;
-    personalities: EntityTable<DbPersonality, 'id'>;
-    // Temporary table used during migration to UUID primary keys
-    personalities_uuid?: EntityTable<DbPersonality, 'id'>;
-}
+export type { Db };
 
 export async function setupDB() {
-    let db;
+    let db: Db;
     db = new Dexie("chatDB") as Db;
     db.version(3).stores({
         chats: `

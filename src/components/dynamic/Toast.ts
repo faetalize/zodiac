@@ -1,4 +1,4 @@
-import { ToastInstance, ToastSeverity } from "../../models/Toast";
+import { ToastInstance, ToastSeverity } from "../../types/Toast";
 
 const TOAST_CONTAINER_ID = "toast-container";
 const AUTO_DISMISS_MS = 5000;

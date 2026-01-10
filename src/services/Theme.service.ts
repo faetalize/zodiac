@@ -1,4 +1,4 @@
-import type { ColorTheme, ThemeMode, ThemeSettings, ThemeConfig } from '../models/Theme';
+import type { ColorTheme, ThemeMode, ThemeSettings, ThemeConfig } from '../types/Theme';
 
 /**
  * Service for managing color themes and light/dark modes

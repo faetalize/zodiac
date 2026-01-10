@@ -1,5 +1,5 @@
-
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
+import { dispatchAppEvent, onAppEvent } from "../../events";
 
 const imageButton = document.querySelector<HTMLButtonElement>("#btn-image");
 if (!imageButton) {
@@ -16,27 +16,23 @@ imageButton.addEventListener("click", () => {
     imageButton.classList.toggle("btn-toggled");
 
     // If image mode is enabled, disable image editing mode
-    window.dispatchEvent(new CustomEvent('image-generation-toggled', {
-        detail: { enabled: isImageModeEnabled }
-    }));
+    dispatchAppEvent('image-generation-toggled', { enabled: isImageModeEnabled });
 });
 
 //listen for image-editing-toggled event to disable button if needed
-window.addEventListener('image-editing-toggled', (event: any) => {
+onAppEvent('image-editing-toggled', (event) => {
     if (event.detail.enabled && isImageModeEnabled) {
         isImageModeEnabled = false;
         imageButton.classList.remove("btn-toggled");
-        window.dispatchEvent(new CustomEvent('image-generation-toggled', {
-            detail: { enabled: false }
-        }));
+        dispatchAppEvent('image-generation-toggled', { enabled: false });
     }
 });
 
 // Listen for auth and subscription changes
-window.addEventListener('auth-state-changed', () => {
+onAppEvent('auth-state-changed', () => {
     updateImageButtonState();
 });
-window.addEventListener('subscription-updated', () => {
+onAppEvent('subscription-updated', () => {
     updateImageButtonState();
 });
 

@@ -1,8 +1,12 @@
 import { createClient, RealtimeChannel, Session, User as SupabaseUser } from '@supabase/supabase-js'
-import { User } from "../models/User";
-import { SubscriptionPriceIDs, SubscriptionPriceIDsOld } from '../models/Price';
-import { ImageGenerationPermitted } from '../models/ImageGenerationTypes';
+import { User } from "../types/User";
+import { SubscriptionPriceIDs, SubscriptionPriceIDsOld } from '../types/Price';
+import { ImageGenerationPermitted } from '../types/ImageGenerationTypes';
 import { danger, warn } from './Toast.service';
+import type { SubscriptionTier, UserSubscription, ImageGenerationRecord, MarketplacePersonaInfo } from '../types/Supabase';
+import { dispatchAppEvent } from '../events';
+
+export type { SubscriptionTier, UserSubscription, ImageGenerationRecord, MarketplacePersonaInfo };
 
 let userCache: SupabaseUser | null = null;
 
@@ -34,7 +38,7 @@ supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'PASSWORD_RECOVERY' && session) {
         console.log('Password recovery session detected.');
         userCache = session.user;
-        try { window.dispatchEvent(new CustomEvent('password-recovery', { detail: { session } })); } catch (e) { console.error(e); }
+        try { dispatchAppEvent('password-recovery', { session }); } catch (e) { console.error(e); }
     }
 
     //on login
@@ -62,14 +66,14 @@ supabase.auth.onAuthStateChange((event, session) => {
                     // notify listeners
                     getImageGenerationRecord().then((imageGenRecord) => {
                         updateSubscriptionUI(session, sub, imageGenRecord);
-                        try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: true, session, subscription: sub, imageGenerationRecord: imageGenRecord } })); } catch (e) { console.error(e); }
+                        try { dispatchAppEvent('auth-state-changed', { loggedIn: true, session, subscription: sub, imageGenerationRecord: imageGenRecord }); } catch (e) { console.error(e); }
                     });
                 });
             }
         );
     } else if (event === 'SIGNED_OUT') {
         console.log("User signed out.");
-        try { window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { loggedIn: false } })); } catch (e) { console.error(e); }
+        try { dispatchAppEvent('auth-state-changed', { loggedIn: false }); } catch (e) { console.error(e); }
         //clear cached user
         userCache = null;
         //hide relevant components
@@ -115,7 +119,7 @@ supabase.auth.onAuthStateChange((event, session) => {
         if (orDivider) orDivider.classList.remove('hidden');
         if (upgradeBtn) upgradeBtn.classList.remove('hidden');
         // Treat as free tier for any listeners
-        try { window.dispatchEvent(new CustomEvent('subscription-updated', { detail: { tier: 'free' } })); } catch { }
+        try { dispatchAppEvent('subscription-updated', { tier: 'free' }); } catch { }
     } else if (event === 'TOKEN_REFRESHED' && session) {
         console.log("Token refreshed.");
         //update cached user
@@ -248,25 +252,6 @@ export async function getUserProfile() {
 }
 
 // Subscription helpers
-export type SubscriptionTier = 'free' | 'pro' | 'max' | 'canceled';
-
-export interface UserSubscription {
-    id: string;
-    user_id: string;
-    status: string;
-    price_id: string | null;
-    current_period_end?: string | number | null;
-    remaining_image_generations?: number | null;
-    cancel_at_period_end?: boolean | null;
-    stripe_customer_id?: string | null;
-    [key: string]: unknown;
-}
-
-export interface ImageGenerationRecord {
-    user_id: string;
-    remaining_image_generations: number | null;
-    [key: string]: unknown;
-}
 
 export async function getCurrentUserEmail(): Promise<string | null> {
     const user = await getCurrentUser();
@@ -466,7 +451,7 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
         if (orDivider) orDivider.classList.toggle('hidden', isSubscribed);
         if (upgradeBtn) upgradeBtn.classList.toggle('hidden', isSubscribed);
         // Notify listeners so UI can react without reload
-        try { window.dispatchEvent(new CustomEvent('subscription-updated', { detail: { tier } })); } catch { }
+        try { dispatchAppEvent('subscription-updated', { tier }); } catch { }
     } catch (err) {
         console.error('Error updating subscription UI:', err);
     }
@@ -500,7 +485,7 @@ export async function refreshAll() {
 export async function refreshProfile() {
     try {
         const profile = await getUserProfile();
-        window.dispatchEvent(new CustomEvent('profile-refreshed', { detail: { user: profile } }));
+        dispatchAppEvent('profile-refreshed', { user: profile });
     } catch (error) {
         console.error('Error refreshing profile:', error);
     }
@@ -510,7 +495,7 @@ export async function refreshSubscription() {
     try {
         const subscriptionDetails = await getUserSubscription();
         if (!subscriptionDetails) return;
-        window.dispatchEvent(new CustomEvent('subscription-refreshed', { detail: { subDetails: subscriptionDetails } }));
+        dispatchAppEvent('subscription-refreshed', { subDetails: subscriptionDetails });
     } catch (error) {
         console.error('Error refreshing subscription:', error);
     }
@@ -520,22 +505,13 @@ export async function refreshImageGenerationRecord() {
     try {
         const imageGenRecord = await getImageGenerationRecord();
         if (!imageGenRecord) return;
-        window.dispatchEvent(new CustomEvent('image-generation-record-refreshed', { detail: { imageGenerationRecord: imageGenRecord } }));
+        dispatchAppEvent('image-generation-record-refreshed', { imageGenerationRecord: imageGenRecord });
     } catch (error) {
         console.error('Error refreshing image generation record:', error);
     }
 }
 
 // -------------------- Marketplace Sync --------------------
-
-export type MarketplacePersonaInfo = {
-    id: string;
-    version: number;
-    name: string;
-    exists: true;
-} | {
-    exists: false;
-};
 
 /**
  * Check if a persona exists in the marketplace and get its current version.

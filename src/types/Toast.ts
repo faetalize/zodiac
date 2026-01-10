@@ -21,3 +21,8 @@ export interface ToastInstance extends ToastOptions {
     createdAt: number;
     severity: ToastSeverity;
 }
+
+export interface ToastHandle {
+    id: string;
+    dismiss: () => void;
+}

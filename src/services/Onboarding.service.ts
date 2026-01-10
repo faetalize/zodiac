@@ -2,14 +2,14 @@
  * Onboarding service - manages onboarding flow state and navigation
  */
 
-import type { ColorTheme, ThemeMode, ThemePreference } from "../models/Theme";
+import type { ColorTheme, ThemeMode, ThemePreference } from "../types/Theme";
 import {
     OnboardingPath,
     OnboardingPendingCredentials,
     OnboardingSetupOption,
     OnboardingStep,
     OnboardingState
-} from "../models/Onboarding";
+} from "../types/Onboarding";
 
 let currentState: OnboardingState = {
     currentStep: OnboardingStep.PATH_SELECTION,

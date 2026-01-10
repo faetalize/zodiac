@@ -1,5 +1,5 @@
-import { Chat } from "../models/Chat";
-import { GeneratedImage, Message } from "../models/Message";
+import { Chat } from "../types/Chat";
+import { GeneratedImage, Message } from "../types/Message";
 
 export interface EditableImage {
     dataUri: string; // data:image/{mimeType};base64,{data}

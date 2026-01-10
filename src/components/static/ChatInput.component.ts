@@ -296,8 +296,8 @@ skipTurnBtn?.addEventListener("click", async () => {
         //insert visual feedback into current round
         insertSkipFeedback();
 
-        //send with skipTurn=true to signal round completion
-        await messageService.send("", true);
+        //send with skipTurn to signal round completion
+        await messageService.skipRpgTurn();
         //UI update is handled by round-state-changed event
     } catch (error: any) {
         toastService.danger({

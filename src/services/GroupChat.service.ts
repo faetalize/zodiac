@@ -2,7 +2,7 @@ import * as chatsService from "./Chats.service";
 import * as personalityService from "./Personality.service";
 import { db } from "./Db.service";
 export { db };
-import type { Chat, GroupChatConfig, GroupChatRpgSettings } from "../models/Chat";
+import type { Chat, GroupChatConfig, GroupChatRpgSettings } from "../types/Chat";
 
 function uniq(list: string[]): string[] {
     return Array.from(new Set(list));

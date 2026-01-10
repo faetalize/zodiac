@@ -1,6 +1,7 @@
-import { User } from "../../models/User";
+import { User } from "../../types/User";
 import * as supabaseService from "../../services/Supabase.service";
 import * as toastService from "../../services/Toast.service";
+import { dispatchAppEvent, onAppEvent } from "../../events";
 
 const pfpChangeButton = document.querySelector("#btn-change-pfp");
 const preferredNameInput = document.querySelector("#profile-preferred-name");
@@ -26,16 +27,16 @@ if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveBut
     throw new Error("Profile panel initialization failed.");
 }
 
-window.addEventListener('profile-updated', (event: CustomEventInit) => {
-    const { profile } = event.detail;
+onAppEvent('profile-updated', (event) => {
+    const { user: profile } = event.detail;
     if (profile) {
         (preferredNameInput as HTMLInputElement).value = profile.preferredName || "";
         (systemPromptAddition as HTMLTextAreaElement).value = profile.systemPromptAddition || "";
     }
 });
 
-window.addEventListener('image-generation-record-refreshed', (event: CustomEventInit) => {
-    const { imageGenerationRecord }: { imageGenerationRecord: supabaseService.ImageGenerationRecord } = event.detail;
+onAppEvent('image-generation-record-refreshed', (event) => {
+    const { imageGenerationRecord } = event.detail;
     if (imageGenerationRecord) {
         remainingImageGenerations.textContent = (imageGenerationRecord.remaining_image_generations ?? 0).toString();
     }
@@ -164,7 +165,7 @@ resetPasswordButton.addEventListener('click', async () => {
 changeEmailButton.addEventListener('click', () => {
     const currentEmail = accountEmailEl!.textContent?.trim() || '';
     const normalized = currentEmail === '—' ? '' : currentEmail;
-    window.dispatchEvent(new CustomEvent('open-email-update', { detail: { currentEmail: normalized } }));
+    dispatchAppEvent('open-email-update', { currentEmail: normalized });
 });
 
 hydrateAccountEmail();

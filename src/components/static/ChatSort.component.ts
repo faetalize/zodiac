@@ -1,5 +1,5 @@
 import { getChatSortMode, setChatSortMode } from "../../services/Chats.service";
-import { ChatSortMode } from "../../models/Chat";
+import { ChatSortMode } from "../../types/Chat";
 
 const sortButton = document.querySelector<HTMLButtonElement>("#btn-chat-sort");
 const sortLabel = document.querySelector<HTMLSpanElement>("#chat-sort-label");

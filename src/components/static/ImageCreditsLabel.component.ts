@@ -2,10 +2,11 @@ import { isImageEditingActive } from "./ImageEditButton.component";
 import { isImageModeActive } from "./ImageButton.component";
 import { getLoraState } from "../../services/Lora.service";
 import { isImageGenerationAvailable, getCurrentUser } from "../../services/Supabase.service";
-import type { ImageGenerationPermitted } from "../../models/ImageGenerationTypes";
-import { ImageModel } from "../../models/Models";
+import type { ImageGenerationPermitted } from "../../types/ImageGenerationTypes";
+import { ImageModel } from "../../types/Models";
 import * as overlayService from "../../services/Overlay.service";
 import * as helpers from "../../utils/helpers";
+import { dispatchAppEvent } from "../../events";
 
 const imageCreditsLabel = document.querySelector<HTMLDivElement>("#image-credits-label");
 const imageCreditsPopover = document.querySelector<HTMLDivElement>("#image-credits-popover");
@@ -153,9 +154,7 @@ function checkAndDispatchInsufficientCreditsState(): void {
     // (users with API keys in google_only mode should be able to send)
     const shouldBlock = isInsufficient && (isEditing || isGenerating) && !showingApiKeyPath;
     
-    window.dispatchEvent(new CustomEvent('insufficient-image-credits', {
-        detail: { insufficient: shouldBlock }
-    }));
+    dispatchAppEvent('insufficient-image-credits', { insufficient: shouldBlock });
 }
 
 function renderLabel(): void {

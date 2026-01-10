@@ -1,3 +1,5 @@
+import { createEvent, dispatchDocumentEvent } from "../../events";
+
 export const modelSelect = document.querySelector<HTMLSelectElement>("#selectedModel");
 
 if (!modelSelect) {
@@ -5,14 +7,11 @@ if (!modelSelect) {
     throw new Error("Missing DOM element: #selectedModel");
 }
 
-export const createChatModelChangedEvent = () => new CustomEvent('chat-model-changed', {
-    bubbles: true,
-    detail: {
-        model: modelSelect.value
-    }
-});
+export const createChatModelChangedEvent = () => createEvent('chat-model-changed', {
+    model: modelSelect.value
+}, { bubbles: true });
 
 // notify when chat model is changed
 modelSelect.addEventListener("change", () => {
-    document.dispatchEvent(createChatModelChangedEvent());
+    dispatchDocumentEvent('chat-model-changed', { model: modelSelect.value });
 });

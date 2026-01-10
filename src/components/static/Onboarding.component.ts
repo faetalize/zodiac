@@ -3,15 +3,15 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
-import { OnboardingPath, OnboardingStep } from "../../models/Onboarding";
-import { SubscriptionPriceIDs } from "../../models/Price";
-import type { ColorTheme, ThemeMode, ThemePreference } from "../../models/Theme";
+import { OnboardingPath, OnboardingStep } from "../../types/Onboarding";
+import { SubscriptionPriceIDs } from "../../types/Price";
+import type { ColorTheme, ThemeMode, ThemePreference } from "../../types/Theme";
 import * as onboardingService from "../../services/Onboarding.service";
 import * as supabaseService from "../../services/Supabase.service";
 import * as settingsService from "../../services/Settings.service";
 import * as toastService from "../../services/Toast.service";
 import { themeService } from "../../services/Theme.service";
-import { ChatModel } from "../../models/Models";
+import { ChatModel } from "../../types/Models";
 
 // Path selection buttons
 const easyPathButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-easy");

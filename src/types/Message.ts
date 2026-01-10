@@ -1,4 +1,10 @@
-import { Content } from "@google/genai";
+/**
+ * Text and thinking content extracted from a model response.
+ */
+export interface TextAndThinking {
+    text: string;
+    thinking: string;
+}
 
 export interface GeneratedImage {
     mimeType: string;

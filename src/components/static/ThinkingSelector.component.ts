@@ -1,5 +1,6 @@
-import { ChatModel } from "../../models/Models";
+import { ChatModel } from "../../types/Models";
 import { createChatModelChangedEvent, modelSelect } from "./ModelSelector.component";
+import { createEvent, dispatchDocumentEvent, onDocumentEvent } from "../../events";
 
 const thinkingSelector = document.querySelector<HTMLSelectElement>("#enableThinkingSelect");
 const thinkingHint = document.querySelector<HTMLDivElement>("#thinking-required-hint");
@@ -9,19 +10,17 @@ if (!thinkingSelector || !thinkingHint) {
 }
 
 //notifies when thinking is toggled on or off
-export const createThinkingToggledEvent = () => new CustomEvent('thinking-toggled', {
-    bubbles: true, detail: {
-        enabled: thinkingSelector.value === 'enabled'
-    }
-});
+export const createThinkingToggledEvent = () => createEvent('thinking-toggled', {
+    enabled: thinkingSelector.value === 'enabled'
+}, { bubbles: true });
 
 thinkingSelector.addEventListener("change", () => {
-    document.dispatchEvent(createThinkingToggledEvent());
+    dispatchDocumentEvent('thinking-toggled', { enabled: thinkingSelector.value === 'enabled' });
 });
 
 // if pro model is selected, force thinking to be enabled and disable selector
-document.addEventListener("chat-model-changed", (event: CustomEventInit) => {
-    const { model }: { model: ChatModel } = event.detail;
+onDocumentEvent('chat-model-changed', (event) => {
+    const { model } = event.detail;
 
     if (!model) return;
 

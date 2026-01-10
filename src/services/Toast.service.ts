@@ -1,12 +1,7 @@
-import { ToastInstance, ToastOptions, ToastSeverity } from "../models/Toast";
+import { ToastInstance, ToastOptions, ToastSeverity, ToastHandle } from "../types/Toast";
 import { mountToast } from "../components/dynamic/Toast";
 
 const MAX_TOASTS = 5;
-
-export interface ToastHandle {
-    id: string;
-    dismiss: () => void;
-}
 
 const toastOrder: string[] = [];
 const toastDismissers = new Map<string, () => void>();

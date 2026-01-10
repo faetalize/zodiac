@@ -1,5 +1,5 @@
-import { Message } from "../../models/Message";
-import { Personality } from "../../models/Personality";
+import { Message } from "../../types/Message";
+import { Personality } from "../../types/Personality";
 import { db } from "../../services/Db.service";
 import hljs from 'highlight.js';
 import * as helpers from "../../utils/helpers";
@@ -10,6 +10,7 @@ import * as chatsService from "../../services/Chats.service";
 import { enhanceCodeBlocks, stripCodeBlockEnhancements } from "../../utils/codeBlocks";
 import * as settingsService from "../../services/Settings.service";
 import * as toastService from "../../services/Toast.service";
+import { dispatchAppEvent } from "../../events";
 
 function resolveChatIndex(element: HTMLElement): number {
     const attr = element.dataset.chatIndex;
@@ -561,9 +562,7 @@ function setupGeneratedImageInteractions(root: HTMLElement) {
                 const file = await imageToFile();
 
                 // Dispatch custom event instead of manually modifying input
-                window.dispatchEvent(new CustomEvent('attach-image-from-chat', {
-                    detail: { file, toggleEditing: true }
-                }));
+                dispatchAppEvent('attach-image-from-chat', { file, toggleEditing: true });
             } catch (err) {
                 console.error('Failed to attach image for editing', err);
             }
@@ -576,9 +575,7 @@ function setupGeneratedImageInteractions(root: HTMLElement) {
                 const file = await imageToFile();
 
                 // Dispatch custom event instead of manually modifying input
-                window.dispatchEvent(new CustomEvent('attach-image-from-chat', {
-                    detail: { file, toggleEditing: false }
-                }));
+                dispatchAppEvent('attach-image-from-chat', { file, toggleEditing: false });
             } catch (err) {
                 console.error('Failed to attach image', err);
             }
