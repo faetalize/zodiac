@@ -1,5 +1,5 @@
 import * as loraService from "../../services/Lora.service";
-import { LoRAInfo, LoRAState } from "../../models/Lora";
+import { LoRAInfo, LoRAState } from "../../types/Lora";
 
 const buildTriggers = (words: string[] | undefined): HTMLDivElement => {
     const wrapper = document.createElement("div");

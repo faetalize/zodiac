@@ -1,4 +1,4 @@
-import { LoRAInfo, LoRAState } from "../../models/Lora";
+import { LoRAInfo, LoRAState } from "../../types/Lora";
 import * as loraService from "../../services/Lora.service";
 import { danger, warn } from "../../services/Toast.service";
 import { loraElement } from "../dynamic/lora";

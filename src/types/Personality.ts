@@ -51,3 +51,10 @@ export interface DbPersonality extends Personality {
     /** True if user edited after import (deprecated, use version=0 instead). */
     localModifications?: boolean;
 }
+
+export type SyncStatus = 'local' | 'up-to-date' | 'outdated' | 'deleted';
+
+export type SyncInfo = {
+    status: SyncStatus;
+    remoteVersion?: number;
+};

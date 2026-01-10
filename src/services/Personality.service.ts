@@ -1,17 +1,10 @@
 import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
-import { DbPersonality, Personality } from "../models/Personality";
+import { DbPersonality, Personality, SyncInfo, SyncStatus } from "../types/Personality";
 import { v4 as uuidv4 } from 'uuid';
 import { getMarketplacePersonaVersion, getMarketplacePersonaVersions, fetchMarketplacePersona, type MarketplacePersonaInfo } from "./Supabase.service";
 import { info, danger } from "./Toast.service";
 import { showElement } from "../utils/helpers";
-
-export type SyncStatus = 'local' | 'up-to-date' | 'outdated' | 'deleted';
-
-export type SyncInfo = {
-    status: SyncStatus;
-    remoteVersion?: number;
-};
 
 export async function initialize() {
     //setup marketplace banner dismiss

@@ -1,4 +1,5 @@
 import { EditableImage, scrollToMessage } from "../../utils/imageHistory";
+import { dispatchEmptyAppEvent } from "../../events";
 
 /**
  * Creates a history image preview element that shows an image from chat history
@@ -54,5 +55,5 @@ export function historyImagePreviewElement(image: EditableImage): HTMLElement {
  * Dispatches a custom event when history image preview is removed
  */
 function dispatchHistoryImageRemoved(): void {
-    window.dispatchEvent(new CustomEvent("history-image-removed"));
+    dispatchEmptyAppEvent('history-image-removed');
 }

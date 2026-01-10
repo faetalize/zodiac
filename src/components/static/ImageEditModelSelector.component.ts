@@ -1,4 +1,5 @@
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
+import { dispatchAppEvent, onAppEvent } from "../../events";
 
 const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel");
 if (!imageEditModelSelector) {
@@ -8,9 +9,7 @@ if (!imageEditModelSelector) {
 
 // Dispatch event when model changes
 imageEditModelSelector.addEventListener("change", () => {
-    window.dispatchEvent(new CustomEvent('edit-model-changed', {
-        detail: { model: imageEditModelSelector.value }
-    }));
+    dispatchAppEvent('edit-model-changed', { model: imageEditModelSelector.value });
 });
 
 async function updateImageEditModelSelectorState() {
@@ -55,10 +54,10 @@ async function updateImageEditModelSelectorState() {
 // Initial check
 updateImageEditModelSelectorState();
 
-window.addEventListener('auth-state-changed', () => {
+onAppEvent('auth-state-changed', () => {
     updateImageEditModelSelectorState();
 });
-window.addEventListener('subscription-updated', () => {
+onAppEvent('subscription-updated', () => {
     updateImageEditModelSelectorState();
 });
 

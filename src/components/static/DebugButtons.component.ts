@@ -3,9 +3,9 @@ import * as personalityService from "../../services/Personality.service"
 import * as toastService from "../../services/Toast.service"
 import * as overlayService from "../../services/Overlay.service"
 import * as onboardingService from "../../services/Onboarding.service"
-import { Message } from "../../models/Message";
-import { Personality } from "../../models/Personality";
-import { ToastSeverity } from "../../models/Toast";
+import { Message } from "../../types/Message";
+import { Personality } from "../../types/Personality";
+import { ToastSeverity } from "../../types/Toast";
 import { createPersonalityMarkerMessage } from "../../services/Message.service"
 
 

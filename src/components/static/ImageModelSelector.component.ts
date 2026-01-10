@@ -1,4 +1,4 @@
-import { ImageModel, ImageModelLabel } from "../../models/Models";
+import { ImageModel, ImageModelLabel } from "../../types/Models";
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 
 

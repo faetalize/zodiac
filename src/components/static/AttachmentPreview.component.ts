@@ -1,4 +1,5 @@
 import { getFileSignature } from "../../utils/attachments";
+import { dispatchAppEvent, dispatchElementEvent } from "../../events";
 
 const input = document.querySelector<HTMLInputElement>("#attachments");
 const attachmentPreview = document.querySelector<HTMLDivElement>("#attachment-preview");
@@ -112,25 +113,18 @@ function removeFileFromInput(file: File): void {
 }
 
 function dispatchAttachmentRemoved(file: File): void {
-    const detail = {
+    dispatchElementEvent(attachmentPreview!, 'attachmentremoved', {
         name: file.name,
         size: file.size,
         type: file.type,
         lastModified: file.lastModified,
         signature: getFileSignature(file),
-    } as const;
-    attachmentPreview!.dispatchEvent(new CustomEvent("attachmentremoved", {
-        detail,
-        bubbles: true,
-    }));
+    }, { bubbles: true });
 }
 
 function dispatchAttachmentAdded(): void {
     const count = getAttachmentCount();
-    window.dispatchEvent(new CustomEvent("attachment-added", {
-        detail: { count },
-        bubbles: true,
-    }));
+    dispatchAppEvent('attachment-added', { count }, { bubbles: true });
 }
 
 /**

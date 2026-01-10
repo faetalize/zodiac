@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { getSubscriptionTier, type SubscriptionTier } from "../../services/Supabase.service";
-import { ChatModel } from "../../models/Models";
+import { ChatModel } from "../../types/Models";
+import { dispatchAppEvent, onAppEvent } from "../../events";
 
 const apiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
 const apiKeyGroup = document.querySelector<HTMLDivElement>(".api-key");
@@ -27,13 +28,11 @@ if (savedPreference !== null) {
 preferPremiumCheckbox.addEventListener('change', () => {
     localStorage.setItem('preferPremiumEndpoint', preferPremiumCheckbox.checked.toString());
     // Dispatch event to notify other components
-    window.dispatchEvent(new CustomEvent('premium-endpoint-preference-changed', {
-        detail: { preferPremium: preferPremiumCheckbox.checked }
-    }));
+    dispatchAppEvent('premium-endpoint-preference-changed', { preferred: preferPremiumCheckbox.checked });
 });
 
 // Show/hide the toggle based on subscription status
-window.addEventListener('auth-state-changed', (event: CustomEventInit) => {
+onAppEvent('auth-state-changed', (event) => {
     const { subscription: sub } = event.detail;
     if (!sub) {
         preferPremiumToggle.classList.add('hidden');

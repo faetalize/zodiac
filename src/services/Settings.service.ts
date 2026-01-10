@@ -1,7 +1,7 @@
 import { Content, HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
-import { User } from "../models/User";
-import { ChatModel } from "../models/Models";
+import { User } from "../types/User";
+import { ChatModel } from "../types/Models";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;

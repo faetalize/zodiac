@@ -1,6 +1,7 @@
-import { DbPersonality, Personality } from '../models/Personality';
+import { DbPersonality, Personality } from '../types/Personality';
 import { showElement, hideElement } from '../utils/helpers';
 import * as stepperService from './Stepper.service';
+import { dispatchElementEvent, createEmptyEvent, createEvent } from '../events';
 
 const overlay = document.querySelector<HTMLElement>(".overlay")!;
 const overlayItems = overlay.querySelector<HTMLElement>(".overlay-content")!.children;
@@ -18,8 +19,8 @@ export function showEditChatTitleForm() {
 
 export function showAddPersonalityForm() {
     showElement(overlay, false);
-    personalityForm.dispatchEvent(new CustomEvent('toneExamples:reset'));
-    personalityForm.dispatchEvent(new CustomEvent('tags:reset'));
+    personalityForm.dispatchEvent(createEmptyEvent('toneExamples:reset'));
+    personalityForm.dispatchEvent(createEmptyEvent('tags:reset'));
     showElement(personalityForm, false);
 }
 
@@ -28,16 +29,16 @@ export function showEditPersonalityForm(personality: Personality, id?: string) {
     for (const key in personality) {
 
         if (key === 'toneExamples') {
-            personalityForm.dispatchEvent(new CustomEvent('toneExamples:set', {
-                detail: { toneExamples: personality.toneExamples ?? [] }
-            }));
+            dispatchElementEvent(personalityForm, 'toneExamples:set', {
+                toneExamples: personality.toneExamples ?? []
+            });
             continue;
         }
         if (key === 'tags') {
             //dispatch event to populate chip input
-            personalityForm.dispatchEvent(new CustomEvent('tags:set', {
-                detail: { tags: personality.tags ?? [] }
-            }));
+            dispatchElementEvent(personalityForm, 'tags:set', {
+                tags: personality.tags ?? []
+            });
             continue;
         }
         //handle select elements (like category)
@@ -77,7 +78,7 @@ export function resetOverlayItems() {
         if (item instanceof HTMLFormElement) {
             item.reset();
             if (item.id === 'form-add-personality') {
-                item.dispatchEvent(new CustomEvent('toneExamples:reset'));
+                item.dispatchEvent(createEmptyEvent('toneExamples:reset'));
             } else {
                 item.querySelectorAll('.tone-example').forEach((element, index) => {
                     if (index !== 0) {
