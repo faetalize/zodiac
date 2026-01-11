@@ -44,6 +44,7 @@ import { getSelectedEditingModel } from "../components/static/ImageEditModelSele
 
 import { isAbortError, throwAbortError } from "../utils/abort";
 import { dispatchAppEvent } from "../events";
+import { MODEL_IMAGE_LIMITS } from "../constants/ImageModels";
 import {
     PERSONALITY_MARKER_PREFIX,
     NARRATOR_PERSONALITY_ID,
@@ -1517,13 +1518,7 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
 
     const editingModel = getSelectedEditingModel();
 
-    const modelImageLimits: Record<string, number> = {
-        qwen: 3,
-        seedream: 5,
-        pruna: 5,
-    };
-
-    const maxImages = modelImageLimits[editingModel];
+    const maxImages = MODEL_IMAGE_LIMITS[editingModel];
     if (maxImages && imagesToEdit.length > maxImages) {
         const modelName = editingModel.charAt(0).toUpperCase() + editingModel.slice(1);
         warn({ title: `${modelName} supports up to ${maxImages} image${maxImages > 1 ? 's' : ''}`, text: `Only the first ${maxImages} image${maxImages > 1 ? 's' : ''} will be used for editing.` });

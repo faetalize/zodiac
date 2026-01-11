@@ -11,6 +11,7 @@ import { findLastEditableImage, EditableImage } from '../../utils/imageHistory';
 import { historyImagePreviewElement } from '../dynamic/HistoryImagePreview';
 import { getSelectedEditingModel } from './ImageEditModelSelector.component';
 import { updateImageCreditsLabelVisibility } from './ImageCreditsLabel.component';
+import { MODEL_IMAGE_LIMITS } from '../../constants/ImageModels';
 
 interface AttachmentRemovedDetail {
     signature: string;
@@ -591,13 +592,7 @@ function addAttachments(rawFiles: File[]): void {
         let finalAdded = added;
         if (isImageEditingActive) {
             const editingModel = getSelectedEditingModel();
-            const modelImageLimits: Record<string, number> = {
-                qwen: 3,
-                seedream: 5,
-                pruna: 5,
-            };
-
-            const maxImages = modelImageLimits[editingModel];
+            const maxImages = MODEL_IMAGE_LIMITS[editingModel];
             if (maxImages) {
                 const currentImageCount = attachmentState.filter(f => f.type.startsWith('image/')).length;
                 const newImageFiles = added.filter(f => f.type.startsWith('image/'));
@@ -830,13 +825,7 @@ function clearHistoryPreview(): void {
 
 function enforceImageLimitForModel(): void {
     const editingModel = getSelectedEditingModel();
-    const modelImageLimits: Record<string, number> = {
-        qwen: 3,
-        seedream: 5,
-        pruna: 5,
-    };
-
-    const maxImages = modelImageLimits[editingModel];
+    const maxImages = MODEL_IMAGE_LIMITS[editingModel];
     if (!maxImages) return;
 
     const imageFiles = attachmentState.filter(file => file.type.startsWith("image/"));
