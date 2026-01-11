@@ -1517,9 +1517,17 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
 
     const editingModel = getSelectedEditingModel();
 
-    if (editingModel === "qwen" && imagesToEdit.length > 1) {
-        warn({ title: "Qwen supports single image only", text: "Only the first image will be used for editing." });
-        imagesToEdit.splice(1);
+    const modelImageLimits: Record<string, number> = {
+        qwen: 3,
+        seedream: 5,
+        pruna: 5,
+    };
+
+    const maxImages = modelImageLimits[editingModel];
+    if (maxImages && imagesToEdit.length > maxImages) {
+        const modelName = editingModel.charAt(0).toUpperCase() + editingModel.slice(1);
+        warn({ title: `${modelName} supports up to ${maxImages} image${maxImages > 1 ? 's' : ''}`, text: `Only the first ${maxImages} image${maxImages > 1 ? 's' : ''} will be used for editing.` });
+        imagesToEdit.splice(maxImages);
     }
 
     try {

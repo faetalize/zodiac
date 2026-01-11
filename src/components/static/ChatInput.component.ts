@@ -473,11 +473,8 @@ window.addEventListener('image-editing-toggled', async (event: any) => {
         // Clear history preview when editing is disabled
         clearHistoryPreview();
     } else {
-        // If toggled ON, and Qwen is selected, and multiple images are attached, enforce restriction
-        const model = getSelectedEditingModel();
-        if (model === 'qwen' && getAttachmentCount() > 1) {
-            enforceQwenSingleImageConstraint();
-        }
+        // If toggled ON, enforce model-specific image limit
+        enforceImageLimitForModel();
     }
 
     updateImageCreditsLabelVisibility();
@@ -494,11 +491,7 @@ window.addEventListener('attachment-added', async () => {
     // Hide history preview when attachments are added
     if (isImageEditingActive) {
         clearHistoryPreview();
-        // If Qwen is selected and editing is active, enforce single-image restriction
-        const model = getSelectedEditingModel();
-        if (model === 'qwen' && getAttachmentCount() > 1) {
-            enforceQwenSingleImageConstraint();
-        }
+        enforceImageLimitForModel();
     }
 });
 
@@ -527,11 +520,11 @@ window.addEventListener('attach-image-from-chat', (event: any) => {
     }
 });
 
-// Listen for edit model changes (Qwen constraint)
+// Listen for edit model changes (model-specific image limit)
 window.addEventListener('edit-model-changed', (event: any) => {
     const model = event.detail.model;
-    if (model === 'qwen' && isImageEditingActive) {
-        enforceQwenSingleImageConstraint();
+    if (isImageEditingActive) {
+        enforceImageLimitForModel();
     }
 });
 
@@ -595,17 +588,31 @@ function addAttachments(rawFiles: File[]): void {
     }
 
     if (added.length > 0) {
-        // Check Qwen single-image constraint before adding to state
         let finalAdded = added;
-        if (isImageEditingActive && getSelectedEditingModel() === 'qwen') {
-            const imageFiles = added.filter(f => f.type.startsWith('image/'));
-            if (imageFiles.length > 1) {
-                // Keep only the first image, warn about others
-                finalAdded = [imageFiles[0]];
-                toastService.warn({
-                    title: 'Qwen supports single image only',
-                    text: `Only the first image will be used for editing. ${imageFiles.length - 1} other image(s) were skipped.`,
-                });
+        if (isImageEditingActive) {
+            const editingModel = getSelectedEditingModel();
+            const modelImageLimits: Record<string, number> = {
+                qwen: 3,
+                seedream: 5,
+                pruna: 5,
+            };
+
+            const maxImages = modelImageLimits[editingModel];
+            if (maxImages) {
+                const currentImageCount = attachmentState.filter(f => f.type.startsWith('image/')).length;
+                const newImageFiles = added.filter(f => f.type.startsWith('image/'));
+                const slotsRemaining = maxImages - currentImageCount;
+
+                if (slotsRemaining < newImageFiles.length) {
+                    const skippedCount = newImageFiles.length - Math.max(0, slotsRemaining);
+                    const keptNewImages = newImageFiles.slice(0, Math.max(0, slotsRemaining));
+                    const nonImageFiles = added.filter(f => !f.type.startsWith('image/'));
+                    finalAdded = [...nonImageFiles, ...keptNewImages];
+                    toastService.warn({
+                        title: `${editingModel.charAt(0).toUpperCase() + editingModel.slice(1)} supports up to ${maxImages} image${maxImages > 1 ? 's' : ''}`,
+                        text: `${skippedCount} image${skippedCount > 1 ? 's were' : ' was'} skipped (${currentImageCount} already attached, max ${maxImages}).`,
+                    });
+                }
             }
         }
 
@@ -821,58 +828,57 @@ function clearHistoryPreview(): void {
     orphanedPreviews?.forEach(preview => preview.remove());
 }
 
-/**
- * Enforces Qwen's single-image constraint by trimming attachments
- */
-function enforceQwenSingleImageConstraint(): void {
-    const imageAttachmentCount = getAttachmentCount();
+function enforceImageLimitForModel(): void {
+    const editingModel = getSelectedEditingModel();
+    const modelImageLimits: Record<string, number> = {
+        qwen: 3,
+        seedream: 5,
+        pruna: 5,
+    };
 
-    if (imageAttachmentCount <= 1) {
-        return; // No action needed
+    const maxImages = modelImageLimits[editingModel];
+    if (!maxImages) return;
+
+    const imageFiles = attachmentState.filter(file => file.type.startsWith("image/"));
+    if (imageFiles.length <= maxImages) {
+        return;
     }
 
+    let keptImages = 0;
+    let removedImages = 0;
+    const nextAttachmentState: File[] = [];
 
-    // Find all image attachments, keep only the first
-    const allImages = Array.from(attachmentsInput!.files || []).filter(f => f.type.startsWith('image/'));
-    if (allImages.length === 0) return;
-    const firstImage = allImages[0];
-
-    // Remove all image attachments except the first
-    const dataTransfer = new DataTransfer();
-    // Add back all non-image attachments
-    Array.from(attachmentsInput!.files || []).forEach(f => {
-        if (!f.type.startsWith('image/')) dataTransfer.items.add(f);
-    });
-    // Add the first image
-    dataTransfer.items.add(firstImage);
-    attachmentsInput!.files = dataTransfer.files;
-    attachmentState = Array.from(dataTransfer.files);
-
-    // Remove all image previews except the first image's preview
-    const previews = attachmentPreview?.querySelectorAll('.attachment-container:not(.history-image-preview)');
-    let foundFirst = false;
-    previews?.forEach(preview => {
-        const img = preview.querySelector('img');
-        if (img && img.src && !foundFirst && img.src.includes(firstImage.name)) {
-            foundFirst = true;
-        } else if (img && img.src) {
-            preview.remove();
-        } else if (!img) {
-            // Not an image preview, keep it
-        } else {
-            preview.remove();
+    for (const file of attachmentState) {
+        if (!file.type.startsWith("image/")) {
+            nextAttachmentState.push(file);
+            continue;
         }
-    });
-    // If the first image's preview was removed (e.g. due to src mismatch), re-add it
-    if (!foundFirst) {
-        const preview = attachmentPreviewElement(firstImage);
+
+        if (keptImages < maxImages) {
+            nextAttachmentState.push(file);
+            keptImages += 1;
+        } else {
+            removedImages += 1;
+        }
+    }
+
+    attachmentState = nextAttachmentState;
+    syncAttachmentInput();
+
+    // Rebuild attachment previews from state to avoid duplicates
+    const previews = attachmentPreview?.querySelectorAll('.attachment-container:not(.history-image-preview)');
+    previews?.forEach(preview => preview.remove());
+
+    for (const file of attachmentState) {
+        const preview = attachmentPreviewElement(file);
+        preview.dataset.attachmentSignature = getFileSignature(file);
         attachmentPreview!.appendChild(preview);
     }
 
-    // Show warning toast
+    const modelName = editingModel.charAt(0).toUpperCase() + editingModel.slice(1);
     toastService.warn({
-        title: 'Qwen supports single image only',
-        text: 'For mixing multiple images, please switch to Seedream',
+        title: `${modelName} supports up to ${maxImages} image${maxImages > 1 ? 's' : ''}`,
+        text: `${removedImages} image${removedImages > 1 ? 's were' : ' was'} removed.`,
     });
 }
 
