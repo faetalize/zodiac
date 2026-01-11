@@ -24,5 +24,6 @@ export enum ImageModelLabel{
 
 export enum ImageEditModel {
     SEEDREAM = "seedream",
-    QWEN = "qwen"
+    QWEN = "qwen",
+    PRUNA = "pruna"
 }
