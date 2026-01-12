@@ -1,0 +1,21 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "mcp": {
+        "supabase": {
+            "type": "remote",
+            "url": "https://mcp.supabase.com/mcp?project_ref=hglcltvwunzynnzduauy&read_only=true",
+            "enabled": true,
+            "headers": {
+                "Authorization": "Bearer <SUPABASE_MCP_TOKEN>"
+            }
+        },
+        "githubcopilot": {
+            "type": "remote",
+            "url": "https://api.githubcopilot.com/mcp/",
+            "enabled": true,
+            "headers": {
+                "Authorization": "Bearer <GITHUB_COPILOT_MCP_TOKEN>"
+            }
+        }
+    }
+}
