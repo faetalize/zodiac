@@ -1,4 +1,6 @@
 {
+  "name": "zodiac",
+  "private": true,
   "type": "module",
   "devDependencies": {
     "@types/marked": "^5.0.2",
