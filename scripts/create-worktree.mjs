@@ -11,6 +11,75 @@ function run(command, args, options = {}) {
   });
 }
 
+function runOutput(command, args, options = {}) {
+  return execFileSync(command, args, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    ...options,
+  });
+}
+
+function listLocalBranches() {
+  return runOutput("git", ["for-each-ref", "refs/heads", "--format=%(refname:short)"])
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function listRemotes() {
+  return runOutput("git", ["remote"])
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function listRemoteBranches(remote) {
+  return runOutput("git", [
+    "for-each-ref",
+    `refs/remotes/${remote}`,
+    "--format=%(refname:short)",
+  ])
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function listWorktrees() {
+  // Example lines (porcelain):
+  // worktree /path
+  // branch refs/heads/main
+  // detached
+  const outputText = runOutput("git", ["worktree", "list", "--porcelain"]);
+  const entries = [];
+  let current = {};
+
+  for (const rawLine of outputText.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const [key, ...rest] = line.split(" ");
+    const value = rest.join(" ");
+
+    if (key === "worktree") {
+      if (Object.keys(current).length > 0) entries.push(current);
+      current = { worktree: value };
+      continue;
+    }
+
+    if (key === "branch") {
+      current.branch = value;
+      continue;
+    }
+
+    if (key === "detached") {
+      current.detached = true;
+    }
+  }
+
+  if (Object.keys(current).length > 0) entries.push(current);
+  return entries;
+}
+
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
@@ -37,14 +106,84 @@ function applyBearerToken(existingValue, userInput) {
 const rl = readline.createInterface({ input, output });
 
 try {
-  const branchName = await askNonEmpty(rl, "Branch name: ");
+  const localBranches = listLocalBranches();
+  if (localBranches.length > 0) {
+    console.log("Local branches:");
+    for (const name of localBranches) console.log(`- ${name}`);
+    console.log("");
+  }
+
+  const branchName = await askNonEmpty(rl, "Local branch name (create or reuse): ");
+  const branchExists = localBranches.includes(branchName);
+
+  if (branchExists) {
+    const worktrees = listWorktrees();
+    const branchRef = `refs/heads/${branchName}`;
+    const existingWorktree = worktrees.find((entry) => entry.branch === branchRef);
+
+    if (existingWorktree) {
+      console.error(
+        `Error: Branch '${branchName}' is already checked out in worktree: ${existingWorktree.worktree}`,
+      );
+      console.error("Choose a different branch name or remove that worktree first.");
+      process.exit(1);
+    }
+  }
 
   const defaultWorktreePath = path.join("..", branchName);
   const worktreePathInput =
     (await rl.question(`Worktree path (default: ${defaultWorktreePath}): `)).trim() ||
     defaultWorktreePath;
 
-  const remote = (await rl.question("Remote to track (optional, empty for none): ")).trim();
+  const remotes = listRemotes();
+  if (remotes.length > 0) {
+    console.log("Git remotes:");
+    for (const name of remotes) console.log(`- ${name}`);
+    console.log("");
+  }
+
+  const remote = (
+    await rl.question(
+      "Remote name to publish/track (optional; e.g. origin; empty for none): ",
+    )
+  ).trim();
+
+  let remoteBranch = "";
+  let remoteBranchExists = false;
+
+  if (remote) {
+    if (!remotes.includes(remote)) {
+      console.error(`Error: Remote '${remote}' not found.`);
+      if (remotes.length > 0) console.error(`Known remotes: ${remotes.join(", ")}`);
+      process.exit(1);
+    }
+
+    try {
+      console.log(`Fetching latest refs from '${remote}'...`);
+      run("git", ["fetch", "--prune", remote]);
+    } catch {
+      console.warn(`Warning: Failed to fetch from '${remote}'. Using existing refs.`);
+    }
+
+    const remoteBranches = listRemoteBranches(remote)
+      .map((ref) => ref.replace(`${remote}/`, ""))
+      .filter((name) => name !== "HEAD");
+
+    if (remoteBranches.length > 0) {
+      console.log(`Remote branches on '${remote}':`);
+      for (const name of remoteBranches) console.log(`- ${name}`);
+      console.log("");
+    }
+
+    remoteBranch =
+      (
+        await rl.question(
+          `Remote branch to track/publish (default: ${branchName}): `,
+        )
+      ).trim() || branchName;
+
+    remoteBranchExists = remoteBranches.includes(remoteBranch);
+  }
 
   const templateCandidates = [
     path.join(process.cwd(), "opencode.json.example"),
@@ -77,7 +216,21 @@ try {
   }
 
   console.log(`Creating worktree for branch '${branchName}' at '${worktreePathInput}'...`);
-  run("git", ["worktree", "add", "-b", branchName, worktreePathInput]);
+
+  if (branchExists) {
+    run("git", ["worktree", "add", worktreePathInput, branchName]);
+  } else if (remote && remoteBranchExists) {
+    run("git", [
+      "worktree",
+      "add",
+      "-b",
+      branchName,
+      worktreePathInput,
+      `${remote}/${remoteBranch}`,
+    ]);
+  } else {
+    run("git", ["worktree", "add", "-b", branchName, worktreePathInput]);
+  }
 
   const resolvedWorktreePath = path.resolve(process.cwd(), worktreePathInput);
 
@@ -88,11 +241,13 @@ try {
   run("npm", ["install"], { cwd: resolvedWorktreePath });
 
   if (remote) {
-    console.log(`Publishing branch to remote '${remote}'...`);
-    run("git", ["push", "-u", remote, branchName], { cwd: resolvedWorktreePath });
-    console.log("Worktree created successfully and branch pushed.");
+    console.log(`Publishing '${branchName}' to '${remote}/${remoteBranch}'...`);
+    run("git", ["push", "-u", remote, `${branchName}:${remoteBranch}`], {
+      cwd: resolvedWorktreePath,
+    });
+    console.log("Worktree created successfully and remote tracking configured.");
   } else {
-    console.log("Worktree created successfully (no remote tracking configured).");
+    console.log("Worktree created successfully (no remote tracking configured). ");
   }
 } finally {
   rl.close();
