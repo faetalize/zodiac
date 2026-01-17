@@ -85,6 +85,8 @@ export interface RoundStateChangedDetail {
     currentRoundIndex: number;
     roundComplete: boolean;
     nextRoundNumber: number;
+    startsNewRound?: boolean;
+    nextSpeakerId?: string;
 }
 
 // --- Model & Settings Events ---

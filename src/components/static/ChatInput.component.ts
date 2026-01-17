@@ -32,6 +32,7 @@ const startTurnBtn = document.querySelector<HTMLButtonElement>("#btn-start-turn"
 const startRoundText = document.querySelector<HTMLSpanElement>("#start-round-text");
 const skipTurnBtn = document.querySelector<HTMLButtonElement>("#btn-skip-turn");
 const triggerAiButton = document.querySelector<HTMLButtonElement>("#btn-trigger-ai");
+const rpgSettingsButton = document.querySelector<HTMLButtonElement>("#btn-rpg-settings");
 
 if (!messageInput || !messageBox || !attachmentsInput || !attachmentPreview || !sendMessageButton || !internetSearchToggle || !roleplayActionsMenu) {
     console.error("Chat input component is missing some elements. Please check the HTML structure.");
@@ -58,6 +59,57 @@ let currentHistoryImagePreview: HTMLElement | null = null;
 let isImageEditingActive = false;
 let isImageModeActive = false;
 let hasInsufficientImageCredits = false;
+
+let isUserTurnInRpg = true;
+let isGroupChatContext = false;
+let isRpgGroupChatContext = false;
+
+async function updateRpgTurnControlUi(args: {
+    isUserTurn: boolean;
+    startsNewRound: boolean;
+    nextRoundNumber: number;
+    nextSpeakerId?: string;
+}) {
+    const { isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId } = args;
+
+    isUserTurnInRpg = !!isUserTurn;
+    if (messageInput) {
+        const canEdit = !isCurrentlyGenerating && isUserTurnInRpg;
+        messageInput.contentEditable = String(canEdit);
+        messageInput.classList.toggle("disabled", !canEdit);
+    }
+    sendMessageButton?.classList.toggle("disabled", isRpgGroupChatContext && (!isUserTurnInRpg || isCurrentlyGenerating));
+
+    if (isUserTurn) {
+        if (turnControlLabel) turnControlLabel.textContent = "Your turn";
+        startTurnBtn?.classList.add("hidden");
+        skipTurnBtn?.classList.remove("hidden");
+    } else {
+        startTurnBtn?.classList.remove("hidden");
+        skipTurnBtn?.classList.add("hidden");
+
+        // Determine next speaker name
+        let nextSpeakerName = "AI";
+        if (nextSpeakerId) {
+            const persona = await personalityService.get(nextSpeakerId);
+            if (persona) nextSpeakerName = persona.name;
+        }
+
+        if (startsNewRound) {
+            if (turnControlLabel) turnControlLabel.textContent = "Start next round";
+            if (startRoundText && typeof nextRoundNumber === "number") {
+                startRoundText.textContent = `Start Round ${nextRoundNumber}`;
+                startTurnBtn?.setAttribute("aria-label", `Start Round ${nextRoundNumber}`);
+            }
+        } else {
+            if (turnControlLabel) turnControlLabel.textContent = `${nextSpeakerName}'s turn`;
+            if (startRoundText && typeof nextRoundNumber === "number") {
+                startRoundText.textContent = `Continue`;
+                startTurnBtn?.setAttribute("aria-label", `Continue`);
+            }
+        }
+    }
+}
 
 internetSearchToggle.addEventListener("click", () => {
     isInternetSearchEnabled = !isInternetSearchEnabled;
@@ -163,6 +215,15 @@ sendMessageButton.addEventListener("click", async () => {
         return;
     }
 
+    // In RPG group chats, only allow sending during the user's turn.
+    if (isRpgGroupChatContext && !isUserTurnInRpg) {
+        toastService.warn({
+            title: "Not your turn",
+            text: "Wait for your turn, then send your message.",
+        });
+        return;
+    }
+
     // Check for insufficient credits before sending
     if (hasInsufficientImageCredits) {
         toastService.warn({
@@ -189,6 +250,15 @@ sendMessageButton.addEventListener("click", async () => {
 //listen for generation state changes to toggle send/stop button
 window.addEventListener('generation-state-changed', (event: any) => {
     isCurrentlyGenerating = event.detail.isGenerating;
+
+    // In RPG mode we lock input while generating, regardless of whose turn.
+    if (isRpgGroupChatContext && messageInput) {
+        const canEdit = !isCurrentlyGenerating && isUserTurnInRpg;
+        messageInput.contentEditable = String(canEdit);
+        messageInput.classList.toggle("disabled", !canEdit);
+        sendMessageButton?.classList.toggle("disabled", !canEdit);
+    }
+
     if (isCurrentlyGenerating) {
         sendMessageButton.textContent = 'stop';
         sendMessageButton.title = 'Stop generating';
@@ -211,30 +281,12 @@ window.addEventListener('generation-state-changed', (event: any) => {
 
 //listen for round state changes to update UI dynamically
 window.addEventListener('round-state-changed', (event: any) => {
-    const { isUserTurn, roundComplete, nextRoundNumber } = event.detail;
+    const { isUserTurn, roundComplete, nextRoundNumber, startsNewRound, nextSpeakerId } = event.detail;
 
-    void chatsService.getCurrentChat(db).then(chat => {
-        if (chat?.groupChat?.mode !== "rpg") return;
+    void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
 
-        if (isUserTurn) {
-            //user's turn to speak or skip
-            if (turnControlLabel) turnControlLabel.textContent = "Your turn";
-            startTurnBtn?.classList.add("hidden");
-            skipTurnBtn?.classList.remove("hidden");
-        } else {
-            //AI's turn next (user needs to start it if order requires)
-            if (turnControlLabel) turnControlLabel.textContent = "Round complete";
-            startTurnBtn?.classList.remove("hidden");
-            skipTurnBtn?.classList.add("hidden");
-            //update button text with next round number
-            if (startRoundText && typeof nextRoundNumber === "number") {
-                startRoundText.textContent = `Start Round ${nextRoundNumber}`;
-            }
-        }
-    });
-
-    //auto-progress RPG rounds (no need to press start round)
-    if (!isUserTurn && roundComplete && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
+    // auto-progress RPG group chats (never pause on AI)
+    if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
         const startNextRoundIfIdle = async () => {
             if (isCurrentlyGenerating) return;
             const chat = await chatsService.getCurrentChat(db);
@@ -313,7 +365,7 @@ startTurnBtn?.addEventListener("click", async () => {
     if (isCurrentlyGenerating) return;
 
     try {
-        //send empty message to trigger AI turn (participants before user will respond)
+        // send empty message to trigger AI turn (participants before user will respond)
         await messageService.send("");
     } catch (error: any) {
         toastService.danger({
@@ -321,6 +373,32 @@ startTurnBtn?.addEventListener("click", async () => {
             text: JSON.stringify(error.message || error),
         });
     }
+});
+
+rpgSettingsButton?.addEventListener("click", async () => {
+    const chat = await chatsService.getCurrentChat(db);
+    if (!chat?.groupChat) return;
+
+    // Ensure sidebar is visible
+    const sidebar = document.querySelector<HTMLElement>(".sidebar");
+    if (sidebar) {
+        sidebar.style.display = "flex";
+        helpers.showElement(sidebar, false);
+    }
+
+    // Switch to the Settings tab (3rd tab)
+    const navbar = document.querySelector<HTMLElement>('.navbar[data-target-id="sidebar-content"]');
+    const settingsTab = navbar?.querySelector<HTMLElement>(".navbar-tab:nth-child(3)");
+    settingsTab?.click();
+
+    // Open the Group chat Settings page
+    const settingsSection = document.querySelector<HTMLElement>("#settings-section");
+    const groupChatSettingsButton = settingsSection?.querySelector<HTMLElement>('[data-settings-target="groupchat"]');
+
+    // If we're already in settings home, clicking this will navigate to the groupchat page.
+    // If we're already inside another settings page, the click will still work because
+    // SettingsNavigation attaches handlers directly to the home list items.
+    groupChatSettingsButton?.click();
 });
 
 //restore trigger ai button logic for dynamic chats
@@ -337,10 +415,27 @@ triggerAiButton?.addEventListener("click", async () => {
     }
 });
 
-window.addEventListener("chat-loaded", (e: any) => {
+window.addEventListener("chat-loaded", async (e: any) => {
     const chat = e.detail.chat;
 
-    if (chat?.groupChat?.mode === "rpg") {
+    isGroupChatContext = !!chat?.groupChat;
+    isRpgGroupChatContext = chat?.groupChat?.mode === "rpg";
+
+    // In any group chat context, the selected personality is not "the" recipient.
+    if (isGroupChatContext) {
+        messageInput?.setAttribute("placeholder", "Send a message");
+    }
+
+    // In group chats, disable single-chat-only controls.
+    internetSearchToggle?.classList.toggle("hidden", isGroupChatContext);
+    roleplayActionsMenu?.classList.toggle("hidden", isGroupChatContext);
+
+    const imageBtn = document.querySelector<HTMLButtonElement>("#btn-image");
+    const editBtn = document.querySelector<HTMLButtonElement>("#btn-edit");
+    imageBtn?.classList.toggle("hidden", isGroupChatContext);
+    editBtn?.classList.toggle("hidden", isGroupChatContext);
+
+    if (isRpgGroupChatContext) {
         turnControlPanel?.classList.remove("hidden");
         triggerAiButton?.classList.add("hidden"); //hide trigger button in RPG mode (use panel instead)
 
@@ -364,18 +459,29 @@ window.addEventListener("chat-loaded", (e: any) => {
         const lastMessage = turnRelevantMessages[turnRelevantMessages.length - 1];
 
         let isUserTurn = false;
+        let startsNewRound = false;
+        let nextSpeakerId: string | undefined;
+
+        //calculate next round number from existing messages
+        const roundIndices = (chat.content || [])
+            .filter((m: any) => typeof m.roundIndex === "number")
+            .map((m: any) => m.roundIndex as number);
+        const maxRoundIndex = roundIndices.length > 0 ? Math.max(...roundIndices) : 0;
 
         if (turnRelevantMessages.length === 0) {
-            //empty chat: is user first in order?
-            isUserTurn = userIndex === 0 || userIndex === -1;
+            // Empty chat: next speaker is the first in the order.
+            const nextSpeaker = effectiveOrder[0];
+            nextSpeakerId = nextSpeaker;
+            startsNewRound = true;
+            isUserTurn = nextSpeaker === "user" || userIndex === 0 || userIndex === -1;
         } else {
-            //determine whose turn is next based on last speaker
+            // Determine whose turn is next based on last speaker
             const lastSpeakerId = lastMessage.role === "user" ? "user" : lastMessage.personalityid;
 
-            //skip narrator messages when determining turn
+            // Skip narrator messages when determining turn
             let effectiveLastSpeaker = lastSpeakerId;
             if (lastSpeakerId === "__narrator__") {
-                //look backwards for non-narrator message
+                // Look backwards for non-narrator message
                 for (let i = turnRelevantMessages.length - 2; i >= 0; i--) {
                     const msg = turnRelevantMessages[i];
                     const speakerId = msg.role === "user" ? "user" : msg.personalityid;
@@ -388,33 +494,22 @@ window.addEventListener("chat-loaded", (e: any) => {
 
             const lastSpeakerIndex = effectiveOrder.indexOf(String(effectiveLastSpeaker));
             if (lastSpeakerIndex === -1) {
-                //unknown speaker, default to user's turn
+                // Unknown speaker, default to user's turn
                 isUserTurn = true;
+                startsNewRound = false;
             } else {
-                //next speaker is the one after lastSpeaker in the order
+                // Next speaker is the one after lastSpeaker in the order
                 const nextIndex = (lastSpeakerIndex + 1) % effectiveOrder.length;
                 const nextSpeaker = effectiveOrder[nextIndex];
+                nextSpeakerId = nextSpeaker;
                 isUserTurn = nextSpeaker === "user";
+                startsNewRound = nextSpeaker === effectiveOrder[0];
             }
         }
 
-        if (isUserTurn) {
-            if (turnControlLabel) turnControlLabel.textContent = "Your turn";
-            startTurnBtn?.classList.add("hidden");
-            skipTurnBtn?.classList.remove("hidden");
-        } else {
-            //calculate next round number from existing messages
-            const roundIndices = (chat.content || [])
-                .filter((m: any) => typeof m.roundIndex === "number")
-                .map((m: any) => m.roundIndex as number);
-            const maxRoundIndex = roundIndices.length > 0 ? Math.max(...roundIndices) : 0;
-            const nextRoundNumber = maxRoundIndex + 1;
+        const nextRoundNumber = startsNewRound ? maxRoundIndex + 1 : Math.max(1, maxRoundIndex);
 
-            if (turnControlLabel) turnControlLabel.textContent = maxRoundIndex > 0 ? "Round complete" : "Ready";
-            startTurnBtn?.classList.remove("hidden");
-            skipTurnBtn?.classList.add("hidden");
-            if (startRoundText) startRoundText.textContent = `Start Round ${nextRoundNumber}`;
-        }
+        void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
 
         //auto-progress when loading into a state that requires starting the next round
         if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
@@ -435,6 +530,11 @@ window.addEventListener("chat-loaded", (e: any) => {
 });
 
 const setupBottomBar = async () => {
+    if (isGroupChatContext) {
+        messageInput.setAttribute("placeholder", "Send a message");
+        return;
+    }
+
     const personality = await personalityService.getSelected();
     if (personality) {
         messageInput.setAttribute("placeholder", `Send a message to ${personality.name}`);

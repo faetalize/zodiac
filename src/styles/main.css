@@ -2277,7 +2277,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    z-index: 2;
+    z-index: 0;
 }
 
 .round-badge {
@@ -2360,7 +2360,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     border-radius: 1rem;
     box-shadow: var(--elevated-ui-shadow);
     backdrop-filter: blur(12px);
-    z-index: 1;
+    z-index: 0;
 }
 
 .turn-control-panel.hidden {
@@ -2379,6 +2379,11 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     gap: 0.35rem;
     padding: 0.5rem 0.85rem;
     font-size: 0.85rem;
+}
+
+.turn-control-panel #btn-rpg-settings {
+    padding: 0.15rem;
+    min-width: auto;
 }
 
 .turn-control-panel .btn .material-symbols-outlined {
@@ -2425,6 +2430,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     box-shadow: var(--elevated-ui-shadow);
     background-color: var(--sidebar-bg) !important;
     backdrop-filter: blur(16px);
+    z-index: 0;
 }
 
 #message-box.drag-over {

@@ -76,6 +76,7 @@ import {
 // ================================================================================
 
 export const USER_SKIP_TURN_MARKER_TEXT = "__user_skip_turn__";
+const AI_SKIP_TURN_MARKER_TEXT = "__ai_skip_turn__";
 
 const GROUP_TURN_DECISION_SCHEMA: any = {
     type: "object",
@@ -137,7 +138,7 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
     }
 
     // Calculate next participants
-    const { nextParticipants, stoppedForUser } = calculateNextParticipants(ctx);
+    const { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId } = calculateNextParticipants(ctx);
 
     // Build metadata for participants
     const participantMeta = await buildParticipantMeta(nextParticipants);
@@ -164,14 +165,15 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
         ctx.workingChat = (await chatsService.getCurrentChat(db))!;
     }
 
-    // Narrator after round
+    // Narrator after round: only when the round actually completes
+    // (i.e. after the last participant speaks and the next turn would start a new round).
     const userCompletedTurn = !!args.msg || !!args.skipTurn;
-    if (narratorEnabled && userCompletedTurn && !currentAbortController?.signal.aborted) {
+    if (narratorEnabled && startsNewRound && !currentAbortController?.signal.aborted) {
         await handleNarratorAfterRound(ctx);
     }
 
     // Dispatch round state for UI
-    dispatchRoundState({ userCompletedTurn, currentRoundIndex });
+    dispatchRoundState({ userCompletedTurn, currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId });
 
     endGeneration();
     return userElm;
@@ -198,7 +200,8 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
     const narratorEnabled: boolean = !!rpg?.narratorEnabled;
     const participants: string[] = Array.isArray(groupChat?.participantIds) ? groupChat.participantIds : [];
 
-    const currentRoundIndex = calculateCurrentRoundIndex(workingChat);
+    const effectiveOrder = buildEffectiveTurnOrder({ participants, turnOrder });
+    const currentRoundIndex = calculateCurrentRoundIndex(workingChat, effectiveOrder);
 
     // Handle skip turn marker persistence
     if (args.skipTurn && !args.msg) {
@@ -242,22 +245,83 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
     };
 }
 
-function calculateCurrentRoundIndex(chat: DbChat): number {
+function calculateCurrentRoundIndex(chat: DbChat, effectiveOrder: string[]): number {
     const chatContent = chat?.content ?? [];
-    const existingRoundIndices = chatContent
+    const roundIndices = chatContent
         .filter(m => typeof m.roundIndex === "number")
         .map(m => m.roundIndex as number);
 
-    let currentRoundIndex = 1;
-    if (existingRoundIndices.length > 0) {
-        const maxRoundIndex = Math.max(...existingRoundIndices);
-        const userSpokenInCurrentRound = chatContent.some(
-            m => m.roundIndex === maxRoundIndex && m.role === "user"
-        );
-        currentRoundIndex = userSpokenInCurrentRound ? maxRoundIndex + 1 : maxRoundIndex;
-    }
+    if (roundIndices.length === 0) return 1;
 
-    return currentRoundIndex;
+    const maxRoundIndex = Math.max(...roundIndices);
+
+    const anyNonNarratorTurnInMaxRound = chatContent.some(m => {
+        if (!m || m.roundIndex !== maxRoundIndex) return false;
+        if (isPersonalityMarker(m)) return false;
+        if (isLegacyPersonalityIntro(m)) return false;
+
+        if (isUserSkipTurnMarker(m as Message)) return true;
+
+        if (m.hidden) return false;
+
+        if (m.role === "user") return true;
+        if (m.role === "model" && m.personalityid === NARRATOR_PERSONALITY_ID) return false;
+        return typeof m.personalityid === "string";
+    });
+
+    if (!anyNonNarratorTurnInMaxRound) return maxRoundIndex;
+
+    const lastTurnMessageInMaxRound = (() => {
+        for (let i = chatContent.length - 1; i >= 0; i--) {
+            const candidate = chatContent[i];
+            if (!candidate || candidate.roundIndex !== maxRoundIndex) continue;
+            if (isPersonalityMarker(candidate)) continue;
+            if (isLegacyPersonalityIntro(candidate)) continue;
+            if (candidate.role === "model" && candidate.personalityid === NARRATOR_PERSONALITY_ID) continue;
+            if (candidate.hidden && !isUserSkipTurnMarker(candidate as Message) && !isAiSkipTurnMarker(candidate as Message)) continue;
+            return candidate;
+        }
+        return undefined;
+    })();
+
+    if (!lastTurnMessageInMaxRound) return maxRoundIndex;
+
+    const lastSpeakerId = isUserSkipTurnMarker(lastTurnMessageInMaxRound as Message)
+        ? "user"
+        : lastTurnMessageInMaxRound.role === "user"
+            ? "user"
+            : lastTurnMessageInMaxRound.personalityid;
+
+    const lastSpeakerIndex = effectiveOrder.indexOf(String(lastSpeakerId));
+    if (lastSpeakerIndex === -1) return maxRoundIndex;
+
+    const userIndex = effectiveOrder.indexOf("user");
+    if (userIndex === -1) return maxRoundIndex;
+
+    const nextIndex = (lastSpeakerIndex + 1) % effectiveOrder.length;
+    const nextSpeaker = effectiveOrder[nextIndex];
+
+    // A new round begins when the turn order cycles back to the start.
+    // This keeps the user's message and the following AI replies grouped
+    // under the same round, regardless of where "user" appears in the order.
+    return nextSpeaker === effectiveOrder[0] ? maxRoundIndex + 1 : maxRoundIndex;
+}
+
+function buildEffectiveTurnOrder(args: { participants: string[]; turnOrder: string[] }): string[] {
+    // Important: ensure a stable, cycle-based order.
+    // If the UI saved a turnOrder array, it may start at an arbitrary offset.
+    // For round/block rollover we treat args.participants[0] as the canonical
+    // start-of-round marker.
+    const base = args.turnOrder.length > 0 ? args.turnOrder : [...args.participants, "user"];
+    const withUser = base.includes("user") ? base : [...base, "user"];
+
+    const canonicalStart = args.participants[0];
+    if (!canonicalStart) return withUser;
+
+    const startIndex = withUser.indexOf(canonicalStart);
+    if (startIndex <= 0) return withUser;
+
+    return [...withUser.slice(startIndex), ...withUser.slice(0, startIndex)];
 }
 
 async function persistSkipTurnMarkerIfNeeded(chat: DbChat, currentRoundIndex: number): Promise<DbChat | null> {
@@ -321,52 +385,112 @@ async function buildParticipantData(participants: string[]): Promise<{
 // TURN CALCULATION
 // ================================================================================
 
-function calculateNextParticipants(ctx: RpgContext): { nextParticipants: string[]; stoppedForUser: boolean } {
-    const effectiveOrder = ctx.turnOrder.length > 0 ? ctx.turnOrder : [...ctx.participants, "user"];
-    const userIndexInOrder = effectiveOrder.indexOf("user");
-    let startIndex = userIndexInOrder;
+function calculateNextParticipants(ctx: RpgContext): {
+    nextParticipants: string[];
+    stoppedForUser: boolean;
+    startsNewRound: boolean;
+    nextSpeakerId?: string;
+} {
+    const effectiveOrder = buildEffectiveTurnOrder({ participants: ctx.participants, turnOrder: ctx.turnOrder });
+    const startIndex = calculateLastSpeakerIndex(ctx, effectiveOrder);
+    const shouldAutoProgress = !!ctx.settings?.rpgGroupChatsProgressAutomatically;
 
-    if (!ctx.msg) {
-        startIndex = calculateStartIndexWithoutMessage(ctx, effectiveOrder);
-    }
+    // Treat an AI skip as a completed turn when deciding who speaks next.
+    // Otherwise we keep scheduling the same participant again.
+    const lastTurnWasAiSkip = didLastTurnSkip(ctx, effectiveOrder);
 
     const nextParticipants: string[] = [];
     let stoppedForUser = false;
+    let startsNewRound = false;
 
-    // Only collect AI participants when triggered via Start Round (no message AND not skipping)
-    if (!ctx.msg && !ctx.skipTurn) {
-        if (startIndex !== -1) {
-            for (let i = 1; i < effectiveOrder.length; i++) {
-                const idx = (startIndex + i) % effectiveOrder.length;
-                const id = effectiveOrder[idx];
-                if (id === "user") {
-                    stoppedForUser = true;
-                    break;
-                }
-                nextParticipants.push(id);
-            }
-        } else {
-            for (const id of effectiveOrder) {
-                if (id === "user") {
-                    stoppedForUser = true;
-                    break;
-                }
-                nextParticipants.push(id);
-            }
-        }
+    if (effectiveOrder.length === 0) return { nextParticipants, stoppedForUser, startsNewRound };
+
+    // Manual mode: after the user acts, we pause immediately (no AI auto-run).
+    // The next speaker is the one immediately after the user's message/skip.
+    if (!shouldAutoProgress && (ctx.msg || ctx.skipTurn)) {
+        const nextIndex = (startIndex + 1 + effectiveOrder.length) % effectiveOrder.length;
+        const nextId = effectiveOrder[nextIndex];
+
+        stoppedForUser = nextId === "user";
+        startsNewRound = nextId === effectiveOrder[0];
+        return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: nextId };
     }
 
-    return { nextParticipants, stoppedForUser };
+    // Auto-progress: run forward through the CURRENT round only.
+    if (shouldAutoProgress) {
+        // If the last executed turn was a skip marker, start from that speaker,
+        // so we can correctly advance to the next participant.
+        const firstIndex = startIndex < 0 ? 0 : startIndex + (lastTurnWasAiSkip ? 2 : 1);
+        for (let idx = firstIndex; idx < effectiveOrder.length; idx++) {
+            const id = effectiveOrder[idx];
+            if (id === "user") {
+                stoppedForUser = true;
+                break;
+            }
+            nextParticipants.push(id);
+        }
+
+        // Calculate who is next AFTER the scheduled participants
+        const lastScheduledIndex = nextParticipants.length > 0 
+            ? effectiveOrder.indexOf(nextParticipants[nextParticipants.length - 1])
+            : startIndex;
+        const nextIndex = (lastScheduledIndex + 1) % effectiveOrder.length;
+        const nextId = effectiveOrder[nextIndex];
+
+        startsNewRound = !stoppedForUser;
+        return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: nextId };
+    }
+
+    // Manual mode (continue pressed): execute exactly one AI turn, then pause.
+    const startOffset = lastTurnWasAiSkip ? 2 : 1;
+    const nextIndex = (startIndex + startOffset + effectiveOrder.length) % effectiveOrder.length;
+    const nextId = effectiveOrder[nextIndex];
+    const afterNextIndex = (nextIndex + 1) % effectiveOrder.length;
+    const afterNextId = effectiveOrder[afterNextIndex];
+
+    if (nextId === "user") {
+        stoppedForUser = true;
+        startsNewRound = nextId === effectiveOrder[0];
+        return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: nextId };
+    } else {
+        nextParticipants.push(nextId);
+        stoppedForUser = afterNextId === "user";
+        startsNewRound = afterNextId === effectiveOrder[0];
+        return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: afterNextId };
+    }
 }
 
-function calculateStartIndexWithoutMessage(ctx: RpgContext, effectiveOrder: string[]): number {
+function didLastTurnSkip(ctx: RpgContext, effectiveOrder: string[]): boolean {
+    const content = ctx.workingChat?.content ?? [];
+
+    for (let i = content.length - 1; i >= 0; i--) {
+        const candidate = content[i];
+        if (!candidate || candidate.roundIndex !== ctx.currentRoundIndex) continue;
+        if (isPersonalityMarker(candidate)) continue;
+        if (isLegacyPersonalityIntro(candidate)) continue;
+
+        // We only care about the AI skip marker here.
+        if (isAiSkipTurnMarker(candidate as Message)) return true;
+
+        // If we hit a normal (non-hidden) turn message first, then it's not a skip.
+        if (!candidate.hidden) return false;
+
+        // Ignore other hidden messages.
+        continue;
+    }
+
+    return false;
+}
+
+function calculateLastSpeakerIndex(ctx: RpgContext, effectiveOrder: string[]): number {
     const content = ctx.workingChat?.content ?? [];
 
     const currentRoundHasAnyTurnMessages = content.some(m => {
         if (!m || m.roundIndex !== ctx.currentRoundIndex) return false;
-        if (m.hidden) return false;
         if (isPersonalityMarker(m)) return false;
         if (isLegacyPersonalityIntro(m)) return false;
+        if (isAnySkipTurnMarker(m as Message)) return true;
+        if (m.hidden) return false;
         if (m.role === "user") return true;
         return typeof m.personalityid === "string" && m.personalityid !== NARRATOR_PERSONALITY_ID;
     });
@@ -377,22 +501,66 @@ function calculateStartIndexWithoutMessage(ctx: RpgContext, effectiveOrder: stri
         for (let i = content.length - 1; i >= 0; i--) {
             const candidate = content[i];
             if (!candidate || candidate.roundIndex !== ctx.currentRoundIndex) continue;
-            if (candidate.hidden) continue;
             if (isPersonalityMarker(candidate)) continue;
             if (isLegacyPersonalityIntro(candidate)) continue;
             if (candidate.role === "model" && candidate.personalityid === NARRATOR_PERSONALITY_ID) continue;
+            if (candidate.hidden && !isUserSkipTurnMarker(candidate as Message) && !isAiSkipTurnMarker(candidate as Message)) continue;
             return candidate;
         }
         return undefined;
     })();
 
     if (lastTurnMessageInRound) {
-        const lastSpeakerId = lastTurnMessageInRound.role === "user" ? "user" : lastTurnMessageInRound.personalityid;
+        const lastSpeakerId = isAnySkipTurnMarker(lastTurnMessageInRound as Message)
+            ? (isUserSkipTurnMarker(lastTurnMessageInRound as Message) ? "user" : lastTurnMessageInRound.personalityid)
+            : lastTurnMessageInRound.role === "user"
+                ? "user"
+                : lastTurnMessageInRound.personalityid;
         const lastSpeakerIndex = effectiveOrder.indexOf(String(lastSpeakerId));
         return lastSpeakerIndex !== -1 ? lastSpeakerIndex : -1;
     }
 
     return -1;
+}
+
+function isUserSkipTurnMarker(message: Message): boolean {
+    if (!message || message.role !== "user" || !message.hidden) return false;
+    const parts = Array.isArray(message.parts) ? message.parts : [];
+    return parts.some((part: any) => (part?.text ?? "").toString() === USER_SKIP_TURN_MARKER_TEXT);
+}
+
+function isAiSkipTurnMarker(message: Message): boolean {
+    if (!message || message.role !== "model" || !message.hidden) return false;
+    const parts = Array.isArray(message.parts) ? message.parts : [];
+    return parts.some((part: any) => (part?.text ?? "").toString() === AI_SKIP_TURN_MARKER_TEXT);
+}
+
+function isAnySkipTurnMarker(message: Message): boolean {
+    return isUserSkipTurnMarker(message) || isAiSkipTurnMarker(message);
+}
+
+async function persistAiSkipTurnMarker(args: { personaId: string; currentRoundIndex: number }): Promise<void> {
+    const chat = await chatsService.getCurrentChat(db);
+    const chatContent = chat?.content ?? [];
+
+    const hasSkipMarkerForRound = chatContent.some((m: Message) => {
+        if (!m || m.role !== "model" || !m.hidden || m.roundIndex !== args.currentRoundIndex) return false;
+        if (m.personalityid !== args.personaId) return false;
+        const parts = Array.isArray(m.parts) ? m.parts : [];
+        return parts.some((p: any) => (p?.text ?? "").toString() === AI_SKIP_TURN_MARKER_TEXT);
+    });
+
+    if (hasSkipMarkerForRound) return;
+
+    const skipMarker: Message = {
+        role: "model",
+        personalityid: args.personaId,
+        hidden: true,
+        roundIndex: args.currentRoundIndex,
+        parts: [{ text: AI_SKIP_TURN_MARKER_TEXT }],
+    };
+
+    await persistMessages([skipMarker]);
 }
 
 async function buildParticipantMeta(participantIds: string[]): Promise<ParticipantMeta[]> {
@@ -534,6 +702,11 @@ async function executeParticipantTurn(args: {
             skipNotice.innerHTML = `<span class="material-symbols-outlined">skip_next</span> ${safeName} skipped their turn${safeReasonSuffix}`;
             placeholderElm.replaceWith(skipNotice);
         }
+
+        // Persist a hidden marker so future turn calculation can advance.
+        // Without this, a skip isn't represented in chat history, so "Continue" can loop.
+        await persistAiSkipTurnMarker({ personaId: meta.id, currentRoundIndex });
+
         return { continueLoop: true };
     }
 
@@ -1133,15 +1306,23 @@ If you choose to skip this turn entirely, set kind to "skip".
 </system>`;
 }
 
-function dispatchRoundState(args: { userCompletedTurn: boolean; currentRoundIndex: number }): void {
-    const { userCompletedTurn, currentRoundIndex } = args;
-    const isUserTurnNext = !userCompletedTurn;
+function dispatchRoundState(args: {
+    userCompletedTurn: boolean;
+    currentRoundIndex: number;
+    stoppedForUser: boolean;
+    startsNewRound: boolean;
+    nextSpeakerId?: string;
+}): void {
+    const { currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId } = args;
+    const isUserTurnNext = stoppedForUser;
 
     dispatchAppEvent('round-state-changed', {
         isUserTurn: isUserTurnNext,
         currentRoundIndex,
-        roundComplete: userCompletedTurn,
-        nextRoundNumber: currentRoundIndex + 1,
+        roundComplete: stoppedForUser,
+        nextRoundNumber: startsNewRound ? currentRoundIndex + 1 : currentRoundIndex,
+        startsNewRound,
+        nextSpeakerId,
     });
 }
 
