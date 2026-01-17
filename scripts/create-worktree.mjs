@@ -203,6 +203,25 @@ try {
     for (const [serverName, serverConfig] of Object.entries(opencodeConfig.mcp)) {
       if (!serverConfig || typeof serverConfig !== "object") continue;
 
+      if (serverName === "supabase" && serverConfig.url && typeof serverConfig.url === "string") {
+        const currentUrl = serverConfig.url;
+        const projectRefMatch = currentUrl.match(/[?&]project_ref=([^&]+)/);
+        const currentProjectRef = projectRefMatch ? projectRefMatch[1] : null;
+
+        if (!currentProjectRef || currentProjectRef.startsWith("<")) {
+          const projectRefInput = await rl.question(
+            `Supabase project ref for MCP (empty to leave placeholder): `,
+          );
+          if (projectRefInput.trim()) {
+            const newProjectRef = projectRefInput.trim();
+            serverConfig.url = currentUrl.replace(
+              /([?&]project_ref=)[^&]+/,
+              `$1${newProjectRef}`
+            );
+          }
+        }
+      }
+
       if (serverConfig.headers && typeof serverConfig.headers === "object") {
         const currentAuth = serverConfig.headers.Authorization;
         if (typeof currentAuth === "string") {
