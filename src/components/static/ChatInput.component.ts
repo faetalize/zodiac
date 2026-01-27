@@ -31,7 +31,6 @@ const turnControlLabel = document.querySelector<HTMLSpanElement>("#turn-control-
 const startTurnBtn = document.querySelector<HTMLButtonElement>("#btn-start-turn");
 const startRoundText = document.querySelector<HTMLSpanElement>("#start-round-text");
 const skipTurnBtn = document.querySelector<HTMLButtonElement>("#btn-skip-turn");
-const triggerAiButton = document.querySelector<HTMLButtonElement>("#btn-trigger-ai");
 const rpgSettingsButton = document.querySelector<HTMLButtonElement>("#btn-rpg-settings");
 
 if (!messageInput || !messageBox || !attachmentsInput || !attachmentPreview || !sendMessageButton || !internetSearchToggle || !roleplayActionsMenu) {
@@ -401,20 +400,6 @@ rpgSettingsButton?.addEventListener("click", async () => {
     groupChatSettingsButton?.click();
 });
 
-//restore trigger ai button logic for dynamic chats
-triggerAiButton?.addEventListener("click", async () => {
-    if (isCurrentlyGenerating) return;
-
-    try {
-        await messageService.send("");
-    } catch (error: any) {
-        toastService.danger({
-            title: "Error triggering AI",
-            text: JSON.stringify(error.message || error),
-        });
-    }
-});
-
 window.addEventListener("chat-loaded", async (e: any) => {
     const chat = e.detail.chat;
 
@@ -437,7 +422,6 @@ window.addEventListener("chat-loaded", async (e: any) => {
 
     if (isRpgGroupChatContext) {
         turnControlPanel?.classList.remove("hidden");
-        triggerAiButton?.classList.add("hidden"); //hide trigger button in RPG mode (use panel instead)
 
         //determine turn state from chat content
         const rpg = chat.groupChat?.rpg;
@@ -519,13 +503,11 @@ window.addEventListener("chat-loaded", async (e: any) => {
             }
         }
     } else if (chat?.groupChat) {
-        //Dynamic group chat - show generic trigger button
+        // Dynamic group chat
         turnControlPanel?.classList.add("hidden");
-        triggerAiButton?.classList.remove("hidden");
     } else {
         //Normal chat or empty
         turnControlPanel?.classList.add("hidden");
-        triggerAiButton?.classList.add("hidden");
     }
 });
 

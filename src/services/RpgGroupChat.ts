@@ -762,7 +762,7 @@ async function executeTurnPremium(args: {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: parseInt(settings.temperature) / 100,
         systemInstruction: ({
-            parts: [{ text: ((await settingsService.getSystemPrompt()).parts?.[0].text ?? "") + rosterSystemPrompt + speakerToneSystemPrompt }]
+            parts: [{ text: ((await settingsService.getSystemPrompt("rpg")).parts?.[0].text ?? "") + rosterSystemPrompt + speakerToneSystemPrompt }]
         }) as Content,
         safetySettings: settings.safetySettings,
         responseMimeType: "application/json",
@@ -878,7 +878,7 @@ async function executeTurnLocalSdk(args: {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: parseInt(settings.temperature) / 100,
         systemInstruction: ({
-            parts: [{ text: ((await settingsService.getSystemPrompt()).parts?.[0].text ?? "") + rosterSystemPrompt + speakerToneSystemPrompt }]
+            parts: [{ text: ((await settingsService.getSystemPrompt("rpg")).parts?.[0].text ?? "") + rosterSystemPrompt + speakerToneSystemPrompt }]
         }) as Content,
         safetySettings: settings.safetySettings,
         responseMimeType: "application/json",

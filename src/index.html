@@ -579,6 +579,7 @@
             <div id="scrollable-chat-container">
                 <div class="message-container"></div>
             </div>
+            <div id="group-chat-typing-indicator" class="group-chat-typing-indicator hidden"></div>
             <!-- Round Control Panel for RPG group chats (above message input) -->
             <div id="turn-control-panel" class="turn-control-panel hidden">
                 <button type="button" class="btn btn-textual material-symbols-outlined" id="btn-rpg-settings" aria-label="RPG group chat settings">settings</button>
@@ -604,8 +605,6 @@
                         id="btn-internet">language</button>
                     <button type="button" class="btn-textual material-symbols-outlined btn"
                         id="btn-roleplay">pan_tool</button>
-                    <button type="button" class="btn-textual material-symbols-outlined btn hidden" id="btn-trigger-ai"
-                        title="Trigger AI turn">play_arrow</button>
                     <button type="button" class="btn-textual material-symbols-outlined btn" id="btn-image">
                         <div>brush</div>
                         <div id="image-generation-label">Image Generation</div>
@@ -739,9 +738,9 @@
                             <p class="overlay-description">Choose how participants take turns.</p>
 
                             <div class="group-chat-mode-cards">
-                                <label class="group-chat-mode-card group-chat-mode-card--disabled">
-                                    <input type="radio" name="group-chat-mode" value="dynamic" disabled>
-                                    <div class="group-chat-mode-card-title">Dynamic (coming soon)</div>
+                                <label class="group-chat-mode-card">
+                                    <input type="radio" name="group-chat-mode" value="dynamic">
+                                    <div class="group-chat-mode-card-title">Dynamic</div>
                                     <div class="group-chat-mode-card-desc">Like a real group chat where participants can
                                         talk at their leisure.</div>
                                 </label>
@@ -756,20 +755,41 @@
                         </div>
 
                         <div class="step">
-                            <h1>RPG Settings</h1>
-                            <p class="overlay-description">Configure turn order and optional scene setup.</p>
+                            <h1>Settings</h1>
+                            <p class="overlay-description">Configure mode-specific settings.</p>
 
-                            <label for="group-chat-scenario">Starting scenario (optional):</label>
-                            <textarea id="group-chat-scenario" class="input-field" placeholder="Set the scene..."
-                                rows="4"></textarea>
+                            <div id="group-chat-dynamic-settings" class="hidden">
+                                <div class="group-chat-guard-apply-all">
+                                    <label for="group-chat-guard-apply-all">Apply max messages to all personas:</label>
+                                    <div class="group-chat-guard-apply-row">
+                                        <input id="group-chat-guard-apply-all" type="range" min="1" max="10" value="5">
+                                        <span id="group-chat-guard-apply-all-value">5</span>
+                                        <button type="button" id="group-chat-guard-apply-all-btn" class="btn btn-secondary">Apply</button>
+                                    </div>
+                                </div>
 
-                            <div class="group-chat-toggle-row">
-                                <input type="checkbox" id="group-chat-narrator">
-                                <label for="group-chat-narrator">Narrator enabled</label>
+                                <h3>Per-persona max messages</h3>
+                                <div id="group-chat-guard-list" class="group-chat-guard-list"></div>
+
+                                <div class="group-chat-toggle-row">
+                                    <input type="checkbox" id="group-chat-allow-pings">
+                                    <label for="group-chat-allow-pings">Allow personas to ping one another</label>
+                                </div>
                             </div>
 
-                            <h3>Turn order</h3>
-                            <div id="group-chat-turn-order" class="group-chat-turn-order"></div>
+                            <div id="group-chat-rpg-settings">
+                                <label for="group-chat-scenario">Starting scenario (optional):</label>
+                                <textarea id="group-chat-scenario" class="input-field" placeholder="Set the scene..."
+                                    rows="4"></textarea>
+
+                                <div class="group-chat-toggle-row">
+                                    <input type="checkbox" id="group-chat-narrator">
+                                    <label for="group-chat-narrator">Narrator enabled</label>
+                                </div>
+
+                                <h3>Turn order</h3>
+                                <div id="group-chat-turn-order" class="group-chat-turn-order"></div>
+                            </div>
                         </div>
                     </div>
 

@@ -89,6 +89,13 @@ export interface RoundStateChangedDetail {
     nextSpeakerId?: string;
 }
 
+// --- Dynamic Group Chat Events ---
+
+export interface GroupChatTypingChangedDetail {
+    chatId: number;
+    personaIds: string[];
+}
+
 // --- Model & Settings Events ---
 
 export interface ChatModelChangedDetail {
@@ -193,6 +200,9 @@ export const EventNames = {
     
     // RPG Group Chat
     ROUND_STATE_CHANGED: 'round-state-changed',
+
+    // Dynamic Group Chat
+    GROUP_CHAT_TYPING_CHANGED: 'group-chat-typing-changed',
     
     // Model & Settings
     CHAT_MODEL_CHANGED: 'chat-model-changed',
@@ -254,6 +264,9 @@ export interface AppEventMap {
     
     // RPG Group Chat
     [EventNames.ROUND_STATE_CHANGED]: RoundStateChangedDetail;
+
+    // Dynamic Group Chat
+    [EventNames.GROUP_CHAT_TYPING_CHANGED]: GroupChatTypingChangedDetail;
     
     // Model & Settings
     [EventNames.CHAT_MODEL_CHANGED]: ChatModelChangedDetail;

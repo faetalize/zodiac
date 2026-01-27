@@ -84,6 +84,46 @@ export function buildGroupChatRosterSystemPrompt(args: {
 }
 
 /**
+ * Builds the system prompt for Dynamic group chat roster.
+ */
+export function buildDynamicGroupChatRosterSystemPrompt(args: {
+    participantPersonas: GroupChatParticipantPersona[];
+    userName: string;
+    allowPings: boolean;
+}): string {
+    const userName = (args.userName || "User").toString();
+    const participants = Array.isArray(args.participantPersonas) ? args.participantPersonas : [];
+
+    const lines: string[] = [];
+    lines.push("<system>Dynamic group chat mode.");
+    lines.push("Participants are fixed for this chat.");
+    lines.push("When replying, write ONLY the message content (no speaker prefix like 'Name:').");
+    lines.push(`The user is: ${userName}.`);
+    if (args.allowPings) {
+        lines.push("To get a participant's attention, mention them with @<uuid> (NOT @Name). Names may contain spaces.");
+    }
+    lines.push("Participant roster:");
+
+    for (const p of participants) {
+        const name = (p.name || "Unknown").toString();
+        const desc = (p.description || "").toString().trim();
+        const prompt = (p.prompt || "").toString().trim();
+        const aggression = Number.isFinite(p.aggressiveness as number) ? Math.trunc(p.aggressiveness as number) : 0;
+        const sensuality = Number.isFinite(p.sensuality as number) ? Math.trunc(p.sensuality as number) : 0;
+        const independence = Number.isFinite(p.independence as number) ? Math.trunc(p.independence as number) : 0;
+
+        lines.push(`- ${name} (${p.id})`);
+        if (desc) lines.push(`  Description: ${desc}`);
+        if (prompt) lines.push(`  Prompt: ${prompt}`);
+        lines.push(`  Traits: aggression ${aggression}/3, sensuality ${sensuality}/3, independence ${independence}/3.`);
+    }
+
+    lines.push("Chat transcript format: each message begins with 'SpeakerName: ...'. Do not copy that formatting in your replies.");
+    lines.push("</system>");
+    return "\n" + lines.join("\n");
+}
+
+/**
  * Builds tone examples system prompt for a speaker.
  */
 export function buildSpeakerToneExamplesSystemPrompt(args: {
