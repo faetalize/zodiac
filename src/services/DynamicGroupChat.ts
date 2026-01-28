@@ -212,6 +212,7 @@ async function triggerResponses(args: {
     isPremiumEndpointPreferred: boolean;
     isInternetSearchEnabled: boolean;
     shouldEnforceThoughtSignaturesInHistory: boolean;
+    allowCascade?: boolean;
 }): Promise<void> {
     const ctx = await loadDynamicContext({ chatId: args.chatId, shouldEnforceThoughtSignaturesInHistory: args.shouldEnforceThoughtSignaturesInHistory });
     if (!ctx) return;
@@ -222,6 +223,7 @@ async function triggerResponses(args: {
         ? extractMentionedParticipantIds(args.triggeringText, participants)
         : [];
     const shouldRestrictToForced = pingOnly && forcedIds.length > 0;
+    const allowCascadeForWave = (args.allowCascade ?? true) && !shouldRestrictToForced;
 
     const selected: DbPersonality[] = [];
     const inFlight = getInFlight(args.chatId);
@@ -275,6 +277,7 @@ async function triggerResponses(args: {
             isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
             isInternetSearchEnabled: args.isInternetSearchEnabled,
             shouldEnforceThoughtSignaturesInHistory: args.shouldEnforceThoughtSignaturesInHistory,
+            allowCascade: allowCascadeForWave,
         }).catch((err) => {
             console.error("DynamicGroupChat: persona response failed", err);
         });
@@ -291,6 +294,7 @@ async function respondAsPersona(args: {
     isPremiumEndpointPreferred: boolean;
     isInternetSearchEnabled: boolean;
     shouldEnforceThoughtSignaturesInHistory: boolean;
+    allowCascade: boolean;
 }): Promise<void> {
     const personaId = String(args.persona.id);
 
@@ -433,7 +437,7 @@ async function respondAsPersona(args: {
         getInFlight(args.chatId).delete(personaId);
     }
 
-    if (cascadeText) {
+    if (cascadeText && args.allowCascade) {
         debugLogDynamic("Cascade triggered", { fromPersonaId: personaId, text: cascadeText.slice(0, 80) });
         void triggerResponses({
             chatId: args.chatId,
@@ -442,6 +446,7 @@ async function respondAsPersona(args: {
             isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
             isInternetSearchEnabled: args.isInternetSearchEnabled,
             shouldEnforceThoughtSignaturesInHistory: args.shouldEnforceThoughtSignaturesInHistory,
+            allowCascade: true,
         });
     }
 }

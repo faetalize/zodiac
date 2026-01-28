@@ -40,7 +40,7 @@ function escapeHtml(value: string): string {
 }
 
 async function decorateMentions(html: string): Promise<string> {
-    if (!MENTION_RE.test(html)) return html;
+    if (!html.includes("@")) return html;
 
     const chat = await chatsService.getCurrentChat(db);
     if (!chat || chat.groupChat?.mode !== "dynamic") return html;
@@ -157,6 +157,9 @@ export const messageElement = async (
     // keep its raw reasoning form.
     //user message
     if (!message.personalityid) {
+        const rawInitial = message.parts[0]?.text || "";
+        const initialHtmlRaw = await helpers.getDecoded(rawInitial) || "";
+        const initialHtml = await decorateMentions(initialHtmlRaw);
         messageDiv.innerHTML =
             `<div class="message-header">
             <h3 class="message-role">You:</h3>
@@ -167,7 +170,7 @@ export const messageElement = async (
             </div>
         </div>
         <div class="message-role-api" style="display: none;">${message.role}</div>
-        <div class="message-text">${await helpers.getDecoded(message.parts[0]?.text || "")}</div>
+        <div class="message-text">${initialHtml}</div>
         <div class="attachment-preview-container">
             ${Array.from(message.parts[0]?.attachments || []).map((attachment: File) => {
                 if (attachment.type.startsWith("image/")) {
