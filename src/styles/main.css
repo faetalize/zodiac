@@ -1573,6 +1573,11 @@ form {
     grid-row: 2;
 }
 
+.group-chat-rpg-settings {
+    display: flex;
+    flex-direction: column;
+}
+
 .group-chat-toggle-row {
     display: flex;
     align-items: center;
