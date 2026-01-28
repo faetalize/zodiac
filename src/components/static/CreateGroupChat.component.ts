@@ -2,6 +2,7 @@ import * as overlayService from "../../services/Overlay.service";
 import * as personalityService from "../../services/Personality.service";
 import * as groupChatService from "../../services/GroupChat.service";
 import * as stepperService from "../../services/Stepper.service";
+import * as settingsService from "../../services/Settings.service";
 import { warn, danger } from "../../services/Toast.service";
 import { defaultGuardFromIndependence, normalizeGuardMap } from "../../utils/dynamicGroupChatGuards";
 
@@ -74,6 +75,15 @@ function updateModeSettingsVisibility(): void {
 
     if (isDynamic) {
         renderGuardSliders();
+        const settings = settingsService.getSettings();
+        if (settings.disallowPersonaPinging) {
+            allowPingsToggle.checked = false;
+            allowPingsToggle.disabled = true;
+            allowPingsToggle.title = "This setting is globally disabled in app settings.";
+        } else {
+            allowPingsToggle.disabled = false;
+            allowPingsToggle.title = "";
+        }
     }
 }
 

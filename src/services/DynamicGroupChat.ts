@@ -169,7 +169,8 @@ async function loadDynamicContext(args: {
         : [];
 
     const maxMessageGuardById = chat.groupChat.dynamic?.maxMessageGuardById;
-    const allowPings = !!chat.groupChat.dynamic?.allowPings;
+    const globalSettings = settingsService.getSettings();
+    const allowPings = !globalSettings.disallowPersonaPinging && !!chat.groupChat.dynamic?.allowPings;
 
     const participantPersonas: DbPersonality[] = [];
     const speakerNameById = new Map<string, string>();

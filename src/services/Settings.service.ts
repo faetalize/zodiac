@@ -14,7 +14,8 @@ const enableThinkingSelect = document.querySelector("#enableThinkingSelect") as 
 const thinkingBudgetInput = document.querySelector("#thinkingBudget") as HTMLInputElement;
 const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel") as HTMLSelectElement;
 const rpgGroupChatsProgressAutomaticallyToggle = document.querySelector("#rpgGroupChatsProgressAutomatically") as HTMLInputElement;
-if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector || !rpgGroupChatsProgressAutomaticallyToggle) {
+const disallowPersonaPingingToggle = document.querySelector("#disallowPersonaPinging") as HTMLInputElement;
+if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector || !rpgGroupChatsProgressAutomaticallyToggle || !disallowPersonaPingingToggle) {
     throw new Error("One or more settings elements are missing in the DOM.");
 }
 
@@ -28,6 +29,7 @@ export function initialize() {
     autoscrollToggle.addEventListener("change", saveSettings);
     streamResponsesToggle.addEventListener("change", saveSettings);
     rpgGroupChatsProgressAutomaticallyToggle.addEventListener("change", saveSettings);
+    disallowPersonaPingingToggle.addEventListener("change", saveSettings);
     enableThinkingSelect.addEventListener("change", saveSettings);
     thinkingBudgetInput.addEventListener("input", saveSettings);
     imageEditModelSelector.addEventListener("change", saveSettings);
@@ -44,6 +46,7 @@ export function loadSettings() {
     // Default ON when not set
     streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";
     rpgGroupChatsProgressAutomaticallyToggle.checked = (localStorage.getItem("rpgGroupChatsProgressAutomatically") ?? "false") === "true";
+    disallowPersonaPingingToggle.checked = (localStorage.getItem("disallowPersonaPinging") ?? "false") === "true";
     const enableThinkingStored = localStorage.getItem("enableThinking");
     const enableThinking = (enableThinkingStored ?? "true") === "true";
     enableThinkingSelect.value = enableThinking ? 'enabled' : 'disabled';
@@ -63,6 +66,7 @@ export function saveSettings() {
     localStorage.setItem("autoscroll", autoscrollToggle.checked.toString());
     localStorage.setItem("streamResponses", streamResponsesToggle.checked.toString());
     localStorage.setItem("rpgGroupChatsProgressAutomatically", rpgGroupChatsProgressAutomaticallyToggle.checked.toString());
+    localStorage.setItem("disallowPersonaPinging", disallowPersonaPingingToggle.checked.toString());
     localStorage.setItem("enableThinking", (enableThinkingSelect.value === 'enabled').toString());
     localStorage.setItem("thinkingBudget", thinkingBudgetInput.value);
 }
@@ -85,6 +89,7 @@ export function getSettings() {
         autoscroll: autoscrollToggle.checked,
         streamResponses: streamResponsesToggle.checked,
         rpgGroupChatsProgressAutomatically: rpgGroupChatsProgressAutomaticallyToggle.checked,
+        disallowPersonaPinging: disallowPersonaPingingToggle.checked,
         enableThinking: enableThinkingSelect.value === 'enabled',
         thinkingBudget: parseInt(thinkingBudgetInput.value),
     }
