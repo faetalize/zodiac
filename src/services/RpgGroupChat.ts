@@ -144,6 +144,7 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
     const participantMeta = await buildParticipantMeta(nextParticipants);
 
     // Execute AI turns
+    let executedAiTurns = 0;
     for (const meta of participantMeta) {
         if (currentAbortController?.signal.aborted) {
             endGeneration();
@@ -162,13 +163,19 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
             return userElm;
         }
 
+        executedAiTurns += 1;
+
         ctx.workingChat = (await chatsService.getCurrentChat(db))!;
     }
 
     // Narrator after round: only when the round actually completes
     // (i.e. after the last participant speaks and the next turn would start a new round).
     const userCompletedTurn = !!args.msg || !!args.skipTurn;
-    if (narratorEnabled && startsNewRound && !currentAbortController?.signal.aborted) {
+    const completedAiTurnThisCall = executedAiTurns > 0;
+    const roundHasAiTurns = hasAiTurnInRound(ctx.workingChat, currentRoundIndex);
+    const aiCycleCompleted = completedAiTurnThisCall && startsNewRound;
+    const userClosedRound = userCompletedTurn && startsNewRound && roundHasAiTurns;
+    if (narratorEnabled && (aiCycleCompleted || userClosedRound) && !currentAbortController?.signal.aborted) {
         await handleNarratorAfterRound(ctx);
     }
 
@@ -537,6 +544,19 @@ function isAiSkipTurnMarker(message: Message): boolean {
 
 function isAnySkipTurnMarker(message: Message): boolean {
     return isUserSkipTurnMarker(message) || isAiSkipTurnMarker(message);
+}
+
+function hasAiTurnInRound(chat: DbChat, roundIndex: number): boolean {
+    const content = chat?.content ?? [];
+    return content.some(m => {
+        if (!m || m.roundIndex !== roundIndex) return false;
+        if (isPersonalityMarker(m)) return false;
+        if (isLegacyPersonalityIntro(m)) return false;
+        if (m.role !== "model") return false;
+        if (m.personalityid === NARRATOR_PERSONALITY_ID) return false;
+        if (isAiSkipTurnMarker(m as Message)) return true;
+        return !m.hidden;
+    });
 }
 
 async function persistAiSkipTurnMarker(args: { personaId: string; currentRoundIndex: number }): Promise<void> {
