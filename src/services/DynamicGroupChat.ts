@@ -158,6 +158,7 @@ async function loadDynamicContext(args: {
     speakerNameById: Map<string, string>;
     userName: string;
     rosterSystemPrompt: string;
+    pingOnly: boolean;
 } | null> {
     const chat = await db.chats.get(args.chatId);
     if (!chat || chat.groupChat?.mode !== "dynamic") {
@@ -171,6 +172,7 @@ async function loadDynamicContext(args: {
     const maxMessageGuardById = chat.groupChat.dynamic?.maxMessageGuardById;
     const globalSettings = settingsService.getSettings();
     const allowPings = !globalSettings.disallowPersonaPinging && !!chat.groupChat.dynamic?.allowPings;
+    const pingOnly = !!globalSettings.dynamicGroupChatPingOnly;
 
     const participantPersonas: DbPersonality[] = [];
     const speakerNameById = new Map<string, string>();
@@ -199,6 +201,7 @@ async function loadDynamicContext(args: {
         speakerNameById,
         userName,
         rosterSystemPrompt,
+        pingOnly,
     };
 }
 
@@ -213,11 +216,12 @@ async function triggerResponses(args: {
     const ctx = await loadDynamicContext({ chatId: args.chatId, shouldEnforceThoughtSignaturesInHistory: args.shouldEnforceThoughtSignaturesInHistory });
     if (!ctx) return;
 
-    const { chat, participants, maxMessageGuardById, allowPings, participantPersonas, speakerNameById, userName, rosterSystemPrompt } = ctx;
+    const { chat, participants, maxMessageGuardById, allowPings, participantPersonas, speakerNameById, userName, rosterSystemPrompt, pingOnly } = ctx;
 
     const forcedIds = allowPings
         ? extractMentionedParticipantIds(args.triggeringText, participants)
         : [];
+    const shouldRestrictToForced = pingOnly && forcedIds.length > 0;
 
     const selected: DbPersonality[] = [];
     const inFlight = getInFlight(args.chatId);
@@ -235,6 +239,9 @@ async function triggerResponses(args: {
         if (count >= guard) continue;
 
         const isForced = forcedIds.includes(personaId);
+        if (shouldRestrictToForced && !isForced) {
+            continue;
+        }
         const independence = Math.max(0, Math.min(3, Math.trunc(Number((persona as any)?.independence ?? 0))));
         debugLogDynamic(`${personaName} decision`, {
             personaId,

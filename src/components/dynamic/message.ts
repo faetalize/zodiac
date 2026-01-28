@@ -9,6 +9,7 @@ import * as parserService from "../../services/Parser.service";
 import * as chatsService from "../../services/Chats.service";
 import { enhanceCodeBlocks, stripCodeBlockEnhancements } from "../../utils/codeBlocks";
 import * as settingsService from "../../services/Settings.service";
+import { MENTION_RE, MENTION_RE_GLOBAL } from "../../utils/mentions";
 import * as toastService from "../../services/Toast.service";
 import { dispatchAppEvent } from "../../events";
 
@@ -29,9 +30,6 @@ function resolveChatIndex(element: HTMLElement): number {
     return Array.from(container.children).indexOf(element);
 }
 
-const UUID_MENTION_RE_GLOBAL = /@<?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})>?/g;
-const UUID_MENTION_RE = /@<?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})>?/;
-
 function escapeHtml(value: string): string {
     return value
         .replace(/&/g, "&amp;")
@@ -42,7 +40,7 @@ function escapeHtml(value: string): string {
 }
 
 async function decorateMentions(html: string): Promise<string> {
-    if (!UUID_MENTION_RE.test(html)) return html;
+    if (!MENTION_RE.test(html)) return html;
 
     const chat = await chatsService.getCurrentChat(db);
     if (!chat || chat.groupChat?.mode !== "dynamic") return html;
@@ -70,7 +68,7 @@ async function decorateMentions(html: string): Promise<string> {
     }
 
     for (const textNode of toProcess) {
-        if (!textNode.nodeValue || !UUID_MENTION_RE.test(textNode.nodeValue)) continue;
+        if (!textNode.nodeValue || !MENTION_RE.test(textNode.nodeValue)) continue;
 
         let parent: HTMLElement | null = textNode.parentElement;
         let insideCode = false;
@@ -86,7 +84,7 @@ async function decorateMentions(html: string): Promise<string> {
         const fragment = wrapperDoc.createDocumentFragment();
         const text = textNode.nodeValue;
         let lastIndex = 0;
-        for (const match of text.matchAll(UUID_MENTION_RE_GLOBAL)) {
+        for (const match of text.matchAll(MENTION_RE_GLOBAL)) {
             const full = match[0];
             const id = match[1];
             const name = nameById.get(id);

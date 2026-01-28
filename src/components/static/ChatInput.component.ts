@@ -62,6 +62,34 @@ let hasInsufficientImageCredits = false;
 let isUserTurnInRpg = true;
 let isGroupChatContext = false;
 let isRpgGroupChatContext = false;
+let isDynamicGroupChatContext = false;
+let allowDynamicPings = false;
+
+type MentionOption = {
+    id: string;
+    name: string;
+    image?: string;
+};
+
+type MentionState = {
+    query: string;
+    startIndex: number;
+    endIndex: number;
+    range: Range;
+};
+
+let mentionOptions: MentionOption[] = [];
+let mentionState: MentionState | null = null;
+let mentionActiveIndex = 0;
+let mentionMenuOpen = false;
+let mentionFilteredOptions: MentionOption[] = [];
+
+const mentionMenu = document.createElement("div");
+mentionMenu.id = "mention-suggestions";
+mentionMenu.className = "mention-suggestions hidden";
+mentionMenu.setAttribute("role", "listbox");
+mentionMenu.setAttribute("aria-label", "Mention suggestions");
+document.body.appendChild(mentionMenu);
 
 async function updateRpgTurnControlUi(args: {
     isUserTurn: boolean;
@@ -110,6 +138,221 @@ async function updateRpgTurnControlUi(args: {
     }
 }
 
+function getPlainTextNodes(): Array<{ node: Text; start: number; end: number }> {
+    const input = messageInput as HTMLDivElement;
+    const nodes: Array<{ node: Text; start: number; end: number }> = [];
+    const walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT, null);
+    let index = 0;
+
+    while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        const parent = node.parentElement;
+        if (parent?.classList.contains("mention-chip-input")) {
+            continue;
+        }
+        const value = node.nodeValue ?? "";
+        const start = index;
+        const end = index + value.length;
+        nodes.push({ node, start, end });
+        index = end;
+    }
+
+    return nodes;
+}
+
+function getPlainTextBeforeCaret(): { text: string; caretIndex: number } | null {
+    const input = messageInput as HTMLDivElement;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0);
+    if (!input.contains(range.endContainer)) return null;
+
+    const caretRange = range.cloneRange();
+    caretRange.collapse(true);
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(input);
+    preRange.setEnd(caretRange.endContainer, caretRange.endOffset);
+
+    const fragment = preRange.cloneContents();
+    fragment.querySelectorAll(".mention-chip-input").forEach(node => node.remove());
+    const text = fragment.textContent ?? "";
+
+    return { text, caretIndex: text.length };
+}
+
+function buildRangeFromPlainTextOffsets(startIndex: number, endIndex: number): Range | null {
+    if (startIndex < 0 || endIndex < 0 || endIndex < startIndex) return null;
+    const nodes = getPlainTextNodes();
+    if (nodes.length === 0) return null;
+
+    const startNode = nodes.find(n => startIndex >= n.start && startIndex <= n.end);
+    const endNode = nodes.find(n => endIndex >= n.start && endIndex <= n.end);
+    if (!startNode || !endNode) return null;
+
+    const range = document.createRange();
+    range.setStart(startNode.node, Math.max(0, startIndex - startNode.start));
+    range.setEnd(endNode.node, Math.max(0, endIndex - endNode.start));
+    return range;
+}
+
+function shouldShowMentionMenu(): boolean {
+    if (!isDynamicGroupChatContext) return false;
+    if (!allowDynamicPings) return false;
+    if (settingsService.getSettings().disallowPersonaPinging) return false;
+    return true;
+}
+
+function closeMentionMenu(): void {
+    const input = messageInput as HTMLDivElement;
+    mentionMenu.classList.add("hidden");
+    mentionMenuOpen = false;
+    mentionState = null;
+    mentionActiveIndex = 0;
+    input.removeAttribute("aria-activedescendant");
+}
+
+function positionMentionMenu(range: Range): void {
+    const input = messageInput as HTMLDivElement;
+    const rect = range.getBoundingClientRect();
+    const fallback = input.getBoundingClientRect();
+    const anchor = (rect.width || rect.height) ? rect : fallback;
+
+    const menuRect = mentionMenu.getBoundingClientRect();
+    const padding = 8;
+    let left = Math.min(anchor.left, window.innerWidth - menuRect.width - padding);
+    left = Math.max(padding, left);
+
+    let top = anchor.bottom + padding;
+    if (top + menuRect.height > window.innerHeight - padding) {
+        top = Math.max(padding, anchor.top - menuRect.height - padding);
+    }
+
+    mentionMenu.style.left = `${Math.round(left)}px`;
+    mentionMenu.style.top = `${Math.round(top)}px`;
+}
+
+function renderMentionMenu(options: MentionOption[]): void {
+    mentionMenu.innerHTML = "";
+
+    if (options.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "mention-suggestion-empty";
+        empty.textContent = "No matches";
+        mentionMenu.appendChild(empty);
+        return;
+    }
+
+    options.forEach((option, index) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "mention-suggestion-item";
+        if (index === mentionActiveIndex) {
+            item.classList.add("active");
+        }
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", index === mentionActiveIndex ? "true" : "false");
+        item.dataset.index = String(index);
+        item.textContent = option.name;
+        item.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+        });
+        item.addEventListener("click", () => {
+            insertMention(option);
+        });
+        mentionMenu.appendChild(item);
+    });
+
+    const active = mentionMenu.querySelector<HTMLElement>(`.mention-suggestion-item[data-index="${mentionActiveIndex}"]`);
+    if (active) {
+        const id = `mention-option-${mentionActiveIndex}`;
+        active.id = id;
+        (messageInput as HTMLDivElement).setAttribute("aria-activedescendant", id);
+    }
+}
+
+function openMentionMenu(state: MentionState, options: MentionOption[]): void {
+    mentionState = state;
+    mentionMenuOpen = true;
+    mentionMenu.classList.remove("hidden");
+    mentionMenu.style.position = "fixed";
+    renderMentionMenu(options);
+    positionMentionMenu(state.range);
+}
+
+function updateMentionMenu(): void {
+    if (!shouldShowMentionMenu()) {
+        closeMentionMenu();
+        return;
+    }
+
+    const plain = getPlainTextBeforeCaret();
+    if (!plain) {
+        closeMentionMenu();
+        return;
+    }
+
+    const match = plain.text.match(/(^|\s)@([^\s@]*)$/);
+    if (!match) {
+        closeMentionMenu();
+        return;
+    }
+
+    const query = match[2] ?? "";
+    const tokenLength = 1 + query.length;
+    const endIndex = plain.caretIndex;
+    const startIndex = endIndex - tokenLength;
+    const range = buildRangeFromPlainTextOffsets(startIndex, endIndex);
+    if (!range) {
+        closeMentionMenu();
+        return;
+    }
+
+    const normalized = query.toLowerCase();
+    const filtered = mentionOptions.filter(option => option.name.toLowerCase().includes(normalized));
+    mentionFilteredOptions = filtered;
+    mentionActiveIndex = Math.min(mentionActiveIndex, Math.max(0, filtered.length - 1));
+
+    openMentionMenu({ query, startIndex, endIndex, range }, filtered);
+}
+
+function insertMention(option: MentionOption): void {
+    if (!mentionState) return;
+    const range = mentionState.range;
+
+    range.deleteContents();
+
+    const chip = document.createElement("span");
+    chip.className = "mention-chip mention-chip-input";
+    chip.dataset.personaId = option.id;
+    chip.contentEditable = "false";
+    chip.textContent = `@${option.name}`;
+
+    const space = document.createTextNode(" ");
+    range.insertNode(space);
+    range.insertNode(chip);
+
+    const selection = window.getSelection();
+    if (selection) {
+        const nextRange = document.createRange();
+        nextRange.setStartAfter(space);
+        nextRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(nextRange);
+    }
+
+    closeMentionMenu();
+}
+
+function serializeMessageInput(): string {
+    const clone = (messageInput as HTMLDivElement).cloneNode(true) as HTMLElement;
+    clone.querySelectorAll<HTMLElement>(".mention-chip-input[data-persona-id]").forEach(chip => {
+        const id = chip.dataset.personaId;
+        if (!id) return;
+        chip.replaceWith(document.createTextNode(`@<${id}>`));
+    });
+    return helpers.getEncoded(clone.innerHTML);
+}
+
 internetSearchToggle.addEventListener("click", () => {
     isInternetSearchEnabled = !isInternetSearchEnabled;
     internetSearchToggle.classList.toggle("btn-toggled");
@@ -118,6 +361,48 @@ internetSearchToggle.addEventListener("click", () => {
 //enter key to send message but support shift+enter for new line on PC only
 messageInput.addEventListener("keydown", (e: KeyboardEvent) => {
     const isMobile = settingsService.isMobile();
+
+    if (mentionMenuOpen) {
+        if (e.key === "ArrowDown") {
+            if (mentionFilteredOptions.length > 0) {
+                e.preventDefault();
+                mentionActiveIndex = (mentionActiveIndex + 1) % mentionFilteredOptions.length;
+                renderMentionMenu(mentionFilteredOptions);
+                if (mentionState) positionMentionMenu(mentionState.range);
+            }
+            return;
+        }
+        if (e.key === "ArrowUp") {
+            if (mentionFilteredOptions.length > 0) {
+                e.preventDefault();
+                mentionActiveIndex = (mentionActiveIndex - 1 + mentionFilteredOptions.length) % mentionFilteredOptions.length;
+                renderMentionMenu(mentionFilteredOptions);
+                if (mentionState) positionMentionMenu(mentionState.range);
+            }
+            return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+            if (mentionFilteredOptions.length > 0) {
+                e.preventDefault();
+                const choice = mentionFilteredOptions[mentionActiveIndex];
+                if (choice) {
+                    insertMention(choice);
+                }
+            } else {
+                closeMentionMenu();
+            }
+            return;
+        }
+        if (e.key === "Escape") {
+            e.preventDefault();
+            closeMentionMenu();
+            return;
+        }
+        if (e.key === " " || e.key === "Spacebar") {
+            closeMentionMenu();
+            return;
+        }
+    }
 
     if (e.key === "Enter" && !e.shiftKey && !isMobile) {
         e.preventDefault();
@@ -134,7 +419,7 @@ messageInput.addEventListener("keydown", (e: KeyboardEvent) => {
 });
 
 messageInput.addEventListener("blur", () => {
-    /* no-op placeholder to mirror previous behaviour */
+    closeMentionMenu();
 });
 
 messageInput.addEventListener("focus", () => {
@@ -171,6 +456,31 @@ messageInput.addEventListener("paste", (event: ClipboardEvent) => {
 messageInput.addEventListener("input", () => {
     if (messageInput.innerHTML.trim() === "<br>" || messageInput.innerHTML.trim() === "<p><br></p>") {
         messageInput.innerHTML = "";
+    }
+    updateMentionMenu();
+});
+
+document.addEventListener("selectionchange", () => {
+    const input = messageInput as HTMLDivElement;
+    if (document.activeElement === input) {
+        updateMentionMenu();
+    } else if (mentionMenuOpen) {
+        closeMentionMenu();
+    }
+});
+
+document.addEventListener("click", (event) => {
+    if (!mentionMenuOpen) return;
+    const target = event.target as Node | null;
+    if (!target) return;
+    if (mentionMenu.contains(target)) return;
+    if ((messageInput as HTMLDivElement).contains(target)) return;
+    closeMentionMenu();
+});
+
+window.addEventListener("resize", () => {
+    if (mentionMenuOpen && mentionState) {
+        positionMentionMenu(mentionState.range);
     }
 });
 
@@ -233,8 +543,9 @@ sendMessageButton.addEventListener("click", async () => {
     }
 
     try {
-        const message = helpers.getEncoded(messageInput.innerHTML);
+        const message = serializeMessageInput();
         messageInput.innerHTML = "";
+        closeMentionMenu();
         await messageService.send(message);
     } catch (error: any) {
         toastService.danger({
@@ -405,6 +716,23 @@ window.addEventListener("chat-loaded", async (e: any) => {
 
     isGroupChatContext = !!chat?.groupChat;
     isRpgGroupChatContext = chat?.groupChat?.mode === "rpg";
+    isDynamicGroupChatContext = chat?.groupChat?.mode === "dynamic";
+    allowDynamicPings = !!chat?.groupChat?.dynamic?.allowPings && !settingsService.getSettings().disallowPersonaPinging;
+
+    if (isDynamicGroupChatContext) {
+        const participantIds: string[] = Array.isArray(chat.groupChat?.participantIds) ? chat.groupChat.participantIds : [];
+        const nextOptions: MentionOption[] = [];
+        for (const id of participantIds) {
+            const persona = await personalityService.get(String(id));
+            const resolved = persona || personalityService.getDefault();
+            if (!resolved) continue;
+            nextOptions.push({ id: String(id), name: String(resolved.name || "Unknown"), image: resolved.image });
+        }
+        mentionOptions = nextOptions;
+    } else {
+        mentionOptions = [];
+        closeMentionMenu();
+    }
 
     // In any group chat context, the selected personality is not "the" recipient.
     if (isGroupChatContext) {
