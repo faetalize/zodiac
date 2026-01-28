@@ -22,6 +22,8 @@ const selectedCount = must(document.querySelector<HTMLDivElement>("#group-chat-s
 const turnOrderContainer = must(document.querySelector<HTMLDivElement>("#group-chat-turn-order"), "#group-chat-turn-order");
 const scenarioInput = must(document.querySelector<HTMLTextAreaElement>("#group-chat-scenario"), "#group-chat-scenario");
 const narratorToggle = must(document.querySelector<HTMLInputElement>("#group-chat-narrator"), "#group-chat-narrator");
+const modeStep = must(document.querySelector<HTMLDivElement>("#group-chat-step-mode"), "#group-chat-step-mode");
+const modeInputs = form.querySelectorAll<HTMLInputElement>("input[name='group-chat-mode']");
 
 const dynamicSettingsSection = must(document.querySelector<HTMLDivElement>("#group-chat-dynamic-settings"), "#group-chat-dynamic-settings");
 const rpgSettingsSection = must(document.querySelector<HTMLDivElement>("#group-chat-rpg-settings"), "#group-chat-rpg-settings");
@@ -48,6 +50,7 @@ let allPersonas: PersonaListItem[] = [];
 let selectedIds: string[] = [];
 let turnOrder: string[] = [];
 let editingChatId: number | null = null;
+let editingMode: "dynamic" | "rpg" | null = null;
 let maxMessageGuardById: Record<string, number> = {};
 
 function updateLabels(): void {
@@ -85,6 +88,19 @@ function updateModeSettingsVisibility(): void {
             allowPingsToggle.title = "";
         }
     }
+}
+
+function setModeStepState(isEditing: boolean): void {
+    if (isEditing) {
+        modeStep.setAttribute("data-stepper-skip", "true");
+        modeStep.classList.add("hidden");
+    } else {
+        modeStep.removeAttribute("data-stepper-skip");
+        modeStep.classList.remove("hidden");
+    }
+    modeInputs.forEach((input) => {
+        input.disabled = isEditing;
+    });
 }
 
 function setSelected(ids: string[]): void {
@@ -422,6 +438,7 @@ openButton.addEventListener("click", async () => {
 
     // Reset local state
     editingChatId = null;
+    editingMode = null;
     selectedIds = [];
     turnOrder = [];
     searchInput.value = "";
@@ -434,6 +451,7 @@ openButton.addEventListener("click", async () => {
 
     const rpgMode = form.querySelector<HTMLInputElement>("input[name='group-chat-mode'][value='rpg']");
     if (rpgMode) rpgMode.checked = true;
+    setModeStepState(false);
     updateModeSettingsVisibility();
 
     updateLabels();
@@ -456,9 +474,11 @@ window.addEventListener("open-group-chat-editor", async (e: any) => {
     overlayService.show("form-create-group-chat");
 
     editingChatId = chatId;
+    setModeStepState(true);
 
     // Set mode selection
     const mode = (chat.groupChat.mode || "rpg") as "dynamic" | "rpg";
+    editingMode = mode;
     const modeRadio = form.querySelector<HTMLInputElement>(`input[name='group-chat-mode'][value='${mode}']`);
     if (modeRadio) modeRadio.checked = true;
     updateModeSettingsVisibility();
@@ -557,7 +577,7 @@ form.addEventListener("submit", async (e) => {
         return;
     }
 
-    const mode = getSelectedMode();
+    const mode = editingChatId && editingMode ? editingMode : getSelectedMode();
 
     if (mode === "dynamic") {
         const defaultsById: Record<string, number> = {};

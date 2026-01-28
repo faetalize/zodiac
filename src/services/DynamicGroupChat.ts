@@ -158,6 +158,7 @@ async function loadDynamicContext(args: {
     speakerNameById: Map<string, string>;
     userName: string;
     rosterSystemPrompt: string;
+    pingOnly: boolean;
 } | null> {
     const chat = await db.chats.get(args.chatId);
     if (!chat || chat.groupChat?.mode !== "dynamic") {
@@ -171,6 +172,7 @@ async function loadDynamicContext(args: {
     const maxMessageGuardById = chat.groupChat.dynamic?.maxMessageGuardById;
     const globalSettings = settingsService.getSettings();
     const allowPings = !globalSettings.disallowPersonaPinging && !!chat.groupChat.dynamic?.allowPings;
+    const pingOnly = !!globalSettings.dynamicGroupChatPingOnly;
 
     const participantPersonas: DbPersonality[] = [];
     const speakerNameById = new Map<string, string>();
@@ -199,6 +201,7 @@ async function loadDynamicContext(args: {
         speakerNameById,
         userName,
         rosterSystemPrompt,
+        pingOnly,
     };
 }
 
@@ -209,15 +212,18 @@ async function triggerResponses(args: {
     isPremiumEndpointPreferred: boolean;
     isInternetSearchEnabled: boolean;
     shouldEnforceThoughtSignaturesInHistory: boolean;
+    allowCascade?: boolean;
 }): Promise<void> {
     const ctx = await loadDynamicContext({ chatId: args.chatId, shouldEnforceThoughtSignaturesInHistory: args.shouldEnforceThoughtSignaturesInHistory });
     if (!ctx) return;
 
-    const { chat, participants, maxMessageGuardById, allowPings, participantPersonas, speakerNameById, userName, rosterSystemPrompt } = ctx;
+    const { chat, participants, maxMessageGuardById, allowPings, participantPersonas, speakerNameById, userName, rosterSystemPrompt, pingOnly } = ctx;
 
     const forcedIds = allowPings
         ? extractMentionedParticipantIds(args.triggeringText, participants)
         : [];
+    const shouldRestrictToForced = pingOnly && forcedIds.length > 0;
+    const allowCascadeForWave = (args.allowCascade ?? true) && !shouldRestrictToForced;
 
     const selected: DbPersonality[] = [];
     const inFlight = getInFlight(args.chatId);
@@ -235,6 +241,9 @@ async function triggerResponses(args: {
         if (count >= guard) continue;
 
         const isForced = forcedIds.includes(personaId);
+        if (shouldRestrictToForced && !isForced) {
+            continue;
+        }
         const independence = Math.max(0, Math.min(3, Math.trunc(Number((persona as any)?.independence ?? 0))));
         debugLogDynamic(`${personaName} decision`, {
             personaId,
@@ -268,6 +277,7 @@ async function triggerResponses(args: {
             isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
             isInternetSearchEnabled: args.isInternetSearchEnabled,
             shouldEnforceThoughtSignaturesInHistory: args.shouldEnforceThoughtSignaturesInHistory,
+            allowCascade: allowCascadeForWave,
         }).catch((err) => {
             console.error("DynamicGroupChat: persona response failed", err);
         });
@@ -284,6 +294,7 @@ async function respondAsPersona(args: {
     isPremiumEndpointPreferred: boolean;
     isInternetSearchEnabled: boolean;
     shouldEnforceThoughtSignaturesInHistory: boolean;
+    allowCascade: boolean;
 }): Promise<void> {
     const personaId = String(args.persona.id);
 
@@ -426,7 +437,7 @@ async function respondAsPersona(args: {
         getInFlight(args.chatId).delete(personaId);
     }
 
-    if (cascadeText) {
+    if (cascadeText && args.allowCascade) {
         debugLogDynamic("Cascade triggered", { fromPersonaId: personaId, text: cascadeText.slice(0, 80) });
         void triggerResponses({
             chatId: args.chatId,
@@ -435,6 +446,7 @@ async function respondAsPersona(args: {
             isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
             isInternetSearchEnabled: args.isInternetSearchEnabled,
             shouldEnforceThoughtSignaturesInHistory: args.shouldEnforceThoughtSignaturesInHistory,
+            allowCascade: true,
         });
     }
 }
