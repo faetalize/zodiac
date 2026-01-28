@@ -235,7 +235,7 @@ async function triggerResponses(args: {
 
         const isForced = forcedIds.includes(personaId);
         const independence = Math.max(0, Math.min(3, Math.trunc(Number((persona as any)?.independence ?? 0))));
-        debugLogDynamic("Persona decision", {
+        debugLogDynamic(`${personaName} decision`, {
             personaId,
             personaName,
             forced: isForced,

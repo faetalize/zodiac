@@ -107,6 +107,7 @@ function buildBaseSystemPrompt(mode: SystemPromptMode): string {
             "Write short, natural chat messages like someone texting on a phone.",
             "Do not narrate actions or thoughts. Do not use roleplay formatting (no *thoughts* or (actions)).",
             "Avoid long essays. Prefer multiple short messages over one long message when appropriate.",
+            "Respond in a single paragraph, preferably 2-3 sentences. Only use multiple paragraphs if the content absolutely requires it.",
             core,
         ].join("\n");
     }
