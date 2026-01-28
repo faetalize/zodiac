@@ -9,6 +9,7 @@ import * as parserService from "../../services/Parser.service";
 import * as chatsService from "../../services/Chats.service";
 import { enhanceCodeBlocks, stripCodeBlockEnhancements } from "../../utils/codeBlocks";
 import * as settingsService from "../../services/Settings.service";
+import { MENTION_RE, MENTION_RE_GLOBAL } from "../../utils/mentions";
 import * as toastService from "../../services/Toast.service";
 import { dispatchAppEvent } from "../../events";
 
@@ -27,6 +28,108 @@ function resolveChatIndex(element: HTMLElement): number {
     }
 
     return Array.from(container.children).indexOf(element);
+}
+
+function escapeHtml(value: string): string {
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+async function decorateMentions(html: string): Promise<string> {
+    if (!html.includes("@")) return html;
+
+    const chat = await chatsService.getCurrentChat(db);
+    if (!chat || chat.groupChat?.mode !== "dynamic") return html;
+
+    const participantIds = Array.isArray(chat.groupChat.participantIds) ? chat.groupChat.participantIds : [];
+    if (!participantIds.length) return html;
+
+    const nameById = new Map<string, string>();
+    for (const id of participantIds) {
+        const persona = await personalityService.get(String(id));
+        const resolved = persona || personalityService.getDefault();
+        nameById.set(String(id), String(resolved?.name || "Unknown"));
+    }
+
+    const parser = new DOMParser();
+    const wrapperDoc = parser.parseFromString(`<div>${html}</div>`, "text/html");
+    const root = wrapperDoc.body.firstElementChild as HTMLElement | null;
+    if (!root) return html;
+
+    const walker = wrapperDoc.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const toProcess: Text[] = [];
+    while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        toProcess.push(node);
+    }
+
+    for (const textNode of toProcess) {
+        if (!textNode.nodeValue || !MENTION_RE.test(textNode.nodeValue)) continue;
+
+        let parent: HTMLElement | null = textNode.parentElement;
+        let insideCode = false;
+        while (parent) {
+            if (parent.tagName === "CODE" || parent.tagName === "PRE") {
+                insideCode = true;
+                break;
+            }
+            parent = parent.parentElement;
+        }
+        if (insideCode) continue;
+
+        const fragment = wrapperDoc.createDocumentFragment();
+        const text = textNode.nodeValue;
+        let lastIndex = 0;
+        for (const match of text.matchAll(MENTION_RE_GLOBAL)) {
+            const full = match[0];
+            const id = match[1];
+            const name = nameById.get(id);
+            if (!name) continue;
+
+            const start = match.index ?? 0;
+            if (start > lastIndex) {
+                fragment.append(text.slice(lastIndex, start));
+            }
+
+            const span = wrapperDoc.createElement("span");
+            span.className = "mention-chip";
+            span.dataset.personaId = id;
+            span.setAttribute("aria-label", `Mentioned ${escapeHtml(name)}`);
+            span.textContent = name;
+            fragment.append(span);
+
+            lastIndex = start + full.length;
+        }
+
+        if (lastIndex < text.length) {
+            fragment.append(text.slice(lastIndex));
+        }
+
+        textNode.replaceWith(fragment);
+    }
+
+    return root.innerHTML;
+}
+
+function unwrapMentionsToRaw(html: string): string {
+    if (!html.includes("mention-chip")) return html;
+    const parser = new DOMParser();
+    const wrapperDoc = parser.parseFromString(`<div>${html}</div>`, "text/html");
+    const root = wrapperDoc.body.firstElementChild as HTMLElement | null;
+    if (!root) return html;
+
+    const chips = root.querySelectorAll<HTMLElement>(".mention-chip[data-persona-id]");
+    chips.forEach(chip => {
+        const id = chip.dataset.personaId;
+        if (!id) return;
+        chip.replaceWith(wrapperDoc.createTextNode(`@<${id}>`));
+    });
+
+    return root.innerHTML;
 }
 
 export const messageElement = async (
@@ -54,6 +157,9 @@ export const messageElement = async (
     // keep its raw reasoning form.
     //user message
     if (!message.personalityid) {
+        const rawInitial = message.parts[0]?.text || "";
+        const initialHtmlRaw = await helpers.getDecoded(rawInitial) || "";
+        const initialHtml = await decorateMentions(initialHtmlRaw);
         messageDiv.innerHTML =
             `<div class="message-header">
             <h3 class="message-role">You:</h3>
@@ -64,7 +170,7 @@ export const messageElement = async (
             </div>
         </div>
         <div class="message-role-api" style="display: none;">${message.role}</div>
-        <div class="message-text">${await helpers.getDecoded(message.parts[0]?.text || "")}</div>
+        <div class="message-text">${initialHtml}</div>
         <div class="attachment-preview-container">
             ${Array.from(message.parts[0]?.attachments || []).map((attachment: File) => {
                 if (attachment.type.startsWith("image/")) {
@@ -95,7 +201,8 @@ export const messageElement = async (
             messageDiv.classList.add("message-narrator");
         }
         const rawInitial = message.parts[0]?.text || "";
-        const initialHtml = await helpers.getDecoded(rawInitial) || "";
+        const initialHtmlRaw = await helpers.getDecoded(rawInitial) || "";
+        const initialHtml = await decorateMentions(initialHtmlRaw);
         // If we already have generated images, don't show loading spinner even if text is empty
         const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
         const isLoading = rawInitial.trim().length === 0 && !hasImages;
@@ -217,7 +324,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
     // Handle edit button click
     editButton.addEventListener("click", async () => {
         // Store original content to allow cancellation
-        messageText.dataset.originalContent = messageText.innerHTML;
+        messageText.dataset.originalContent = unwrapMentionsToRaw(messageText.innerHTML);
 
         // Remove code block chrome before entering edit mode
         stripCodeBlockEnhancements(messageText);
@@ -234,7 +341,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
 
         // Enable editing
         messageText.setAttribute("contenteditable", "true");
-        messageText.innerText = parserService.parseHtmlToMarkdown(messageText.innerHTML) || ""; // Convert HTML to Markdown for editing
+        messageText.innerText = parserService.parseHtmlToMarkdown(unwrapMentionsToRaw(messageText.innerHTML)) || ""; // Convert HTML to Markdown for editing
         messageText.focus();
 
         // Show editable attachments
@@ -349,7 +456,9 @@ function setupMessageEditing(messageElement: HTMLElement) {
     // Handle save button click
     saveButton.addEventListener("click", async () => {
         const markdownContent = messageText.innerText!;
-        messageText.innerHTML = await parserService.parseMarkdownToHtml(markdownContent) || ""; // Convert Markdown back to HTML
+        const markdownWithMentions = unwrapMentionsToRaw(markdownContent);
+        messageText.innerHTML = await parserService.parseMarkdownToHtml(markdownWithMentions) || ""; // Convert Markdown back to HTML
+        messageText.innerHTML = await decorateMentions(messageText.innerHTML);
         hljs.highlightAll(); // Reapply syntax highlighting
         enhanceCodeBlocks(messageElement);
 
@@ -368,7 +477,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
         }
 
         // Update the chat history in database with both text and attachments
-        await updateMessageInDatabase(markdownContent, messageIndex, editingAttachments);
+        await updateMessageInDatabase(markdownWithMentions, messageIndex, editingAttachments);
 
         // Re-render the message element to show the updated attachments without edit buttons
         const currentChat = await chatsService.getCurrentChat(db);
@@ -499,12 +608,12 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex] || !markdownContent) return;
 
-        // Update the message content in the parts array
-        if (currentChat.content[messageIndex].parts.length === 0) {
-            currentChat.content[messageIndex].parts.push({ text: markdownContent });
-        } else {
-            currentChat.content[messageIndex].parts[0].text = markdownContent;
-        }
+         // Update the message content in the parts array
+         if (currentChat.content[messageIndex].parts.length === 0) {
+             currentChat.content[messageIndex].parts.push({ text: markdownContent });
+         } else {
+             currentChat.content[messageIndex].parts[0].text = markdownContent;
+         }
 
         // Update attachments if provided
         if (attachments !== undefined) {

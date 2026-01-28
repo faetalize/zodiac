@@ -31,7 +31,7 @@ const turnControlLabel = document.querySelector<HTMLSpanElement>("#turn-control-
 const startTurnBtn = document.querySelector<HTMLButtonElement>("#btn-start-turn");
 const startRoundText = document.querySelector<HTMLSpanElement>("#start-round-text");
 const skipTurnBtn = document.querySelector<HTMLButtonElement>("#btn-skip-turn");
-const triggerAiButton = document.querySelector<HTMLButtonElement>("#btn-trigger-ai");
+const rpgSettingsButton = document.querySelector<HTMLButtonElement>("#btn-rpg-settings");
 
 if (!messageInput || !messageBox || !attachmentsInput || !attachmentPreview || !sendMessageButton || !internetSearchToggle || !roleplayActionsMenu) {
     console.error("Chat input component is missing some elements. Please check the HTML structure.");
@@ -59,6 +59,300 @@ let isImageEditingActive = false;
 let isImageModeActive = false;
 let hasInsufficientImageCredits = false;
 
+let isUserTurnInRpg = true;
+let isGroupChatContext = false;
+let isRpgGroupChatContext = false;
+let isDynamicGroupChatContext = false;
+let allowDynamicPings = false;
+
+type MentionOption = {
+    id: string;
+    name: string;
+    image?: string;
+};
+
+type MentionState = {
+    query: string;
+    startIndex: number;
+    endIndex: number;
+    range: Range;
+};
+
+let mentionOptions: MentionOption[] = [];
+let mentionState: MentionState | null = null;
+let mentionActiveIndex = 0;
+let mentionMenuOpen = false;
+let mentionFilteredOptions: MentionOption[] = [];
+
+const mentionMenu = document.createElement("div");
+mentionMenu.id = "mention-suggestions";
+mentionMenu.className = "mention-suggestions hidden";
+mentionMenu.setAttribute("role", "listbox");
+mentionMenu.setAttribute("aria-label", "Mention suggestions");
+document.body.appendChild(mentionMenu);
+
+async function updateRpgTurnControlUi(args: {
+    isUserTurn: boolean;
+    startsNewRound: boolean;
+    nextRoundNumber: number;
+    nextSpeakerId?: string;
+}) {
+    const { isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId } = args;
+
+    isUserTurnInRpg = !!isUserTurn;
+    if (messageInput) {
+        const canEdit = !isCurrentlyGenerating && isUserTurnInRpg;
+        messageInput.contentEditable = String(canEdit);
+        messageInput.classList.toggle("disabled", !canEdit);
+    }
+    sendMessageButton?.classList.toggle("disabled", isRpgGroupChatContext && (!isUserTurnInRpg || isCurrentlyGenerating));
+
+    if (isUserTurn) {
+        if (turnControlLabel) turnControlLabel.textContent = "Your turn";
+        startTurnBtn?.classList.add("hidden");
+        skipTurnBtn?.classList.remove("hidden");
+    } else {
+        startTurnBtn?.classList.remove("hidden");
+        skipTurnBtn?.classList.add("hidden");
+
+        // Determine next speaker name
+        let nextSpeakerName = "AI";
+        if (nextSpeakerId) {
+            const persona = await personalityService.get(nextSpeakerId);
+            if (persona) nextSpeakerName = persona.name;
+        }
+
+        if (startsNewRound) {
+            if (turnControlLabel) turnControlLabel.textContent = "Start next round";
+            if (startRoundText && typeof nextRoundNumber === "number") {
+                startRoundText.textContent = `Start Round ${nextRoundNumber}`;
+                startTurnBtn?.setAttribute("aria-label", `Start Round ${nextRoundNumber}`);
+            }
+        } else {
+            if (turnControlLabel) turnControlLabel.textContent = `${nextSpeakerName}'s turn`;
+            if (startRoundText && typeof nextRoundNumber === "number") {
+                startRoundText.textContent = `Continue`;
+                startTurnBtn?.setAttribute("aria-label", `Continue`);
+            }
+        }
+    }
+}
+
+function getPlainTextNodes(): Array<{ node: Text; start: number; end: number }> {
+    const input = messageInput as HTMLDivElement;
+    const nodes: Array<{ node: Text; start: number; end: number }> = [];
+    const walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT, null);
+    let index = 0;
+
+    while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        const parent = node.parentElement;
+        if (parent?.classList.contains("mention-chip-input")) {
+            continue;
+        }
+        const value = node.nodeValue ?? "";
+        const start = index;
+        const end = index + value.length;
+        nodes.push({ node, start, end });
+        index = end;
+    }
+
+    return nodes;
+}
+
+function getPlainTextBeforeCaret(): { text: string; caretIndex: number } | null {
+    const input = messageInput as HTMLDivElement;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0);
+    if (!input.contains(range.endContainer)) return null;
+
+    const caretRange = range.cloneRange();
+    caretRange.collapse(true);
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(input);
+    preRange.setEnd(caretRange.endContainer, caretRange.endOffset);
+
+    const fragment = preRange.cloneContents();
+    fragment.querySelectorAll(".mention-chip-input").forEach(node => node.remove());
+    const text = fragment.textContent ?? "";
+
+    return { text, caretIndex: text.length };
+}
+
+function buildRangeFromPlainTextOffsets(startIndex: number, endIndex: number): Range | null {
+    if (startIndex < 0 || endIndex < 0 || endIndex < startIndex) return null;
+    const nodes = getPlainTextNodes();
+    if (nodes.length === 0) return null;
+
+    const startNode = nodes.find(n => startIndex >= n.start && startIndex <= n.end);
+    const endNode = nodes.find(n => endIndex >= n.start && endIndex <= n.end);
+    if (!startNode || !endNode) return null;
+
+    const range = document.createRange();
+    range.setStart(startNode.node, Math.max(0, startIndex - startNode.start));
+    range.setEnd(endNode.node, Math.max(0, endIndex - endNode.start));
+    return range;
+}
+
+function shouldShowMentionMenu(): boolean {
+    if (!isDynamicGroupChatContext) return false;
+    if (!allowDynamicPings) return false;
+    if (settingsService.getSettings().disallowPersonaPinging) return false;
+    return true;
+}
+
+function closeMentionMenu(): void {
+    const input = messageInput as HTMLDivElement;
+    mentionMenu.classList.add("hidden");
+    mentionMenuOpen = false;
+    mentionState = null;
+    mentionActiveIndex = 0;
+    input.removeAttribute("aria-activedescendant");
+}
+
+function positionMentionMenu(range: Range): void {
+    const input = messageInput as HTMLDivElement;
+    const rect = range.getBoundingClientRect();
+    const fallback = input.getBoundingClientRect();
+    const anchor = (rect.width || rect.height) ? rect : fallback;
+
+    const menuRect = mentionMenu.getBoundingClientRect();
+    const padding = 8;
+    let left = Math.min(anchor.left, window.innerWidth - menuRect.width - padding);
+    left = Math.max(padding, left);
+
+    let top = anchor.bottom + padding;
+    if (top + menuRect.height > window.innerHeight - padding) {
+        top = Math.max(padding, anchor.top - menuRect.height - padding);
+    }
+
+    mentionMenu.style.left = `${Math.round(left)}px`;
+    mentionMenu.style.top = `${Math.round(top)}px`;
+}
+
+function renderMentionMenu(options: MentionOption[]): void {
+    mentionMenu.innerHTML = "";
+
+    if (options.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "mention-suggestion-empty";
+        empty.textContent = "No matches";
+        mentionMenu.appendChild(empty);
+        return;
+    }
+
+    options.forEach((option, index) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "mention-suggestion-item";
+        if (index === mentionActiveIndex) {
+            item.classList.add("active");
+        }
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", index === mentionActiveIndex ? "true" : "false");
+        item.dataset.index = String(index);
+        item.textContent = option.name;
+        item.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+        });
+        item.addEventListener("click", () => {
+            insertMention(option);
+        });
+        mentionMenu.appendChild(item);
+    });
+
+    const active = mentionMenu.querySelector<HTMLElement>(`.mention-suggestion-item[data-index="${mentionActiveIndex}"]`);
+    if (active) {
+        const id = `mention-option-${mentionActiveIndex}`;
+        active.id = id;
+        (messageInput as HTMLDivElement).setAttribute("aria-activedescendant", id);
+    }
+}
+
+function openMentionMenu(state: MentionState, options: MentionOption[]): void {
+    mentionState = state;
+    mentionMenuOpen = true;
+    mentionMenu.classList.remove("hidden");
+    mentionMenu.style.position = "fixed";
+    renderMentionMenu(options);
+    positionMentionMenu(state.range);
+}
+
+function updateMentionMenu(): void {
+    if (!shouldShowMentionMenu()) {
+        closeMentionMenu();
+        return;
+    }
+
+    const plain = getPlainTextBeforeCaret();
+    if (!plain) {
+        closeMentionMenu();
+        return;
+    }
+
+    const match = plain.text.match(/(^|\s)@([^\s@]*)$/);
+    if (!match) {
+        closeMentionMenu();
+        return;
+    }
+
+    const query = match[2] ?? "";
+    const tokenLength = 1 + query.length;
+    const endIndex = plain.caretIndex;
+    const startIndex = endIndex - tokenLength;
+    const range = buildRangeFromPlainTextOffsets(startIndex, endIndex);
+    if (!range) {
+        closeMentionMenu();
+        return;
+    }
+
+    const normalized = query.toLowerCase();
+    const filtered = mentionOptions.filter(option => option.name.toLowerCase().includes(normalized));
+    mentionFilteredOptions = filtered;
+    mentionActiveIndex = Math.min(mentionActiveIndex, Math.max(0, filtered.length - 1));
+
+    openMentionMenu({ query, startIndex, endIndex, range }, filtered);
+}
+
+function insertMention(option: MentionOption): void {
+    if (!mentionState) return;
+    const range = mentionState.range;
+
+    range.deleteContents();
+
+    const chip = document.createElement("span");
+    chip.className = "mention-chip mention-chip-input";
+    chip.dataset.personaId = option.id;
+    chip.contentEditable = "false";
+    chip.textContent = `@${option.name}`;
+
+    const space = document.createTextNode(" ");
+    range.insertNode(space);
+    range.insertNode(chip);
+
+    const selection = window.getSelection();
+    if (selection) {
+        const nextRange = document.createRange();
+        nextRange.setStartAfter(space);
+        nextRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(nextRange);
+    }
+
+    closeMentionMenu();
+}
+
+function serializeMessageInput(): string {
+    const clone = (messageInput as HTMLDivElement).cloneNode(true) as HTMLElement;
+    clone.querySelectorAll<HTMLElement>(".mention-chip-input[data-persona-id]").forEach(chip => {
+        const id = chip.dataset.personaId;
+        if (!id) return;
+        chip.replaceWith(document.createTextNode(`@<${id}>`));
+    });
+    return helpers.getEncoded(clone.innerHTML);
+}
+
 internetSearchToggle.addEventListener("click", () => {
     isInternetSearchEnabled = !isInternetSearchEnabled;
     internetSearchToggle.classList.toggle("btn-toggled");
@@ -67,6 +361,48 @@ internetSearchToggle.addEventListener("click", () => {
 //enter key to send message but support shift+enter for new line on PC only
 messageInput.addEventListener("keydown", (e: KeyboardEvent) => {
     const isMobile = settingsService.isMobile();
+
+    if (mentionMenuOpen) {
+        if (e.key === "ArrowDown") {
+            if (mentionFilteredOptions.length > 0) {
+                e.preventDefault();
+                mentionActiveIndex = (mentionActiveIndex + 1) % mentionFilteredOptions.length;
+                renderMentionMenu(mentionFilteredOptions);
+                if (mentionState) positionMentionMenu(mentionState.range);
+            }
+            return;
+        }
+        if (e.key === "ArrowUp") {
+            if (mentionFilteredOptions.length > 0) {
+                e.preventDefault();
+                mentionActiveIndex = (mentionActiveIndex - 1 + mentionFilteredOptions.length) % mentionFilteredOptions.length;
+                renderMentionMenu(mentionFilteredOptions);
+                if (mentionState) positionMentionMenu(mentionState.range);
+            }
+            return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+            if (mentionFilteredOptions.length > 0) {
+                e.preventDefault();
+                const choice = mentionFilteredOptions[mentionActiveIndex];
+                if (choice) {
+                    insertMention(choice);
+                }
+            } else {
+                closeMentionMenu();
+            }
+            return;
+        }
+        if (e.key === "Escape") {
+            e.preventDefault();
+            closeMentionMenu();
+            return;
+        }
+        if (e.key === " " || e.key === "Spacebar") {
+            closeMentionMenu();
+            return;
+        }
+    }
 
     if (e.key === "Enter" && !e.shiftKey && !isMobile) {
         e.preventDefault();
@@ -83,7 +419,7 @@ messageInput.addEventListener("keydown", (e: KeyboardEvent) => {
 });
 
 messageInput.addEventListener("blur", () => {
-    /* no-op placeholder to mirror previous behaviour */
+    closeMentionMenu();
 });
 
 messageInput.addEventListener("focus", () => {
@@ -120,6 +456,31 @@ messageInput.addEventListener("paste", (event: ClipboardEvent) => {
 messageInput.addEventListener("input", () => {
     if (messageInput.innerHTML.trim() === "<br>" || messageInput.innerHTML.trim() === "<p><br></p>") {
         messageInput.innerHTML = "";
+    }
+    updateMentionMenu();
+});
+
+document.addEventListener("selectionchange", () => {
+    const input = messageInput as HTMLDivElement;
+    if (document.activeElement === input) {
+        updateMentionMenu();
+    } else if (mentionMenuOpen) {
+        closeMentionMenu();
+    }
+});
+
+document.addEventListener("click", (event) => {
+    if (!mentionMenuOpen) return;
+    const target = event.target as Node | null;
+    if (!target) return;
+    if (mentionMenu.contains(target)) return;
+    if ((messageInput as HTMLDivElement).contains(target)) return;
+    closeMentionMenu();
+});
+
+window.addEventListener("resize", () => {
+    if (mentionMenuOpen && mentionState) {
+        positionMentionMenu(mentionState.range);
     }
 });
 
@@ -163,6 +524,15 @@ sendMessageButton.addEventListener("click", async () => {
         return;
     }
 
+    // In RPG group chats, only allow sending during the user's turn.
+    if (isRpgGroupChatContext && !isUserTurnInRpg) {
+        toastService.warn({
+            title: "Not your turn",
+            text: "Wait for your turn, then send your message.",
+        });
+        return;
+    }
+
     // Check for insufficient credits before sending
     if (hasInsufficientImageCredits) {
         toastService.warn({
@@ -173,8 +543,9 @@ sendMessageButton.addEventListener("click", async () => {
     }
 
     try {
-        const message = helpers.getEncoded(messageInput.innerHTML);
+        const message = serializeMessageInput();
         messageInput.innerHTML = "";
+        closeMentionMenu();
         await messageService.send(message);
     } catch (error: any) {
         toastService.danger({
@@ -189,6 +560,15 @@ sendMessageButton.addEventListener("click", async () => {
 //listen for generation state changes to toggle send/stop button
 window.addEventListener('generation-state-changed', (event: any) => {
     isCurrentlyGenerating = event.detail.isGenerating;
+
+    // In RPG mode we lock input while generating, regardless of whose turn.
+    if (isRpgGroupChatContext && messageInput) {
+        const canEdit = !isCurrentlyGenerating && isUserTurnInRpg;
+        messageInput.contentEditable = String(canEdit);
+        messageInput.classList.toggle("disabled", !canEdit);
+        sendMessageButton?.classList.toggle("disabled", !canEdit);
+    }
+
     if (isCurrentlyGenerating) {
         sendMessageButton.textContent = 'stop';
         sendMessageButton.title = 'Stop generating';
@@ -211,30 +591,12 @@ window.addEventListener('generation-state-changed', (event: any) => {
 
 //listen for round state changes to update UI dynamically
 window.addEventListener('round-state-changed', (event: any) => {
-    const { isUserTurn, roundComplete, nextRoundNumber } = event.detail;
+    const { isUserTurn, roundComplete, nextRoundNumber, startsNewRound, nextSpeakerId } = event.detail;
 
-    void chatsService.getCurrentChat(db).then(chat => {
-        if (chat?.groupChat?.mode !== "rpg") return;
+    void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
 
-        if (isUserTurn) {
-            //user's turn to speak or skip
-            if (turnControlLabel) turnControlLabel.textContent = "Your turn";
-            startTurnBtn?.classList.add("hidden");
-            skipTurnBtn?.classList.remove("hidden");
-        } else {
-            //AI's turn next (user needs to start it if order requires)
-            if (turnControlLabel) turnControlLabel.textContent = "Round complete";
-            startTurnBtn?.classList.remove("hidden");
-            skipTurnBtn?.classList.add("hidden");
-            //update button text with next round number
-            if (startRoundText && typeof nextRoundNumber === "number") {
-                startRoundText.textContent = `Start Round ${nextRoundNumber}`;
-            }
-        }
-    });
-
-    //auto-progress RPG rounds (no need to press start round)
-    if (!isUserTurn && roundComplete && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
+    // auto-progress RPG group chats (never pause on AI)
+    if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
         const startNextRoundIfIdle = async () => {
             if (isCurrentlyGenerating) return;
             const chat = await chatsService.getCurrentChat(db);
@@ -313,7 +675,7 @@ startTurnBtn?.addEventListener("click", async () => {
     if (isCurrentlyGenerating) return;
 
     try {
-        //send empty message to trigger AI turn (participants before user will respond)
+        // send empty message to trigger AI turn (participants before user will respond)
         await messageService.send("");
     } catch (error: any) {
         toastService.danger({
@@ -323,26 +685,71 @@ startTurnBtn?.addEventListener("click", async () => {
     }
 });
 
-//restore trigger ai button logic for dynamic chats
-triggerAiButton?.addEventListener("click", async () => {
-    if (isCurrentlyGenerating) return;
+rpgSettingsButton?.addEventListener("click", async () => {
+    const chat = await chatsService.getCurrentChat(db);
+    if (!chat?.groupChat) return;
 
-    try {
-        await messageService.send("");
-    } catch (error: any) {
-        toastService.danger({
-            title: "Error triggering AI",
-            text: JSON.stringify(error.message || error),
-        });
+    // Ensure sidebar is visible
+    const sidebar = document.querySelector<HTMLElement>(".sidebar");
+    if (sidebar) {
+        sidebar.style.display = "flex";
+        helpers.showElement(sidebar, false);
     }
+
+    // Switch to the Settings tab (3rd tab)
+    const navbar = document.querySelector<HTMLElement>('.navbar[data-target-id="sidebar-content"]');
+    const settingsTab = navbar?.querySelector<HTMLElement>(".navbar-tab:nth-child(3)");
+    settingsTab?.click();
+
+    // Open the Group chat Settings page
+    const settingsSection = document.querySelector<HTMLElement>("#settings-section");
+    const groupChatSettingsButton = settingsSection?.querySelector<HTMLElement>('[data-settings-target="groupchat"]');
+
+    // If we're already in settings home, clicking this will navigate to the groupchat page.
+    // If we're already inside another settings page, the click will still work because
+    // SettingsNavigation attaches handlers directly to the home list items.
+    groupChatSettingsButton?.click();
 });
 
-window.addEventListener("chat-loaded", (e: any) => {
+window.addEventListener("chat-loaded", async (e: any) => {
     const chat = e.detail.chat;
 
-    if (chat?.groupChat?.mode === "rpg") {
+    isGroupChatContext = !!chat?.groupChat;
+    isRpgGroupChatContext = chat?.groupChat?.mode === "rpg";
+    isDynamicGroupChatContext = chat?.groupChat?.mode === "dynamic";
+    allowDynamicPings = !!chat?.groupChat?.dynamic?.allowPings && !settingsService.getSettings().disallowPersonaPinging;
+
+    if (isDynamicGroupChatContext) {
+        const participantIds: string[] = Array.isArray(chat.groupChat?.participantIds) ? chat.groupChat.participantIds : [];
+        const nextOptions: MentionOption[] = [];
+        for (const id of participantIds) {
+            const persona = await personalityService.get(String(id));
+            const resolved = persona || personalityService.getDefault();
+            if (!resolved) continue;
+            nextOptions.push({ id: String(id), name: String(resolved.name || "Unknown"), image: resolved.image });
+        }
+        mentionOptions = nextOptions;
+    } else {
+        mentionOptions = [];
+        closeMentionMenu();
+    }
+
+    // In any group chat context, the selected personality is not "the" recipient.
+    if (isGroupChatContext) {
+        messageInput?.setAttribute("placeholder", "Send a message");
+    }
+
+    // In group chats, disable single-chat-only controls.
+    internetSearchToggle?.classList.toggle("hidden", isGroupChatContext);
+    roleplayActionsMenu?.classList.toggle("hidden", isGroupChatContext);
+
+    const imageBtn = document.querySelector<HTMLButtonElement>("#btn-image");
+    const editBtn = document.querySelector<HTMLButtonElement>("#btn-edit");
+    imageBtn?.classList.toggle("hidden", isGroupChatContext);
+    editBtn?.classList.toggle("hidden", isGroupChatContext);
+
+    if (isRpgGroupChatContext) {
         turnControlPanel?.classList.remove("hidden");
-        triggerAiButton?.classList.add("hidden"); //hide trigger button in RPG mode (use panel instead)
 
         //determine turn state from chat content
         const rpg = chat.groupChat?.rpg;
@@ -364,18 +771,29 @@ window.addEventListener("chat-loaded", (e: any) => {
         const lastMessage = turnRelevantMessages[turnRelevantMessages.length - 1];
 
         let isUserTurn = false;
+        let startsNewRound = false;
+        let nextSpeakerId: string | undefined;
+
+        //calculate next round number from existing messages
+        const roundIndices = (chat.content || [])
+            .filter((m: any) => typeof m.roundIndex === "number")
+            .map((m: any) => m.roundIndex as number);
+        const maxRoundIndex = roundIndices.length > 0 ? Math.max(...roundIndices) : 0;
 
         if (turnRelevantMessages.length === 0) {
-            //empty chat: is user first in order?
-            isUserTurn = userIndex === 0 || userIndex === -1;
+            // Empty chat: next speaker is the first in the order.
+            const nextSpeaker = effectiveOrder[0];
+            nextSpeakerId = nextSpeaker;
+            startsNewRound = true;
+            isUserTurn = nextSpeaker === "user" || userIndex === 0 || userIndex === -1;
         } else {
-            //determine whose turn is next based on last speaker
+            // Determine whose turn is next based on last speaker
             const lastSpeakerId = lastMessage.role === "user" ? "user" : lastMessage.personalityid;
 
-            //skip narrator messages when determining turn
+            // Skip narrator messages when determining turn
             let effectiveLastSpeaker = lastSpeakerId;
             if (lastSpeakerId === "__narrator__") {
-                //look backwards for non-narrator message
+                // Look backwards for non-narrator message
                 for (let i = turnRelevantMessages.length - 2; i >= 0; i--) {
                     const msg = turnRelevantMessages[i];
                     const speakerId = msg.role === "user" ? "user" : msg.personalityid;
@@ -388,33 +806,22 @@ window.addEventListener("chat-loaded", (e: any) => {
 
             const lastSpeakerIndex = effectiveOrder.indexOf(String(effectiveLastSpeaker));
             if (lastSpeakerIndex === -1) {
-                //unknown speaker, default to user's turn
+                // Unknown speaker, default to user's turn
                 isUserTurn = true;
+                startsNewRound = false;
             } else {
-                //next speaker is the one after lastSpeaker in the order
+                // Next speaker is the one after lastSpeaker in the order
                 const nextIndex = (lastSpeakerIndex + 1) % effectiveOrder.length;
                 const nextSpeaker = effectiveOrder[nextIndex];
+                nextSpeakerId = nextSpeaker;
                 isUserTurn = nextSpeaker === "user";
+                startsNewRound = nextSpeaker === effectiveOrder[0];
             }
         }
 
-        if (isUserTurn) {
-            if (turnControlLabel) turnControlLabel.textContent = "Your turn";
-            startTurnBtn?.classList.add("hidden");
-            skipTurnBtn?.classList.remove("hidden");
-        } else {
-            //calculate next round number from existing messages
-            const roundIndices = (chat.content || [])
-                .filter((m: any) => typeof m.roundIndex === "number")
-                .map((m: any) => m.roundIndex as number);
-            const maxRoundIndex = roundIndices.length > 0 ? Math.max(...roundIndices) : 0;
-            const nextRoundNumber = maxRoundIndex + 1;
+        const nextRoundNumber = startsNewRound ? maxRoundIndex + 1 : Math.max(1, maxRoundIndex);
 
-            if (turnControlLabel) turnControlLabel.textContent = maxRoundIndex > 0 ? "Round complete" : "Ready";
-            startTurnBtn?.classList.remove("hidden");
-            skipTurnBtn?.classList.add("hidden");
-            if (startRoundText) startRoundText.textContent = `Start Round ${nextRoundNumber}`;
-        }
+        void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
 
         //auto-progress when loading into a state that requires starting the next round
         if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
@@ -424,17 +831,20 @@ window.addEventListener("chat-loaded", (e: any) => {
             }
         }
     } else if (chat?.groupChat) {
-        //Dynamic group chat - show generic trigger button
+        // Dynamic group chat
         turnControlPanel?.classList.add("hidden");
-        triggerAiButton?.classList.remove("hidden");
     } else {
         //Normal chat or empty
         turnControlPanel?.classList.add("hidden");
-        triggerAiButton?.classList.add("hidden");
     }
 });
 
 const setupBottomBar = async () => {
+    if (isGroupChatContext) {
+        messageInput.setAttribute("placeholder", "Send a message");
+        return;
+    }
+
     const personality = await personalityService.getSelected();
     if (personality) {
         messageInput.setAttribute("placeholder", `Send a message to ${personality.name}`);

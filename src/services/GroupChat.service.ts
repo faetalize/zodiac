@@ -2,7 +2,8 @@ import * as chatsService from "./Chats.service";
 import * as personalityService from "./Personality.service";
 import { db } from "./Db.service";
 export { db };
-import type { Chat, GroupChatConfig, GroupChatRpgSettings } from "../types/Chat";
+import type { Chat, GroupChatConfig, GroupChatDynamicSettings, GroupChatRpgSettings } from "../types/Chat";
+import { defaultGuardFromIndependence, normalizeGuardMap } from "../utils/dynamicGroupChatGuards";
 
 function uniq(list: string[]): string[] {
     return Array.from(new Set(list));
@@ -77,6 +78,75 @@ export async function createRpgGroupChat(options: {
     }
 }
 
+export async function createDynamicGroupChat(options: {
+    participantIds: string[];
+    maxMessageGuardById?: Record<string, number>;
+    allowPings?: boolean;
+}): Promise<number | null> {
+    const participantIds = uniq(options.participantIds).slice(0, 5);
+    if (participantIds.length < 2) {
+        return null;
+    }
+
+    const allowPings = !!options.allowPings;
+
+    const personaIndependenceById = new Map<string, number>();
+    for (const id of participantIds) {
+        const persona = await personalityService.get(id);
+        if (persona) {
+            personaIndependenceById.set(id, Number((persona as any)?.independence ?? 0));
+        }
+    }
+
+    const maxMessageGuardById = normalizeGuardMap({
+        participantIds,
+        existing: options.maxMessageGuardById,
+        defaultForId: (id) => defaultGuardFromIndependence(personaIndependenceById.get(id)),
+    });
+
+    const dynamic: GroupChatDynamicSettings = {
+        maxMessageGuardById,
+        allowPings,
+    };
+
+    const groupChat: GroupChatConfig = {
+        mode: "dynamic",
+        participantIds,
+        dynamic,
+    };
+
+    // Build a simple title based on participants
+    const names: string[] = [];
+    for (const id of participantIds) {
+        const persona = await personalityService.get(id);
+        names.push(persona?.name || "Unknown");
+    }
+    const title = `Group: ${names.join(", ")}`.slice(0, 60) || "New Group Chat";
+
+    const chat: Chat = {
+        title,
+        timestamp: Date.now(),
+        content: [],
+        groupChat,
+    };
+
+    try {
+        console.log("createDynamicGroupChat: creating chat", chat);
+        const id = await chatsService.addChatRecord(chat);
+        console.log(`createDynamicGroupChat: addChatRecord returned id=${id}`);
+        const loaded = await chatsService.loadChat(id, db);
+        console.log(`createDynamicGroupChat: loadChat returned`, loaded);
+        const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
+        if (chatInput) {
+            chatInput.checked = true;
+        }
+        return id;
+    } catch (error) {
+        console.error("createDynamicGroupChat: failed to create group chat", error);
+        return null;
+    }
+}
+
 export async function updateRpgGroupChat(chatId: number, options: {
     participantIds: string[];
     turnOrder: string[];
@@ -136,6 +206,70 @@ export async function updateRpgGroupChat(chatId: number, options: {
         await chatsService.loadChat(chatId, db);
     } else {
         // Just refresh the sidebar entry
+        await chatsService.refreshChatListAfterActivity(db);
+    }
+
+    return true;
+}
+
+export async function updateDynamicGroupChat(chatId: number, options: {
+    participantIds: string[];
+    maxMessageGuardById?: Record<string, number>;
+    allowPings?: boolean;
+}): Promise<boolean> {
+    const chat = await db.chats.get(chatId);
+    if (!chat || !chat.groupChat) {
+        return false;
+    }
+
+    const participantIds = uniq(options.participantIds).slice(0, 5);
+    if (participantIds.length < 2) {
+        return false;
+    }
+
+    const allowPings = !!options.allowPings;
+
+    const personaIndependenceById = new Map<string, number>();
+    for (const id of participantIds) {
+        const persona = await personalityService.get(id);
+        if (persona) {
+            personaIndependenceById.set(id, Number((persona as any)?.independence ?? 0));
+        }
+    }
+
+    const maxMessageGuardById = normalizeGuardMap({
+        participantIds,
+        existing: options.maxMessageGuardById ?? chat.groupChat.dynamic?.maxMessageGuardById,
+        legacyFallback: chat.groupChat.dynamic?.maxMessageGuard,
+        defaultForId: (id) => defaultGuardFromIndependence(personaIndependenceById.get(id)),
+    });
+
+    chat.groupChat = {
+        ...chat.groupChat,
+        participantIds,
+        dynamic: {
+            maxMessageGuardById,
+            allowPings,
+        },
+    };
+
+    // Update title if it was the default group title
+    if (chat.title.startsWith("Group: ")) {
+        const names: string[] = [];
+        for (const id of participantIds) {
+            const persona = await personalityService.get(id);
+            names.push(persona?.name || "Unknown");
+        }
+        chat.title = `Group: ${names.join(", ")}`.slice(0, 60);
+    }
+
+    await db.chats.put(chat);
+
+    // If this is the current chat, reload it to reflect changes in UI
+    const currentId = chatsService.getCurrentChatId();
+    if (currentId === chatId) {
+        await chatsService.loadChat(chatId, db);
+    } else {
         await chatsService.refreshChatListAfterActivity(db);
     }
 

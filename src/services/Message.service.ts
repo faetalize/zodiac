@@ -69,6 +69,7 @@ import {
 } from "../utils/chatHistoryBuilder";
 
 import { sendGroupChatRpg, type RpgInputArgs } from "./RpgGroupChat";
+import { sendGroupChatDynamic, type DynamicInputArgs } from "./DynamicGroupChat";
 
 // ================================================================================
 // CONSTANTS
@@ -651,12 +652,27 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
         const validation = await performEarlyValidation(msg);
         if (!validation.canProceed) return;
 
-        // Route to RPG group chat if applicable
+        // Route to group chat handler if applicable
         if (validation.isGroupChat) {
             if (isImageModeActive() || isImageEditingActive()) {
                 warn({ title: "Not supported", text: "Image mode is not supported in group chats yet." });
                 return;
             }
+
+            const existingChat = await chatsService.getCurrentChat(db);
+            const mode = (existingChat as any)?.groupChat?.mode as ("rpg" | "dynamic" | undefined);
+
+            if (mode === "dynamic") {
+                const dynamicArgs: DynamicInputArgs = {
+                    msg,
+                    attachmentFiles: validation.attachmentFiles,
+                    isInternetSearchEnabled: validation.isInternetSearchEnabled,
+                    isPremiumEndpointPreferred: validation.isPremiumEndpointPreferred,
+                    shouldEnforceThoughtSignaturesInHistory: validation.shouldEnforceThoughtSignaturesInHistory,
+                };
+                return await sendGroupChatDynamic(dynamicArgs);
+            }
+
             return await sendGroupChatRpg({
                 msg,
                 attachmentFiles: validation.attachmentFiles,
@@ -694,7 +710,9 @@ export async function sendRpgTurn(msg?: string): Promise<HTMLElement | undefined
         const validation = await performEarlyValidation(msg || "");
         if (!validation.canProceed) return;
 
-        if (!validation.isGroupChat) {
+        const existingChat = await chatsService.getCurrentChat(db);
+        const mode = (existingChat as any)?.groupChat?.mode;
+        if (mode !== "rpg") {
             warn({ title: "Not in group chat", text: "This function is only available in RPG group chats." });
             return;
         }
@@ -723,7 +741,9 @@ export async function skipRpgTurn(): Promise<HTMLElement | undefined> {
         const validation = await performEarlyValidation("");
         if (!validation.canProceed) return;
 
-        if (!validation.isGroupChat) {
+        const existingChat = await chatsService.getCurrentChat(db);
+        const mode = (existingChat as any)?.groupChat?.mode;
+        if (mode !== "rpg") {
             warn({ title: "Not in group chat", text: "This function is only available in RPG group chats." });
             return;
         }
@@ -780,7 +800,11 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
         }
 
         try {
-            await send("");
+            if (chat.groupChat?.mode === "rpg") {
+                await send("");
+            } else {
+                warn({ title: "Not supported", text: "Regeneration for dynamic group chats is not supported yet." });
+            }
         } catch (error: any) {
             console.error(error);
             danger({ title: "Error regenerating message", text: JSON.stringify(error.message || error) });
@@ -945,9 +969,11 @@ async function performEarlyValidation(msg: string): Promise<EarlyValidationResul
     }
 
     const existingChat = await chatsService.getCurrentChat(db);
-    const isGroupChat = (existingChat as any)?.groupChat?.mode === "rpg";
+    const groupMode = (existingChat as any)?.groupChat?.mode as ("rpg" | "dynamic" | undefined);
+    const isGroupChat = groupMode === "rpg" || groupMode === "dynamic";
+    const allowsEmptyMessage = groupMode === "rpg";
 
-    if (!msg && !isGroupChat) {
+    if (!msg && !allowsEmptyMessage && (attachmentFiles?.length ?? 0) === 0) {
         return { canProceed: false };
     }
 
@@ -1010,7 +1036,7 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
     const config: GenerateContentConfig = {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: parseInt(settings.temperature) / 100,
-        systemInstruction: await settingsService.getSystemPrompt(),
+        systemInstruction: await settingsService.getSystemPrompt("chat"),
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain",
         tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
