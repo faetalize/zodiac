@@ -2417,12 +2417,29 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
 }
 
 
+/* Container for message input and floating indicators */
+#bottom-ui-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    padding-bottom: 1rem;
+    z-index: 10;
+    width: 100%;
+}
+
+body.ime-open #bottom-ui-container {
+    padding-bottom: 0;
+}
+
 /* Dynamic group chat typing indicator */
 .group-chat-typing-indicator {
-    position: absolute;
-    bottom: 5.35rem;
-    left: 50%;
-    transform: translateX(-50%);
+    position: relative;
+    margin-bottom: 0.5rem;
     padding: 0.4rem 0.85rem;
     font-size: 0.85rem;
     font-weight: 500;
@@ -2432,8 +2449,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     border-radius: 999px;
     box-shadow: var(--elevated-ui-shadow);
     backdrop-filter: blur(12px);
-    pointer-events: none;
-    z-index: 0;
+    pointer-events: auto;
 }
 
 .group-chat-typing-indicator.hidden {
@@ -2444,10 +2460,8 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
 
 /* Turn Control Panel for RPG group chats */
 .turn-control-panel {
-    position: absolute;
-    bottom: 7rem;
-    left: 50%;
-    transform: translateX(-50%);
+    position: relative;
+    margin-bottom: 0.5rem;
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -2457,7 +2471,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     border-radius: 1rem;
     box-shadow: var(--elevated-ui-shadow);
     backdrop-filter: blur(12px);
-    z-index: 0;
+    pointer-events: auto;
 }
 
 .turn-control-panel.hidden {
@@ -2511,10 +2525,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
 
 #message-box {
     display: flex;
-    position: absolute;
-    bottom: 1rem;
-    left: 1rem;
-    right: 1rem;
+    position: relative;
     flex-direction: column;
     flex-shrink: 0;
     border-radius: 1rem;
@@ -2527,7 +2538,7 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
     box-shadow: var(--elevated-ui-shadow);
     background-color: var(--sidebar-bg) !important;
     backdrop-filter: blur(16px);
-    z-index: 0;
+    pointer-events: auto;
 }
 
 #message-box.drag-over {

@@ -579,43 +579,45 @@
             <div id="scrollable-chat-container">
                 <div class="message-container"></div>
             </div>
-            <div id="group-chat-typing-indicator" class="group-chat-typing-indicator hidden"></div>
-            <!-- Round Control Panel for RPG group chats (above message input) -->
-            <div id="turn-control-panel" class="turn-control-panel hidden">
-                <button type="button" class="btn btn-textual material-symbols-outlined" id="btn-rpg-settings" aria-label="RPG group chat settings">settings</button>
-                <span class="turn-control-label" id="turn-control-label">Your Turn</span>
-                <button type="button" class="btn btn-primary hidden" id="btn-start-turn">
-                    <span class="material-symbols-outlined">play_arrow</span>
-                    <span id="start-round-text">Start Round</span>
-                </button>
-                <button type="button" class="btn btn-primary" id="btn-skip-turn">
-                    <span class="material-symbols-outlined">skip_next</span>
-                    Skip Turn
-                </button>
-            </div>
-            <div id="message-box">
-                <div contenteditable placeholder="Send a message to" id="messageInput" class="input-field"></div>
-                <div id="attachment-preview" class="attachment-preview-container">
-                    <input type="file" name="attachments" id="attachments">
+            <div id="bottom-ui-container">
+                <!-- Round Control Panel for RPG group chats (above message input) -->
+                <div id="turn-control-panel" class="turn-control-panel hidden">
+                    <button type="button" class="btn btn-textual material-symbols-outlined" id="btn-rpg-settings" aria-label="RPG group chat settings">settings</button>
+                    <span class="turn-control-label" id="turn-control-label">Your Turn</span>
+                    <button type="button" class="btn btn-primary hidden" id="btn-start-turn">
+                        <span class="material-symbols-outlined">play_arrow</span>
+                        <span id="start-round-text">Start Round</span>
+                    </button>
+                    <button type="button" class="btn btn-primary" id="btn-skip-turn">
+                        <span class="material-symbols-outlined">skip_next</span>
+                        Skip Turn
+                    </button>
                 </div>
-                <div id="message-box-buttons">
-                    <button type="button" class="btn-textual material-symbols-outlined btn"
-                        id="btn-attach">attach_file</button>
-                    <button type="button" class="btn-textual material-symbols-outlined btn"
-                        id="btn-internet">language</button>
-                    <button type="button" class="btn-textual material-symbols-outlined btn"
-                        id="btn-roleplay">pan_tool</button>
-                    <button type="button" class="btn-textual material-symbols-outlined btn" id="btn-image">
-                        <div>brush</div>
-                        <div id="image-generation-label">Image Generation</div>
-                    </button>
-                    <button type="button" class="btn-textual material-symbols-outlined btn" id="btn-edit">
-                        <div>imagesearch_roller</div>
-                        <div id="image-editing-label">Image Editing</div>
-                    </button>
-                    <div class="message-box-right">
-                        <div id="image-credits-label" class="image-credits-label hidden">— image credits left</div>
-                        <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
+                <div id="group-chat-typing-indicator" class="group-chat-typing-indicator hidden"></div>
+                <div id="message-box">
+                    <div contenteditable placeholder="Send a message to" id="messageInput" class="input-field"></div>
+                    <div id="attachment-preview" class="attachment-preview-container">
+                        <input type="file" name="attachments" id="attachments">
+                    </div>
+                    <div id="message-box-buttons">
+                        <button type="button" class="btn-textual material-symbols-outlined btn"
+                            id="btn-attach">attach_file</button>
+                        <button type="button" class="btn-textual material-symbols-outlined btn"
+                            id="btn-internet">language</button>
+                        <button type="button" class="btn-textual material-symbols-outlined btn"
+                            id="btn-roleplay">pan_tool</button>
+                        <button type="button" class="btn-textual material-symbols-outlined btn" id="btn-image">
+                            <div>brush</div>
+                            <div id="image-generation-label">Image Generation</div>
+                        </button>
+                        <button type="button" class="btn-textual material-symbols-outlined btn" id="btn-edit">
+                            <div>imagesearch_roller</div>
+                            <div id="image-editing-label">Image Editing</div>
+                        </button>
+                        <div class="message-box-right">
+                            <div id="image-credits-label" class="image-credits-label hidden">— image credits left</div>
+                            <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
+                        </div>
                     </div>
                 </div>
             </div>
