@@ -1845,7 +1845,7 @@ form {
     width: 100dvw;
     height: 100dvh;
     backdrop-filter: blur(64px);
-    z-index: 2;
+    z-index: 10000;
     justify-content: flex-start;
     align-items: center;
 }
