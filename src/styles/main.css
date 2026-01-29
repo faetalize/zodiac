@@ -3524,7 +3524,7 @@ body.ime-open #bottom-ui-container {
     border-radius: 1rem;
     scrollbar-width: thin;
     margin: 1rem;
-    z-index: 1;
+    z-index: 11;
     box-shadow: var(--elevated-ui-shadow);
     outline: var(--elevated-ui-outline);
     background-color: var(--sidebar-bg);
