@@ -71,10 +71,13 @@ export async function processGeminiLocalSdkResponse(args: {
     }
 
     for (const part of response?.candidates?.[0]?.content?.parts || []) {
-        if (part?.thought && part?.text && process.includeThoughts) {
-            const delta = String(part.text);
-            thinking += delta;
-            await process.callbacks?.onThinking?.({ delta, thinking });
+        if (part?.thought && part?.text) {
+            // Never mix thought parts into the main answer.
+            if (process.includeThoughts) {
+                const delta = String(part.text);
+                thinking += delta;
+                await process.callbacks?.onThinking?.({ delta, thinking });
+            }
         } else if (part?.text) {
             if (!textSignature) {
                 textSignature = part.thoughtSignature ?? (process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined);
@@ -138,10 +141,13 @@ export async function processGeminiLocalSdkStream(args: {
         }
 
         for (const part of chunk?.candidates?.[0]?.content?.parts || []) {
-            if (part?.thought && part?.text && process.includeThoughts) {
-                const delta = String(part.text);
-                thinking += delta;
-                await process.callbacks?.onThinking?.({ delta, thinking });
+            if (part?.thought && part?.text) {
+                // Never mix thought parts into the main answer.
+                if (process.includeThoughts) {
+                    const delta = String(part.text);
+                    thinking += delta;
+                    await process.callbacks?.onThinking?.({ delta, thinking });
+                }
             } else if (part?.text) {
                 if (!textSignature) {
                     textSignature = part.thoughtSignature ?? (process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined);
