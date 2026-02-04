@@ -1079,7 +1079,7 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
     let ctxRef: SendContext | null = null;
 
     function ensureThinkingElements(): void {
-        // Re-query in case something inserted partial markup.
+        // If we don't already have these elements, re-query in case markup was inserted after the initial query.
         thinkingWrapper ??= responseElement.querySelector<HTMLElement>(".message-thinking");
         thinkingContentElm ??= responseElement.querySelector<HTMLElement>(".thinking-content");
 
