@@ -58,10 +58,13 @@ async function applyGeminiPayload(args: {
     }
 
     for (const part of payload?.candidates?.[0]?.content?.parts || []) {
-        if (part?.thought && part?.text && process.includeThoughts) {
-            const delta = String(part.text);
-            state.thinking += delta;
-            await process.callbacks?.onThinking?.({ delta, thinking: state.thinking });
+        if (part?.thought && part?.text) {
+            // Never mix thought parts into the main answer.
+            if (process.includeThoughts) {
+                const delta = String(part.text);
+                state.thinking += delta;
+                await process.callbacks?.onThinking?.({ delta, thinking: state.thinking });
+            }
         } else if (part?.text) {
             if (!state.textSignature) {
                 state.textSignature = part.thoughtSignature ?? (process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined);

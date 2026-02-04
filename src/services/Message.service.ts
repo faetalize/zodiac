@@ -1074,17 +1074,30 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
     let thinkingContentElm = responseElement.querySelector<HTMLElement>(".thinking-content");
     const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
 
+    // NOTE: ensureThinkingElements mutates these locals, but callers read from ctx.*.
+    // Keep ctx.* in sync so thought parts never fall back into main text.
+    let ctxRef: SendContext | null = null;
+
     function ensureThinkingElements(): void {
-        if (!thinkingWrapper) {
+        // If we don't already have these elements, re-query in case markup was inserted after the initial query.
+        thinkingWrapper ??= responseElement.querySelector<HTMLElement>(".message-thinking");
+        thinkingContentElm ??= responseElement.querySelector<HTMLElement>(".thinking-content");
+
+        if (!thinkingWrapper || !thinkingContentElm) {
             const header = responseElement.querySelector(".message-header");
             const { wrapper, content } = createThinkingUiElements();
             thinkingWrapper = wrapper;
             thinkingContentElm = content;
             header?.insertAdjacentElement("afterend", thinkingWrapper);
         }
+
+        if (ctxRef) {
+            ctxRef.thinkingWrapper = thinkingWrapper;
+            ctxRef.thinkingContentElm = thinkingContentElm;
+        }
     }
 
-    return {
+    const ctx: SendContext = {
         msg,
         userMessage,
         userMessageElement,
@@ -1107,6 +1120,10 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
         thinkingContentElm,
         ensureThinkingElements,
     };
+
+    ctxRef = ctx;
+
+    return ctx;
 }
 
 // ================================================================================
@@ -1320,9 +1337,13 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
             } else {
                 state.finishReason = json.candidates?.[0]?.finishReason || json.promptFeedback?.blockReason;
                 for (const part of json.candidates?.[0]?.content?.parts || []) {
-                    if (part.thought && part.text && ctx.thinkingContentElm) {
+                    if (part.thought && part.text) {
+                        // Never allow thought content to spill into the main answer.
                         state.thinking += part.text;
-                        ctx.thinkingContentElm.textContent = state.thinking;
+                        if (ctx.config.thinkingConfig?.includeThoughts) {
+                            ctx.ensureThinkingElements();
+                            if (ctx.thinkingContentElm) ctx.thinkingContentElm.textContent = state.thinking;
+                        }
                     } else if (part.text) {
                         if (!state.textSignature) {
                             state.textSignature = part.thoughtSignature ?? (ctx.shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
@@ -1342,6 +1363,11 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
                     renderGroundingToShadowDom(ctx.groundingRendered, state.groundingContent);
                 }
             }
+        }
+
+        if (ctx.config.thinkingConfig?.includeThoughts && state.thinking.trim()) {
+            ctx.ensureThinkingElements();
+            if (ctx.thinkingContentElm) ctx.thinkingContentElm.textContent = state.thinking;
         }
         ctx.responseElement.querySelector(".message-text")?.classList.remove("is-loading");
         ctx.messageContent.innerHTML = await parseMarkdownToHtml(state.rawText);
