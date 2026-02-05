@@ -316,13 +316,13 @@ function calculateCurrentRoundIndex(chat: DbChat, effectiveOrder: string[]): num
 
 function buildEffectiveTurnOrder(args: { participants: string[]; turnOrder: string[] }): string[] {
     // Important: ensure a stable, cycle-based order.
-    // If the UI saved a turnOrder array, it may start at an arbitrary offset.
-    // For round/block rollover we treat args.participants[0] as the canonical
-    // start-of-round marker.
+    // If a turnOrder is explicitly configured, its first element is the
+    // canonical start-of-round marker (this supports placing the user first).
+    // Otherwise we fall back to args.participants[0].
     const base = args.turnOrder.length > 0 ? args.turnOrder : [...args.participants, "user"];
     const withUser = base.includes("user") ? base : [...base, "user"];
 
-    const canonicalStart = args.participants[0];
+    const canonicalStart = args.turnOrder.length > 0 ? args.turnOrder[0] : args.participants[0];
     if (!canonicalStart) return withUser;
 
     const startIndex = withUser.indexOf(canonicalStart);
