@@ -785,7 +785,7 @@ function applyEasyPathSettings(): void {
     // Set Easy path defaults in localStorage
     localStorage.setItem("autoscroll", "true");
     localStorage.setItem("streamResponses", "true");
-    localStorage.setItem("model", ChatModel.FLASH_LATEST);
+    localStorage.setItem("model", ChatModel.FLASH);
     localStorage.setItem("maxTokens", "1000");
     localStorage.setItem("enableThinking", "true");
     localStorage.setItem("thinkingBudget", "500");
@@ -926,7 +926,7 @@ function setupSubscriptionConfirmation(): void {
 function setupAdvancedSettings(): void {
     // Load current or default settings
     const loadDefaultSettings = () => {
-        advancedModelSelect!.value = localStorage.getItem("model") || ChatModel.FLASH_LATEST;
+        advancedModelSelect!.value = localStorage.getItem("model") || ChatModel.FLASH;
         advancedTemperature!.value = localStorage.getItem("TEMPERATURE") || "60";
         updateTemperatureDisplay();
         advancedThinkingEnabled!.checked = localStorage.getItem("enableThinking") !== "false";
@@ -950,7 +950,7 @@ function setupAdvancedSettings(): void {
     const updateThinkingRestrictions = () => {
         const selectedModel = advancedModelSelect!.value;
         
-        if (selectedModel === ChatModel.PRO || selectedModel === ChatModel.PRO_LEGACY) {
+        if (selectedModel === ChatModel.PRO) {
             // Pro model: force thinking enabled
             advancedThinkingEnabled!.checked = true;
             advancedThinkingEnabled!.disabled = true;
