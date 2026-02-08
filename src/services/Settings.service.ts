@@ -2,6 +2,7 @@ import { Content, HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
 import { User } from "../types/User";
 import { ChatModel } from "../types/Models";
+import { getValidEnumValue } from "../utils/helpers";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
@@ -38,10 +39,12 @@ export function initialize() {
 }
 
 export function loadSettings() {
+
+    console.log(getValidEnumValue(localStorage.getItem("model"), ChatModel, ChatModel.FLASH));
     ApiKeyInput.value = localStorage.getItem("API_KEY") || "";
     maxTokensInput.value = localStorage.getItem("maxTokens") || "1000";
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || "60";
-    modelSelect.value = localStorage.getItem("model") || ChatModel.FLASH_LATEST;
+    modelSelect.value = getValidEnumValue(localStorage.getItem("model"), ChatModel, ChatModel.FLASH);
     imageModelSelect.value = localStorage.getItem("imageModel") || "imagen-4.0-ultra-generate-001";
     imageEditModelSelector.value = localStorage.getItem("imageEditModel") || "qwen";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") ? localStorage.getItem("autoscroll") === "true" : true;

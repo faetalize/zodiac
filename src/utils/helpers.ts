@@ -368,3 +368,14 @@ export function getClientScrollbarWidth(): number {
     document.body.removeChild(container);
     return scrollbarWidth;
 }
+
+export function getValidEnumValue<T extends Record<string, string>>(
+    value: string | null,
+    enumObj: T,
+    defaultValue: T[keyof T]
+): T[keyof T] {
+    if (!value) return defaultValue;
+    return Object.values(enumObj).includes(value as T[keyof T]) 
+        ? (value as T[keyof T]) 
+        : defaultValue;
+} 
