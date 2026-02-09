@@ -24,7 +24,7 @@ onDocumentEvent('chat-model-changed', (event) => {
 
     if (!model) return;
 
-    if (model === ChatModel.PRO || model === ChatModel.PRO_LEGACY) {
+    if (model === ChatModel.PRO) {
         thinkingSelector.value = 'enabled';
         thinkingHint.style.display = '';
         thinkingSelector.dispatchEvent(new Event('change'));
