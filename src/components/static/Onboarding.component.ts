@@ -12,6 +12,7 @@ import * as settingsService from "../../services/Settings.service";
 import * as toastService from "../../services/Toast.service";
 import { themeService } from "../../services/Theme.service";
 import { ChatModel } from "../../types/Models";
+import { getValidEnumValue } from "../../utils/helpers";
 
 // Path selection buttons
 const easyPathButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-easy");
@@ -926,7 +927,11 @@ function setupSubscriptionConfirmation(): void {
 function setupAdvancedSettings(): void {
     // Load current or default settings
     const loadDefaultSettings = () => {
-        advancedModelSelect!.value = localStorage.getItem("model") || ChatModel.FLASH;
+        advancedModelSelect!.value = getValidEnumValue(
+            localStorage.getItem("model"),
+            ChatModel,
+            ChatModel.FLASH
+        )
         advancedTemperature!.value = localStorage.getItem("TEMPERATURE") || "60";
         updateTemperatureDisplay();
         advancedThinkingEnabled!.checked = localStorage.getItem("enableThinking") !== "false";

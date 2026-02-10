@@ -412,15 +412,17 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
                 manageBtn.classList.remove('hidden');
                 manageBtn.onclick = async (e) => {
                     e.preventDefault();
+                    const newWindow = window.open('about:blank', '_blank'); // Sync call to preserve gesture trust on iOS Safari
                     console.log('Opening billing portal for user:', email, "with stripe customer ID:", sub?.stripe_customer_id);
                     console.log(sub)
                     const { data } = await supabase.functions.invoke("return-stripe-customer-portal", {
                         method: 'POST',
                         body: JSON.stringify({ stripeCustomerId: sub?.stripe_customer_id, email, user_id: session?.user.id })
                     });
-                    if (data) {
-                        window.open(data.url, '_blank', 'noopener');
+                    if (data?.url && newWindow) {
+                        newWindow.location.href = data.url;
                     } else {
+                        newWindow?.close();
                         console.error('Failed to retrieve billing portal URL');
                     }
                 };

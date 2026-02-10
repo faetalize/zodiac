@@ -40,7 +40,6 @@ export function initialize() {
 
 export function loadSettings() {
 
-    console.log(getValidEnumValue(localStorage.getItem("model"), ChatModel, ChatModel.FLASH));
     ApiKeyInput.value = localStorage.getItem("API_KEY") || "";
     maxTokensInput.value = localStorage.getItem("maxTokens") || "1000";
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || "60";
