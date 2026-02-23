@@ -7,7 +7,7 @@
  * Contributors: Treat this as READ-ONLY.
  * If you need schema changes, open an issue describing the required modifications.
  * 
- * Generated: 2026-02-19
+ * Generated: 2026-02-22
  */
 
 export type Json =
@@ -666,6 +666,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_synced_messages: {
+        Row: {
+          chat_id: string
+          created_at: string
+          deleted: boolean
+          encrypted_data: string
+          iv: string
+          message_index: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          deleted?: boolean
+          encrypted_data: string
+          iv: string
+          message_index: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          deleted?: boolean
+          encrypted_data?: string
+          iv?: string
+          message_index?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_synced_messages_chat_fkey"
+            columns: ["user_id", "chat_id"]
+            isOneToOne: false
+            referencedRelation: "user_synced_chats"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
       }
       user_synced_personas: {
         Row: {

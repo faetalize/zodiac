@@ -73,6 +73,8 @@ export async function add(url: string): Promise<LoRAInfo | void> {
 }
 
 export async function initialize(): Promise<void> {
+    loras = [];
+    loraState = [];
     const all = readFromLocalstorage();
     const info = await getLoraMetadata(all);
     if (info && info.length > 0) {

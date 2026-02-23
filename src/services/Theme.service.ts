@@ -54,6 +54,15 @@ class ThemeService {
     }
 
     /**
+     * Rehydrate theme settings from localStorage and apply them immediately.
+     * Useful after cloud sync pulls settings into localStorage.
+     */
+    public reloadFromStorage(): void {
+        this.currentSettings = this.loadSettings();
+        this.applyTheme(this.currentSettings.colorTheme, this.getEffectiveMode());
+    }
+
+    /**
      * Set the color theme (blue, red, etc.)
      */
     public setColorTheme(theme: ColorTheme): void {

@@ -15,14 +15,18 @@ if (!apiKeyInput || !apiKeyGroup || !preferPremiumToggle || !preferPremiumCheckb
 
 // API key input is always editable regardless of subscription status
 
-// Load saved preference - default to true for subscribers
-const savedPreference = localStorage.getItem('preferPremiumEndpoint');
-if (savedPreference !== null) {
-    preferPremiumCheckbox.checked = savedPreference === 'true';
-} else {
-    // Default to true (prefer premium ON by default)
-    preferPremiumCheckbox.checked = true;
+function applyPremiumPreferenceFromStorage(): void {
+    const savedPreference = localStorage.getItem('preferPremiumEndpoint');
+    if (savedPreference !== null) {
+        preferPremiumCheckbox!.checked = savedPreference === 'true';
+    } else {
+        // Default to true (prefer premium ON by default)
+        preferPremiumCheckbox!.checked = true;
+    }
 }
+
+// Load saved preference - default to true for subscribers
+applyPremiumPreferenceFromStorage();
 
 // Save preference when changed
 preferPremiumCheckbox.addEventListener('change', () => {
@@ -34,6 +38,7 @@ preferPremiumCheckbox.addEventListener('change', () => {
 // Show/hide the toggle based on subscription status
 onAppEvent('auth-state-changed', (event) => {
     const { subscription: sub } = event.detail;
+    const savedPreference = localStorage.getItem('preferPremiumEndpoint');
     if (!sub) {
         preferPremiumToggle.classList.add('hidden');
         preferPremiumCheckbox.checked = false; // Turn OFF for free users
@@ -52,6 +57,11 @@ onAppEvent('auth-state-changed', (event) => {
         preferPremiumToggle.classList.add('hidden');
         preferPremiumCheckbox.checked = false; // Turn OFF for free users
     }
+});
+
+onAppEvent('sync-data-pulled', () => {
+    applyPremiumPreferenceFromStorage();
+    dispatchAppEvent('premium-endpoint-preference-changed', { preferred: preferPremiumCheckbox.checked });
 });
 
 

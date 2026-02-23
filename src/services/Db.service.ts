@@ -174,6 +174,39 @@ export async function setupDB() {
         `
     });
 
+    // v13: Create temp table chats_uuid with string UUID primary key.
+    //      Copy all existing chats to it with freshly generated UUIDs.
+    db.version(13).stores({
+        chats_uuid: `id, title, timestamp, content, lastModified`
+    }).upgrade(async (tx) => {
+        const oldChats = await tx.table('chats').toArray().catch(() => [] as any[]);
+        for (const c of oldChats as any[]) {
+            const { id: _old, ...rest } = c;
+            await tx.table('chats_uuid').put({ id: uuidv4(), ...rest });
+        }
+    });
+
+    // v14: Drop old auto-increment chats table.
+    db.version(14).stores({
+        chats: null
+    });
+
+    // v15: Recreate chats with string UUID primary key, copy from chats_uuid.
+    db.version(15).stores({
+        chats: `id, title, timestamp, content, lastModified`,
+        chats_uuid: `id, title, timestamp, content, lastModified`
+    }).upgrade(async (tx) => {
+        const tmp = await tx.table('chats_uuid').toArray().catch(() => [] as any[]);
+        for (const c of tmp as any[]) {
+            await tx.table('chats').put(c);
+        }
+    });
+
+    // v16: Drop temporary chats_uuid table.
+    db.version(16).stores({
+        chats_uuid: null
+    });
+
     return db;
 }
 

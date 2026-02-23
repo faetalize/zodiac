@@ -581,7 +581,7 @@ window.addEventListener('generation-state-changed', (event: any) => {
         sendMessageButton.classList.remove('generating');
 
         //re-show turn control if it's an RPG group chat
-        void chatsService.getCurrentChat(db).then(chat => {
+        void chatsService.getCurrentChat().then(chat => {
             if (chat?.groupChat?.mode === "rpg") {
                 turnControlPanel?.classList.remove('hidden');
             }
@@ -599,7 +599,7 @@ window.addEventListener('round-state-changed', (event: any) => {
     if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
         const startNextRoundIfIdle = async () => {
             if (isCurrentlyGenerating) return;
-            const chat = await chatsService.getCurrentChat(db);
+            const chat = await chatsService.getCurrentChat();
             if (chat?.groupChat?.mode !== "rpg") return;
             await messageService.send("");
         };
@@ -686,7 +686,7 @@ startTurnBtn?.addEventListener("click", async () => {
 });
 
 rpgSettingsButton?.addEventListener("click", async () => {
-    const chat = await chatsService.getCurrentChat(db);
+    const chat = await chatsService.getCurrentChat();
     if (!chat?.groupChat) return;
 
     // Ensure sidebar is visible
@@ -1198,7 +1198,7 @@ async function updateHistoryPreview(): Promise<void> {
         return;
     }
 
-    const currentChat = await chatsService.getCurrentChat(db);
+    const currentChat = await chatsService.getCurrentChat();
     if (!currentChat) {
         clearHistoryPreview();
         return;

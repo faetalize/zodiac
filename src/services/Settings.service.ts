@@ -3,6 +3,7 @@ import * as supabaseService from "./Supabase.service";
 import { User } from "../types/User";
 import { ChatModel } from "../types/Models";
 import { getValidEnumValue } from "../utils/helpers";
+import * as syncService from "./Sync.service";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
@@ -75,6 +76,17 @@ export function saveSettings() {
     localStorage.setItem("dynamicGroupChatPingOnly", dynamicGroupChatPingOnlyToggle.checked.toString());
     localStorage.setItem("enableThinking", (enableThinkingSelect.value === 'enabled').toString());
     localStorage.setItem("thinkingBudget", thinkingBudgetInput.value);
+
+    // Debounced sync push — settings save on every keystroke
+    debouncedSyncPush();
+}
+
+let syncPushTimer: ReturnType<typeof setTimeout> | null = null;
+function debouncedSyncPush() {
+    if (syncPushTimer) clearTimeout(syncPushTimer);
+    syncPushTimer = setTimeout(() => {
+        syncService.pushCurrentSettings().catch(() => {});
+    }, 2000);
 }
 
 export function getSettings() {

@@ -48,6 +48,37 @@
             </div>
         </div>
 
+        <!-- Cloud Sync: Encryption Password Modal -->
+        <div id="sync-modal" class="dialog hidden">
+            <div id="sync-modal-content">
+                <h3 id="sync-modal-title">Cloud Sync</h3>
+                <p id="sync-modal-description" class="sync-modal-description"></p>
+                <div id="sync-modal-fields">
+                    <input type="password" id="sync-password" class="input-field" placeholder="Encryption password" autocomplete="off">
+                    <input type="password" id="sync-password-confirm" class="input-field hidden" placeholder="Confirm password" autocomplete="off">
+                    <p id="sync-modal-error" class="sync-modal-error hidden"></p>
+                </div>
+                <div class="btn-array">
+                    <button class="btn btn-primary" id="btn-sync-confirm">Confirm</button>
+                    <button class="btn btn-neutral" id="btn-sync-skip">Skip</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cloud Sync: First-time Prompt Modal -->
+        <div id="sync-prompt-modal" class="dialog hidden">
+            <div id="sync-prompt-content">
+                <span class="material-symbols-outlined sync-prompt-icon">cloud_sync</span>
+                <h3>Cloud Sync Available</h3>
+                <p class="sync-modal-description">Your subscription includes encrypted cloud backup. Keep your data local only, or enable cloud sync across devices?</p>
+                <p class="sync-modal-description sync-modal-disclaimer">Your data is encrypted on your device before it leaves. Only you can read it.</p>
+                <div class="btn-array">
+                    <button class="btn btn-primary" id="btn-sync-prompt-enable">Enable Cloud Sync</button>
+                    <button class="btn btn-neutral" id="btn-sync-prompt-local">Keep Local</button>
+                </div>
+            </div>
+        </div>
+
         <div class="sidebar">
             <div class="header" style="padding-block: 12px;">
                 <button class=" material-symbols-outlined btn-textual" id="btn-hide-sidebar">
@@ -504,6 +535,43 @@
                                 <h3 class="settings-page-title">Data Management</h3>
                             </div>
                             <div class="settings-page-content">
+
+                                <!-- Cloud Sync Section (Pro/Max only) -->
+                                <div id="cloud-sync-section" class="hidden">
+                                    <label>Cloud Sync</label>
+                                    <div class="cloud-sync-card">
+                                        <div class="cloud-sync-header">
+                                            <span class="material-symbols-outlined cloud-sync-icon">cloud_sync</span>
+                                            <div class="cloud-sync-status">
+                                                <span id="sync-status-label">Disabled</span>
+                                                <span id="sync-status-indicator" class="sync-status-dot sync-status-idle"></span>
+                                            </div>
+                                            <label class="uxtoggle">
+                                                <input type="checkbox" id="sync-toggle">
+                                                <span class="uxtoggle-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div id="sync-details" class="cloud-sync-details hidden">
+                                            <div class="cloud-sync-quota">
+                                                <div class="cloud-sync-quota-bar">
+                                                    <div id="sync-quota-fill" class="cloud-sync-quota-fill"></div>
+                                                </div>
+                                                <span id="sync-quota-label" class="cloud-sync-quota-label">0 MB / 5 GB</span>
+                                            </div>
+                                            <div class="btn-array">
+                                                <button class="btn btn-primary" id="btn-sync-now">
+                                                    <span class="material-symbols-outlined">sync</span>
+                                                    Sync Now
+                                                </button>
+                                                <button class="btn btn-danger" id="btn-sync-wipe">
+                                                    <span class="material-symbols-outlined">delete_forever</span>
+                                                    Wipe Data
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p id="sync-upgrade-hint" class="sync-upgrade-hint hidden">Cloud sync is available with a Pro or Max subscription.</p>
+                                </div>
 
                                 <div class="btn-array-vertical">
                                     <label>Import</label>

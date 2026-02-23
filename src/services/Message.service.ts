@@ -26,6 +26,7 @@ import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
 import * as supabaseService from "./Supabase.service";
+import * as syncService from "./Sync.service";
 import * as helpers from "../utils/helpers";
 import { db } from "./Db.service";
 import { warn, danger } from "./Toast.service";
@@ -109,6 +110,15 @@ function isSendInFlight(): boolean {
 
 function setSendInFlight(value: boolean): void {
     sendInFlight = value;
+}
+
+async function ensureCurrentChatFullyHydratedForWrite(): Promise<void> {
+    if (!syncService.isSyncActive()) return;
+    const chatId = chatsService.getCurrentChatId();
+    if (!chatId) return;
+    const fullMessages = await syncService.fetchAllSyncedChatMessages(chatId);
+    if (!fullMessages) return;
+    await chatsService.replaceCurrentChatMessages(fullMessages);
 }
 
 function startGeneration(): AbortController {
@@ -241,8 +251,7 @@ async function persistMessages(messages: Message[]): Promise<void> {
     if (!chat) return;
     chat.content.push(...messages);
     chat.lastModified = new Date();
-    await db.chats.put(chat);
-    await chatsService.refreshChatListAfterActivity(db);
+    await chatsService.saveChat(chat);
 }
 
 function createModelErrorMessage(selectedPersonalityId: string): Message {
@@ -483,7 +492,7 @@ export async function constructGeminiChatHistoryFromLocalChat(
     const backfilled = await backfillMissingPersonalityMarkers(currentChat);
     const markerEnsured = await ensurePersonalityMarker(currentChat, selectedPersonality.id);
     if (migrated || backfilled || markerEnsured) {
-        await db.chats.put(currentChat);
+        await chatsService.saveChat(currentChat as any);
     }
 
     const lastImageIndex = findLastGeneratedImageIndex(currentChat.content);
@@ -766,6 +775,7 @@ export async function skipRpgTurn(): Promise<HTMLElement | undefined> {
 // ================================================================================
 
 export async function regenerate(modelMessageIndex: number): Promise<void> {
+    await ensureCurrentChatFullyHydratedForWrite();
     const chat = await chatsService.getCurrentChat(db);
     if (!chat) {
         console.error("No chat found");
@@ -781,7 +791,7 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 
         chat.content = chat.content.slice(0, deletionStart);
         pruneTrailingPersonalityMarkers(chat);
-        await db.chats.put(chat);
+        await chatsService.saveChat(chat as any);
 
         const container = document.querySelector<HTMLDivElement>(".message-container");
         if (container) {
@@ -830,7 +840,7 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 
     chat.content = chat.content.slice(0, deletionStart);
     pruneTrailingPersonalityMarkers(chat);
-    await db.chats.put(chat);
+    await chatsService.saveChat(chat as any);
 
     const container = document.querySelector<HTMLDivElement>(".message-container");
     if (container) {
@@ -865,6 +875,7 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 }
 
 export async function deleteRound(roundIndex: number): Promise<void> {
+    await ensureCurrentChatFullyHydratedForWrite();
     const chat = await chatsService.getCurrentChat(db);
     if (!chat) return;
 
@@ -873,12 +884,12 @@ export async function deleteRound(roundIndex: number): Promise<void> {
     if (chat.content.length === beforeLen) return;
 
     pruneTrailingPersonalityMarkers(chat);
-    await db.chats.put(chat);
-    await chatsService.refreshChatListAfterActivity(db);
+    await chatsService.saveChat(chat as any);
     await chatsService.loadChat((chat as any).id, db);
 }
 
 export async function regenerateRound(roundIndex: number): Promise<void> {
+    await ensureCurrentChatFullyHydratedForWrite();
     const chat = await chatsService.getCurrentChat(db);
     if (!chat) return;
 
@@ -887,8 +898,7 @@ export async function regenerateRound(roundIndex: number): Promise<void> {
 
     chat.content = chat.content.slice(0, startIndex);
     pruneTrailingPersonalityMarkers(chat);
-    await db.chats.put(chat);
-    await chatsService.refreshChatListAfterActivity(db);
+    await chatsService.saveChat(chat as any);
     await chatsService.loadChat((chat as any).id, db);
 
     try {
@@ -926,6 +936,7 @@ interface EarlyValidationFailure {
 type EarlyValidationResult = EarlyValidationSuccess | EarlyValidationFailure;
 
 async function performEarlyValidation(msg: string): Promise<EarlyValidationResult> {
+    await ensureCurrentChatFullyHydratedForWrite();
     const settings = settingsService.getSettings();
     const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
     const shouldEnforceThoughtSignaturesInHistory = settings.model === ChatModel.NANO_BANANA_PRO;

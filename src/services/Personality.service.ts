@@ -5,10 +5,85 @@ import { v4 as uuidv4 } from 'uuid';
 import { getMarketplacePersonaVersion, getMarketplacePersonaVersions, fetchMarketplacePersona, type MarketplacePersonaInfo } from "./Supabase.service";
 import { info, danger } from "./Toast.service";
 import { showElement } from "../utils/helpers";
+import * as syncService from "./Sync.service";
+
+const SYNCED_PERSONAS_CACHE_TTL_MS = 5000;
+
+let syncedPersonasCache: DbPersonality[] | null = null;
+let syncedPersonasCacheAt = 0;
+let syncedPersonasFetchPromise: Promise<DbPersonality[]> | null = null;
+
+function invalidateSyncedPersonasCache(): void {
+    syncedPersonasCache = null;
+    syncedPersonasCacheAt = 0;
+    syncedPersonasFetchPromise = null;
+}
+
+function upsertCachedSyncedPersona(persona: DbPersonality): void {
+    if (!syncedPersonasCache) return;
+    const idx = syncedPersonasCache.findIndex(p => p.id === persona.id);
+    if (idx === -1) {
+        syncedPersonasCache.push(persona);
+    } else {
+        syncedPersonasCache[idx] = persona;
+    }
+    syncedPersonasCacheAt = Date.now();
+}
+
+function removeCachedSyncedPersona(id: string): void {
+    if (!syncedPersonasCache) return;
+    syncedPersonasCache = syncedPersonasCache.filter(p => p.id !== id);
+    syncedPersonasCacheAt = Date.now();
+}
+
+async function fetchSyncedPersonasCached(force = false): Promise<DbPersonality[]> {
+    if (!syncService.isOnlineSyncEnabled()) return [];
+    if (!syncService.isSyncActive()) return [];
+
+    const now = Date.now();
+    if (!force && syncedPersonasCache && (now - syncedPersonasCacheAt) < SYNCED_PERSONAS_CACHE_TTL_MS) {
+        return syncedPersonasCache;
+    }
+
+    if (syncedPersonasFetchPromise) {
+        return syncedPersonasFetchPromise;
+    }
+
+    syncedPersonasFetchPromise = syncService.fetchSyncedPersonas()
+        .then((remote) => {
+            syncedPersonasCache = remote;
+            syncedPersonasCacheAt = Date.now();
+            return remote;
+        })
+        .finally(() => {
+            syncedPersonasFetchPromise = null;
+        });
+
+    return syncedPersonasFetchPromise;
+}
 
 export async function initialize() {
     //setup marketplace banner dismiss
     setupMarketplaceBanner();
+
+    window.addEventListener('sync-data-pulled', () => {
+        invalidateSyncedPersonasCache();
+    });
+    window.addEventListener('sync-setup-complete', () => {
+        invalidateSyncedPersonasCache();
+    });
+
+    await reloadFromDb();
+}
+
+export async function reloadFromDb() {
+    const personalitiesDiv = document.querySelector<HTMLElement>("#personalitiesDiv");
+    if (!personalitiesDiv) {
+        console.error("Personalities container not found");
+        return;
+    }
+
+    personalitiesDiv.innerHTML = '';
 
     //default personality setup
     const defaultPersonalityCard = insert(getDefault(), "-1");
@@ -115,6 +190,14 @@ export async function get(id: string): Promise<Personality> {
     if (id === "-1") {
         return getDefault();
     }
+
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) return getDefault();
+        const remote = await fetchSyncedPersonasCached();
+        const found = remote.find((personality) => personality.id === id);
+        return found ?? getDefault();
+    }
+
     const personality = await db?.personalities.get(id);
     if (!personality) {
         return getDefault();
@@ -123,6 +206,11 @@ export async function get(id: string): Promise<Personality> {
 }
 
 export async function getAll() {
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) return [];
+        return await fetchSyncedPersonasCached();
+    }
+
     const personalities = await db.personalities.toArray();
     if (!personalities) {
         return [];
@@ -134,6 +222,16 @@ export async function remove(id: string) {
     if (id === "-1") {
         return;
     }
+
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) return;
+        const ok = await syncService.deleteSyncedPersona(id);
+        if (ok) {
+            removeCachedSyncedPersona(id);
+        }
+        return;
+    }
+
     await db.personalities.delete(id);
 }
 
@@ -247,7 +345,16 @@ export function initAddPersonaModalHandlers() {
 }
 
 export async function removeAll() {
-    await db.personalities.clear();
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) return;
+        const personas = await fetchSyncedPersonasCached(true);
+        for (const persona of personas) {
+            await syncService.deleteSyncedPersona(persona.id);
+        }
+        invalidateSyncedPersonasCache();
+    } else {
+        await db.personalities.clear();
+    }
     const personalityElements = document.querySelector<HTMLDivElement>("#personalitiesDiv")!.children;
     for (let i = personalityElements.length - 1; i >= 0; i--) {
         const element = personalityElements[i];
@@ -269,7 +376,9 @@ export async function add(personality: Personality, explicitId?: string) {
         : (explicitId && explicitId !== "-1" ? explicitId : uuidv4());
     
     //check if persona with this ID already exists
-    const existing = await db.personalities.get(id);
+    const existing = syncService.isOnlineSyncEnabled()
+        ? (await fetchSyncedPersonasCached()).find((p) => p.id === id)
+        : await db.personalities.get(id);
     if (existing) {
         info({ title: 'Already imported', text: `"${personality.name}" is already in your library` });
         return;
@@ -306,7 +415,20 @@ export async function add(personality: Personality, explicitId?: string) {
     }
     
     //add new persona
-    await db.personalities.add(personaToSave);
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) {
+            danger({ title: 'Sync locked', text: 'Unlock cloud sync before adding personas.' });
+            return;
+        }
+        const syncedOk = await syncService.pushPersona(personaToSave as DbPersonality);
+        if (!syncedOk) {
+            danger({ title: 'Sync failed', text: 'Failed to save persona to cloud.' });
+            return;
+        }
+        upsertCachedSyncedPersona(personaToSave as DbPersonality);
+    } else {
+        await db.personalities.add(personaToSave);
+    }
     insertWithSync(personality, id, syncInfo);
 
     // Move the add card to be the last element
@@ -318,7 +440,9 @@ export async function add(personality: Personality, explicitId?: string) {
 
 export async function edit(id: string, personality: Personality) {
     //check if this is a synced personality from marketplace
-    const existing = await db.personalities.get(id);
+    const existing = syncService.isOnlineSyncEnabled()
+        ? (await fetchSyncedPersonasCached()).find((p) => p.id === id)
+        : await db.personalities.get(id);
     const updateData: Partial<Personality & { version?: number }> = { ...personality };
     
     //if synced from marketplace, set version to 0 to mark as locally modified
@@ -326,7 +450,21 @@ export async function edit(id: string, personality: Personality) {
         updateData.version = 0;
     }
 
-    await db.personalities.update(id, updateData);
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) {
+            danger({ title: 'Sync locked', text: 'Unlock cloud sync before editing personas.' });
+            return;
+        }
+        if (!existing) return;
+        const syncedOk = await syncService.pushPersona({ ...(existing as any), ...updateData, id } as DbPersonality);
+        if (!syncedOk) {
+            danger({ title: 'Sync failed', text: 'Failed to update persona in cloud.' });
+            return;
+        }
+        upsertCachedSyncedPersona({ ...(existing as any), ...updateData, id } as DbPersonality);
+    } else {
+        await db.personalities.update(id, updateData);
+    }
 
     //refresh the card with correct sync status
     await refreshCard(id);

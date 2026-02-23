@@ -1,6 +1,5 @@
 import { Message } from "../../types/Message";
 import { Personality } from "../../types/Personality";
-import { db } from "../../services/Db.service";
 import hljs from 'highlight.js';
 import * as helpers from "../../utils/helpers";
 import * as personalityService from "../../services/Personality.service";
@@ -42,7 +41,7 @@ function escapeHtml(value: string): string {
 async function decorateMentions(html: string): Promise<string> {
     if (!html.includes("@")) return html;
 
-    const chat = await chatsService.getCurrentChat(db);
+    const chat = await chatsService.getCurrentChat();
     if (!chat || chat.groupChat?.mode !== "dynamic") return html;
 
     const participantIds = Array.isArray(chat.groupChat.participantIds) ? chat.groupChat.participantIds : [];
@@ -332,7 +331,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
         // Get current message's attachments
         const messageIndex = resolveChatIndex(messageElement);
         if (messageIndex >= 0) {
-            const currentChat = await chatsService.getCurrentChat(db);
+            const currentChat = await chatsService.getCurrentChat();
             if (currentChat && currentChat.content[messageIndex]) {
                 originalAttachments = currentChat.content[messageIndex].parts[0]?.attachments;
                 editingAttachments = originalAttachments ? Array.from(originalAttachments) : [];
@@ -480,7 +479,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
         await updateMessageInDatabase(markdownWithMentions, messageIndex, editingAttachments);
 
         // Re-render the message element to show the updated attachments without edit buttons
-        const currentChat = await chatsService.getCurrentChat(db);
+        const currentChat = await chatsService.getCurrentChat();
         if (currentChat && currentChat.content[messageIndex]) {
             const updatedMessage = currentChat.content[messageIndex];
             // Import the module to get a reference to the function
@@ -602,10 +601,9 @@ function setupMessageClipboard(messageElement: HTMLElement) {
 }
 
 async function updateMessageInDatabase(markdownContent: string, messageIndex: number, attachments?: File[]) {
-    if (!db) return;
     try {
         // Get the current chat and update the specific message
-        const currentChat = await chatsService.getCurrentChat(db);
+        const currentChat = await chatsService.getCurrentChat();
         if (!currentChat || !currentChat.content[messageIndex] || !markdownContent) return;
 
          // Update the message content in the parts array
@@ -627,8 +625,8 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
             }
         }
 
-        // Save the updated chat back to the database
-        await db.chats.put(currentChat);
+        // Save the updated chat back through chat persistence abstraction
+        await chatsService.saveChat(currentChat as any);
         console.log("Message updated in database");
     } catch (error) {
         console.error("Error updating message in database:", error);
