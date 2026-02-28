@@ -1,6 +1,7 @@
 import * as helpers from "../../utils/helpers";
 import * as personalityService from "../../services/Personality.service";
 import * as chatsService from "../../services/Chats.service";
+import * as toastService from "../../services/Toast.service";
 import { db } from "../../services/Db.service";
 import "./ChatSearch.component";
 
@@ -82,7 +83,10 @@ importPersonalityButton.addEventListener("click", () => {
                 personalityService.add(persona, persona?.id);
             } catch (err) {
                 console.error("Failed to import personality", err);
-                alert("Failed to import personality. Please ensure the file is valid JSON.");
+                toastService.danger({
+                    title: "Import Failed",
+                    text: "Failed to import personality. Please ensure the file is valid JSON."
+                });
             }
         };
         reader.readAsText(file);
@@ -108,7 +112,10 @@ bulkImportPersonasButton.addEventListener("click", () => {
                 });
             } catch (err) {
                 console.error("Failed to import personas", err);
-                alert("Failed to import personas. Please ensure the file is valid JSON.");
+                toastService.danger({
+                    title: "Import Failed",
+                    text: "Failed to import personas. Please ensure the file is valid JSON."
+                });
             }
         };
         reader.readAsText(file);
@@ -131,7 +138,10 @@ exportAllPersonasButton.addEventListener("click", async () => {
         URL.revokeObjectURL(url);
     } catch (err) {
         console.error("Failed to export personas", err);
-        alert("Failed to export personas.");
+        toastService.danger({
+            title: "Export Failed",
+            text: "Failed to export personas."
+        });
     }
 });
 

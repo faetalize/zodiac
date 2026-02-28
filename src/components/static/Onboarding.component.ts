@@ -8,6 +8,7 @@ import { SubscriptionPriceIDs } from "../../types/Price";
 import type { ColorTheme, ThemeMode, ThemePreference } from "../../types/Theme";
 import * as onboardingService from "../../services/Onboarding.service";
 import * as supabaseService from "../../services/Supabase.service";
+import * as syncService from "../../services/Sync.service";
 import * as settingsService from "../../services/Settings.service";
 import * as toastService from "../../services/Toast.service";
 import { themeService } from "../../services/Theme.service";
@@ -86,16 +87,33 @@ const subscriptionAutoLoginButton = document.querySelector<HTMLButtonElement>("#
 const subscriptionReturnButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-subscription-return");
 const subscriptionStatus = document.querySelector<HTMLDivElement>("#onboarding-subscription-status");
 
+// Cloud sync setup elements (onboarding)
+const cloudSyncEnableCheckbox = document.querySelector<HTMLInputElement>("#onboarding-cloud-sync-enable");
+const cloudSyncTitle = document.querySelector<HTMLHeadingElement>("#onboarding-cloud-sync-title");
+const cloudSyncSubtitle = document.querySelector<HTMLParagraphElement>("#onboarding-cloud-sync-subtitle");
+const cloudSyncEnableGroup = document.querySelector<HTMLDivElement>("#onboarding-cloud-sync-enable-group");
+const cloudSyncPasswordInput = document.querySelector<HTMLInputElement>("#onboarding-cloud-sync-password");
+const cloudSyncPasswordConfirmGroup = document.querySelector<HTMLDivElement>("#onboarding-cloud-sync-password-confirm-group");
+const cloudSyncPasswordConfirmInput = document.querySelector<HTMLInputElement>("#onboarding-cloud-sync-password-confirm");
+const cloudSyncStatus = document.querySelector<HTMLDivElement>("#onboarding-cloud-sync-status");
+const cloudSyncContinueButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-cloud-sync-continue");
+const cloudSyncSkipButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-cloud-sync-skip");
+
 // Advanced settings elements (Power User Path)
 const advancedModelSelect = document.querySelector<HTMLSelectElement>("#onboarding-model-select");
 const advancedTemperature = document.querySelector<HTMLInputElement>("#onboarding-temperature");
 const advancedTemperatureValue = document.querySelector<HTMLSpanElement>("#onboarding-temperature-value");
+const advancedMaxOutputTokens = document.querySelector<HTMLInputElement>("#onboarding-max-output-tokens");
 const advancedThinkingEnabled = document.querySelector<HTMLInputElement>("#onboarding-thinking-enabled");
 const advancedThinkingHint = document.querySelector<HTMLParagraphElement>("#onboarding-thinking-hint");
 const advancedThinkingBudget = document.querySelector<HTMLInputElement>("#onboarding-thinking-budget");
 const advancedAutoscroll = document.querySelector<HTMLInputElement>("#onboarding-autoscroll");
 const advancedStreamResponses = document.querySelector<HTMLInputElement>("#onboarding-stream-responses");
-const advancedContinueButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-advanced-continue");
+const advancedRpgGroupChatsProgressAutomatically = document.querySelector<HTMLInputElement>("#onboarding-rpg-group-chats-progress-automatically");
+const advancedDisallowPersonaPinging = document.querySelector<HTMLInputElement>("#onboarding-disallow-persona-pinging");
+const advancedDynamicGroupChatPingOnly = document.querySelector<HTMLInputElement>("#onboarding-dynamic-group-chat-ping-only");
+const advancedPrimaryContinueButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-advanced-primary-continue");
+const advancedBehaviorContinueButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-advanced-behavior-continue");
 
 // Summary elements
 const summaryFinishButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-finish");
@@ -156,15 +174,30 @@ const requiredElements = {
     subscriptionAutoLoginButton,
     subscriptionReturnButton,
     subscriptionStatus,
+    cloudSyncEnableCheckbox,
+    cloudSyncTitle,
+    cloudSyncSubtitle,
+    cloudSyncEnableGroup,
+    cloudSyncPasswordInput,
+    cloudSyncPasswordConfirmGroup,
+    cloudSyncPasswordConfirmInput,
+    cloudSyncStatus,
+    cloudSyncContinueButton,
+    cloudSyncSkipButton,
     advancedModelSelect,
     advancedTemperature,
     advancedTemperatureValue,
+    advancedMaxOutputTokens,
     advancedThinkingEnabled,
     advancedThinkingHint,
     advancedThinkingBudget,
     advancedAutoscroll,
     advancedStreamResponses,
-    advancedContinueButton,
+    advancedRpgGroupChatsProgressAutomatically,
+    advancedDisallowPersonaPinging,
+    advancedDynamicGroupChatPingOnly,
+    advancedPrimaryContinueButton,
+    advancedBehaviorContinueButton,
     summaryFinishButton,
     summaryApiKeyContent,
     summarySubscriptionContent
@@ -179,6 +212,10 @@ for (const [name, element] of Object.entries(requiredElements)) {
 
 type AuthMode = "register" | "login";
 let activeAuthMode: AuthMode = "register";
+let refreshAdvancedSettingsFromStorage: (() => void) | null = null;
+let hasCloudSyncEnabledForCurrentUser = false;
+type OnboardingCloudSyncMode = "setup" | "unlock" | "enable";
+let onboardingCloudSyncMode: OnboardingCloudSyncMode = "setup";
 
 /**
  * Initialize onboarding component
@@ -193,6 +230,7 @@ export function initialize(): void {
     setupPlanSelection();
     setupRegistration();
     setupSubscriptionConfirmation();
+    setupCloudSyncSetup();
     setupAdvancedSettings();
     setupSummary();
 }
@@ -280,12 +318,12 @@ function setupThemeSelection(): void {
  * Account selector step handlers (for logged-in Pro/Max users)
  */
 function setupAccountSelector(): void {
-    continueWithAccountButton!.addEventListener("click", () => {
+    continueWithAccountButton!.addEventListener("click", async () => {
         // Mark setup as subscription (since they're already subscribed)
         onboardingService.setSetupOption("subscription");
         
         // Route based on selected path (Easy or Power)
-        routeToSettingsOrSummary();
+        await routeToCloudSyncOrSettings();
     });
 
     useDifferentAccountButton!.addEventListener("click", async () => {
@@ -302,7 +340,7 @@ function setupAccountSelector(): void {
  * This is dynamic and changes behavior based on setup option
  */
 function setupAccountConfirmation(): void {
-    confirmContinueButton!.addEventListener("click", () => {
+    confirmContinueButton!.addEventListener("click", async () => {
         const setupOption = onboardingService.getState().setupOption;
         
         if (setupOption === "subscription") {
@@ -310,7 +348,7 @@ function setupAccountConfirmation(): void {
             onboardingService.goToStep(OnboardingStep.PLAN_SELECTION);
         } else if (setupOption === "api-key") {
             // Continue to settings or summary based on path
-            routeToSettingsOrSummary();
+            await routeToCloudSyncOrSettings();
         }
     });
 
@@ -521,18 +559,18 @@ function setupApiKeySetup(): void {
  * Plan selection step handlers (for subscription flow)
  */
 function setupPlanSelection(): void {
-    selectProButton!.addEventListener("click", () => {
+    selectProButton!.addEventListener("click", async () => {
         onboardingService.setSelectedPriceId(SubscriptionPriceIDs.PRO_MONTHLY);
-        routeToSettingsOrSummary();
+        await routeToCloudSyncOrSettings();
     });
 
-    selectMaxButton!.addEventListener("click", () => {
+    selectMaxButton!.addEventListener("click", async () => {
         // Max tier coming soon - button is disabled but add guard just in case
         if (selectMaxButton!.disabled) {
             return;
         }
         onboardingService.setSelectedPriceId(SubscriptionPriceIDs.MAX_MONTHLY);
-        routeToSettingsOrSummary();
+        await routeToCloudSyncOrSettings();
     });
 }
 
@@ -629,14 +667,14 @@ function setupRegistration(): void {
         }
     });
     
-    registerSkipButton!.addEventListener("click", () => {
+    registerSkipButton!.addEventListener("click", async () => {
         if (registerSkipButton!.disabled) {
             return;
         }
 
         onboardingService.setRegistrationCompleted(false);
         onboardingService.setPendingCredentials(null);
-        routeToSettingsOrSummary();
+        await routeToCloudSyncOrSettings();
     });
 
     registerLoginButton!.addEventListener("click", async (event) => {
@@ -681,7 +719,7 @@ function setupRegistration(): void {
                     onboardingService.goToStep(OnboardingStep.PLAN_SELECTION);
                 }
             } else {
-                routeToSettingsOrSummary();
+                await routeToCloudSyncOrSettings();
             }
         } catch (error) {
             console.error("Login failed:", error);
@@ -720,7 +758,7 @@ function setupSummary(): void {
         
         // Apply Easy path settings for ALL outcomes
         const selectedPath = onboardingService.getState().selectedPath;
-        if (selectedPath === OnboardingPath.EASY) {
+        if (selectedPath === OnboardingPath.EASY && !hasCloudSyncEnabledForCurrentUser) {
             applyEasyPathSettings();
         }
         
@@ -901,7 +939,7 @@ function setupSubscriptionConfirmation(): void {
                         title: "Signed in",
                         text: "Welcome! You're all set."
                     });
-                    routeToSettingsOrSummary();
+                    await routeToCloudSyncOrSettings();
                 }
             }
         } catch (error) {
@@ -921,10 +959,362 @@ function setupSubscriptionConfirmation(): void {
     });
 }
 
+function setupCloudSyncSetup(): void {
+    const applyCloudSyncModeUi = () => {
+        if (onboardingCloudSyncMode === "unlock") {
+            cloudSyncTitle!.textContent = "Unlock Cloud Sync";
+            cloudSyncSubtitle!.textContent = "Enter your encryption password to load your synced settings";
+            cloudSyncEnableGroup!.classList.add("hidden");
+            cloudSyncPasswordConfirmGroup!.classList.add("hidden");
+            cloudSyncSkipButton!.classList.remove("hidden");
+            cloudSyncSkipButton!.textContent = "Continue without synced settings";
+            cloudSyncContinueButton!.textContent = "Unlock and Continue";
+            cloudSyncPasswordInput!.disabled = false;
+            cloudSyncPasswordConfirmInput!.disabled = true;
+            return;
+        }
+
+        if (onboardingCloudSyncMode === "enable") {
+            cloudSyncTitle!.textContent = "Re-enable Cloud Sync";
+            cloudSyncSubtitle!.textContent = "Encrypted cloud data already exists. Re-enable sync with your encryption password.";
+            cloudSyncEnableGroup!.classList.add("hidden");
+            cloudSyncPasswordConfirmGroup!.classList.add("hidden");
+            cloudSyncSkipButton!.classList.remove("hidden");
+            cloudSyncSkipButton!.textContent = "Keep Sync Disabled";
+            cloudSyncContinueButton!.textContent = "Re-enable and Continue";
+            cloudSyncPasswordInput!.disabled = false;
+            cloudSyncPasswordConfirmInput!.disabled = true;
+            return;
+        }
+
+        cloudSyncTitle!.textContent = "Enable Cloud Sync";
+        cloudSyncSubtitle!.textContent = "Included with Pro — set it up now or keep data local";
+        cloudSyncEnableGroup!.classList.remove("hidden");
+        cloudSyncPasswordConfirmGroup!.classList.remove("hidden");
+        cloudSyncSkipButton!.textContent = "Keep Data Local";
+        cloudSyncContinueButton!.textContent = "Continue";
+    };
+
+    const updateCloudSyncInputState = () => {
+        if (onboardingCloudSyncMode === "unlock" || onboardingCloudSyncMode === "enable") {
+            cloudSyncPasswordInput!.disabled = false;
+            cloudSyncPasswordConfirmInput!.disabled = true;
+            cloudSyncSkipButton!.classList.remove("hidden");
+            return;
+        }
+
+        const enableSync = cloudSyncEnableCheckbox!.checked;
+        cloudSyncPasswordInput!.disabled = !enableSync;
+        cloudSyncPasswordConfirmInput!.disabled = !enableSync;
+        cloudSyncSkipButton!.classList.toggle("hidden", !enableSync);
+    };
+
+    const resetCloudSyncStatus = () => {
+        cloudSyncStatus!.classList.add("hidden");
+        cloudSyncStatus!.classList.remove("status-loading", "status-success", "status-error");
+        cloudSyncStatus!.textContent = "";
+    };
+
+    const showCloudSyncStatus = (message: string, type: "loading" | "success" | "error") => {
+        resetCloudSyncStatus();
+        cloudSyncStatus!.textContent = message;
+        cloudSyncStatus!.classList.remove("hidden");
+        cloudSyncStatus!.classList.add(`status-${type}`);
+    };
+
+    cloudSyncEnableCheckbox!.addEventListener("change", () => {
+        if (onboardingCloudSyncMode !== "setup") {
+            return;
+        }
+
+        updateCloudSyncInputState();
+        resetCloudSyncStatus();
+    });
+
+    cloudSyncPasswordInput!.addEventListener("input", resetCloudSyncStatus);
+    cloudSyncPasswordConfirmInput!.addEventListener("input", resetCloudSyncStatus);
+
+    cloudSyncSkipButton!.addEventListener("click", async () => {
+        if (onboardingCloudSyncMode === "setup") {
+            syncService.markSyncPromptSeen();
+        }
+        await routeToSettingsOrSummary();
+    });
+
+    cloudSyncContinueButton!.addEventListener("click", async () => {
+        if (onboardingCloudSyncMode === "unlock") {
+            const password = cloudSyncPasswordInput!.value;
+            if (!password) {
+                showCloudSyncStatus("Password is required.", "error");
+                return;
+            }
+
+            cloudSyncContinueButton!.disabled = true;
+            cloudSyncContinueButton!.textContent = "Unlocking...";
+            showCloudSyncStatus("Unlocking cloud sync...", "loading");
+
+            try {
+                const unlockSuccess = await syncService.unlock(password);
+                if (!unlockSuccess) {
+                    showCloudSyncStatus("Incorrect password. Please try again.", "error");
+                    return;
+                }
+
+                const didApplySyncedSettings = await syncService.applySyncedSettingsToLocalStorage();
+                if (didApplySyncedSettings) {
+                    settingsService.loadSettings();
+                    themeService.reloadFromStorage();
+                }
+
+                await syncService.pullAll();
+                settingsService.loadSettings();
+                themeService.reloadFromStorage();
+
+                showCloudSyncStatus("Synced settings loaded.", "success");
+                await routeToSettingsOrSummary();
+            } finally {
+                cloudSyncContinueButton!.disabled = false;
+                cloudSyncContinueButton!.textContent = "Unlock and Continue";
+            }
+            return;
+        }
+
+        if (onboardingCloudSyncMode === "enable") {
+            const password = cloudSyncPasswordInput!.value;
+            if (!password) {
+                showCloudSyncStatus("Password is required.", "error");
+                return;
+            }
+
+            cloudSyncContinueButton!.disabled = true;
+            cloudSyncContinueButton!.textContent = "Re-enabling...";
+            showCloudSyncStatus("Re-enabling cloud sync...", "loading");
+
+            try {
+                const enableSuccess = await syncService.enableSync(password, { strategy: "pull-remote" });
+                if (!enableSuccess) {
+                    showCloudSyncStatus("Incorrect password. Please try again.", "error");
+                    return;
+                }
+
+                hasCloudSyncEnabledForCurrentUser = true;
+                const didApplySyncedSettings = await syncService.applySyncedSettingsToLocalStorage();
+                if (didApplySyncedSettings) {
+                    settingsService.loadSettings();
+                    themeService.reloadFromStorage();
+                }
+                settingsService.loadSettings();
+                themeService.reloadFromStorage();
+
+                showCloudSyncStatus("Cloud sync re-enabled.", "success");
+                await routeToSettingsOrSummary();
+            } finally {
+                cloudSyncContinueButton!.disabled = false;
+                cloudSyncContinueButton!.textContent = "Re-enable and Continue";
+            }
+            return;
+        }
+
+        if (!cloudSyncEnableCheckbox!.checked) {
+            syncService.markSyncPromptSeen();
+            await routeToSettingsOrSummary();
+            return;
+        }
+
+        const password = cloudSyncPasswordInput!.value;
+        const passwordConfirm = cloudSyncPasswordConfirmInput!.value;
+
+        if (!password) {
+            showCloudSyncStatus("Password is required.", "error");
+            return;
+        }
+
+        if (password.length < 8) {
+            showCloudSyncStatus("Password must be at least 8 characters.", "error");
+            return;
+        }
+
+        if (password !== passwordConfirm) {
+            showCloudSyncStatus("Passwords do not match.", "error");
+            return;
+        }
+
+        cloudSyncContinueButton!.disabled = true;
+        cloudSyncContinueButton!.textContent = "Setting up...";
+        showCloudSyncStatus("Setting up cloud sync...", "loading");
+
+        try {
+            const success = await syncService.setupSync(password);
+            if (!success) {
+                showCloudSyncStatus("Setup failed. Please try again.", "error");
+                return;
+            }
+
+            syncService.markSyncPromptSeen();
+            await syncService.pullAll();
+            settingsService.loadSettings();
+            themeService.reloadFromStorage();
+            showCloudSyncStatus("Cloud sync enabled.", "success");
+            await routeToSettingsOrSummary();
+        } finally {
+            cloudSyncContinueButton!.disabled = false;
+            cloudSyncContinueButton!.textContent = "Continue";
+        }
+    });
+
+    applyCloudSyncModeUi();
+    updateCloudSyncInputState();
+}
+
+async function shouldShowCloudSyncSetupInOnboarding(): Promise<boolean> {
+    const user = await supabaseService.getCurrentUser();
+    if (!user) {
+        return false;
+    }
+
+    const subscription = await supabaseService.getUserSubscription();
+    const tier = supabaseService.getSubscriptionTier(subscription);
+    if (tier !== "pro") {
+        return false;
+    }
+
+    const preferences = await syncService.fetchSyncPreferences();
+    return preferences?.syncEnabled !== true;
+}
+
+function prepareCloudSyncSetupStep(mode: OnboardingCloudSyncMode): void {
+    onboardingCloudSyncMode = mode;
+
+    if (onboardingCloudSyncMode === "unlock") {
+        cloudSyncTitle!.textContent = "Unlock Cloud Sync";
+        cloudSyncSubtitle!.textContent = "Enter your encryption password to load your synced settings";
+        cloudSyncEnableGroup!.classList.add("hidden");
+        cloudSyncPasswordConfirmGroup!.classList.add("hidden");
+        cloudSyncSkipButton!.classList.remove("hidden");
+        cloudSyncSkipButton!.textContent = "Continue without synced settings";
+        cloudSyncContinueButton!.textContent = "Unlock and Continue";
+    } else if (onboardingCloudSyncMode === "enable") {
+        cloudSyncTitle!.textContent = "Re-enable Cloud Sync";
+        cloudSyncSubtitle!.textContent = "Encrypted cloud data already exists. Re-enable sync with your encryption password.";
+        cloudSyncEnableGroup!.classList.add("hidden");
+        cloudSyncPasswordConfirmGroup!.classList.add("hidden");
+        cloudSyncSkipButton!.classList.remove("hidden");
+        cloudSyncSkipButton!.textContent = "Keep Sync Disabled";
+        cloudSyncContinueButton!.textContent = "Re-enable and Continue";
+    } else {
+        cloudSyncTitle!.textContent = "Enable Cloud Sync";
+        cloudSyncSubtitle!.textContent = "Included with Pro — set it up now or keep data local";
+        cloudSyncEnableGroup!.classList.remove("hidden");
+        cloudSyncPasswordConfirmGroup!.classList.remove("hidden");
+        cloudSyncSkipButton!.textContent = "Keep Data Local";
+        cloudSyncContinueButton!.textContent = "Continue";
+    }
+
+    cloudSyncEnableCheckbox!.checked = true;
+    cloudSyncPasswordInput!.value = "";
+    cloudSyncPasswordConfirmInput!.value = "";
+    cloudSyncPasswordInput!.disabled = false;
+    cloudSyncPasswordConfirmInput!.disabled = onboardingCloudSyncMode === "unlock";
+        cloudSyncPasswordConfirmInput!.disabled = onboardingCloudSyncMode !== "setup";
+    cloudSyncSkipButton!.classList.remove("hidden");
+    cloudSyncStatus!.classList.add("hidden");
+    cloudSyncStatus!.classList.remove("status-loading", "status-success", "status-error");
+    cloudSyncStatus!.textContent = "";
+}
+
+async function routeToCloudSyncOrSettings(): Promise<void> {
+    const cloudSyncMode = await getOnboardingCloudSyncMode();
+    if (cloudSyncMode) {
+        prepareCloudSyncSetupStep(cloudSyncMode);
+        onboardingService.goToStep(OnboardingStep.CLOUD_SYNC_SETUP);
+        return;
+    }
+
+    const shouldPromptUnlock = await hydrateRemoteSettingsForOnboarding();
+    if (shouldPromptUnlock) {
+        prepareCloudSyncSetupStep("unlock");
+        onboardingService.goToStep(OnboardingStep.CLOUD_SYNC_SETUP);
+        return;
+    }
+
+    await routeToSettingsOrSummary();
+}
+
+async function hydrateRemoteSettingsForOnboarding(): Promise<boolean> {
+    const user = await supabaseService.getCurrentUser();
+    if (!user) {
+        hasCloudSyncEnabledForCurrentUser = false;
+        return false;
+    }
+
+    const subscription = await supabaseService.getUserSubscription();
+    const tier = supabaseService.getSubscriptionTier(subscription);
+    if (tier !== "pro" && tier !== "max") {
+        hasCloudSyncEnabledForCurrentUser = false;
+        return false;
+    }
+
+    const preferences = await syncService.fetchSyncPreferences();
+    hasCloudSyncEnabledForCurrentUser = preferences?.syncEnabled === true;
+
+    if (!hasCloudSyncEnabledForCurrentUser) {
+        return false;
+    }
+
+    const didApplySyncedSettings = await syncService.applySyncedSettingsToLocalStorage();
+    if (didApplySyncedSettings) {
+        settingsService.loadSettings();
+        return false;
+    }
+
+    return true;
+}
+
 /**
  * Advanced settings step handlers (Power User Path)
  */
 function setupAdvancedSettings(): void {
+    let hasCustomThinkingBudget = false;
+    let maxOutputTokensValidationTimer: ReturnType<typeof setTimeout> | null = null;
+    let thinkingBudgetValidationTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const calculateRecommendedThinkingBudget = (maxOutputTokens: number): number => {
+        return Math.max(128, Math.floor(maxOutputTokens * 0.5));
+    };
+
+    const applyRecommendedThinkingBudgetFromCurrentOutput = (options?: { clampOutput?: boolean }) => {
+        if (options?.clampOutput) {
+            clampMaxOutputTokens();
+        }
+
+        if (hasCustomThinkingBudget) {
+            return;
+        }
+
+        const parsedMaxOutputTokens = parseInt(advancedMaxOutputTokens!.value, 10);
+        if (isNaN(parsedMaxOutputTokens)) {
+            return;
+        }
+
+        const recommendedThinkingBudget = calculateRecommendedThinkingBudget(parsedMaxOutputTokens);
+        advancedThinkingBudget!.value = recommendedThinkingBudget.toString();
+    };
+
+    const clampMaxOutputTokens = () => {
+        const parsedValue = parseInt(advancedMaxOutputTokens!.value, 10);
+        if (isNaN(parsedValue) || parsedValue < 128) {
+            advancedMaxOutputTokens!.value = "128";
+            return;
+        }
+
+        if (parsedValue > 65536) {
+            advancedMaxOutputTokens!.value = "65536";
+            return;
+        }
+
+        advancedMaxOutputTokens!.value = parsedValue.toString();
+    };
+
     // Load current or default settings
     const loadDefaultSettings = () => {
         advancedModelSelect!.value = getValidEnumValue(
@@ -934,10 +1324,32 @@ function setupAdvancedSettings(): void {
         )
         advancedTemperature!.value = localStorage.getItem("TEMPERATURE") || "60";
         updateTemperatureDisplay();
+        advancedMaxOutputTokens!.value = localStorage.getItem("maxTokens") || "1000";
+        clampMaxOutputTokens();
         advancedThinkingEnabled!.checked = localStorage.getItem("enableThinking") !== "false";
-        advancedThinkingBudget!.value = localStorage.getItem("thinkingBudget") || "500";
+        const maxOutputTokens = parseInt(advancedMaxOutputTokens!.value, 10);
+        const recommendedThinkingBudget = calculateRecommendedThinkingBudget(maxOutputTokens);
+        const storedThinkingBudget = localStorage.getItem("thinkingBudget");
+        if (storedThinkingBudget === null) {
+            advancedThinkingBudget!.value = recommendedThinkingBudget.toString();
+            hasCustomThinkingBudget = false;
+        } else {
+            const parsedThinkingBudget = parseInt(storedThinkingBudget, 10);
+            const isValidThinkingBudget = !isNaN(parsedThinkingBudget) && (parsedThinkingBudget >= 128 || parsedThinkingBudget === -1);
+
+            if (!isValidThinkingBudget) {
+                advancedThinkingBudget!.value = recommendedThinkingBudget.toString();
+                hasCustomThinkingBudget = false;
+            } else {
+                advancedThinkingBudget!.value = parsedThinkingBudget.toString();
+                hasCustomThinkingBudget = parsedThinkingBudget !== recommendedThinkingBudget;
+            }
+        }
         advancedAutoscroll!.checked = localStorage.getItem("autoscroll") !== "false";
         advancedStreamResponses!.checked = localStorage.getItem("streamResponses") !== "false";
+        advancedRpgGroupChatsProgressAutomatically!.checked = (localStorage.getItem("rpgGroupChatsProgressAutomatically") ?? "false") === "true";
+        advancedDisallowPersonaPinging!.checked = (localStorage.getItem("disallowPersonaPinging") ?? "false") === "true";
+        advancedDynamicGroupChatPingOnly!.checked = (localStorage.getItem("dynamicGroupChatPingOnly") ?? "false") === "true";
         
         // Trigger model change to set thinking restrictions
         updateThinkingRestrictions();
@@ -987,6 +1399,29 @@ function setupAdvancedSettings(): void {
     // Temperature slider handler
     advancedTemperature!.addEventListener("input", updateTemperatureDisplay);
 
+    // Max output tokens handlers
+    advancedMaxOutputTokens!.addEventListener("input", () => {
+        applyRecommendedThinkingBudgetFromCurrentOutput();
+
+        if (maxOutputTokensValidationTimer) {
+            clearTimeout(maxOutputTokensValidationTimer);
+        }
+
+        maxOutputTokensValidationTimer = setTimeout(() => {
+            applyRecommendedThinkingBudgetFromCurrentOutput({ clampOutput: true });
+            maxOutputTokensValidationTimer = null;
+        }, 1000);
+    });
+
+    advancedMaxOutputTokens!.addEventListener("change", () => {
+        if (maxOutputTokensValidationTimer) {
+            clearTimeout(maxOutputTokensValidationTimer);
+            maxOutputTokensValidationTimer = null;
+        }
+
+        applyRecommendedThinkingBudgetFromCurrentOutput({ clampOutput: true });
+    });
+
     // Model selector handler
     advancedModelSelect!.addEventListener("change", updateThinkingRestrictions);
 
@@ -994,20 +1429,61 @@ function setupAdvancedSettings(): void {
     advancedThinkingEnabled!.addEventListener("change", updateThinkingBudgetState);
 
     // Thinking budget validation
-    advancedThinkingBudget!.addEventListener("change", validateThinkingBudget);
+    advancedThinkingBudget!.addEventListener("input", () => {
+        hasCustomThinkingBudget = true;
 
-    // Continue button - save settings and go to summary
-    advancedContinueButton!.addEventListener("click", () => {
+        if (thinkingBudgetValidationTimer) {
+            clearTimeout(thinkingBudgetValidationTimer);
+        }
+
+        thinkingBudgetValidationTimer = setTimeout(() => {
+            validateThinkingBudget();
+            thinkingBudgetValidationTimer = null;
+        }, 1000);
+    });
+
+    advancedThinkingBudget!.addEventListener("change", () => {
+        hasCustomThinkingBudget = true;
+
+        if (thinkingBudgetValidationTimer) {
+            clearTimeout(thinkingBudgetValidationTimer);
+            thinkingBudgetValidationTimer = null;
+        }
+
+        validateThinkingBudget();
+    });
+
+    // Continue button (page 1) - proceed to behavior settings
+    advancedPrimaryContinueButton!.addEventListener("click", () => {
+        onboardingService.goToStep(OnboardingStep.ADVANCED_SETTINGS_BEHAVIOR);
+    });
+
+    // Continue button (page 2) - save settings and go to summary
+    advancedBehaviorContinueButton!.addEventListener("click", () => {
+        if (maxOutputTokensValidationTimer) {
+            clearTimeout(maxOutputTokensValidationTimer);
+            maxOutputTokensValidationTimer = null;
+        }
+
+        if (thinkingBudgetValidationTimer) {
+            clearTimeout(thinkingBudgetValidationTimer);
+            thinkingBudgetValidationTimer = null;
+        }
+
+        clampMaxOutputTokens();
+        validateThinkingBudget();
+
         // Save all settings to localStorage
         localStorage.setItem("model", advancedModelSelect!.value);
         localStorage.setItem("TEMPERATURE", advancedTemperature!.value);
+        localStorage.setItem("maxTokens", advancedMaxOutputTokens!.value);
         localStorage.setItem("enableThinking", advancedThinkingEnabled!.checked.toString());
         localStorage.setItem("thinkingBudget", advancedThinkingBudget!.value);
         localStorage.setItem("autoscroll", advancedAutoscroll!.checked.toString());
         localStorage.setItem("streamResponses", advancedStreamResponses!.checked.toString());
-        
-        // Set remaining default
-        localStorage.setItem("maxTokens", "1000");
+        localStorage.setItem("rpgGroupChatsProgressAutomatically", advancedRpgGroupChatsProgressAutomatically!.checked.toString());
+        localStorage.setItem("disallowPersonaPinging", advancedDisallowPersonaPinging!.checked.toString());
+        localStorage.setItem("dynamicGroupChatPingOnly", advancedDynamicGroupChatPingOnly!.checked.toString());
         
         // Reload settings to apply changes to UI
         settingsService.loadSettings();
@@ -1019,18 +1495,20 @@ function setupAdvancedSettings(): void {
 
     // Load defaults when the advanced settings step is shown
     // This will be called from wherever the step transition happens
+    refreshAdvancedSettingsFromStorage = loadDefaultSettings;
     loadDefaultSettings();
 }
 
 /**
  * Helper: Route to either Advanced Settings (Power path) or Summary (Easy path)
  */
-function routeToSettingsOrSummary(): void {
+async function routeToSettingsOrSummary(): Promise<void> {
     const selectedPath = onboardingService.getState().selectedPath;
     
     if (selectedPath === OnboardingPath.POWER) {
-        // Power path - show advanced settings first
-        onboardingService.goToStep(OnboardingStep.ADVANCED_SETTINGS);
+        refreshAdvancedSettingsFromStorage?.();
+        // Power path - show advanced settings first page
+        onboardingService.goToStep(OnboardingStep.ADVANCED_SETTINGS_PRIMARY);
     } else {
         // Easy path - go straight to summary
         onboardingService.goToStep(OnboardingStep.SUMMARY);
@@ -1122,6 +1600,31 @@ function setAuthMode(mode: AuthMode, options: { focus?: boolean } = {}): void {
             registerLoginEmailInput!.focus();
         }
     }
+}
+
+async function getOnboardingCloudSyncMode(): Promise<OnboardingCloudSyncMode | null> {
+    const user = await supabaseService.getCurrentUser();
+    if (!user) {
+        return null;
+    }
+
+    const subscription = await supabaseService.getUserSubscription();
+    const tier = supabaseService.getSubscriptionTier(subscription);
+    if (tier !== "pro" && tier !== "max") {
+        return null;
+    }
+
+    const preferences = await syncService.fetchSyncPreferences();
+    if (!preferences) {
+        return "setup";
+    }
+
+    if (preferences.syncEnabled === false) {
+        const hasEncryptionMaterial = !!preferences.encryptionSalt && !!preferences.keyVerification && !!preferences.keyVerificationIv;
+        return hasEncryptionMaterial ? "enable" : "setup";
+    }
+
+    return null;
 }
 
 function updateSkipButtonState(): void {

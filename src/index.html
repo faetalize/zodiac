@@ -92,7 +92,7 @@
                             <span id="badge-version"></span>
                         </button>
                     </div>
-                    <div id="gemini-pro-branding">Gemini 3.0</div>
+                    <div id="gemini-pro-branding">Gemini 3.1</div>
                 </div>
 
                 <button id="btn-login" class="logged-out-component btn btn-primary">
@@ -299,9 +299,10 @@
                                         <select id="selectedModel" class="input-field">
                                             <option value="gemini-flash-lite-latest">Flash Lite</option>
                                             <option value="gemini-3-flash-preview">Flash</option>
-                                            <option value="gemini-3-pro-preview">Pro</option>
+                                            <option value="gemini-3.1-pro-preview">Pro</option>
                                             <option value="gemini-3-pro-image-preview">Pro Image (Nano Banana Pro)
                                             </option>
+                                            <option value="gemini-3.1-flash-image-preview">Flash Image (Nano Banana 2)</option>
                                         </select>
                                     </div>
                                     <div>
@@ -539,7 +540,7 @@
                                 <!-- Cloud Sync Section (Pro/Max only) -->
                                 <div id="cloud-sync-section" class="hidden">
                                     <label>Cloud Sync</label>
-                                    <div class="cloud-sync-card">
+                                    <div class="cloud-sync-card settings-item">
                                         <div class="cloud-sync-header">
                                             <span class="material-symbols-outlined cloud-sync-icon">cloud_sync</span>
                                             <div class="cloud-sync-status">
@@ -1722,11 +1723,62 @@
                 </div>
             </div>
 
-            <!-- Step 5.5: Advanced Settings (Power User Path) -->
-            <div id="onboarding-advanced-settings" class="onboarding-step hidden">
+            <!-- Step 5.4: Cloud Sync Setup (Pro users only, when sync is disabled) -->
+            <div id="onboarding-cloud-sync-setup" class="onboarding-step hidden">
+                <div class="onboarding-content">
+                    <h1 id="onboarding-cloud-sync-title" class="onboarding-title">Enable Cloud Sync</h1>
+                    <p id="onboarding-cloud-sync-subtitle" class="onboarding-subtitle">Included with Pro — set it up now or keep data local</p>
+
+                    <div class="onboarding-form onboarding-settings-form">
+                        <div id="onboarding-cloud-sync-enable-group" class="onboarding-setting-group">
+                            <label class="onboarding-checkbox-label">
+                                <input type="checkbox" id="onboarding-cloud-sync-enable" checked>
+                                <span class="onboarding-checkbox-custom"></span>
+                                <div class="onboarding-checkbox-text">
+                                    <span class="material-symbols-outlined setting-icon">cloud_sync</span>
+                                    <span>Enable Cloud Sync</span>
+                                </div>
+                            </label>
+                            <p class="setting-hint">If enabled, your chats/personas are encrypted on-device before syncing.</p>
+                        </div>
+
+                        <div class="onboarding-setting-group">
+                            <label for="onboarding-cloud-sync-password" class="setting-label">
+                                <span class="material-symbols-outlined setting-icon">lock</span>
+                                Encryption Password
+                            </label>
+                            <input type="password" id="onboarding-cloud-sync-password" class="onboarding-select"
+                                autocomplete="new-password" placeholder="At least 8 characters">
+                        </div>
+
+                        <div id="onboarding-cloud-sync-password-confirm-group" class="onboarding-setting-group">
+                            <label for="onboarding-cloud-sync-password-confirm" class="setting-label">
+                                <span class="material-symbols-outlined setting-icon">verified_user</span>
+                                Confirm Encryption Password
+                            </label>
+                            <input type="password" id="onboarding-cloud-sync-password-confirm" class="onboarding-select"
+                                autocomplete="new-password" placeholder="Re-enter password">
+                        </div>
+
+                        <div id="onboarding-cloud-sync-status" class="onboarding-status hidden"></div>
+                    </div>
+
+                    <div class="onboarding-actions onboarding-actions-column">
+                        <button id="onboarding-btn-cloud-sync-continue" class="onboarding-btn-primary onboarding-btn-large">
+                            Continue
+                        </button>
+                        <button id="onboarding-btn-cloud-sync-skip" class="onboarding-btn-text">
+                            Keep Data Local
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5.5: Advanced Settings (Power User Path) - Page 1 -->
+            <div id="onboarding-advanced-settings-primary" class="onboarding-step hidden">
                 <div class="onboarding-content">
                     <h1 class="onboarding-title">Customize Your Experience</h1>
-                    <p class="onboarding-subtitle">Tailor Zodiac to your preferences</p>
+                    <p class="onboarding-subtitle">Part 1 of 2 · Model and reasoning settings</p>
 
                     <div class="onboarding-form onboarding-settings-form">
                         <!-- Model Selection -->
@@ -1738,7 +1790,7 @@
                             <select id="onboarding-model-select" class="onboarding-select">
                                 <option value="gemini-flash-lite-latest">Gemini Flash Lite (Fastest)</option>
                                 <option value="gemini-3-flash-preview">Gemini Flash (Balanced)</option>
-                                <option value="gemini-3-pro-preview">Gemini Pro (Most Capable)</option>
+                                <option value="gemini-3.1-pro-preview">Gemini Pro (Most Capable)</option>
                             </select>
                             <p class="setting-hint">Flash is faster, Pro provides deeper reasoning</p>
                         </div>
@@ -1752,6 +1804,17 @@
                             <input type="range" id="onboarding-temperature" class="onboarding-slider" min="0" max="200"
                                 value="60" step="1">
                             <p class="setting-hint">Higher = more creative, Lower = more focused</p>
+                        </div>
+
+                        <!-- Max Output Tokens -->
+                        <div class="onboarding-setting-group">
+                            <label for="onboarding-max-output-tokens" class="setting-label">
+                                <span class="material-symbols-outlined setting-icon">generating_tokens</span>
+                                Max Output Tokens
+                            </label>
+                            <input type="number" id="onboarding-max-output-tokens" class="onboarding-select" min="128"
+                                max="65536" step="1" value="1000">
+                            <p class="setting-hint">Maximum length of the model response</p>
                         </div>
 
                         <!-- Thinking Toggle -->
@@ -1778,8 +1841,27 @@
                             </label>
                             <input type="number" id="onboarding-thinking-budget" class="onboarding-select" min="-1"
                                 step="1" value="500">
-                            <p class="setting-hint">Max tokens for reasoning. Use -1 for dynamic budget</p>
+                            <p class="setting-hint">Max tokens used for reasoning - 50% of the output tokens is recommended. Use -1 for a dynamic budgeting.</p>
                         </div>
+
+                    </div>
+
+                    <div class="onboarding-actions">
+                        <button id="onboarding-btn-advanced-primary-continue"
+                            class="onboarding-btn-primary onboarding-btn-large">
+                            Continue
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5.6: Advanced Settings (Power User Path) - Page 2 -->
+            <div id="onboarding-advanced-settings-behavior" class="onboarding-step hidden">
+                <div class="onboarding-content">
+                    <h1 class="onboarding-title">Customize Your Experience</h1>
+                    <p class="onboarding-subtitle">Part 2 of 2 · Chat behavior settings</p>
+
+                    <div class="onboarding-form onboarding-settings-form">
 
                         <!-- Auto Scroll Toggle -->
                         <div class="onboarding-setting-group">
@@ -1806,10 +1888,49 @@
                             </label>
                             <p class="setting-hint">See responses as they're generated in real-time</p>
                         </div>
+
+                        <!-- RPG Group Chat -->
+                        <div class="onboarding-setting-group">
+                            <label class="onboarding-checkbox-label">
+                                <input type="checkbox" id="onboarding-rpg-group-chats-progress-automatically">
+                                <span class="onboarding-checkbox-custom"></span>
+                                <div class="onboarding-checkbox-text">
+                                    <span class="material-symbols-outlined setting-icon">casino</span>
+                                    <span>RPG Group Chats Progress Automatically</span>
+                                </div>
+                            </label>
+                            <p class="setting-hint">Enable automatic turn progression in RPG group chats</p>
+                        </div>
+
+                        <!-- Dynamic Group Chat: Disallow Persona Pings -->
+                        <div class="onboarding-setting-group">
+                            <label class="onboarding-checkbox-label">
+                                <input type="checkbox" id="onboarding-disallow-persona-pinging">
+                                <span class="onboarding-checkbox-custom"></span>
+                                <div class="onboarding-checkbox-text">
+                                    <span class="material-symbols-outlined setting-icon">person_off</span>
+                                    <span>Disallow Personas from Pinging Each Other</span>
+                                </div>
+                            </label>
+                            <p class="setting-hint">Turns off inter-persona pinging in dynamic group chats</p>
+                        </div>
+
+                        <!-- Dynamic Group Chat: Ping Only -->
+                        <div class="onboarding-setting-group">
+                            <label class="onboarding-checkbox-label">
+                                <input type="checkbox" id="onboarding-dynamic-group-chat-ping-only">
+                                <span class="onboarding-checkbox-custom"></span>
+                                <div class="onboarding-checkbox-text">
+                                    <span class="material-symbols-outlined setting-icon">alternate_email</span>
+                                    <span>Only Pinged Personas Respond</span>
+                                </div>
+                            </label>
+                            <p class="setting-hint">When you mention personas, only those personas respond</p>
+                        </div>
                     </div>
 
                     <div class="onboarding-actions">
-                        <button id="onboarding-btn-advanced-continue"
+                        <button id="onboarding-btn-advanced-behavior-continue"
                             class="onboarding-btn-primary onboarding-btn-large">
                             Continue
                         </button>

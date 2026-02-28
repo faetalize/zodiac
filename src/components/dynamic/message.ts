@@ -630,7 +630,10 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
         console.log("Message updated in database");
     } catch (error) {
         console.error("Error updating message in database:", error);
-        alert("Failed to save your edited message. Please try again.");
+        toastService.danger({
+            title: "Save Failed",
+            text: "Failed to save your edited message. Please try again."
+        });
     }
 }
 

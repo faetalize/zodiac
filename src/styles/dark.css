@@ -22,6 +22,11 @@
     --dialog-bg: #461010db;
     --dialog-shadow: 0 0 16px 5px rgb(0 0 0 / 25%);
 
+    /* Neutral Modal */
+    --modal-bg: var(--dropdown-menu-bg);
+    --modal-fg: var(--dropdown-menu-fg);
+    --modal-shadow: var(--dropdown-menu-shadow);
+
     --turn-control-outline: 1px solid rgba(255, 255, 255, 0.55);
 
 

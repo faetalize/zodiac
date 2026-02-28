@@ -31,6 +31,10 @@ export interface SyncPreferences {
     keyVerificationIv: Uint8Array | null;
 }
 
+export interface EnableSyncOptions {
+    strategy?: 'push-local' | 'pull-remote';
+}
+
 export interface SyncQuota {
     usedBytes: number;
     quotaBytes: number;
@@ -332,7 +336,7 @@ export async function disableSync(options?: { keepLocalCopy?: boolean }): Promis
  * Re-enable sync (user already has encryption material on server).
  * Requires the user to enter their encryption password again.
  */
-export async function enableSync(password: string): Promise<boolean> {
+export async function enableSync(password: string, options?: EnableSyncOptions): Promise<boolean> {
     const prefs = await fetchSyncPreferences();
     if (!prefs?.encryptionSalt || !prefs.keyVerification || !prefs.keyVerificationIv) {
         // No encryption material — needs full setup instead
@@ -359,8 +363,14 @@ export async function enableSync(password: string): Promise<boolean> {
     crypto.cacheKey(key);
     if (syncPrefsCache) syncPrefsCache.syncEnabled = true;
 
-    // Sync current local data
-    await pushAll();
+    const strategy = options?.strategy ?? 'push-local';
+    if (strategy === 'pull-remote') {
+        await pullAll();
+    } else {
+        // Sync current local data
+        await pushAll();
+    }
+
     setSyncStatus('synced');
     dispatchAppEvent('sync-setup-complete', { enabled: true });
     return true;
@@ -577,7 +587,11 @@ export async function applySyncedSettingsToLocalStorage(): Promise<boolean> {
  * Chat metadata payload for cloud sync v2.
  * Message bodies are stored separately in user_synced_messages.
  */
-async function serializeChatMetadata(chat: DbChat): Promise<string> {
+async function serializeChatMetadata(chat: DbChat, messageCountOverride?: number): Promise<string> {
+    const resolvedMessageCount = typeof messageCountOverride === 'number'
+        ? Math.max(0, messageCountOverride)
+        : (chat.content?.length ?? 0);
+
     const metadata = {
         syncVersion: 2,
         id: chat.id,
@@ -585,7 +599,7 @@ async function serializeChatMetadata(chat: DbChat): Promise<string> {
         timestamp: chat.timestamp,
         lastModified: chat.lastModified ?? null,
         groupChat: chat.groupChat,
-        messageCount: chat.content?.length ?? 0,
+        messageCount: resolvedMessageCount,
     };
 
     return JSON.stringify(metadata);
@@ -667,14 +681,14 @@ function parseChatMetadata(chatId: string, raw: any): { chat: DbChat; messageCou
 /**
  * Encrypt and push chat metadata to Supabase.
  */
-export async function pushChat(chat: DbChat): Promise<boolean> {
+export async function pushChat(chat: DbChat, messageCountOverride?: number): Promise<boolean> {
     if (!isSyncActive()) return false;
     const key = crypto.getCachedKey()!;
     const user = await getCurrentUser();
     if (!user) return false;
 
     try {
-        const plaintext = await serializeChatMetadata(chat);
+        const plaintext = await serializeChatMetadata(chat, messageCountOverride);
         const { ciphertext, iv } = await crypto.encrypt(key, plaintext);
 
         const { error } = await supabase
@@ -819,11 +833,32 @@ async function markDeletedMessages(chatId: string, fromIndexInclusive: number): 
 }
 
 async function pushChatIncremental(previous: DbChat | undefined, current: DbChat): Promise<boolean> {
-    const metadataOk = await pushChat(current);
-    if (!metadataOk) return false;
-
     const previousMessages = previous?.content || [];
     const currentMessages = current.content || [];
+    const cachedRemoteCount = remoteMessageCountByChatId.get(current.id) ?? 0;
+    const previousCount = previousMessages.length;
+    const baselineCount = Math.max(cachedRemoteCount, previousCount);
+    const hasPotentiallyPartialSnapshot = previousCount < baselineCount && currentMessages.length <= previousCount;
+
+    const metadataMessageCount = hasPotentiallyPartialSnapshot
+        ? baselineCount
+        : currentMessages.length;
+
+    const metadataOk = await pushChat(current, metadataMessageCount);
+    if (!metadataOk) return false;
+
+    if (hasPotentiallyPartialSnapshot) {
+        console.warn(
+            'pushChatIncremental: detected partial snapshot for chat=%s (baseline=%s previous=%s current=%s). Skipping message body upsert to avoid data loss.',
+            current.id,
+            baselineCount,
+            previousCount,
+            currentMessages.length,
+        );
+        remoteMessageCountByChatId.set(current.id, metadataMessageCount);
+        return true;
+    }
+
     const diffStart = firstDifferentMessageIndex(previousMessages, currentMessages);
 
     const failures = await pushChatMessagesRange(current, diffStart, currentMessages.length);
@@ -1126,7 +1161,6 @@ async function pullChats(userId: string, key: CryptoKey): Promise<void> {
 
 async function getRemoteMessageCount(chatId: string, userId: string): Promise<number> {
     const cached = remoteMessageCountByChatId.get(chatId);
-    if (typeof cached === 'number') return cached;
 
     const { data, error } = await supabase
         .from('user_synced_messages')
@@ -1139,10 +1173,11 @@ async function getRemoteMessageCount(chatId: string, userId: string): Promise<nu
 
     if (error) {
         console.error('getRemoteMessageCount failed:', error);
-        return 0;
+        return typeof cached === 'number' ? cached : 0;
     }
 
-    const count = data && data.length > 0 ? Number(data[0].message_index) + 1 : 0;
+    const queriedCount = data && data.length > 0 ? Number(data[0].message_index) + 1 : 0;
+    const count = typeof cached === 'number' ? Math.max(cached, queriedCount) : queriedCount;
     remoteMessageCountByChatId.set(chatId, count);
     return count;
 }
@@ -1503,19 +1538,29 @@ export async function checkSyncOnLogin(): Promise<void> {
         // No preferences row — user has never set up sync.
         // If they haven't seen the prompt yet, show it.
         if (!hasSeenSyncPrompt()) {
-            dispatchAppEvent('sync-unlock-required', { isFirstSetup: true });
+            dispatchAppEvent('sync-unlock-required', { isFirstSetup: true, mode: 'setup' });
         }
         return;
     }
 
     if (!prefs.syncEnabled) {
-        // Sync is disabled — don't prompt. They can re-enable from settings.
+        // Sync is disabled.
+        // Show a one-time invite prompt if the local prompt flag is missing
+        // (e.g. fresh browser/device or localStorage was cleared).
+        if (!hasSeenSyncPrompt()) {
+            const hasEncryptionMaterial = !!prefs.encryptionSalt && !!prefs.keyVerification && !!prefs.keyVerificationIv;
+            if (hasEncryptionMaterial) {
+                dispatchAppEvent('sync-unlock-required', { isFirstSetup: false, mode: 'enable' });
+            } else {
+                dispatchAppEvent('sync-unlock-required', { isFirstSetup: true, mode: 'setup' });
+            }
+        }
         return;
     }
 
     // Sync is enabled — they need to enter their encryption password
     if (!crypto.isUnlocked()) {
-        dispatchAppEvent('sync-unlock-required', { isFirstSetup: false });
+        dispatchAppEvent('sync-unlock-required', { isFirstSetup: false, mode: 'unlock' });
     }
 }
 

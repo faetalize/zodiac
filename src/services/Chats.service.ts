@@ -8,6 +8,7 @@ import { dispatchAppEvent } from "../events";
 import hljs from "highlight.js";
 import { v4 as uuidv4 } from 'uuid';
 import * as syncService from "./Sync.service";
+import * as toastService from "./Toast.service";
 const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
 const scrollableChatContainerSelector = "#scrollable-chat-container";
 const chatHistorySection = document.querySelector<HTMLDivElement>("#chatHistorySection");
@@ -24,6 +25,7 @@ let hasMoreOlder = false;
 let scrollListenerAttached = false;
 let isRemotePagedMode = false;
 let remoteOldestLoadedIndex = 0;
+let remoteWindowStartIndex = 0;
 const remoteChatsById = new Map<string, DbChat>();
 let currentChatSnapshot: DbChat | null = null;
 
@@ -555,6 +557,7 @@ export function newChat() {
     isLoadingOlder = false;
     hasMoreOlder = false;
     currentChatSnapshot = null;
+    remoteWindowStartIndex = 0;
 
     // Uncheck current chat selection
     const checkedInput = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
@@ -571,14 +574,34 @@ export async function saveChat(chat: DbChat): Promise<void> {
         if (!syncService.isSyncActive()) {
             throw new Error('Cloud sync is enabled but locked. Unlock sync before saving chat changes.');
         }
+        let chatToSave = chat;
+
+        if (isRemotePagedMode && currentChatIdState === chat.id) {
+            const fullMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
+            if (fullMessages) {
+                const localMessages = chat.content || [];
+                const rebased = [...fullMessages];
+
+                for (let localIndex = 0; localIndex < localMessages.length; localIndex++) {
+                    const absoluteIndex = remoteWindowStartIndex + localIndex;
+                    rebased[absoluteIndex] = localMessages[localIndex];
+                }
+
+                chatToSave = {
+                    ...chat,
+                    content: rebased,
+                };
+            }
+        }
+
         const previous = remoteChatsById.get(chat.id) ?? (currentChatSnapshot?.id === chat.id ? currentChatSnapshot : undefined);
-        const ok = await syncService.upsertSyncedChat(chat, previous);
+        const ok = await syncService.upsertSyncedChat(chatToSave, previous);
         if (!ok) {
             throw new Error(`Failed to sync chat ${chat.id}`);
         }
-        upsertRemoteChat(chat);
+        upsertRemoteChat(chatToSave);
         if (currentChatSnapshot?.id === chat.id) {
-            currentChatSnapshot = structuredClone(chat);
+            currentChatSnapshot = structuredClone(chatToSave);
         }
         await refreshChatListAfterActivity(db);
         return;
@@ -605,9 +628,17 @@ export async function getChatById(id: string): Promise<DbChat | undefined> {
 
 export async function replaceCurrentChatMessages(messages: Message[]): Promise<void> {
     if (!currentChatSnapshot) return;
+    currentChatMessages = structuredClone(messages);
+    loadedStartIndex = 0;
+    loadedEndIndex = currentChatMessages.length;
+    hasMoreOlder = false;
+    isRemotePagedMode = false;
+    remoteOldestLoadedIndex = 0;
+    remoteWindowStartIndex = 0;
+
     currentChatSnapshot = {
         ...currentChatSnapshot,
-        content: structuredClone(messages),
+        content: structuredClone(currentChatMessages),
     };
     upsertRemoteChat(currentChatSnapshot);
 }
@@ -625,13 +656,14 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean)
     const scrollContainer = document.querySelector<HTMLDivElement>(scrollableChatContainerSelector);
     const previousScrollHeight = scrollContainer?.scrollHeight ?? 0;
     const previousScrollTop = scrollContainer?.scrollTop ?? 0;
+    const absoluteBase = isRemotePagedMode ? remoteWindowStartIndex : 0;
 
     // For initial load (prepend = false), render slice in natural order (older -> newer)
     if (!prepend) {
         for (let offset = 0; offset < slice.length; offset++) {
             const msg = slice[offset];
             // The real index in chat.content/currentChatMessages
-            const chatIndex = start + offset;
+            const chatIndex = absoluteBase + start + offset;
             await messageService.insertMessage(msg, chatIndex);
         }
     } else {
@@ -644,7 +676,7 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean)
 
         for (let i = 0; i < slice.length; i++) {
             const msg = slice[i];
-            const chatIndex = start + i;
+            const chatIndex = absoluteBase + start + i;
             const element = await messageElement(msg, chatIndex);
 
             // Turn Grouping Logic (Fragment Building)
@@ -753,6 +785,8 @@ async function loadOlderMessages() {
                 };
                 upsertRemoteChat(currentChatSnapshot);
             }
+
+            remoteWindowStartIndex = window.startIndex;
             await renderMessagesSlice(0, window.messages.length, true);
 
             remoteOldestLoadedIndex = window.startIndex;
@@ -794,6 +828,7 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         hasMoreOlder = false;
         isRemotePagedMode = false;
         remoteOldestLoadedIndex = 0;
+        remoteWindowStartIndex = 0;
 
         messageContainer.innerHTML = ''; // Clear existing messages
         const chat = syncService.isOnlineSyncEnabled()
@@ -820,6 +855,7 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
             if (latestWindow) {
                 isRemotePagedMode = true;
                 remoteOldestLoadedIndex = latestWindow.startIndex;
+                remoteWindowStartIndex = latestWindow.startIndex;
                 currentChatMessages = latestWindow.messages;
                 currentChatSnapshot = {
                     ...chat,
@@ -870,7 +906,10 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         return chat;
     }
     catch (error) {
-        alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
+        toastService.danger({
+            title: "Chat Load Error",
+            text: "Please report this to the developer. You might need to restart the page to continue normal usage."
+        });
         console.error(error);
     }
 }
@@ -945,7 +984,10 @@ export async function importChats(files: FileList): Promise<void> {
             initialize();
         } catch (error) {
             console.error("Error parsing chat file:", error);
-            alert("Failed to import chats. Please ensure the file is in the correct format.");
+            toastService.danger({
+                title: "Import Failed",
+                text: "Failed to import chats. Please ensure the file is in the correct format."
+            });
         }
     });
     for (const file of files) {

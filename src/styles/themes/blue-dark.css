@@ -243,6 +243,11 @@
     --top-up-credits-fg: #e8eef7;
     --top-up-subtitle-fg: #a6b2c2;
 
+    /* Modal */
+    --modal-bg: var(--onboarding-card-bg);
+    --modal-fg: var(--onboarding-title);
+    --modal-shadow: 0 8px 24px var(--onboarding-card-shadow);
+
     /* Onboarding */
     --onboarding-overlay-bg: rgba(8, 12, 18, 0.95);
     --onboarding-title: #f0f4f8;

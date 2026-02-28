@@ -21,7 +21,7 @@ import { dispatchEmptyAppEvent } from '../../events';
 import { onAppEvent } from '../../events';
 import type { SyncStatus } from '../../events';
 import { info, danger } from '../../services/Toast.service';
-import { showElement, hideElement } from '../../utils/helpers';
+import { showElement, hideElement, confirmDialog, confirmDialogDanger } from '../../utils/helpers';
 import { getSubscriptionTier, getUserSubscription } from '../../services/Supabase.service';
 
 // ── DOM Elements ───────────────────────────────────────────────────────────
@@ -260,7 +260,10 @@ syncToggle?.addEventListener('change', async () => {
         }
     } else {
         // Disabling sync
-        const keepLocalCopy = confirm('Cloud sync is online-only. Do you want to save an unencrypted local copy before disabling sync?');
+        const keepLocalCopy = await confirmDialog('Cloud sync is online-only. Do you want to save an unencrypted local copy before disabling sync?', {
+            okText: 'Save Local Copy',
+            cancelText: 'Disable Without Copy',
+        });
         const success = await syncService.disableSync({ keepLocalCopy });
         if (success) {
             updateSettingsUI(false);
@@ -293,11 +296,15 @@ btnSyncNow?.addEventListener('click', async () => {
 
 btnSyncWipe?.addEventListener('click', async () => {
     // Confirm before wiping
-    if (!confirm('This will permanently delete ALL your synced data from the cloud and reset your encryption password. This cannot be undone. Continue?')) {
+    const shouldWipe = await confirmDialogDanger('This will permanently delete ALL your synced data from the cloud and reset your encryption password. This cannot be undone. Continue?');
+    if (!shouldWipe) {
         return;
     }
 
-    const keepLocalCopy = confirm('Before wiping remote data, do you want to save an unencrypted local copy on this device?');
+    const keepLocalCopy = await confirmDialog('Before wiping remote data, do you want to save an unencrypted local copy on this device?', {
+        okText: 'Save Local Copy',
+        cancelText: 'Wipe Without Copy',
+    });
     const success = await syncService.wipeRemoteData({ keepLocalCopy });
     if (success) {
         updateSettingsUI(false);
@@ -370,6 +377,13 @@ onAppEvent('auth-state-changed', async (event) => {
             await syncService.fetchSyncQuota();
         }
 
+        // During onboarding, cloud sync setup is handled inside onboarding flow.
+        // Avoid showing separate modals that occlude the onboarding UI.
+        const onboardingCompleted = localStorage.getItem('onboardingCompleted') === 'true';
+        if (!onboardingCompleted) {
+            return;
+        }
+
         // Trigger unlock/setup prompt for paid users on login
         await syncService.checkSyncOnLogin();
     } else if (cloudSyncSection) {
@@ -380,14 +394,33 @@ onAppEvent('auth-state-changed', async (event) => {
 });
 
 // Sync unlock required: show appropriate modal
-onAppEvent('sync-unlock-required', (event) => {
-    const { isFirstSetup } = event.detail;
+onAppEvent('sync-unlock-required', async (event) => {
+    const { isFirstSetup, mode } = event.detail;
+    const resolvedMode = mode ?? (isFirstSetup ? 'setup' : 'unlock');
 
-    if (isFirstSetup) {
+    if (resolvedMode === 'setup') {
         showSyncPrompt();
-    } else {
-        showUnlockModal();
+        return;
     }
+
+    if (resolvedMode === 'enable') {
+        const shouldEnable = await confirmDialog(
+            'Cloud sync is currently disabled, but encrypted cloud data exists. Do you want to re-enable cloud sync?',
+            {
+                okText: 'Re-enable Sync',
+                cancelText: 'Keep Disabled',
+            }
+        );
+
+        if (shouldEnable) {
+            showEnableModal();
+        } else {
+            info({ title: 'Cloud sync remains disabled', text: 'You can re-enable it anytime from Settings → Data Management.' });
+        }
+        return;
+    }
+
+    showUnlockModal();
 });
 
 // Sync state changed: update indicator

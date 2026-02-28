@@ -4897,22 +4897,28 @@ input[name="currentChat"][value="none"] {
 
 
 #dialog {
-    background-color: var(--dialog-bg);
-    backdrop-filter: blur(32px);
-    box-shadow: var(--dialog-shadow);
-
-    display: flex;
-    position: absolute;
+    position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    z-index: 99;
+    z-index: 10001;
+    display: flex;
     flex-direction: column;
     gap: 2rem;
     width: 25rem;
     max-width: 90%;
+    background-color: var(--dialog-bg);
+    box-shadow: var(--dialog-shadow);
     border-radius: 1rem;
     overflow: hidden;
+}
+
+#main-container:has(#dialog:not(.hidden))::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    backdrop-filter: blur(24px);
 }
 
 #dialog-message {
@@ -6068,7 +6074,6 @@ input.onboarding-select {
     align-items: center;
     justify-content: center;
     padding: 1.5rem;
-    background: var(--onboarding-overlay-bg);
     backdrop-filter: blur(24px);
     box-sizing: border-box;
 }
@@ -6080,8 +6085,9 @@ input.onboarding-select {
     gap: 1rem;
     text-align: center;
     width: min(32rem, 100%);
-    background-color: var(--dialog-bg);
-    box-shadow: var(--dialog-shadow);
+    background-color: var(--modal-bg, var(--dialog-bg));
+    color: var(--modal-fg, inherit);
+    box-shadow: var(--modal-shadow, var(--dialog-shadow));
     border-radius: 1rem;
     padding: 1.5rem;
 }
@@ -6128,13 +6134,14 @@ input.onboarding-select {
 /* -- Settings: Cloud Sync card -- */
 
 .cloud-sync-card {
-    background-color: var(--bg-secondary, #ffffff0a);
-    border-radius: 0.75rem;
-    padding: 1rem;
-    margin-top: 0.75rem;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+}
+
+.cloud-sync-card.settings-item {
+    justify-content: flex-start;
+    align-items: stretch;
 }
 
 .cloud-sync-header {

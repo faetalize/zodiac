@@ -18,6 +18,11 @@
     --dialog-shadow: none;
     --dialog-message-fg: #ffe3e3;
 
+    /* Neutral Modal */
+    --modal-bg: var(--dropdown-menu-bg);
+    --modal-fg: var(--dropdown-menu-fg);
+    --modal-shadow: var(--dropdown-menu-shadow);
+
 
     /* dropdown */
     --dropdown-menu-bg: #ffffffa6;
