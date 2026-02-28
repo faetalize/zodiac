@@ -506,6 +506,17 @@
                                                 style="background: linear-gradient(135deg, #666666 0%, #333333 100%);"></button>
                                         </div>
                                     </div>
+                                    <div class="ui-setting">
+                                        <label class="setting-label" for="uiScale">UI Scale</label>
+                                        <input type="range" id="uiScale" class="slider ui-scale-slider" min="0" max="4" step="1" value="2">
+                                        <div class="ui-scale-labels" aria-hidden="true">
+                                            <span>0.5x</span>
+                                            <span>0.75x</span>
+                                            <span>1x</span>
+                                            <span>1.25x</span>
+                                            <span>1.5x</span>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="settings-ux-group">
@@ -518,6 +529,47 @@
                                         <label for="streamResponses">Stream Responses</label>
                                         <input class="uxtoggle" id="streamResponses" type="checkbox"
                                             name="streamResponsesEnabled" checked></input>
+                                    </div>
+                                    <div class="setting-toggle-row">
+                                        <label for="fullWidthChat">Full Width Chat</label>
+                                        <input class="uxtoggle" id="fullWidthChat" type="checkbox"
+                                            name="fullWidthChatEnabled"></input>
+                                    </div>
+                                </div>
+
+                                <div class="settings-delimiter-group">
+                                    <div class="ui-setting">
+                                        <label class="setting-label" for="delimiterPreset">Response delimiters</label>
+                                        <select id="delimiterPreset" class="input-field">
+                                            <option value="zodiac">Zodiac (default)</option>
+                                            <option value="novel">Novel</option>
+                                            <option value="custom">Custom</option>
+                                        </select>
+                                    </div>
+                                    <div id="customDelimiterInstructions" class="custom-delimiter-instructions" hidden>
+                                        <div class="ui-setting">
+                                            <label class="setting-label" for="customDialogueInstruction">Dialogue formatting</label>
+                                            <input id="customDialogueInstruction" class="input-field" type="text"
+                                                placeholder="e.g. Put spoken dialogue between curly quotes, like “hello”." />
+                                        </div>
+                                        <div class="ui-setting">
+                                            <label class="setting-label" for="customActionInstruction">Action formatting</label>
+                                            <input id="customActionInstruction" class="input-field" type="text"
+                                                placeholder="e.g. Wrap actions in double brackets, like [[opens the door]]." />
+                                        </div>
+                                        <div class="ui-setting">
+                                            <label class="setting-label" for="customThoughtInstruction">Thought formatting</label>
+                                            <input id="customThoughtInstruction" class="input-field" type="text"
+                                                placeholder="e.g. Narrate thoughts naturally in plain prose without any markers." />
+                                        </div>
+                                    </div>
+                                    <div id="delimiterPreview" class="delimiter-preview" aria-live="polite">
+                                        <label class="setting-label" for="delimiterPreviewText">Live preview</label>
+                                        <div id="delimiterPreviewText" class="delimiter-preview-box">
+                                            <p id="delimiterPreviewDialogue" class="delimiter-preview-line"></p>
+                                            <p id="delimiterPreviewAction" class="delimiter-preview-line"></p>
+                                            <p id="delimiterPreviewThought" class="delimiter-preview-line"></p>
+                                        </div>
                                     </div>
                                 </div>
 

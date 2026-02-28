@@ -392,6 +392,40 @@ input[type="checkbox"]:disabled {
     gap: 0.5rem;
 }
 
+.settings-delimiter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.custom-delimiter-instructions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.delimiter-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.delimiter-preview-box {
+    border: 1px solid var(--input-text-border);
+    background-color: var(--input-bg);
+    border-radius: 0.6rem;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.delimiter-preview-line {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+
 .settings-personalisation-note {
     font-size: 0.85rem;
     opacity: 0.8;
@@ -1914,6 +1948,10 @@ form {
     padding-inline: 1rem;
 }
 
+body.full-width-chat .message-container {
+    max-width: 100%;
+}
+
 #scrollable-chat-container {
     scrollbar-gutter: stable;
     overflow-y: auto;
@@ -2603,6 +2641,10 @@ body.ime-open #bottom-ui-container {
     background-color: var(--sidebar-bg) !important;
     backdrop-filter: blur(16px);
     pointer-events: auto;
+}
+
+body.full-width-chat #message-box {
+    max-width: calc(100% - 2rem - var(--scroll-bar-width, 0px));
 }
 
 #message-box.drag-over {
@@ -4819,6 +4861,32 @@ input[name="currentChat"][value="none"] {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+}
+
+.ui-scale-slider {
+    width: 100%;
+}
+
+.ui-scale-labels {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.ui-scale-labels span:nth-child(1),
+.ui-scale-labels span:nth-child(2) {
+    text-align: left;
+}
+
+.ui-scale-labels span:nth-child(3) {
+    text-align: center;
+}
+
+.ui-scale-labels span:nth-child(4),
+.ui-scale-labels span:nth-child(5) {
+    text-align: right;
 }
 
 /* Mode Selector */
