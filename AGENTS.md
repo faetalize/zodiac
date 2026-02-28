@@ -145,6 +145,8 @@ db.version(N).stores({ /* schema */ }).upgrade(async (tx) => { /* migrate */ });
 User preferences use `localStorage` with service-level get/set wrappers. See [src/services/Settings.service.ts](src/services/Settings.service.ts).
 
 ### Styling
+We have modes (light and dark) and themes (the color themes, blue being default, red, purple, etc.).
+Each mode supports all the themes. We can have light blue, dark red, dark purple, light red, etc.
 - **Custom CSS** - Hand-written styles in `src/styles/main.css`, `src/styles/dark.css`, `src/styles/light.css`
 - **Tailwind base reset** - `@import "tailwindcss"` in main.css for normalization only (no utility classes used)
 - **Dynamic theming** - CSS custom properties in `src/styles/themes/{color}-{mode}.css` (e.g., `blue-dark.css`)
@@ -160,6 +162,7 @@ User preferences use `localStorage` with service-level get/set wrappers. See [sr
 ## Common Patterns
 
 ### Adding a New Static Component
+What's a static component? It's any element on the page that has static HTML markup and needs to come alive with javascript. We need to ensure each "component" has independent TS code for ease of maintenance. 
 1. Create `src/components/static/MyComponent.component.ts`
 2. Query required DOM elements, throw on missing
 3. Export any needed functions/state
