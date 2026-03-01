@@ -21,6 +21,7 @@ import type { DbChat } from '../types/Chat';
 import type { Message } from '../types/Message';
 import type { DbPersonality } from '../types/Personality';
 import { fileToBase64 } from '../utils/helpers';
+import { SYNCABLE_SETTINGS_KEYS } from '../constants/SettingsStorageKeys';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -1060,16 +1061,8 @@ export async function pushAll(): Promise<void> {
  * Gather current settings from localStorage and push them.
  */
 export async function pushCurrentSettings(): Promise<boolean> {
-    const settingsKeys = [
-        'API_KEY', 'maxTokens', 'TEMPERATURE', 'model', 'imageModel',
-        'imageEditModel', 'autoscroll', 'streamResponses', 'enableThinking',
-        'thinkingBudget', 'rpgGroupChatsProgressAutomatically',
-        'disallowPersonaPinging', 'dynamicGroupChatPingOnly',
-        'preferPremiumEndpoint', 'theme-settings', 'loras',
-    ];
-
     const settings: Record<string, string> = {};
-    for (const key of settingsKeys) {
+    for (const key of SYNCABLE_SETTINGS_KEYS) {
         const val = localStorage.getItem(key);
         if (val !== null) settings[key] = val;
     }

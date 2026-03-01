@@ -1,10 +1,11 @@
 import type { ColorTheme, ThemeMode, ThemeSettings, ThemeConfig } from '../types/Theme';
+import { SETTINGS_STORAGE_KEYS } from '../constants/SettingsStorageKeys';
 
 /**
  * Service for managing color themes and light/dark modes
  */
 class ThemeService {
-    private readonly STORAGE_KEY = 'theme-settings';
+    private readonly STORAGE_KEY = SETTINGS_STORAGE_KEYS.THEME_SETTINGS;
     private currentSettings: ThemeSettings;
     private osPrefersDark: MediaQueryList;
 

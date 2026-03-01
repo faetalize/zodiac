@@ -1,6 +1,7 @@
 import { ImageModel } from "./Models";
+import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
 
-export const LORA_STORAGE_KEY = "loras";
+export const LORA_STORAGE_KEY = SETTINGS_STORAGE_KEYS.LORAS;
 
 export interface LoRAInfo {
     baseModel: ImageModel,

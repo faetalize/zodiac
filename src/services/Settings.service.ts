@@ -4,6 +4,7 @@ import { User } from "../types/User";
 import { ChatModel } from "../types/Models";
 import { getValidEnumValue } from "../utils/helpers";
 import * as syncService from "./Sync.service";
+import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
@@ -37,7 +38,7 @@ const UI_SCALE_VALUES = [0.5, 0.75, 1, 1.25, 1.5] as const;
 const DEFAULT_UI_SCALE = 1;
 
 function getStoredUiScale(): number {
-    const stored = Number(localStorage.getItem("uiScale"));
+    const stored = Number(localStorage.getItem(SETTINGS_STORAGE_KEYS.UI_SCALE));
     return UI_SCALE_VALUES.includes(stored as typeof UI_SCALE_VALUES[number]) ? stored : DEFAULT_UI_SCALE;
 }
 
@@ -83,15 +84,15 @@ const NOVEL_DELIMITER_INSTRUCTIONS: DelimiterInstructions = {
 };
 
 function getStoredDelimiterPreset(): DelimiterPreset {
-    const stored = localStorage.getItem("delimiterPreset");
+    const stored = localStorage.getItem(SETTINGS_STORAGE_KEYS.DELIMITER_PRESET);
     return DELIMITER_PRESETS.includes(stored as DelimiterPreset) ? (stored as DelimiterPreset) : DEFAULT_DELIMITER_PRESET;
 }
 
 function getStoredCustomDelimiterInstructions(): DelimiterInstructions {
     return {
-        dialogue: localStorage.getItem("customDialogueInstruction") || "",
-        action: localStorage.getItem("customActionInstruction") || "",
-        thought: localStorage.getItem("customThoughtInstruction") || "",
+        dialogue: localStorage.getItem(SETTINGS_STORAGE_KEYS.CUSTOM_DIALOGUE_INSTRUCTION) || "",
+        action: localStorage.getItem(SETTINGS_STORAGE_KEYS.CUSTOM_ACTION_INSTRUCTION) || "",
+        thought: localStorage.getItem(SETTINGS_STORAGE_KEYS.CUSTOM_THOUGHT_INSTRUCTION) || "",
     };
 }
 
@@ -212,25 +213,25 @@ export function initialize() {
 
 export function loadSettings() {
 
-    ApiKeyInput.value = localStorage.getItem("API_KEY") || "";
-    maxTokensInput.value = localStorage.getItem("maxTokens") || "1000";
-    temperatureInput.value = localStorage.getItem("TEMPERATURE") || "60";
-    modelSelect.value = getValidEnumValue(localStorage.getItem("model"), ChatModel, ChatModel.FLASH);
-    imageModelSelect.value = localStorage.getItem("imageModel") || "imagen-4.0-ultra-generate-001";
-    imageEditModelSelector.value = localStorage.getItem("imageEditModel") || "qwen";
-    autoscrollToggle.checked = localStorage.getItem("autoscroll") ? localStorage.getItem("autoscroll") === "true" : true;
+    ApiKeyInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
+    maxTokensInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
+    temperatureInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
+    modelSelect.value = getValidEnumValue(localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL), ChatModel, ChatModel.FLASH);
+    imageModelSelect.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || "imagen-4.0-ultra-generate-001";
+    imageEditModelSelector.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) || "qwen";
+    autoscrollToggle.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) ? localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) === "true" : true;
     // Default ON when not set
-    streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";
-    rpgGroupChatsProgressAutomaticallyToggle.checked = (localStorage.getItem("rpgGroupChatsProgressAutomatically") ?? "false") === "true";
-    disallowPersonaPingingToggle.checked = (localStorage.getItem("disallowPersonaPinging") ?? "false") === "true";
-    dynamicGroupChatPingOnlyToggle.checked = (localStorage.getItem("dynamicGroupChatPingOnly") ?? "false") === "true";
-    fullWidthChatToggle.checked = (localStorage.getItem("fullWidthChat") ?? "false") === "true";
-    const enableThinkingStored = localStorage.getItem("enableThinking");
+    streamResponsesToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES) ?? "true") === "true";
+    rpgGroupChatsProgressAutomaticallyToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY) ?? "false") === "true";
+    disallowPersonaPingingToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.DISALLOW_PERSONA_PINGING) ?? "false") === "true";
+    dynamicGroupChatPingOnlyToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY) ?? "false") === "true";
+    fullWidthChatToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.FULL_WIDTH_CHAT) ?? "false") === "true";
+    const enableThinkingStored = localStorage.getItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING);
     const enableThinking = (enableThinkingStored ?? "true") === "true";
     enableThinkingSelect.value = enableThinking ? 'enabled' : 'disabled';
     const uiScale = getStoredUiScale();
     uiScaleInput.value = getUiScaleInputValue(uiScale);
-    thinkingBudgetInput.value = localStorage.getItem("thinkingBudget") || "500";
+    thinkingBudgetInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.THINKING_BUDGET) || "500";
     delimiterPresetSelect.value = getStoredDelimiterPreset();
 
     const customDelimiterInstructions = getStoredCustomDelimiterInstructions();
@@ -245,28 +246,29 @@ export function loadSettings() {
 
     // Trigger input events to update any UI components that depend on these values
     temperatureInput.dispatchEvent(new Event('input', { bubbles: true }));
+    uiScaleInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 export function saveSettings() {
-    localStorage.setItem("API_KEY", ApiKeyInput.value);
-    localStorage.setItem("maxTokens", maxTokensInput.value);
-    localStorage.setItem("TEMPERATURE", temperatureInput.value);
-    localStorage.setItem("model", modelSelect.value);
-    localStorage.setItem("imageModel", imageModelSelect.value);
-    localStorage.setItem("imageEditModel", imageEditModelSelector.value);
-    localStorage.setItem("autoscroll", autoscrollToggle.checked.toString());
-    localStorage.setItem("streamResponses", streamResponsesToggle.checked.toString());
-    localStorage.setItem("rpgGroupChatsProgressAutomatically", rpgGroupChatsProgressAutomaticallyToggle.checked.toString());
-    localStorage.setItem("disallowPersonaPinging", disallowPersonaPingingToggle.checked.toString());
-    localStorage.setItem("dynamicGroupChatPingOnly", dynamicGroupChatPingOnlyToggle.checked.toString());
-    localStorage.setItem("fullWidthChat", fullWidthChatToggle.checked.toString());
-    localStorage.setItem("enableThinking", (enableThinkingSelect.value === 'enabled').toString());
-    localStorage.setItem("uiScale", getUiScaleFromInputValue(uiScaleInput.value).toString());
-    localStorage.setItem("thinkingBudget", thinkingBudgetInput.value);
-    localStorage.setItem("delimiterPreset", delimiterPresetSelect.value);
-    localStorage.setItem("customDialogueInstruction", customDialogueInstructionInput.value.trim());
-    localStorage.setItem("customActionInstruction", customActionInstructionInput.value.trim());
-    localStorage.setItem("customThoughtInstruction", customThoughtInstructionInput.value.trim());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.API_KEY, ApiKeyInput.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS, maxTokensInput.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.TEMPERATURE, temperatureInput.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, modelSelect.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL, imageModelSelect.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL, imageEditModelSelector.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL, autoscrollToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES, streamResponsesToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY, rpgGroupChatsProgressAutomaticallyToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.DISALLOW_PERSONA_PINGING, disallowPersonaPingingToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY, dynamicGroupChatPingOnlyToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.FULL_WIDTH_CHAT, fullWidthChatToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING, (enableThinkingSelect.value === 'enabled').toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.UI_SCALE, getUiScaleFromInputValue(uiScaleInput.value).toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.THINKING_BUDGET, thinkingBudgetInput.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.DELIMITER_PRESET, delimiterPresetSelect.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.CUSTOM_DIALOGUE_INSTRUCTION, customDialogueInstructionInput.value.trim());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.CUSTOM_ACTION_INSTRUCTION, customActionInstructionInput.value.trim());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.CUSTOM_THOUGHT_INSTRUCTION, customThoughtInstructionInput.value.trim());
     updateDelimiterPreview();
     applyUiScale(getUiScaleFromInputValue(uiScaleInput.value));
     applyFullWidthChat(fullWidthChatToggle.checked);

@@ -346,12 +346,12 @@ export async function confirmDialog(
         dialogMessage.textContent = message;
 
         btnDialogOk.onclick = () => {
-            hideElement(dialog);
+            hideElement(dialog, true);
             resolve(true);
         };
 
         btnDialogCancel.onclick = () => {
-            hideElement(dialog);
+            hideElement(dialog, true);
             resolve(false);
         };
     });

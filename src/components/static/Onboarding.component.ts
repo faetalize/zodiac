@@ -14,6 +14,7 @@ import * as toastService from "../../services/Toast.service";
 import { themeService } from "../../services/Theme.service";
 import { ChatModel } from "../../types/Models";
 import { getValidEnumValue } from "../../utils/helpers";
+import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 
 // Path selection buttons
 const easyPathButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-easy");
@@ -438,7 +439,7 @@ function setupApiOrSubscriptionChoice(): void {
         onboardingService.setPendingCredentials(null);
         
         // Prefill API key if it exists in localStorage
-        const existingApiKey = localStorage.getItem("API_KEY");
+        const existingApiKey = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY);
         if (existingApiKey) {
             apiKeyInput!.value = existingApiKey;
         }
@@ -497,7 +498,7 @@ function setupApiKeySetup(): void {
             onboardingService.setApiKeyValidated(true);
             
             // Save to localStorage
-            localStorage.setItem("API_KEY", apiKey);
+            localStorage.setItem(SETTINGS_STORAGE_KEYS.API_KEY, apiKey);
             settingsService.loadSettings();
             
             // Enable next button
@@ -822,13 +823,13 @@ function setupSummary(): void {
  */
 function applyEasyPathSettings(): void {
     // Set Easy path defaults in localStorage
-    localStorage.setItem("autoscroll", "true");
-    localStorage.setItem("streamResponses", "true");
-    localStorage.setItem("model", ChatModel.FLASH);
-    localStorage.setItem("maxTokens", "1000");
-    localStorage.setItem("enableThinking", "true");
-    localStorage.setItem("thinkingBudget", "500");
-    localStorage.setItem("TEMPERATURE", "60"); // Temperature is stored as 0-100, 0.6 = 60
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL, "true");
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES, "true");
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, ChatModel.FLASH);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS, "1000");
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING, "true");
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.THINKING_BUDGET, "500");
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.TEMPERATURE, "60"); // Temperature is stored as 0-100, 0.6 = 60
     
     // Reload settings to apply changes to UI
     settingsService.loadSettings();
@@ -1318,18 +1319,18 @@ function setupAdvancedSettings(): void {
     // Load current or default settings
     const loadDefaultSettings = () => {
         advancedModelSelect!.value = getValidEnumValue(
-            localStorage.getItem("model"),
+            localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL),
             ChatModel,
             ChatModel.FLASH
         )
-        advancedTemperature!.value = localStorage.getItem("TEMPERATURE") || "60";
+        advancedTemperature!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
         updateTemperatureDisplay();
-        advancedMaxOutputTokens!.value = localStorage.getItem("maxTokens") || "1000";
+        advancedMaxOutputTokens!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
         clampMaxOutputTokens();
-        advancedThinkingEnabled!.checked = localStorage.getItem("enableThinking") !== "false";
+        advancedThinkingEnabled!.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING) !== "false";
         const maxOutputTokens = parseInt(advancedMaxOutputTokens!.value, 10);
         const recommendedThinkingBudget = calculateRecommendedThinkingBudget(maxOutputTokens);
-        const storedThinkingBudget = localStorage.getItem("thinkingBudget");
+        const storedThinkingBudget = localStorage.getItem(SETTINGS_STORAGE_KEYS.THINKING_BUDGET);
         if (storedThinkingBudget === null) {
             advancedThinkingBudget!.value = recommendedThinkingBudget.toString();
             hasCustomThinkingBudget = false;
@@ -1345,11 +1346,11 @@ function setupAdvancedSettings(): void {
                 hasCustomThinkingBudget = parsedThinkingBudget !== recommendedThinkingBudget;
             }
         }
-        advancedAutoscroll!.checked = localStorage.getItem("autoscroll") !== "false";
-        advancedStreamResponses!.checked = localStorage.getItem("streamResponses") !== "false";
-        advancedRpgGroupChatsProgressAutomatically!.checked = (localStorage.getItem("rpgGroupChatsProgressAutomatically") ?? "false") === "true";
-        advancedDisallowPersonaPinging!.checked = (localStorage.getItem("disallowPersonaPinging") ?? "false") === "true";
-        advancedDynamicGroupChatPingOnly!.checked = (localStorage.getItem("dynamicGroupChatPingOnly") ?? "false") === "true";
+        advancedAutoscroll!.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) !== "false";
+        advancedStreamResponses!.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES) !== "false";
+        advancedRpgGroupChatsProgressAutomatically!.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY) ?? "false") === "true";
+        advancedDisallowPersonaPinging!.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.DISALLOW_PERSONA_PINGING) ?? "false") === "true";
+        advancedDynamicGroupChatPingOnly!.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY) ?? "false") === "true";
         
         // Trigger model change to set thinking restrictions
         updateThinkingRestrictions();
@@ -1474,16 +1475,16 @@ function setupAdvancedSettings(): void {
         validateThinkingBudget();
 
         // Save all settings to localStorage
-        localStorage.setItem("model", advancedModelSelect!.value);
-        localStorage.setItem("TEMPERATURE", advancedTemperature!.value);
-        localStorage.setItem("maxTokens", advancedMaxOutputTokens!.value);
-        localStorage.setItem("enableThinking", advancedThinkingEnabled!.checked.toString());
-        localStorage.setItem("thinkingBudget", advancedThinkingBudget!.value);
-        localStorage.setItem("autoscroll", advancedAutoscroll!.checked.toString());
-        localStorage.setItem("streamResponses", advancedStreamResponses!.checked.toString());
-        localStorage.setItem("rpgGroupChatsProgressAutomatically", advancedRpgGroupChatsProgressAutomatically!.checked.toString());
-        localStorage.setItem("disallowPersonaPinging", advancedDisallowPersonaPinging!.checked.toString());
-        localStorage.setItem("dynamicGroupChatPingOnly", advancedDynamicGroupChatPingOnly!.checked.toString());
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, advancedModelSelect!.value);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.TEMPERATURE, advancedTemperature!.value);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS, advancedMaxOutputTokens!.value);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING, advancedThinkingEnabled!.checked.toString());
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.THINKING_BUDGET, advancedThinkingBudget!.value);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL, advancedAutoscroll!.checked.toString());
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES, advancedStreamResponses!.checked.toString());
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY, advancedRpgGroupChatsProgressAutomatically!.checked.toString());
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.DISALLOW_PERSONA_PINGING, advancedDisallowPersonaPinging!.checked.toString());
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY, advancedDynamicGroupChatPingOnly!.checked.toString());
         
         // Reload settings to apply changes to UI
         settingsService.loadSettings();

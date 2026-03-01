@@ -508,13 +508,13 @@
                                     </div>
                                     <div class="ui-setting">
                                         <label class="setting-label" for="uiScale">UI Scale</label>
-                                        <input type="range" id="uiScale" class="slider ui-scale-slider" min="0" max="4" step="1" value="2">
-                                        <div class="ui-scale-labels" aria-hidden="true">
-                                            <span>0.5x</span>
-                                            <span>0.75x</span>
-                                            <span>1x</span>
-                                            <span>1.25x</span>
-                                            <span>1.5x</span>
+                                        <div class="stepped-slider">
+                                            <input type="hidden" id="uiScale" value="2">
+                                            <button class="stepped-slider-btn" data-value="0">0.5x</button>
+                                            <button class="stepped-slider-btn" data-value="1">0.75x</button>
+                                            <button class="stepped-slider-btn" data-value="2">1x</button>
+                                            <button class="stepped-slider-btn" data-value="3">1.25x</button>
+                                            <button class="stepped-slider-btn" data-value="4">1.5x</button>
                                         </div>
                                     </div>
                                 </div>

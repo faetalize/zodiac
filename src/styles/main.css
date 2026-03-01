@@ -2853,6 +2853,45 @@ body.full-width-chat #message-box {
     background: var(--dropdown-menu-item-active-bg);
 }
 
+/* Stepped Slider Component */
+.stepped-slider {
+    display: flex;
+    align-items: center;
+    background-color: var(--input-bg);
+    border: var(--input-border);
+    border-radius: 9999px;
+    padding: 0.25rem;
+    position: relative;
+    width: 100%;
+}
+
+.stepped-slider-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 9999px;
+    padding: 0.5rem 0.25rem;
+    font-size: 0.8rem;
+    color: var(--fg);
+    opacity: 0.7;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+    font-weight: 500;
+}
+
+.stepped-slider-btn:hover {
+    opacity: 1;
+    background-color: rgba(128, 128, 128, 0.1);
+}
+
+.stepped-slider-btn.active {
+    background-color: var(--primary);
+    color: var(--button-fg, #fff);
+    opacity: 1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
 /* Split Button Component */
 .split-button {
     display: inline-flex;
@@ -4861,32 +4900,6 @@ input[name="currentChat"][value="none"] {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-}
-
-.ui-scale-slider {
-    width: 100%;
-}
-
-.ui-scale-labels {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.25rem;
-    font-size: 0.8rem;
-    opacity: 0.8;
-}
-
-.ui-scale-labels span:nth-child(1),
-.ui-scale-labels span:nth-child(2) {
-    text-align: left;
-}
-
-.ui-scale-labels span:nth-child(3) {
-    text-align: center;
-}
-
-.ui-scale-labels span:nth-child(4),
-.ui-scale-labels span:nth-child(5) {
-    text-align: right;
 }
 
 /* Mode Selector */
