@@ -118,7 +118,7 @@ body.maintenance-banner-visible #main-container {
     top: 0;
     left: 0;
     right: 0;
-    min-height: 2.5rem;
+    min-height: var(--maintenance-banner-height);
     display: flex;
     align-items: center;
     justify-content: center;
