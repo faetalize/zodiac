@@ -28,6 +28,7 @@ let remoteOldestLoadedIndex = 0;
 let remoteWindowStartIndex = 0;
 const remoteChatsById = new Map<string, DbChat>();
 let currentChatSnapshot: DbChat | null = null;
+const chatWriteQueueById = new Map<string, Promise<void>>();
 
 const CHAT_SORT_MODE_STORAGE_KEY = "chat-sort-mode";
 // Lazily initialized from localStorage on first access so that the initial
@@ -106,6 +107,38 @@ export function getCurrentChatId(): string | null {
         return val || null;
     }
     return null;
+}
+
+export function isCurrentChatRemotePagedMode(): boolean {
+    return isRemotePagedMode;
+}
+
+async function enqueueChatWrite(chatId: string, task: () => Promise<void>): Promise<void> {
+    const previous = chatWriteQueueById.get(chatId) ?? Promise.resolve();
+    const run = previous
+        .catch(() => undefined)
+        .then(task);
+
+    const tracked = run.finally(() => {
+        if (chatWriteQueueById.get(chatId) === tracked) {
+            chatWriteQueueById.delete(chatId);
+        }
+    });
+
+    chatWriteQueueById.set(chatId, tracked);
+    return tracked;
+}
+
+export async function waitForPendingWrites(chatId: string): Promise<void> {
+    const pending = chatWriteQueueById.get(chatId);
+    if (!pending) return;
+    await pending.catch(() => undefined);
+}
+
+export async function waitForCurrentChatPendingWrites(): Promise<void> {
+    const chatId = getCurrentChatId();
+    if (!chatId) return;
+    await waitForPendingWrites(chatId);
 }
 
 function cacheRemoteChats(chats: DbChat[]) {
@@ -570,45 +603,60 @@ export function newChat() {
 }
 
 export async function saveChat(chat: DbChat): Promise<void> {
-    if (syncService.isOnlineSyncEnabled()) {
-        if (!syncService.isSyncActive()) {
-            throw new Error('Cloud sync is enabled but locked. Unlock sync before saving chat changes.');
-        }
-        let chatToSave = chat;
-
-        if (isRemotePagedMode && currentChatIdState === chat.id) {
-            const fullMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
-            if (fullMessages) {
-                const localMessages = chat.content || [];
-                const rebased = [...fullMessages];
-
-                for (let localIndex = 0; localIndex < localMessages.length; localIndex++) {
-                    const absoluteIndex = remoteWindowStartIndex + localIndex;
-                    rebased[absoluteIndex] = localMessages[localIndex];
-                }
-
-                chatToSave = {
-                    ...chat,
-                    content: rebased,
-                };
+    await enqueueChatWrite(chat.id, async () => {
+        if (syncService.isOnlineSyncEnabled()) {
+            if (!syncService.isSyncActive()) {
+                throw new Error('Cloud sync is enabled but locked. Unlock sync before saving chat changes.');
             }
+            let chatToSave = chat;
+            let previousForSync = remoteChatsById.get(chat.id) ?? (currentChatSnapshot?.id === chat.id ? currentChatSnapshot : undefined);
+
+            if (isRemotePagedMode && currentChatIdState === chat.id) {
+                const fullMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
+                if (fullMessages) {
+                    const localMessages = chat.content || [];
+                    const rebased = [...fullMessages];
+                    const previousLocalMessages = currentChatSnapshot?.id === chat.id
+                        ? (currentChatSnapshot.content || [])
+                        : [];
+
+                    for (let localIndex = 0; localIndex < localMessages.length; localIndex++) {
+                        const absoluteIndex = remoteWindowStartIndex + localIndex;
+                        rebased[absoluteIndex] = localMessages[localIndex];
+                    }
+
+                    if (localMessages.length < previousLocalMessages.length) {
+                        const truncateAt = Math.max(0, remoteWindowStartIndex + localMessages.length);
+                        rebased.length = Math.min(rebased.length, truncateAt);
+                    }
+
+                    chatToSave = {
+                        ...chat,
+                        content: rebased,
+                    };
+
+                    previousForSync = {
+                        ...(chat as any),
+                        content: fullMessages,
+                    } as DbChat;
+                }
+            }
+
+            const ok = await syncService.upsertSyncedChat(chatToSave, previousForSync);
+            if (!ok) {
+                throw new Error(`Failed to sync chat ${chat.id}`);
+            }
+            upsertRemoteChat(chatToSave);
+            if (currentChatSnapshot?.id === chat.id) {
+                currentChatSnapshot = structuredClone(chatToSave);
+            }
+            await refreshChatListAfterActivity(db);
+            return;
         }
 
-        const previous = remoteChatsById.get(chat.id) ?? (currentChatSnapshot?.id === chat.id ? currentChatSnapshot : undefined);
-        const ok = await syncService.upsertSyncedChat(chatToSave, previous);
-        if (!ok) {
-            throw new Error(`Failed to sync chat ${chat.id}`);
-        }
-        upsertRemoteChat(chatToSave);
-        if (currentChatSnapshot?.id === chat.id) {
-            currentChatSnapshot = structuredClone(chatToSave);
-        }
+        await db.chats.put(chat);
         await refreshChatListAfterActivity(db);
-        return;
-    }
-
-    await db.chats.put(chat);
-    await refreshChatListAfterActivity(db);
+    });
 }
 
 export async function getChatById(id: string): Promise<DbChat | undefined> {
@@ -936,16 +984,45 @@ export async function editChat(id: string, title: string) {
 }
 
 export async function exportChat(id: string): Promise<void> {
+    if (syncService.isOnlineSyncEnabled() && !syncService.isSyncActive()) {
+        toastService.danger({
+            title: "Export unavailable",
+            text: "Unlock cloud sync before exporting chats."
+        });
+        return;
+    }
+
     const chat = await getChatById(id);
     if (!chat) {
         console.error("Chat not found for export", id);
+        toastService.danger({
+            title: "Export Failed",
+            text: "Chat not found."
+        });
         return;
     }
+
+    let chatForExport: DbChat = chat;
+    if (syncService.isOnlineSyncEnabled()) {
+        const syncedMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
+        if (syncedMessages === null) {
+            toastService.danger({
+                title: "Export Failed",
+                text: "Failed to fetch chat messages from cloud sync."
+            });
+            return;
+        }
+        chatForExport = {
+            ...chat,
+            content: syncedMessages,
+        };
+    }
+
     // Exclude the id so imported chats get a new one (mirrors exportAllChats behavior)
-    const { id: _omit, ...rest } = chat as DbChat;
+    const { id: _omit, ...rest } = chatForExport;
     const blob = new Blob([JSON.stringify(rest, null, 2)], { type: 'application/json' });
     // Derive a safe filename from the chat title
-    const safeTitle = (chat.title || 'chat').toLowerCase().replace(/[^a-z0-9-_]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+    const safeTitle = (chatForExport.title || 'chat').toLowerCase().replace(/[^a-z0-9-_]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
     const a = document.createElement('a');
     const url = URL.createObjectURL(blob);
     a.href = url;
@@ -954,12 +1031,47 @@ export async function exportChat(id: string): Promise<void> {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+
+    toastService.info({
+        title: "Chat exported",
+        text: `Exported \"${chatForExport.title || 'chat'}\".`
+    });
 }
 
 export async function exportAllChats(): Promise<void> {
+    if (syncService.isOnlineSyncEnabled() && !syncService.isSyncActive()) {
+        toastService.danger({
+            title: "Export unavailable",
+            text: "Unlock cloud sync before exporting chats."
+        });
+        return;
+    }
+
     const chats = await getAllChats(db);
+
+    const chatsForExport: DbChat[] = [];
+    for (const chat of chats) {
+        if (syncService.isOnlineSyncEnabled()) {
+            const syncedMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
+            if (syncedMessages === null) {
+                toastService.danger({
+                    title: "Export Failed",
+                    text: `Failed to fetch messages for chat \"${chat.title || chat.id}\".`
+                });
+                return;
+            }
+            chatsForExport.push({
+                ...chat,
+                content: syncedMessages,
+            });
+            continue;
+        }
+
+        chatsForExport.push(chat);
+    }
+
     //we remove the id
-    const blob = new Blob([JSON.stringify(chats.map(({ id, ...rest }) => rest), null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(chatsForExport.map(({ id, ...rest }) => rest), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -968,33 +1080,51 @@ export async function exportAllChats(): Promise<void> {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+
+    toastService.info({
+        title: "Chats exported",
+        text: `Exported ${chatsForExport.length} chat${chatsForExport.length === 1 ? '' : 's'}.`
+    });
 }
 
 export async function importChats(files: FileList): Promise<void> {
-    const reader = new FileReader();
-    reader.addEventListener('load', async (event) => {
-        const content = event.target?.result as string;
-        try {
-            const chatOrChats = JSON.parse(content);
-            //check if it's iterable
-            const chats: Chat[] = Array.isArray(chatOrChats) ? chatOrChats : [chatOrChats]; //wrap single chat in array
-            for (const chat of chats) {
-                await addChatRecord(chat);
-            }
-            initialize();
-        } catch (error) {
-            console.error("Error parsing chat file:", error);
-            toastService.danger({
-                title: "Import Failed",
-                text: "Failed to import chats. Please ensure the file is in the correct format."
-            });
-        }
-    });
-    for (const file of files) {
-        reader.readAsText(file);
+    if (!files || files.length === 0) return;
+
+    if (syncService.isOnlineSyncEnabled() && !syncService.isSyncActive()) {
+        toastService.danger({
+            title: "Import unavailable",
+            text: "Unlock cloud sync before importing chats."
+        });
+        return;
     }
 
+    try {
+        const allChatsToImport: Chat[] = [];
 
+        for (const file of Array.from(files)) {
+            const content = await file.text();
+            const chatOrChats = JSON.parse(content);
+            const chats: Chat[] = Array.isArray(chatOrChats) ? chatOrChats : [chatOrChats];
+            allChatsToImport.push(...chats);
+        }
+
+        for (const chat of allChatsToImport) {
+            await addChatRecord(chat);
+        }
+
+        await initialize();
+
+        toastService.info({
+            title: "Chats imported",
+            text: `Imported ${allChatsToImport.length} chat${allChatsToImport.length === 1 ? '' : 's'}.`
+        });
+    } catch (error) {
+        console.error("Error importing chats:", error);
+        toastService.danger({
+            title: "Import Failed",
+            text: "Failed to import chats. Please ensure the file is in the correct format."
+        });
+    }
 }
 
 export async function moveChatDomEntryToTop(id: string) {

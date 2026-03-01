@@ -88,6 +88,8 @@ export { NARRATOR_PERSONALITY_ID, createPersonalityMarkerMessage };
 let currentAbortController: AbortController | null = null;
 let isGenerating = false;
 let sendInFlight = false;
+let hydrateForWriteInFlight: Promise<void> | null = null;
+let hydrateForWriteChatId: string | null = null;
 
 export function abortGeneration(): void {
     if (currentAbortController) {
@@ -114,11 +116,31 @@ function setSendInFlight(value: boolean): void {
 
 async function ensureCurrentChatFullyHydratedForWrite(): Promise<void> {
     if (!syncService.isSyncActive()) return;
+    if (!chatsService.isCurrentChatRemotePagedMode()) return;
+
     const chatId = chatsService.getCurrentChatId();
     if (!chatId) return;
-    const fullMessages = await syncService.fetchAllSyncedChatMessages(chatId);
-    if (!fullMessages) return;
-    await chatsService.replaceCurrentChatMessages(fullMessages);
+
+    if (hydrateForWriteInFlight && hydrateForWriteChatId === chatId) {
+        await hydrateForWriteInFlight;
+        return;
+    }
+
+    hydrateForWriteChatId = chatId;
+    hydrateForWriteInFlight = (async () => {
+        const fullMessages = await syncService.fetchAllSyncedChatMessages(chatId);
+        if (!fullMessages) return;
+        await chatsService.replaceCurrentChatMessages(fullMessages);
+    })();
+
+    try {
+        await hydrateForWriteInFlight;
+    } finally {
+        if (hydrateForWriteChatId === chatId) {
+            hydrateForWriteInFlight = null;
+            hydrateForWriteChatId = null;
+        }
+    }
 }
 
 function startGeneration(): AbortController {
@@ -775,6 +797,7 @@ export async function skipRpgTurn(): Promise<HTMLElement | undefined> {
 // ================================================================================
 
 export async function regenerate(modelMessageIndex: number): Promise<void> {
+    await chatsService.waitForCurrentChatPendingWrites();
     await ensureCurrentChatFullyHydratedForWrite();
     const chat = await chatsService.getCurrentChat(db);
     if (!chat) {
@@ -875,6 +898,7 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 }
 
 export async function deleteRound(roundIndex: number): Promise<void> {
+    await chatsService.waitForCurrentChatPendingWrites();
     await ensureCurrentChatFullyHydratedForWrite();
     const chat = await chatsService.getCurrentChat(db);
     if (!chat) return;
@@ -889,6 +913,7 @@ export async function deleteRound(roundIndex: number): Promise<void> {
 }
 
 export async function regenerateRound(roundIndex: number): Promise<void> {
+    await chatsService.waitForCurrentChatPendingWrites();
     await ensureCurrentChatFullyHydratedForWrite();
     const chat = await chatsService.getCurrentChat(db);
     if (!chat) return;

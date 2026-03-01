@@ -281,6 +281,11 @@ export function share(personality: Personality & { id?: string }, explicitId?: s
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+
+    info({
+        title: 'Persona exported',
+        text: `Exported "${personality.name}".`
+    });
 }
 
 const MARKETPLACE_URL = 'https://zodiac-marketplace.com/';
@@ -364,7 +369,7 @@ export async function removeAll() {
     }
 }
 
-export async function add(personality: Personality, explicitId?: string) {
+export async function add(personality: Personality, explicitId?: string): Promise<boolean> {
     //check if this persona comes from marketplace
     //marketplace exports include syncedFrom field with the marketplace ID
     const importedPersona = personality as any;
@@ -381,7 +386,7 @@ export async function add(personality: Personality, explicitId?: string) {
         : await db.personalities.get(id);
     if (existing) {
         info({ title: 'Already imported', text: `"${personality.name}" is already in your library` });
-        return;
+        return false;
     }
     
     let syncInfo: SyncInfo = { status: 'local' };
@@ -418,12 +423,12 @@ export async function add(personality: Personality, explicitId?: string) {
     if (syncService.isOnlineSyncEnabled()) {
         if (!syncService.isSyncActive()) {
             danger({ title: 'Sync locked', text: 'Unlock cloud sync before adding personas.' });
-            return;
+            return false;
         }
         const syncedOk = await syncService.pushPersona(personaToSave as DbPersonality);
         if (!syncedOk) {
             danger({ title: 'Sync failed', text: 'Failed to save persona to cloud.' });
-            return;
+            return false;
         }
         upsertCachedSyncedPersona(personaToSave as DbPersonality);
     } else {
@@ -436,6 +441,8 @@ export async function add(personality: Personality, explicitId?: string) {
     if (addCard) {
         document.querySelector("#personalitiesDiv")?.appendChild(addCard);
     }
+
+    return true;
 }
 
 export async function edit(id: string, personality: Personality) {
