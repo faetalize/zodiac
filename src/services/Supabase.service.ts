@@ -334,6 +334,26 @@ export async function getImageGenerationRecord(): Promise<ImageGenerationRecord 
     return data;
 }
 
+export async function getRemoteKeyValue<T = unknown>(key: string): Promise<T | null> {
+    const normalizedKey = key.trim();
+    if (!normalizedKey) {
+        return null;
+    }
+
+    const { data, error } = await supabase
+        .from('feature_flags')
+        .select('value')
+        .eq('key', normalizedKey)
+        .maybeSingle();
+
+    if (error) {
+        console.error('Get remote key value error:', error.message);
+        return null;
+    }
+
+    return (data?.value as T | undefined) ?? null;
+}
+
 export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionTier {
     // treat non-active as free
     if (!sub || !sub.status || !['active', 'trialing', 'past_due', 'canceled'].includes(String(sub.status))) {

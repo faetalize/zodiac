@@ -12,6 +12,7 @@
 :root {
     --vvh: 100dvh;
     --vv-offset-top: 0px;
+    --maintenance-banner-height: 2.5rem;
     --navbar-tab-highlight-padding: 2px;
     --elevated-ui-shadow: 0 0 12px 0px rgb(0 0 0 / 15%);
     --elevated-ui-outline: 1px solid rgba(0, 0, 0, 0.1);
@@ -104,6 +105,41 @@ body.ime-open #message-box {
 
 body.ime-open #messageInput {
     max-height: min(14rem, calc(var(--vvh, 100dvh) * 0.4));
+}
+
+body.maintenance-banner-visible #main-container {
+    height: calc(var(--vvh, 100dvh) - var(--maintenance-banner-height));
+    min-height: calc(var(--vvh, 100dvh) - var(--maintenance-banner-height));
+    margin-top: var(--maintenance-banner-height);
+}
+
+.maintenance-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    min-height: var(--maintenance-banner-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 1rem;
+    text-align: center;
+    z-index: 100;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: normal;
+}
+
+.maintenance-banner--normal {
+    background-color: var(--primary);
+    color: var(--button-fg);
+}
+
+.maintenance-banner--warning {
+    background-color: var(--warning-bg);
+    color: var(--warning-fg);
+    border-bottom: 1px solid var(--warning-border);
 }
 
 p {
@@ -5969,6 +6005,12 @@ input.onboarding-select {
         border-radius: 0;
         display: none;
         opacity: 0;
+    }
+
+    body.maintenance-banner-visible .sidebar {
+        top: 0;
+        height: calc(var(--vvh, 100dvh));
+        padding-top: calc(1rem + var(--maintenance-banner-height));
     }
 
     .navbar {
