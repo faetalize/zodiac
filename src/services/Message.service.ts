@@ -269,7 +269,7 @@ async function persistUserAndModel(user: Message, model: Message): Promise<void>
 }
 
 async function persistMessages(messages: Message[]): Promise<void> {
-    const chat = await chatsService.getCurrentChat(db);
+    const chat = await chatsService.getCurrentChat();
     if (!chat) return;
     chat.content.push(...messages);
     chat.lastModified = new Date();
@@ -326,7 +326,7 @@ function generateThinkingConfig(model: string, enableThinking: boolean, settings
 }
 
 async function finalizeResponseElement(responseElement: HTMLElement, scroll: boolean = true): Promise<void> {
-    const updatedChat = await chatsService.getCurrentChat(db);
+    const updatedChat = await chatsService.getCurrentChat();
     if (updatedChat) {
         const modelIndex = updatedChat.content.length - 1;
         const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
@@ -603,7 +603,7 @@ import { PersonGeneration, SafetyFilterLevel } from "@google/genai";
 const CHAT_TITLE_SYSTEM_INSTRUCTION = "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user may send any kinds of queries, including adult or illegal content. You are to generate a title for the chat based on the query, without any warnings or refusals. Never refuse to generate a title. Keep it short, ideally 3-5 words at most. Remove any special characters.";
 
 async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat> {
-    const currentChat = await chatsService.getCurrentChat(db);
+    const currentChat = await chatsService.getCurrentChat();
     if (currentChat) return currentChat;
 
     const response = await ai.models.generateContent({
@@ -627,7 +627,7 @@ async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat>
 }
 
 async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
-    const currentChat = await chatsService.getCurrentChat(db);
+    const currentChat = await chatsService.getCurrentChat();
     if (currentChat) return currentChat;
 
     const payloadSettings: PremiumEndpoint.RequestSettings = {
@@ -690,7 +690,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                 return;
             }
 
-            const existingChat = await chatsService.getCurrentChat(db);
+            const existingChat = await chatsService.getCurrentChat();
             const mode = (existingChat as any)?.groupChat?.mode as ("rpg" | "dynamic" | undefined);
 
             if (mode === "dynamic") {
@@ -741,7 +741,7 @@ export async function sendRpgTurn(msg?: string): Promise<HTMLElement | undefined
         const validation = await performEarlyValidation(msg || "");
         if (!validation.canProceed) return;
 
-        const existingChat = await chatsService.getCurrentChat(db);
+        const existingChat = await chatsService.getCurrentChat();
         const mode = (existingChat as any)?.groupChat?.mode;
         if (mode !== "rpg") {
             warn({ title: "Not in group chat", text: "This function is only available in RPG group chats." });
@@ -772,7 +772,7 @@ export async function skipRpgTurn(): Promise<HTMLElement | undefined> {
         const validation = await performEarlyValidation("");
         if (!validation.canProceed) return;
 
-        const existingChat = await chatsService.getCurrentChat(db);
+        const existingChat = await chatsService.getCurrentChat();
         const mode = (existingChat as any)?.groupChat?.mode;
         if (mode !== "rpg") {
             warn({ title: "Not in group chat", text: "This function is only available in RPG group chats." });
@@ -799,7 +799,7 @@ export async function skipRpgTurn(): Promise<HTMLElement | undefined> {
 export async function regenerate(modelMessageIndex: number): Promise<void> {
     await chatsService.waitForCurrentChatPendingWrites();
     await ensureCurrentChatFullyHydratedForWrite();
-    const chat = await chatsService.getCurrentChat(db);
+    const chat = await chatsService.getCurrentChat();
     if (!chat) {
         console.error("No chat found");
         return;
@@ -900,7 +900,7 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 export async function deleteRound(roundIndex: number): Promise<void> {
     await chatsService.waitForCurrentChatPendingWrites();
     await ensureCurrentChatFullyHydratedForWrite();
-    const chat = await chatsService.getCurrentChat(db);
+    const chat = await chatsService.getCurrentChat();
     if (!chat) return;
 
     const beforeLen = chat.content.length;
@@ -915,7 +915,7 @@ export async function deleteRound(roundIndex: number): Promise<void> {
 export async function regenerateRound(roundIndex: number): Promise<void> {
     await chatsService.waitForCurrentChatPendingWrites();
     await ensureCurrentChatFullyHydratedForWrite();
-    const chat = await chatsService.getCurrentChat(db);
+    const chat = await chatsService.getCurrentChat();
     if (!chat) return;
 
     const startIndex = (chat.content || []).findIndex(m => m.roundIndex === roundIndex);
@@ -1004,7 +1004,7 @@ async function performEarlyValidation(msg: string): Promise<EarlyValidationResul
         return { canProceed: false };
     }
 
-    const existingChat = await chatsService.getCurrentChat(db);
+    const existingChat = await chatsService.getCurrentChat();
     const groupMode = (existingChat as any)?.groupChat?.mode as ("rpg" | "dynamic" | undefined);
     const isGroupChat = groupMode === "rpg" || groupMode === "dynamic";
     const allowsEmptyMessage = groupMode === "rpg";
