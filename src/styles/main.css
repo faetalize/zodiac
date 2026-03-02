@@ -23,7 +23,7 @@
     font-family: 'Material Symbols Outlined';
     font-weight: normal;
     font-style: normal;
-    font-size: 1.5rem;
+    font-size: 1.325rem;
     line-height: 1;
     letter-spacing: normal;
     text-transform: none;
@@ -660,16 +660,16 @@ select:disabled {
 }
 
 .btn-danger {
-    background-color: #e92727;
+    background-color: #bf1a1a;
     color: rgb(243, 227, 227);
 }
 
 .btn-danger:hover {
-    background-color: #b50505;
+    background-color: #940505;
 }
 
 .btn-danger:active {
-    background-color: #8b0404;
+    background-color: #680303;
 }
 
 .btn-neutral {
@@ -3758,8 +3758,6 @@ body.full-width-chat #message-box {
     margin-top: -8px;
     margin-bottom: 0.5rem;
     border-radius: 1rem;
-    background-color: var(--sidebar-chrome-bg);
-    border: 1px solid var(--sidebar-chrome-border);
 }
 
 
@@ -4257,8 +4255,6 @@ body.full-width-chat #message-box {
     margin-inline: -8px;
     margin-bottom: -8px;
     border-radius: 1rem;
-    background-color: var(--sidebar-chrome-bg);
-    border: 1px solid var(--sidebar-chrome-border);
     font-size: 0.75rem;
     color: #7c8a9c;
     justify-content: space-between;

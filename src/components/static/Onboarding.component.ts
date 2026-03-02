@@ -1548,8 +1548,10 @@ function setAuthMode(mode: AuthMode, options: { focus?: boolean } = {}): void {
     const targetIndex = isRegister ? 0 : 1;
 
     if (registerTabsHighlight && tabs.length > 0) {
-        registerTabsHighlight.style.width = `calc(100% / ${tabs.length})`;
-        registerTabsHighlight.style.left = `calc(100% / ${tabs.length} * ${targetIndex})`;
+        const highlightInset = "0.1875rem";
+        const availableWidth = `calc(100% - (${highlightInset} * 2))`;
+        registerTabsHighlight.style.width = `calc(${availableWidth} / ${tabs.length})`;
+        registerTabsHighlight.style.left = `calc(${highlightInset} + ((${availableWidth} / ${tabs.length}) * ${targetIndex}))`;
     }
 
     tabs.forEach((tab, index) => {
