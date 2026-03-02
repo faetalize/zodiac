@@ -13,6 +13,8 @@ export class SteppedSlider {
             return;
         }
 
+        this.buttons.forEach(btn => this.enhanceButtonContent(btn));
+
         this.buttons.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -44,6 +46,36 @@ export class SteppedSlider {
         this.buttons.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.value === value);
         });
+    }
+
+    private enhanceButtonContent(button: HTMLButtonElement) {
+        const icon = button.dataset.icon;
+        if (!icon) return;
+
+        const existingIcon = button.querySelector('.material-symbols-outlined');
+        if (existingIcon) return;
+
+        const text = button.textContent?.trim() ?? '';
+        button.textContent = '';
+        button.classList.add('stepped-slider-btn-with-icon');
+
+        const content = document.createElement('span');
+        content.className = 'stepped-slider-btn-content';
+
+        const iconElement = document.createElement('span');
+        iconElement.className = 'material-symbols-outlined stepped-slider-btn-icon';
+        iconElement.setAttribute('aria-hidden', 'true');
+        iconElement.textContent = icon;
+        content.appendChild(iconElement);
+
+        if (text.length > 0) {
+            const label = document.createElement('span');
+            label.className = 'stepped-slider-btn-label';
+            label.textContent = text;
+            content.appendChild(label);
+        }
+
+        button.appendChild(content);
     }
 }
 

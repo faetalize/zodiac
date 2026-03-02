@@ -4,24 +4,27 @@ import * as toastService from '../../services/Toast.service';
 import { ToastSeverity } from '../../types/Toast';
 
 // Query all required elements
-const modeButtons = document.querySelectorAll<HTMLButtonElement>('.mode-btn');
+const modeInput = document.querySelector<HTMLInputElement>('#themeMode');
 const themeButtons = document.querySelectorAll<HTMLButtonElement>('.theme-btn');
 
-if (!modeButtons.length || !themeButtons.length) {
+if (!modeInput || !themeButtons.length) {
     console.error('Theme control elements not found in DOM');
     throw new Error('Theme control elements not found');
 }
+const modeInputElement = modeInput;
 
 // Implemented themes (others are placeholders)
 const IMPLEMENTED_THEMES: ColorTheme[] = ['blue', 'red', 'green', 'purple', 'monochrome'];
+const MODE_TO_VALUE: Record<'light' | 'auto' | 'dark', string> = {
+    light: '0',
+    auto: '1',
+    dark: '2',
+};
 
 function initialize() {
     console.log('[ThemeControls] Initializing theme controls');
     
-    // Set up mode buttons
-    modeButtons.forEach(button => {
-        button.addEventListener('click', handleModeClick);
-    });
+    modeInputElement.addEventListener('input', handleModeInput);
     
     // Set up theme buttons
     themeButtons.forEach(button => {
@@ -44,18 +47,17 @@ function initialize() {
 // Auto-initialize when component loads
 initialize();
 
-function handleModeClick(event: Event) {
-    const button = event.currentTarget as HTMLButtonElement;
-    const mode = button.getAttribute('data-mode');
-    
-    if (!mode) return;
-    
-    if (mode === 'auto') {
+function handleModeInput(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+
+    if (input.value === MODE_TO_VALUE.auto) {
         themeService.setAutoMode();
-    } else if (mode === 'light' || mode === 'dark') {
-        themeService.setMode(mode, 'manual');
+    } else if (input.value === MODE_TO_VALUE.light) {
+        themeService.setMode('light', 'manual');
+    } else if (input.value === MODE_TO_VALUE.dark) {
+        themeService.setMode('dark', 'manual');
     }
-    
+
     updateUI();
 }
 
@@ -83,18 +85,11 @@ function updateUI() {
     const settings = themeService.getSettings();
     const currentTheme = themeService.getCurrentTheme();
     
-    // Update mode buttons
-    modeButtons.forEach(button => {
-        const mode = button.getAttribute('data-mode');
-        
-        if (mode === 'auto') {
-            button.classList.toggle('active', settings.preference === 'auto');
-        } else {
-            button.classList.toggle('active', 
-                settings.preference === 'manual' && settings.mode === mode
-            );
-        }
-    });
+    // Update mode slider value
+    modeInputElement.value = settings.preference === 'auto'
+        ? MODE_TO_VALUE.auto
+        : MODE_TO_VALUE[settings.mode];
+    modeInputElement.dispatchEvent(new Event('input', { bubbles: true }));
     
     // Update theme buttons
     themeButtons.forEach(button => {

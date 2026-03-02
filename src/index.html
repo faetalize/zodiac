@@ -482,17 +482,12 @@
                             <div class="settings-page-content">
                                 <div class="ui-settings">
                                     <div class="ui-setting">
-                                        <label class="setting-label">Mode</label>
-                                        <div class="mode-selector">
-                                            <button class="mode-btn" data-mode="light" aria-label="Light mode">
-                                                <span class="material-symbols-outlined">light_mode</span>
-                                            </button>
-                                            <button class="mode-btn" data-mode="auto" aria-label="Auto mode">
-                                                <span class="material-symbols-outlined">contrast</span>
-                                            </button>
-                                            <button class="mode-btn" data-mode="dark" aria-label="Dark mode">
-                                                <span class="material-symbols-outlined">dark_mode</span>
-                                            </button>
+                                        <label class="setting-label" for="themeMode">Mode</label>
+                                        <div class="stepped-slider">
+                                            <input type="hidden" id="themeMode" value="1">
+                                            <button class="stepped-slider-btn" data-value="0" data-icon="light_mode">Light</button>
+                                            <button class="stepped-slider-btn" data-value="1" data-icon="contrast">Auto</button>
+                                            <button class="stepped-slider-btn" data-value="2" data-icon="dark_mode">Dark</button>
                                         </div>
                                     </div>
                                     <div class="ui-setting">

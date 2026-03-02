@@ -2964,6 +2964,18 @@ body.full-width-chat #message-box {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
+.stepped-slider-btn-content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.stepped-slider-btn-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
 /* Split Button Component */
 .split-button {
     display: inline-flex;
