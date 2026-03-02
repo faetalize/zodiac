@@ -3745,7 +3745,6 @@ body.full-width-chat #message-box {
     outline: none;
     background-color: var(--sidebar-bg);
     backdrop-filter: blur(80px);
-    -webkit-backdrop-filter: blur(80px);
 }
 
 .sidebar-top-bar {
