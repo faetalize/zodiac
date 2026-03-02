@@ -7,6 +7,8 @@
     --navbar-tab-hover-bg: #00000041;
 
     --chat-actions-menu-fg: #e4e4e4;
+    --sidebar-chrome-bg: rgba(0, 0, 0, 0.089);
+    --sidebar-chrome-border: rgba(255, 255, 255, 0.11);
 
     /* dropdown */
     --dropdown-menu-bg: #131313a6;
@@ -28,6 +30,9 @@
     --modal-shadow: var(--dropdown-menu-shadow);
 
     --turn-control-outline: 1px solid rgba(255, 255, 255, 0.55);
+
+    /* Navbar */
+    --navbar-bg: #00000054;
 
 
     .message-text:focus-visible {
