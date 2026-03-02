@@ -119,7 +119,7 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
     }
 
     // Refresh working chat
-    let workingChat = await chatsService.getCurrentChat(db);
+    let workingChat = await chatsService.getCurrentChat();
     if (!workingChat) {
         endGeneration();
         return;
@@ -165,7 +165,7 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
 
         executedAiTurns += 1;
 
-        ctx.workingChat = (await chatsService.getCurrentChat(db))!;
+        ctx.workingChat = (await chatsService.getCurrentChat())!;
     }
 
     // Narrator after round: only when the round actually completes
@@ -194,7 +194,7 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
     const settings = settingsService.getSettings();
     const shouldEnforceThoughtSignaturesInHistory = settings.model === ChatModel.NANO_BANANA_PRO;
 
-    let workingChat = await chatsService.getCurrentChat(db);
+    let workingChat = await chatsService.getCurrentChat();
     if (!workingChat) {
         console.error("Group chat send called without an active chat");
         return null;
@@ -347,7 +347,7 @@ async function persistSkipTurnMarkerIfNeeded(chat: DbChat, currentRoundIndex: nu
             parts: [{ text: USER_SKIP_TURN_MARKER_TEXT }],
         };
         await persistMessages([skipMarker]);
-        return (await chatsService.getCurrentChat(db)) ?? null;
+        return (await chatsService.getCurrentChat()) ?? null;
     }
 
     return chat;
@@ -560,7 +560,7 @@ function hasAiTurnInRound(chat: DbChat, roundIndex: number): boolean {
 }
 
 async function persistAiSkipTurnMarker(args: { personaId: string; currentRoundIndex: number }): Promise<void> {
-    const chat = await chatsService.getCurrentChat(db);
+    const chat = await chatsService.getCurrentChat();
     const chatContent = chat?.content ?? [];
 
     const hasSkipMarkerForRound = chatContent.some((m: Message) => {
@@ -611,7 +611,7 @@ async function insertUserMessage(ctx: RpgContext): Promise<HTMLElement | undefin
     const userElm = await insertMessage(userMessage, userIndex);
     await persistMessages([userMessage]);
 
-    const updatedChat = await chatsService.getCurrentChat(db);
+    const updatedChat = await chatsService.getCurrentChat();
     if (!updatedChat) return undefined;
     ctx.workingChat = updatedChat;
 
@@ -646,7 +646,7 @@ async function executeParticipantTurn(args: {
         toneExamples: toneExamplesForSpeaker,
     });
 
-    const chatSnapshot = await chatsService.getCurrentChat(db);
+    const chatSnapshot = await chatsService.getCurrentChat();
     if (!chatSnapshot) return { continueLoop: false };
 
     const { history } = await constructGeminiChatHistoryForGroupChatRpg(
@@ -662,7 +662,7 @@ async function executeParticipantTurn(args: {
     const participantsLine = participantMeta.map(p => `${p.name} (${p.id})`).join(", ");
     const turnInstruction = buildTurnInstruction({ participantsLine, speakerName: meta.name, useIndependentAction });
 
-    const placeholderIndex = (await chatsService.getCurrentChat(db))?.content.length ?? -1;
+    const placeholderIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
     const placeholderElm = placeholderIndex >= 0
         ? await insertMessage(createModelPlaceholderMessage(meta.id, "", currentRoundIndex), placeholderIndex)
         : undefined;
@@ -744,7 +744,7 @@ async function executeParticipantTurn(args: {
 }
 
 async function replacePlaceholderWithPersistedMessage(placeholderElm: HTMLElement | undefined): Promise<void> {
-    const updatedChat = await chatsService.getCurrentChat(db);
+    const updatedChat = await chatsService.getCurrentChat();
     if (updatedChat) {
         const modelIndex = updatedChat.content.length - 1;
         const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
@@ -1036,7 +1036,7 @@ async function handleNarratorBeforeFirst(ctx: RpgContext): Promise<void> {
 }
 
 async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
-    const chatForInterjection = await chatsService.getCurrentChat(db);
+    const chatForInterjection = await chatsService.getCurrentChat();
     if (!chatForInterjection) return;
 
     const { history: interjectionHistory } = await constructGeminiChatHistoryForGroupChatRpg(
@@ -1064,7 +1064,7 @@ async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
             roundIndex: ctx.currentRoundIndex,
         };
 
-        const interjectionIndex = (await chatsService.getCurrentChat(db))?.content.length ?? -1;
+        const interjectionIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
         if (interjectionIndex >= 0) {
             await insertMessage(interjectionMessage, interjectionIndex);
             await persistMessages([interjectionMessage]);
@@ -1075,7 +1075,7 @@ async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
 }
 
 async function handleNarratorAfterRound(ctx: RpgContext): Promise<void> {
-    const chatForAfter = await chatsService.getCurrentChat(db);
+    const chatForAfter = await chatsService.getCurrentChat();
     if (!chatForAfter) return;
 
     const lastInRound = [...(chatForAfter.content || [])]
@@ -1113,7 +1113,7 @@ async function handleNarratorAfterRound(ctx: RpgContext): Promise<void> {
                 roundIndex: ctx.currentRoundIndex,
             };
 
-            const afterIndex = (await chatsService.getCurrentChat(db))?.content.length ?? -1;
+            const afterIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
             if (afterIndex >= 0) {
                 await insertMessage(afterMessage, afterIndex);
                 await persistMessages([afterMessage]);

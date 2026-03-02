@@ -3,6 +3,7 @@ import * as personalityService from "../../services/Personality.service";
 import * as groupChatService from "../../services/GroupChat.service";
 import * as stepperService from "../../services/Stepper.service";
 import * as settingsService from "../../services/Settings.service";
+import * as chatsService from "../../services/Chats.service";
 import { warn, danger } from "../../services/Toast.service";
 import { defaultGuardFromIndependence, normalizeGuardMap } from "../../utils/dynamicGroupChatGuards";
 
@@ -49,7 +50,7 @@ type PersonaListItem = {
 let allPersonas: PersonaListItem[] = [];
 let selectedIds: string[] = [];
 let turnOrder: string[] = [];
-let editingChatId: number | null = null;
+let editingChatId: string | null = null;
 let editingMode: "dynamic" | "rpg" | null = null;
 let maxMessageGuardById: Record<string, number> = {};
 
@@ -465,7 +466,7 @@ openButton.addEventListener("click", async () => {
 
 window.addEventListener("open-group-chat-editor", async (e: any) => {
     const chatId = e.detail.chatId;
-    const chat = await groupChatService.db.chats.get(chatId);
+    const chat = await chatsService.getChatById(chatId);
     if (!chat || !chat.groupChat) return;
 
     await loadPersonas();

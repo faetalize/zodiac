@@ -33,7 +33,6 @@
     --sidebar-bg: #1a331ad5;
 
     /* Navbar */
-    --navbar-bg: #00000047;
     --navbar-tab-fg: #d3ffd38a;
     --navbar-tab-highlight-bg: #226b28;
     --navbar-tab-fg-active: #c7ffc7;
@@ -240,6 +239,11 @@
     --top-up-price-fg: #ffffff;
     --top-up-credits-fg: #e8eef7;
     --top-up-subtitle-fg: #a6b2c2;
+
+    /* Modal */
+    --modal-bg: var(--onboarding-card-bg);
+    --modal-fg: var(--onboarding-title);
+    --modal-shadow: 0 8px 24px var(--onboarding-card-shadow);
 
     /* Onboarding */
     --onboarding-overlay-bg: rgba(8, 18, 12, 0.95);

@@ -21,7 +21,6 @@ import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
 import * as helpers from "../utils/helpers";
-import { db } from "./Db.service";
 import { SUPABASE_URL, getAuthHeaders, getUserProfile } from "./Supabase.service";
 import { warn } from "./Toast.service";
 
@@ -47,7 +46,7 @@ export interface DynamicInputArgs {
     shouldEnforceThoughtSignaturesInHistory: boolean;
 }
 
-type ChatId = number;
+type ChatId = string;
 
 const isDevEnvironment = ["localhost", "127.0.0.1", "::1", "192.168.1.1"].includes(window.location.hostname);
 
@@ -113,24 +112,23 @@ async function appendMessageToChat(args: {
     message: Message;
 }): Promise<{ index: number; chat: DbChat } | null> {
     const { chatId, message } = args;
-    return await db.transaction("rw", db.chats, async () => {
-        const chat = await db.chats.get(chatId);
-        if (!chat) return null;
-        const index = chat.content.length;
-        chat.content.push(message);
-        chat.lastModified = new Date();
-        await db.chats.put(chat);
-        return { index, chat };
-    });
+    const chat = await chatsService.getChatById(chatId);
+    if (!chat) return null;
+
+    const index = chat.content.length;
+    chat.content.push(message);
+    chat.lastModified = new Date();
+    await chatsService.saveChat(chat);
+    return { index, chat };
 }
 
 async function refreshAfterActivity(chatId: ChatId): Promise<void> {
     const current = chatsService.getCurrentChatId();
     if (current === chatId) {
         // Keep UI in sync with any derived sidebar values
-        await chatsService.refreshChatListAfterActivity(db);
+        await chatsService.refreshChatListAfterActivity();
     } else {
-        await chatsService.refreshChatListAfterActivity(db);
+        await chatsService.refreshChatListAfterActivity();
     }
 }
 
@@ -160,13 +158,13 @@ async function loadDynamicContext(args: {
     rosterSystemPrompt: string;
     pingOnly: boolean;
 } | null> {
-    const chat = await db.chats.get(args.chatId);
+    const chat = await chatsService.getChatById(args.chatId);
     if (!chat || chat.groupChat?.mode !== "dynamic") {
         return null;
     }
 
     const participants: string[] = Array.isArray(chat.groupChat.participantIds)
-        ? chat.groupChat.participantIds.map(v => String(v))
+        ? chat.groupChat.participantIds.map((v: string) => String(v))
         : [];
 
     const maxMessageGuardById = chat.groupChat.dynamic?.maxMessageGuardById;
@@ -312,7 +310,7 @@ async function respondAsPersona(args: {
     try {
         const settings = settingsService.getSettings();
 
-        const freshChat = await db.chats.get(args.chatId);
+        const freshChat = await chatsService.getChatById(args.chatId);
         if (!freshChat) return;
 
         const { history, pinnedHistoryIndices } = await constructGeminiChatHistoryForGroupChat(freshChat, {
@@ -452,13 +450,13 @@ async function respondAsPersona(args: {
 }
 
 export async function sendGroupChatDynamic(args: DynamicInputArgs): Promise<HTMLElement | undefined> {
-    const currentChat = await chatsService.getCurrentChat(db);
+    const currentChat = await chatsService.getCurrentChat();
     if (!currentChat || currentChat.groupChat?.mode !== "dynamic") {
         return;
     }
 
-    const chatId = (currentChat as any).id as number;
-    if (!Number.isFinite(chatId)) {
+    const chatId = (currentChat as any).id as string;
+    if (!chatId) {
         return;
     }
 

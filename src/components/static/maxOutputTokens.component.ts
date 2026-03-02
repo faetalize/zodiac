@@ -1,3 +1,5 @@
+import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
+
 const maxOutputTokensComponent = document.querySelector<HTMLInputElement>("#maxTokens");
 
 if (!maxOutputTokensComponent) {
@@ -16,6 +18,6 @@ maxOutputTokensComponent.addEventListener("input", () => {
         } else if (value > 65536) {
             maxOutputTokensComponent.value = "65536";
         }
-        localStorage.setItem("maxTokens", maxOutputTokensComponent.value);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS, maxOutputTokensComponent.value);
     }, 1000);
 });

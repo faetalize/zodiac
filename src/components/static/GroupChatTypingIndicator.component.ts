@@ -8,7 +8,7 @@ if (!element) {
 
 const typingIndicator: HTMLDivElement = element;
 
-let activeChatId: number | null = null;
+let activeChatId: string | null = null;
 let isDynamicChat = false;
 
 function formatNames(names: string[]): string {
@@ -38,7 +38,7 @@ async function render(personaIds: string[]): Promise<void> {
 window.addEventListener("chat-loaded", (e: any) => {
     const detail = e.detail as ChatLoadedDetail;
     const chat = detail.chat;
-    activeChatId = (chat as any)?.id ?? null;
+    activeChatId = (chat as any)?.id as string ?? null;
     isDynamicChat = chat?.groupChat?.mode === "dynamic";
     void render([]);
 });

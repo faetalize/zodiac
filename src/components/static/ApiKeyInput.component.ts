@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { getSubscriptionTier, type SubscriptionTier } from "../../services/Supabase.service";
 import { ChatModel } from "../../types/Models";
 import { dispatchAppEvent, onAppEvent } from "../../events";
+import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 
 const apiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
 const apiKeyGroup = document.querySelector<HTMLDivElement>(".api-key");
@@ -15,18 +16,22 @@ if (!apiKeyInput || !apiKeyGroup || !preferPremiumToggle || !preferPremiumCheckb
 
 // API key input is always editable regardless of subscription status
 
-// Load saved preference - default to true for subscribers
-const savedPreference = localStorage.getItem('preferPremiumEndpoint');
-if (savedPreference !== null) {
-    preferPremiumCheckbox.checked = savedPreference === 'true';
-} else {
-    // Default to true (prefer premium ON by default)
-    preferPremiumCheckbox.checked = true;
+function applyPremiumPreferenceFromStorage(): void {
+    const savedPreference = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
+    if (savedPreference !== null) {
+        preferPremiumCheckbox!.checked = savedPreference === 'true';
+    } else {
+        // Default to true (prefer premium ON by default)
+        preferPremiumCheckbox!.checked = true;
+    }
 }
+
+// Load saved preference - default to true for subscribers
+applyPremiumPreferenceFromStorage();
 
 // Save preference when changed
 preferPremiumCheckbox.addEventListener('change', () => {
-    localStorage.setItem('preferPremiumEndpoint', preferPremiumCheckbox.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, preferPremiumCheckbox.checked.toString());
     // Dispatch event to notify other components
     dispatchAppEvent('premium-endpoint-preference-changed', { preferred: preferPremiumCheckbox.checked });
 });
@@ -34,6 +39,7 @@ preferPremiumCheckbox.addEventListener('change', () => {
 // Show/hide the toggle based on subscription status
 onAppEvent('auth-state-changed', (event) => {
     const { subscription: sub } = event.detail;
+    const savedPreference = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
     if (!sub) {
         preferPremiumToggle.classList.add('hidden');
         preferPremiumCheckbox.checked = false; // Turn OFF for free users
@@ -46,12 +52,17 @@ onAppEvent('auth-state-changed', (event) => {
         // Set default to ON for subscribers if not previously saved
         if (savedPreference === null) {
             preferPremiumCheckbox.checked = true;
-            localStorage.setItem('preferPremiumEndpoint', 'true');
+            localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, 'true');
         }
     } else {
         preferPremiumToggle.classList.add('hidden');
         preferPremiumCheckbox.checked = false; // Turn OFF for free users
     }
+});
+
+onAppEvent('sync-data-pulled', () => {
+    applyPremiumPreferenceFromStorage();
+    dispatchAppEvent('premium-endpoint-preference-changed', { preferred: preferPremiumCheckbox.checked });
 });
 
 
@@ -85,7 +96,7 @@ apiKeyInput?.addEventListener("input", () => {
  * @returns true if premium endpoint should be preferred (default), false otherwise
  */
 export function shouldPreferPremiumEndpoint(): boolean {
-    const saved = localStorage.getItem('preferPremiumEndpoint');
+    const saved = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
     // Default to true (prefer premium) if not set
     return saved === null ? true : saved === 'true';
 }

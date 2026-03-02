@@ -1,6 +1,7 @@
 import * as overlayService from "../../services/Overlay.service";
 import { supabase } from "../../services/Supabase.service";
 import * as supabaseService from "../../services/Supabase.service";
+import * as toastService from "../../services/Toast.service";
 
 const topUpButton = document.querySelector<HTMLButtonElement>("#btn-top-up-credits");
 const topUp10Button = document.querySelector<HTMLButtonElement>("#btn-top-up-10");
@@ -49,7 +50,10 @@ topUp10Button.addEventListener("click", async () => {
         topUp30Button.disabled = false;
         topUp70Button.disabled = false;
         console.error(e);
-        alert("Unable to start checkout. Please try again in a moment.");
+        toastService.danger({
+            title: "Checkout Failed",
+            text: "Unable to start checkout. Please try again in a moment."
+        });
     }
 });
 
@@ -78,7 +82,10 @@ topUp30Button.addEventListener("click", async () => {
         topUp30Button.disabled = false;
         topUp70Button.disabled = false;
         console.error(e);
-        alert("Unable to start checkout. Please try again in a moment.");
+        toastService.danger({
+            title: "Checkout Failed",
+            text: "Unable to start checkout. Please try again in a moment."
+        });
     }
 });
 
@@ -107,6 +114,9 @@ topUp70Button.addEventListener("click", async () => {
         topUp30Button.disabled = false;
         topUp70Button.disabled = false;
         console.error(e);
-        alert("Unable to start checkout. Please try again in a moment.");
+        toastService.danger({
+            title: "Checkout Failed",
+            text: "Unable to start checkout. Please try again in a moment."
+        });
     }
 });

@@ -3,6 +3,8 @@ import * as supabaseService from "./Supabase.service";
 import { User } from "../types/User";
 import { ChatModel } from "../types/Models";
 import { getValidEnumValue } from "../utils/helpers";
+import * as syncService from "./Sync.service";
+import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
@@ -17,8 +19,170 @@ const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selec
 const rpgGroupChatsProgressAutomaticallyToggle = document.querySelector("#rpgGroupChatsProgressAutomatically") as HTMLInputElement;
 const disallowPersonaPingingToggle = document.querySelector("#disallowPersonaPinging") as HTMLInputElement;
 const dynamicGroupChatPingOnlyToggle = document.querySelector("#dynamicGroupChatPingOnly") as HTMLInputElement;
-if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector || !rpgGroupChatsProgressAutomaticallyToggle || !disallowPersonaPingingToggle || !dynamicGroupChatPingOnlyToggle) {
+const fullWidthChatToggle = document.querySelector("#fullWidthChat") as HTMLInputElement;
+const uiScaleInput = document.querySelector("#uiScale") as HTMLInputElement;
+const delimiterPresetSelect = document.querySelector("#delimiterPreset") as HTMLSelectElement;
+const customDelimiterInstructionsContainer = document.querySelector("#customDelimiterInstructions") as HTMLDivElement;
+const delimiterPreviewContainer = document.querySelector("#delimiterPreview") as HTMLDivElement;
+const customDialogueInstructionInput = document.querySelector("#customDialogueInstruction") as HTMLInputElement;
+const customActionInstructionInput = document.querySelector("#customActionInstruction") as HTMLInputElement;
+const customThoughtInstructionInput = document.querySelector("#customThoughtInstruction") as HTMLInputElement;
+const delimiterPreviewDialogue = document.querySelector("#delimiterPreviewDialogue") as HTMLParagraphElement;
+const delimiterPreviewAction = document.querySelector("#delimiterPreviewAction") as HTMLParagraphElement;
+const delimiterPreviewThought = document.querySelector("#delimiterPreviewThought") as HTMLParagraphElement;
+if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector || !rpgGroupChatsProgressAutomaticallyToggle || !disallowPersonaPingingToggle || !dynamicGroupChatPingOnlyToggle || !fullWidthChatToggle || !uiScaleInput || !delimiterPresetSelect || !customDelimiterInstructionsContainer || !delimiterPreviewContainer || !customDialogueInstructionInput || !customActionInstructionInput || !customThoughtInstructionInput || !delimiterPreviewDialogue || !delimiterPreviewAction || !delimiterPreviewThought) {
     throw new Error("One or more settings elements are missing in the DOM.");
+}
+
+const UI_SCALE_VALUES = [0.5, 0.75, 1, 1.25, 1.5] as const;
+const DEFAULT_UI_SCALE = 1;
+
+function getStoredUiScale(): number {
+    const stored = Number(localStorage.getItem(SETTINGS_STORAGE_KEYS.UI_SCALE));
+    return UI_SCALE_VALUES.includes(stored as typeof UI_SCALE_VALUES[number]) ? stored : DEFAULT_UI_SCALE;
+}
+
+function getUiScaleInputValue(scale: number): string {
+    const index = UI_SCALE_VALUES.indexOf(scale as typeof UI_SCALE_VALUES[number]);
+    return (index >= 0 ? index : UI_SCALE_VALUES.indexOf(DEFAULT_UI_SCALE)).toString();
+}
+
+function getUiScaleFromInputValue(rawValue: string): number {
+    const index = Number.parseInt(rawValue, 10);
+    return UI_SCALE_VALUES[index] ?? DEFAULT_UI_SCALE;
+}
+
+function applyUiScale(scale: number): void {
+    document.documentElement.style.fontSize = `${scale}rem`;
+}
+
+function applyFullWidthChat(enabled: boolean): void {
+    document.body.classList.toggle("full-width-chat", enabled);
+}
+
+type DelimiterPreset = "zodiac" | "novel" | "custom";
+
+type DelimiterInstructions = {
+    dialogue: string;
+    action: string;
+    thought: string;
+};
+
+const DEFAULT_DELIMITER_PRESET: DelimiterPreset = "zodiac";
+const DELIMITER_PRESETS: DelimiterPreset[] = ["zodiac", "novel", "custom"];
+
+const ZODIAC_DELIMITER_INSTRUCTIONS: DelimiterInstructions = {
+    dialogue: "Dialogue should be in plain text, without wrapping it in quotes.",
+    action: "Actions should be expressed between parentheses.",
+    thought: "The character's inner thoughts should be expressed between asterisks.",
+};
+
+const NOVEL_DELIMITER_INSTRUCTIONS: DelimiterInstructions = {
+    dialogue: "Dialogue should be written between double quotes.",
+    action: "Actions should be expressed between asterisks.",
+    thought: "Thoughts should be narrated naturally in plain prose without special markers.",
+};
+
+function getStoredDelimiterPreset(): DelimiterPreset {
+    const stored = localStorage.getItem(SETTINGS_STORAGE_KEYS.DELIMITER_PRESET);
+    return DELIMITER_PRESETS.includes(stored as DelimiterPreset) ? (stored as DelimiterPreset) : DEFAULT_DELIMITER_PRESET;
+}
+
+function getStoredCustomDelimiterInstructions(): DelimiterInstructions {
+    return {
+        dialogue: localStorage.getItem(SETTINGS_STORAGE_KEYS.CUSTOM_DIALOGUE_INSTRUCTION) || "",
+        action: localStorage.getItem(SETTINGS_STORAGE_KEYS.CUSTOM_ACTION_INSTRUCTION) || "",
+        thought: localStorage.getItem(SETTINGS_STORAGE_KEYS.CUSTOM_THOUGHT_INSTRUCTION) || "",
+    };
+}
+
+function getEffectiveDelimiterInstructions(): DelimiterInstructions {
+    const preset = getStoredDelimiterPreset();
+    if (preset === "novel") {
+        return NOVEL_DELIMITER_INSTRUCTIONS;
+    }
+    if (preset === "custom") {
+        const custom = getStoredCustomDelimiterInstructions();
+        return {
+            dialogue: custom.dialogue || ZODIAC_DELIMITER_INSTRUCTIONS.dialogue,
+            action: custom.action || ZODIAC_DELIMITER_INSTRUCTIONS.action,
+            thought: custom.thought || ZODIAC_DELIMITER_INSTRUCTIONS.thought,
+        };
+    }
+    return ZODIAC_DELIMITER_INSTRUCTIONS;
+}
+
+function updateDelimiterCustomizationVisibility(): void {
+    const isCustom = delimiterPresetSelect.value === "custom";
+    customDelimiterInstructionsContainer.hidden = !isCustom;
+    delimiterPreviewContainer.hidden = isCustom;
+}
+
+function getPreviewFragments(instructions: DelimiterInstructions): { dialogue: string; action: string; thought: string } {
+    const dialogueLower = instructions.dialogue.toLowerCase();
+    const actionLower = instructions.action.toLowerCase();
+    const thoughtLower = instructions.thought.toLowerCase();
+    const preset = getStoredDelimiterPreset();
+
+    let dialogue = "Hey, I missed you.";
+    if (dialogueLower.includes("double quotes") || dialogueLower.includes("between quotes") || dialogueLower.includes("between double quotes")) {
+        dialogue = '"Hey, I missed you."';
+    } else if (dialogueLower.includes("single quotes") || dialogueLower.includes("apostrophe")) {
+        dialogue = "'Hey, I missed you.'";
+    } else if (dialogueLower.includes("curly quotes")) {
+        dialogue = "“Hey, I missed you.”";
+    }
+
+    let action = "(leans against the doorframe)";
+    if (actionLower.includes("asterisk") || actionLower.includes("asterisks")) {
+        action = "*leans against the doorframe*";
+    } else if (actionLower.includes("double bracket") || actionLower.includes("double brackets")) {
+        action = "[[leans against the doorframe]]";
+    } else if (actionLower.includes("bracket") || actionLower.includes("brackets")) {
+        action = "[leans against the doorframe]";
+    }
+
+    let thought = "I keep my composure before I answer.";
+    if (preset === "novel") {
+        thought = "The character hopes this comes out right.";
+    } else if (thoughtLower.includes("asterisk") || thoughtLower.includes("asterisks")) {
+        thought = "*I keep my composure before I answer.*";
+    } else if (thoughtLower.includes("parentheses") || thoughtLower.includes("between parentheses")) {
+        thought = "(I keep my composure before I answer.)";
+    } else if (thoughtLower.includes("quotes") || thoughtLower.includes("between quotes")) {
+        thought = '"I keep my composure before I answer."';
+    }
+
+    return {
+        dialogue,
+        action,
+        thought,
+    };
+}
+
+function updateDelimiterPreview(): void {
+    const instructions = getEffectiveDelimiterInstructions();
+    const preview = getPreviewFragments(instructions);
+
+    delimiterPreviewDialogue.textContent = `Dialogue: ${preview.dialogue}`;
+    delimiterPreviewAction.textContent = `Action: ${preview.action}`;
+    delimiterPreviewThought.textContent = `Thought: ${preview.thought}`;
+}
+
+function buildRoleplayGuidelinesPrompt(): string {
+    const preset = getStoredDelimiterPreset();
+    const instructions = getEffectiveDelimiterInstructions();
+
+    const formattingHeader = preset === "custom"
+        ? "## Roleplay formatting guidelines (custom):\n"
+        : "## Roleplay formatting guidelines:\n";
+
+    return formattingHeader +
+        `* ${instructions.thought}\n` +
+        `* ${instructions.action}\n` +
+        `* ${instructions.dialogue}\n` +
+        "* When switching between thoughts, actions, and dialogue, clearly differentiate them using newlines.\n" +
+        "* Keep formatting consistent within a response unless the user asks otherwise.";
 }
 
 export function initialize() {
@@ -33,48 +197,93 @@ export function initialize() {
     rpgGroupChatsProgressAutomaticallyToggle.addEventListener("change", saveSettings);
     disallowPersonaPingingToggle.addEventListener("change", saveSettings);
     dynamicGroupChatPingOnlyToggle.addEventListener("change", saveSettings);
+    fullWidthChatToggle.addEventListener("change", saveSettings);
     enableThinkingSelect.addEventListener("change", saveSettings);
+    uiScaleInput.addEventListener("input", saveSettings);
     thinkingBudgetInput.addEventListener("input", saveSettings);
     imageEditModelSelector.addEventListener("change", saveSettings);
+    delimiterPresetSelect.addEventListener("change", () => {
+        updateDelimiterCustomizationVisibility();
+        saveSettings();
+    });
+    customDialogueInstructionInput.addEventListener("input", saveSettings);
+    customActionInstructionInput.addEventListener("input", saveSettings);
+    customThoughtInstructionInput.addEventListener("input", saveSettings);
 }
 
 export function loadSettings() {
 
-    ApiKeyInput.value = localStorage.getItem("API_KEY") || "";
-    maxTokensInput.value = localStorage.getItem("maxTokens") || "1000";
-    temperatureInput.value = localStorage.getItem("TEMPERATURE") || "60";
-    modelSelect.value = getValidEnumValue(localStorage.getItem("model"), ChatModel, ChatModel.FLASH);
-    imageModelSelect.value = localStorage.getItem("imageModel") || "imagen-4.0-ultra-generate-001";
-    imageEditModelSelector.value = localStorage.getItem("imageEditModel") || "qwen";
-    autoscrollToggle.checked = localStorage.getItem("autoscroll") ? localStorage.getItem("autoscroll") === "true" : true;
+    ApiKeyInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
+    maxTokensInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
+    temperatureInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
+    modelSelect.value = getValidEnumValue(localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL), ChatModel, ChatModel.FLASH);
+    imageModelSelect.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || "imagen-4.0-ultra-generate-001";
+    imageEditModelSelector.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) || "qwen";
+    autoscrollToggle.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) ? localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) === "true" : true;
     // Default ON when not set
-    streamResponsesToggle.checked = (localStorage.getItem("streamResponses") ?? "true") === "true";
-    rpgGroupChatsProgressAutomaticallyToggle.checked = (localStorage.getItem("rpgGroupChatsProgressAutomatically") ?? "false") === "true";
-    disallowPersonaPingingToggle.checked = (localStorage.getItem("disallowPersonaPinging") ?? "false") === "true";
-    dynamicGroupChatPingOnlyToggle.checked = (localStorage.getItem("dynamicGroupChatPingOnly") ?? "false") === "true";
-    const enableThinkingStored = localStorage.getItem("enableThinking");
+    streamResponsesToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES) ?? "true") === "true";
+    rpgGroupChatsProgressAutomaticallyToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY) ?? "false") === "true";
+    disallowPersonaPingingToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.DISALLOW_PERSONA_PINGING) ?? "false") === "true";
+    dynamicGroupChatPingOnlyToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY) ?? "false") === "true";
+    fullWidthChatToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.FULL_WIDTH_CHAT) ?? "false") === "true";
+    const enableThinkingStored = localStorage.getItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING);
     const enableThinking = (enableThinkingStored ?? "true") === "true";
     enableThinkingSelect.value = enableThinking ? 'enabled' : 'disabled';
-    thinkingBudgetInput.value = localStorage.getItem("thinkingBudget") || "500";
+    const uiScale = getStoredUiScale();
+    uiScaleInput.value = getUiScaleInputValue(uiScale);
+    thinkingBudgetInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.THINKING_BUDGET) || "500";
+    delimiterPresetSelect.value = getStoredDelimiterPreset();
+
+    const customDelimiterInstructions = getStoredCustomDelimiterInstructions();
+    customDialogueInstructionInput.value = customDelimiterInstructions.dialogue;
+    customActionInstructionInput.value = customDelimiterInstructions.action;
+    customThoughtInstructionInput.value = customDelimiterInstructions.thought;
+
+    updateDelimiterCustomizationVisibility();
+    updateDelimiterPreview();
+    applyUiScale(uiScale);
+    applyFullWidthChat(fullWidthChatToggle.checked);
 
     // Trigger input events to update any UI components that depend on these values
     temperatureInput.dispatchEvent(new Event('input', { bubbles: true }));
+    uiScaleInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 export function saveSettings() {
-    localStorage.setItem("API_KEY", ApiKeyInput.value);
-    localStorage.setItem("maxTokens", maxTokensInput.value);
-    localStorage.setItem("TEMPERATURE", temperatureInput.value);
-    localStorage.setItem("model", modelSelect.value);
-    localStorage.setItem("imageModel", imageModelSelect.value);
-    localStorage.setItem("imageEditModel", imageEditModelSelector.value);
-    localStorage.setItem("autoscroll", autoscrollToggle.checked.toString());
-    localStorage.setItem("streamResponses", streamResponsesToggle.checked.toString());
-    localStorage.setItem("rpgGroupChatsProgressAutomatically", rpgGroupChatsProgressAutomaticallyToggle.checked.toString());
-    localStorage.setItem("disallowPersonaPinging", disallowPersonaPingingToggle.checked.toString());
-    localStorage.setItem("dynamicGroupChatPingOnly", dynamicGroupChatPingOnlyToggle.checked.toString());
-    localStorage.setItem("enableThinking", (enableThinkingSelect.value === 'enabled').toString());
-    localStorage.setItem("thinkingBudget", thinkingBudgetInput.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.API_KEY, ApiKeyInput.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS, maxTokensInput.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.TEMPERATURE, temperatureInput.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, modelSelect.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL, imageModelSelect.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL, imageEditModelSelector.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL, autoscrollToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES, streamResponsesToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY, rpgGroupChatsProgressAutomaticallyToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.DISALLOW_PERSONA_PINGING, disallowPersonaPingingToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY, dynamicGroupChatPingOnlyToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.FULL_WIDTH_CHAT, fullWidthChatToggle.checked.toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING, (enableThinkingSelect.value === 'enabled').toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.UI_SCALE, getUiScaleFromInputValue(uiScaleInput.value).toString());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.THINKING_BUDGET, thinkingBudgetInput.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.DELIMITER_PRESET, delimiterPresetSelect.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.CUSTOM_DIALOGUE_INSTRUCTION, customDialogueInstructionInput.value.trim());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.CUSTOM_ACTION_INSTRUCTION, customActionInstructionInput.value.trim());
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.CUSTOM_THOUGHT_INSTRUCTION, customThoughtInstructionInput.value.trim());
+    updateDelimiterPreview();
+    applyUiScale(getUiScaleFromInputValue(uiScaleInput.value));
+    applyFullWidthChat(fullWidthChatToggle.checked);
+    // Debounced sync push — settings save on every keystroke
+    debouncedSyncPush();
+}
+
+
+let syncPushTimer: ReturnType<typeof setTimeout> | null = null;
+function debouncedSyncPush() {
+    if (syncPushTimer) clearTimeout(syncPushTimer);
+    syncPushTimer = setTimeout(() => {
+        syncService.pushCurrentSettings().catch(() => { });
+    }, 2000);
+
 }
 
 export function getSettings() {
@@ -97,8 +306,12 @@ export function getSettings() {
         rpgGroupChatsProgressAutomatically: rpgGroupChatsProgressAutomaticallyToggle.checked,
         disallowPersonaPinging: disallowPersonaPingingToggle.checked,
         dynamicGroupChatPingOnly: dynamicGroupChatPingOnlyToggle.checked,
+        fullWidthChat: fullWidthChatToggle.checked,
         enableThinking: enableThinkingSelect.value === 'enabled',
+        uiScale: getUiScaleFromInputValue(uiScaleInput.value),
         thinkingBudget: parseInt(thinkingBudgetInput.value),
+        delimiterPreset: getStoredDelimiterPreset(),
+        customDelimiterInstructions: getStoredCustomDelimiterInstructions(),
     }
 }
 
@@ -140,6 +353,7 @@ export async function getSystemPrompt(mode: SystemPromptMode = "chat"): Promise<
 
     const baseSystemPrompt = buildBaseSystemPrompt(mode);
     const includeRoleplayGuidelines = mode !== "dynamic";
+    const roleplayGuidelinesPrompt = includeRoleplayGuidelines ? buildRoleplayGuidelinesPrompt() : "";
 
     const systemPrompt =
         "<system>\n" +
@@ -180,13 +394,6 @@ const personaGuidelinesPrompt: string = "## Aggressiveness guidelines:\n" +
     "* 1 means you are neutral toward the user. Depending on context, you may defer to them sometimes, or act on your own sometimes.\n" +
     "* 2 means you are more likely than not to leave the user out of your decision making and act autonomously.\n" +
     "* 3 means you strongly progress independently: you almost never cling to the user, and you may refuse the user's attempts to insert themselves into your plans or entourage.";
-
-const roleplayGuidelinesPrompt: string = "## Roleplay guidelines:\n" +
-    "* The character's inner thoughts should be expressed between asterisks.\n" +
-    "* Actions should be expressed between parentheses.\n" +
-    "* Dialogue should be in plain text, without wrapping it in quotes.\n" +
-    "* When switching between thoughts, actions, and dialogue, make sure to clearly differentiate them using newlines.\n" +
-    "* Avoid narration at all costs, unless the user asks for it or if the character's or user's prompt requires it.";
 
 export function isMobile() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
