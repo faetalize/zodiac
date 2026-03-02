@@ -1807,6 +1807,41 @@ form {
     margin-top: 0;
 }
 
+.settings-toggle-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-radius: 8px;
+    background: var(--input-bg);
+    border: 1px solid var(--card-border);
+    gap: 16px;
+}
+
+.settings-toggle-entry-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    cursor: pointer;
+}
+
+.settings-toggle-entry-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.settings-toggle-entry-label>.settings-toggle-entry-title:only-child {
+    font-weight: 400;
+}
+
+.settings-toggle-entry-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
 .settings-item {
     display: flex;
     justify-content: space-between;
@@ -2253,18 +2288,6 @@ body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
 }
 
 /* Settings specific */
-.setting-toggle-row {
-    display: flex;
-    gap: 0.25rem;
-    align-items: center;
-    margin-top: 0.25rem;
-}
-
-.setting-toggle-row label {
-    flex: 1;
-}
-
-
 /* Generated images in assistant messages */
 .message-images {
     display: flex;
@@ -3572,10 +3595,10 @@ body.full-width-chat #message-box {
     flex-direction: column;
     gap: 0.5rem;
     width: 100%;
+}
 
-    * {
-        flex-grow: 1;
-    }
+.btn-array-vertical > * {
+    flex-grow: 1;
 }
 
 
@@ -4971,6 +4994,10 @@ input[name="currentChat"][value="none"] {
     display: flex;
     gap: 4px;
     align-items: center;
+}
+
+.setting-label .material-symbols-outlined {
+    font-size: inherit;
 }
 
 /* User Interface Settings */

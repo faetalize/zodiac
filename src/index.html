@@ -272,11 +272,11 @@
                                         <span class="material-symbols-outlined">error</span> Invalid API Key
                                     </div>
                                 </div>
-                                <div id="prefer-premium-endpoint-toggle" class="settings-item hidden">
-                                    <div class="settings-item-label">
-                                        <span class="settings-item-title">Use Premium Endpoint</span>
-                                        <span class="settings-item-subtitle">Recommended to turn this on.</span>
-                                    </div>
+                                <div id="prefer-premium-endpoint-toggle" class="settings-toggle-entry hidden">
+                                    <label class="settings-toggle-entry-label" for="preferPremiumEndpoint">
+                                        <span class="settings-toggle-entry-title">Use Premium Endpoint</span>
+                                        <span class="settings-toggle-entry-subtitle">Recommended to turn this on.</span>
+                                    </label>
                                     <input type="checkbox" id="preferPremiumEndpoint" checked>
                                 </div>
                                 <div id="or-divider" class="settings-or-divider">or</div>
@@ -381,13 +381,17 @@
                             <div class="settings-page-content">
                                 <h4>Dynamic group chats</h4>
                                 <div class="settings-ux-group">
-                                    <div class="setting-toggle-row">
-                                        <label for="disallowPersonaPinging">Disallow personas from pinging one another</label>
+                                    <div class="settings-toggle-entry">
+                                        <label class="settings-toggle-entry-label" for="disallowPersonaPinging">
+                                            <span class="settings-toggle-entry-title">Disallow personas from pinging one another</span>
+                                        </label>
                                         <input class="uxtoggle" id="disallowPersonaPinging" type="checkbox"
                                             name="disallowPersonaPinging"></input>
                                     </div>
-                                    <div class="setting-toggle-row">
-                                        <label for="dynamicGroupChatPingOnly">When the user pings personas, only pinged personas respond</label>
+                                    <div class="settings-toggle-entry">
+                                        <label class="settings-toggle-entry-label" for="dynamicGroupChatPingOnly">
+                                            <span class="settings-toggle-entry-title">When the user pings personas, only pinged personas respond</span>
+                                        </label>
                                         <input class="uxtoggle" id="dynamicGroupChatPingOnly" type="checkbox"
                                             name="dynamicGroupChatPingOnly"></input>
                                     </div>
@@ -395,8 +399,10 @@
 
                                 <h4>RPG group chats</h4>
                                 <div class="settings-ux-group">
-                                    <div class="setting-toggle-row">
-                                        <label for="rpgGroupChatsProgressAutomatically">RPG group chats progress automatically</label>
+                                    <div class="settings-toggle-entry">
+                                        <label class="settings-toggle-entry-label" for="rpgGroupChatsProgressAutomatically">
+                                            <span class="settings-toggle-entry-title">RPG group chats progress automatically</span>
+                                        </label>
                                         <input class="uxtoggle" id="rpgGroupChatsProgressAutomatically" type="checkbox"
                                             name="rpgGroupChatsProgressAutomatically"></input>
                                     </div>
@@ -482,7 +488,13 @@
                             <div class="settings-page-content">
                                 <div class="ui-settings">
                                     <div class="ui-setting">
-                                        <label class="setting-label" for="themeMode">Mode</label>
+                                        <label class="setting-label" for="themeMode">
+                                            <span class="material-symbols-outlined">contrast</span>
+                                            <span>Mode</span>
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Choose whether Zodiac uses a light theme, dark theme, or follows your system preference.">info</span>
+                                        </label>
                                         <div class="stepped-slider">
                                             <input type="hidden" id="themeMode" value="1">
                                             <button class="stepped-slider-btn" data-value="0" data-icon="light_mode">Light</button>
@@ -491,7 +503,13 @@
                                         </div>
                                     </div>
                                     <div class="ui-setting">
-                                        <label class="setting-label">Theme</label>
+                                        <label class="setting-label">
+                                            <span class="material-symbols-outlined">palette</span>
+                                            <span>Theme</span>
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Select the accent color theme used across the interface.">info</span>
+                                        </label>
                                         <div class="theme-selector">
                                             <button class="theme-btn" data-theme="blue" aria-label="Blue theme"
                                                 style="background: linear-gradient(135deg, #5f96c8 0%, #3c66a1 100%);"></button>
@@ -507,7 +525,13 @@
                                         </div>
                                     </div>
                                     <div class="ui-setting">
-                                        <label class="setting-label" for="uiScale">UI Scale</label>
+                                        <label class="setting-label" for="uiScale">
+                                            <span class="material-symbols-outlined">zoom_in</span>
+                                            <span>UI Scale</span>
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Adjust the overall interface scale to make UI elements larger or smaller.">info</span>
+                                        </label>
                                         <div class="stepped-slider">
                                             <input type="hidden" id="uiScale" value="2">
                                             <button class="stepped-slider-btn" data-value="0">0.5x</button>
@@ -520,18 +544,24 @@
                                 </div>
 
                                 <div class="settings-ux-group">
-                                    <div class="setting-toggle-row">
-                                        <label for="autoscroll">Autoscroll</label>
+                                    <div class="settings-toggle-entry">
+                                        <label class="settings-toggle-entry-label" for="autoscroll">
+                                            <span class="settings-toggle-entry-title">Autoscroll</span>
+                                        </label>
                                         <input class="uxtoggle" id="autoscroll" type="checkbox"
                                             name="autoscrollEnabled"></input>
                                     </div>
-                                    <div class="setting-toggle-row">
-                                        <label for="streamResponses">Stream Responses</label>
+                                    <div class="settings-toggle-entry">
+                                        <label class="settings-toggle-entry-label" for="streamResponses">
+                                            <span class="settings-toggle-entry-title">Stream Responses</span>
+                                        </label>
                                         <input class="uxtoggle" id="streamResponses" type="checkbox"
                                             name="streamResponsesEnabled" checked></input>
                                     </div>
-                                    <div class="setting-toggle-row">
-                                        <label for="fullWidthChat">Full Width Chat</label>
+                                    <div class="settings-toggle-entry">
+                                        <label class="settings-toggle-entry-label" for="fullWidthChat">
+                                            <span class="settings-toggle-entry-title">Full Width Chat</span>
+                                        </label>
                                         <input class="uxtoggle" id="fullWidthChat" type="checkbox"
                                             name="fullWidthChatEnabled"></input>
                                     </div>
@@ -539,7 +569,13 @@
 
                                 <div class="settings-delimiter-group">
                                     <div class="ui-setting">
-                                        <label class="setting-label" for="delimiterPreset">Response delimiters</label>
+                                        <label class="setting-label" for="delimiterPreset">
+                                            <span class="material-symbols-outlined">format_quote</span>
+                                            <span>Response delimiters</span>
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Controls how dialogue, actions, and thoughts are formatted in model responses.">info</span>
+                                        </label>
                                         <select id="delimiterPreset" class="input-field">
                                             <option value="zodiac">Zodiac (default)</option>
                                             <option value="novel">Novel</option>
@@ -548,23 +584,47 @@
                                     </div>
                                     <div id="customDelimiterInstructions" class="custom-delimiter-instructions" hidden>
                                         <div class="ui-setting">
-                                            <label class="setting-label" for="customDialogueInstruction">Dialogue formatting</label>
+                                            <label class="setting-label" for="customDialogueInstruction">
+                                                <span class="material-symbols-outlined">chat</span>
+                                                <span>Dialogue formatting</span>
+                                                <span class="material-symbols-outlined tooltip"
+                                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                    info="Define how spoken dialogue should be formatted in responses.">info</span>
+                                            </label>
                                             <input id="customDialogueInstruction" class="input-field" type="text"
                                                 placeholder="e.g. Put spoken dialogue between curly quotes, like “hello”." />
                                         </div>
                                         <div class="ui-setting">
-                                            <label class="setting-label" for="customActionInstruction">Action formatting</label>
+                                            <label class="setting-label" for="customActionInstruction">
+                                                <span class="material-symbols-outlined">directions_run</span>
+                                                <span>Action formatting</span>
+                                                <span class="material-symbols-outlined tooltip"
+                                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                    info="Define how character actions and narration should be formatted.">info</span>
+                                            </label>
                                             <input id="customActionInstruction" class="input-field" type="text"
                                                 placeholder="e.g. Wrap actions in double brackets, like [[opens the door]]." />
                                         </div>
                                         <div class="ui-setting">
-                                            <label class="setting-label" for="customThoughtInstruction">Thought formatting</label>
+                                            <label class="setting-label" for="customThoughtInstruction">
+                                                <span class="material-symbols-outlined">psychology</span>
+                                                <span>Thought formatting</span>
+                                                <span class="material-symbols-outlined tooltip"
+                                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                    info="Define how internal thoughts should appear in model responses.">info</span>
+                                            </label>
                                             <input id="customThoughtInstruction" class="input-field" type="text"
                                                 placeholder="e.g. Narrate thoughts naturally in plain prose without any markers." />
                                         </div>
                                     </div>
                                     <div id="delimiterPreview" class="delimiter-preview" aria-live="polite">
-                                        <label class="setting-label" for="delimiterPreviewText">Live preview</label>
+                                        <label class="setting-label" for="delimiterPreviewText">
+                                            <span class="material-symbols-outlined">preview</span>
+                                            <span>Live preview</span>
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Shows how your selected delimiter formatting will look in responses.">info</span>
+                                        </label>
                                         <div id="delimiterPreviewText" class="delimiter-preview-box">
                                             <p id="delimiterPreviewDialogue" class="delimiter-preview-line"></p>
                                             <p id="delimiterPreviewAction" class="delimiter-preview-line"></p>
@@ -591,7 +651,13 @@
 
                                 <!-- Cloud Sync Section (Pro/Max only) -->
                                 <div id="cloud-sync-section" class="hidden">
-                                    <label>Cloud Sync</label>
+                                    <label class="setting-label">
+                                        <span class="material-symbols-outlined">cloud_sync</span>
+                                        <span>Cloud Sync</span>
+                                        <span class="material-symbols-outlined tooltip"
+                                            style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                            info="Sync chats and personas to the cloud when you have an eligible subscription.">info</span>
+                                    </label>
                                     <div class="cloud-sync-card settings-item">
                                         <div class="cloud-sync-header">
                                             <span class="material-symbols-outlined cloud-sync-icon">cloud_sync</span>
@@ -627,20 +693,38 @@
                                 </div>
 
                                 <div class="btn-array-vertical">
-                                    <label>Import</label>
+                                    <label class="setting-label">
+                                        <span class="material-symbols-outlined">upload_file</span>
+                                        <span>Import</span>
+                                        <span class="material-symbols-outlined tooltip"
+                                            style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                            info="Import previously exported chats and personas from JSON files.">info</span>
+                                    </label>
                                     <div class="btn-array">
                                         <button class="btn btn-primary" id="btn-bulk-import-chats">Import Chats</button>
                                         <button class="btn btn-primary" id="btn-bulk-import-personas">Import
                                             Personas</button>
                                     </div>
-                                    <label>Export</label>
+                                    <label class="setting-label">
+                                        <span class="material-symbols-outlined">download</span>
+                                        <span>Export</span>
+                                        <span class="material-symbols-outlined tooltip"
+                                            style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                            info="Export your current chats and personas to JSON backups.">info</span>
+                                    </label>
                                     <div class="btn-array">
                                         <button class="btn btn-primary" id="btn-export-all-chats">Export All
                                             Chats</button>
                                         <button class="btn btn-primary" id="btn-export-all-personas">Export All
                                             Personas</button>
                                     </div>
-                                    <label>Deletion</label>
+                                    <label class="setting-label">
+                                        <span class="material-symbols-outlined">delete</span>
+                                        <span>Deletion</span>
+                                        <span class="material-symbols-outlined tooltip"
+                                            style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                            info="Permanently remove local data from this browser/device.">info</span>
+                                    </label>
                                     <button id="btn-clear-all-data" class="btn btn-danger">Wipe Everything</button>
                                 </div>
                             </div>
