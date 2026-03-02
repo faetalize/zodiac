@@ -50,7 +50,7 @@
     }
 
     .navbar-tab-highlight {
-        box-shadow: 0 0 8px 2px rgba(0, 0, 0, 0.103);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.04);
     }
 
     .btn-textual {
