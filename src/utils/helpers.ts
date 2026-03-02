@@ -57,7 +57,7 @@ export function lightenCard(element: HTMLElement) {
 }
 
 export function getVersion() {
-    return "1.5.1";
+    return "1.6";
 }
 
 export function getSanitized(string: string) {
@@ -396,4 +396,4 @@ export function getValidEnumValue<T extends Record<string, string>>(
     return Object.values(enumObj).includes(value as T[keyof T]) 
         ? (value as T[keyof T]) 
         : defaultValue;
-} 
+}
