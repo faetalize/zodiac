@@ -69,7 +69,8 @@ const remoteMessageCountByChatId = new Map<string, number>();
 
 const SYNC_PROMPT_SEEN_KEY = 'zodiac-sync-prompt-seen';
 const OFFLINE_QUEUE_KEY = 'zodiac-sync-offline-queue';
-const MESSAGE_UPSERT_BATCH_SIZE = 50;
+const MESSAGE_UPSERT_MAX_ROWS = 1000;
+const MESSAGE_UPSERT_MAX_BYTES = 6_500_000;
 const MESSAGE_DECRYPT_CONCURRENCY = 4;
 const MAX_OFFLINE_RETRIES = 5;
 
@@ -737,57 +738,91 @@ async function pushChatMessagesRange(chat: DbChat, startInclusive: number, endEx
     const clampedStart = Math.max(0, startInclusive);
     const clampedEnd = Math.min(endExclusive, chat.content.length);
 
-    for (let batchStart = clampedStart; batchStart < clampedEnd; batchStart += MESSAGE_UPSERT_BATCH_SIZE) {
-        const batchEnd = Math.min(batchStart + MESSAGE_UPSERT_BATCH_SIZE, clampedEnd);
+    const flushRows = async (rows: Array<{
+        user_id: string;
+        chat_id: string;
+        message_index: number;
+        encrypted_data: string;
+        iv: string;
+        deleted: boolean;
+    }>): Promise<boolean> => {
+        if (rows.length === 0) return true;
 
-        try {
-            const rows = await Promise.all(
-                chat.content
-                    .slice(batchStart, batchEnd)
-                    .map(async (message, offset) => {
-                        const messageIndex = batchStart + offset;
-                        const plaintext = await serializeMessage(message);
-                        const { ciphertext, iv } = await crypto.encrypt(key, plaintext);
+        const rangeStart = rows[0].message_index;
+        const rangeEnd = rows[rows.length - 1].message_index;
+        const { error } = await supabase
+            .from('user_synced_messages')
+            .upsert(rows);
 
-                        return {
-                            user_id: user.id,
-                            chat_id: chat.id,
-                            message_index: messageIndex,
-                            encrypted_data: crypto.toHex(ciphertext),
-                            iv: crypto.toHex(iv),
-                            deleted: false,
-                        };
-                    }),
+        if (error) {
+            console.error(
+                'pushChatMessagesRange failed (chat=%s range=%s-%s):',
+                chat.id,
+                rangeStart,
+                rangeEnd,
+                JSON.stringify(error),
             );
+            failures += rows.length;
+            enqueue({ table: 'chats', operation: 'upsert', entityId: chat.id });
+            return false;
+        }
 
-            if (rows.length === 0) continue;
+        return true;
+    };
 
-            const { error } = await supabase
-                .from('user_synced_messages')
-                .upsert(rows);
+    let rows: Array<{
+        user_id: string;
+        chat_id: string;
+        message_index: number;
+        encrypted_data: string;
+        iv: string;
+        deleted: boolean;
+    }> = [];
+    let currentBatchBytes = 2; // Account for JSON array brackets: []
 
-            if (error) {
-                console.error(
-                    'pushChatMessagesRange failed (chat=%s range=%s-%s):',
-                    chat.id,
-                    batchStart,
-                    batchEnd - 1,
-                    JSON.stringify(error),
-                );
-                failures += rows.length;
-                enqueue({ table: 'chats', operation: 'upsert', entityId: chat.id });
+    for (let messageIndex = clampedStart; messageIndex < clampedEnd; messageIndex++) {
+        try {
+            const message = chat.content[messageIndex];
+            const plaintext = await serializeMessage(message);
+            const { ciphertext, iv } = await crypto.encrypt(key, plaintext);
+
+            const row = {
+                user_id: user.id,
+                chat_id: chat.id,
+                message_index: messageIndex,
+                encrypted_data: crypto.toHex(ciphertext),
+                iv: crypto.toHex(iv),
+                deleted: false,
+            };
+
+            const rowBytes = new Blob([JSON.stringify(row)]).size;
+            const separatorBytes = rows.length > 0 ? 1 : 0; // comma between array items
+
+            const wouldExceedBytes = currentBatchBytes + separatorBytes + rowBytes > MESSAGE_UPSERT_MAX_BYTES;
+            const wouldExceedRows = rows.length >= MESSAGE_UPSERT_MAX_ROWS;
+
+            if ((wouldExceedBytes || wouldExceedRows) && rows.length > 0) {
+                await flushRows(rows);
+                rows = [];
+                currentBatchBytes = 2;
             }
+
+            rows.push(row);
+            currentBatchBytes += (rows.length > 1 ? 1 : 0) + rowBytes;
         } catch (err) {
             console.error(
-                'pushChatMessagesRange error (chat=%s range=%s-%s):',
+                'pushChatMessagesRange error (chat=%s idx=%s):',
                 chat.id,
-                batchStart,
-                batchEnd - 1,
+                messageIndex,
                 err,
             );
-            failures += batchEnd - batchStart;
+            failures += 1;
             enqueue({ table: 'chats', operation: 'upsert', entityId: chat.id });
         }
+    }
+
+    if (rows.length > 0) {
+        await flushRows(rows);
     }
 
     return failures;
