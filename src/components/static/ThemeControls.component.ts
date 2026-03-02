@@ -24,7 +24,7 @@ const MODE_TO_VALUE: Record<'light' | 'auto' | 'dark', string> = {
 function initialize() {
     console.log('[ThemeControls] Initializing theme controls');
     
-    modeInputElement.addEventListener('input', handleModeInput);
+    modeInputElement.addEventListener('change', handleModeInput);
     
     // Set up theme buttons
     themeButtons.forEach(button => {
