@@ -71,6 +71,8 @@ const SYNC_PROMPT_SEEN_KEY = 'zodiac-sync-prompt-seen';
 const OFFLINE_QUEUE_KEY = 'zodiac-sync-offline-queue';
 const MESSAGE_UPSERT_MAX_ROWS = 1000;
 const MESSAGE_UPSERT_MAX_BYTES = 6_500_000;
+const MESSAGE_DELETE_MARK_BATCH_SIZE = 500;
+const CHAT_DELETE_MARK_BATCH_SIZE = 500;
 const MESSAGE_DECRYPT_CONCURRENCY = 4;
 const MAX_OFFLINE_RETRIES = 5;
 
@@ -298,8 +300,11 @@ export async function unlock(password: string): Promise<boolean> {
     crypto.cacheKey(key);
     setSyncStatus('synced');
 
-    // Flush any queued offline operations
-    await flushOfflineQueue();
+    // Flush queued offline operations in the background so unlock UX stays fast.
+    // This can include heavy batched deletes after large chat operations.
+    void flushOfflineQueue().catch((error) => {
+        console.error('Background offline queue flush failed after unlock:', error);
+    });
 
     return true;
 }
@@ -861,20 +866,54 @@ function firstDifferentMessageIndex(previous: Message[], current: Message[]): nu
     return shared;
 }
 
-async function markDeletedMessages(chatId: string, fromIndexInclusive: number): Promise<void> {
+async function markDeletedMessages(chatId: string, fromIndexInclusive: number, toIndexExclusive?: number): Promise<void> {
     if (!isSyncActive()) return;
     const user = await getCurrentUser();
     if (!user) return;
 
-    const { error } = await supabase
-        .from('user_synced_messages')
-        .update({ deleted: true })
-        .eq('user_id', user.id)
-        .eq('chat_id', chatId)
-        .gte('message_index', fromIndexInclusive);
+    const startIndex = Math.max(0, fromIndexInclusive);
+    const boundedEnd = typeof toIndexExclusive === 'number'
+        ? Math.max(startIndex, toIndexExclusive)
+        : null;
 
-    if (error) {
-        console.error('markDeletedMessages failed (chat=%s, from=%s):', chatId, fromIndexInclusive, error);
+    const markRange = async (rangeStart: number, rangeEndExclusive?: number): Promise<boolean> => {
+        let query = supabase
+            .from('user_synced_messages')
+            .update({ deleted: true })
+            .eq('user_id', user.id)
+            .eq('chat_id', chatId)
+            .gte('message_index', rangeStart);
+
+        if (typeof rangeEndExclusive === 'number') {
+            query = query.lt('message_index', rangeEndExclusive);
+        }
+
+        const { error } = await query;
+        if (error) {
+            console.error(
+                'markDeletedMessages failed (chat=%s, from=%s, to=%s):',
+                chatId,
+                rangeStart,
+                rangeEndExclusive ?? '∞',
+                error,
+            );
+            return false;
+        }
+
+        return true;
+    };
+
+    if (boundedEnd === null) {
+        await markRange(startIndex);
+        return;
+    }
+
+    for (let chunkStart = startIndex; chunkStart < boundedEnd; chunkStart += MESSAGE_DELETE_MARK_BATCH_SIZE) {
+        const chunkEnd = Math.min(boundedEnd, chunkStart + MESSAGE_DELETE_MARK_BATCH_SIZE);
+        const ok = await markRange(chunkStart, chunkEnd);
+        if (!ok) {
+            break;
+        }
     }
 }
 
@@ -909,7 +948,7 @@ async function pushChatIncremental(previous: DbChat | undefined, current: DbChat
 
     const failures = await pushChatMessagesRange(current, diffStart, currentMessages.length);
     if (currentMessages.length < previousMessages.length) {
-        await markDeletedMessages(current.id, currentMessages.length);
+        await markDeletedMessages(current.id, currentMessages.length, previousMessages.length);
     }
 
     hydratedChats.add(current.id);
@@ -926,24 +965,58 @@ export async function deleteSyncedChat(chatId: string): Promise<boolean> {
     if (!user) return false;
 
     try {
-        const [{ error }, { error: messagesError }] = await Promise.all([
-            supabase
-                .from('user_synced_chats')
-                .update({ deleted: true })
-                .eq('user_id', user.id)
-                .eq('id', chatId),
-            supabase
-                .from('user_synced_messages')
-                .update({ deleted: true })
-                .eq('user_id', user.id)
-                .eq('chat_id', chatId),
-        ]);
+        const { error: chatError } = await supabase
+            .from('user_synced_chats')
+            .update({ deleted: true })
+            .eq('user_id', user.id)
+            .eq('id', chatId);
 
-        if (error || messagesError) {
-            console.error('deleteSyncedChat failed:', error || messagesError);
+        if (chatError) {
+            console.error('deleteSyncedChat failed to mark chat deleted:', chatError);
             enqueue({ table: 'chats', operation: 'delete', entityId: chatId });
             return false;
         }
+
+        const { data: latestMessage, error: latestError } = await supabase
+            .from('user_synced_messages')
+            .select('message_index')
+            .eq('user_id', user.id)
+            .eq('chat_id', chatId)
+            .eq('deleted', false)
+            .order('message_index', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (latestError) {
+            console.error('deleteSyncedChat failed to read latest message index:', latestError);
+            enqueue({ table: 'chats', operation: 'delete', entityId: chatId });
+        } else if (latestMessage && typeof latestMessage.message_index === 'number') {
+            const maxIndex = latestMessage.message_index;
+            for (let start = 0; start <= maxIndex; start += CHAT_DELETE_MARK_BATCH_SIZE) {
+                const endExclusive = start + CHAT_DELETE_MARK_BATCH_SIZE;
+                const { error: messagesError } = await supabase
+                    .from('user_synced_messages')
+                    .update({ deleted: true })
+                    .eq('user_id', user.id)
+                    .eq('chat_id', chatId)
+                    .eq('deleted', false)
+                    .gte('message_index', start)
+                    .lt('message_index', endExclusive);
+
+                if (messagesError) {
+                    console.error(
+                        'deleteSyncedChat failed while marking message chunk deleted (chat=%s, start=%s, end=%s):',
+                        chatId,
+                        start,
+                        endExclusive,
+                        messagesError,
+                    );
+                    enqueue({ table: 'chats', operation: 'delete', entityId: chatId });
+                    break;
+                }
+            }
+        }
+
         hydratedChats.delete(chatId);
         remoteMessageCountByChatId.delete(chatId);
         return true;

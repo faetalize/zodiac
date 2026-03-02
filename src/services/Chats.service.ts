@@ -477,10 +477,35 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
     deleteItem.classList.add("chat-actions-item");
     deleteItem.setAttribute("role", "menuitem");
     deleteItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">delete</span><span>Delete</span>`;
-    deleteItem.addEventListener("click", (e) => {
+    deleteItem.addEventListener("click", async (e) => {
         e.stopPropagation();
         closeMenu();
-        deleteChat(chat.id, db);
+
+        const originalMarkup = deleteItem.innerHTML;
+        deleteItem.disabled = true;
+        deleteItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">hourglass_top</span><span>Deleting…</span>`;
+
+        toastService.info({
+            title: "Deleting chat",
+            text: "Deleting chat. This can take a while for long chats.",
+        });
+
+        try {
+            await deleteChat(chat.id, db);
+            toastService.info({
+                title: "Chat deleted",
+                text: "Chat deleted successfully.",
+            });
+        } catch (error) {
+            console.error("Failed to delete chat", error);
+            toastService.danger({
+                title: "Delete failed",
+                text: "Could not delete chat. Please try again.",
+            });
+        } finally {
+            deleteItem.disabled = false;
+            deleteItem.innerHTML = originalMarkup;
+        }
     });
 
     // Group settings (only for group chats)
@@ -582,6 +607,11 @@ export async function addChat(title: string, content?: Message[]): Promise<strin
         }
         const ok = await syncService.upsertSyncedChat(chat);
         if (!ok) {
+            try {
+                await syncService.deleteSyncedChat(chat.id);
+            } catch (cleanupError) {
+                console.warn('addChat cleanup failed for chat id=%s', chat.id, cleanupError);
+            }
             throw new Error('Failed to create synced chat');
         }
         upsertRemoteChat(chat);
@@ -609,6 +639,11 @@ export async function addChatRecord(chat: Chat): Promise<string> {
         }
         const ok = await syncService.upsertSyncedChat(record);
         if (!ok) {
+            try {
+                await syncService.deleteSyncedChat(record.id);
+            } catch (cleanupError) {
+                console.warn('addChatRecord cleanup failed for chat id=%s', record.id, cleanupError);
+            }
             throw new Error('Failed to add synced chat record');
         }
         upsertRemoteChat(record);
@@ -667,7 +702,10 @@ export async function deleteChat(id: string, db: Db) {
         if (!syncService.isSyncActive()) {
             throw new Error('Cloud sync is enabled but locked. Unlock sync before deleting chats.');
         }
-        await syncService.deleteSyncedChat(id);
+        const deleted = await syncService.deleteSyncedChat(id);
+        if (!deleted) {
+            throw new Error(`Failed to delete synced chat ${id}`);
+        }
         remoteChatsById.delete(id);
         if (currentChatSnapshot?.id === id) currentChatSnapshot = null;
     } else {

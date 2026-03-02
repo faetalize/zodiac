@@ -29,7 +29,7 @@ import * as supabaseService from "./Supabase.service";
 import * as syncService from "./Sync.service";
 import * as helpers from "../utils/helpers";
 import { db } from "./Db.service";
-import { warn, danger } from "./Toast.service";
+import { info, warn, danger } from "./Toast.service";
 import { parseMarkdownToHtml } from "./Parser.service";
 import { SUPABASE_URL, getAuthHeaders } from "./Supabase.service";
 import { processGeminiLocalSdkResponse, processGeminiLocalSdkStream } from "./GeminiResponseProcessor.service";
@@ -206,6 +206,10 @@ export function ensureRoundBlockUi(block: HTMLDivElement, roundIndex: number): v
     const actions = document.createElement('div');
     actions.className = 'round-actions';
 
+    const statusText = document.createElement('span');
+    statusText.className = 'round-action-status hidden';
+    statusText.setAttribute('aria-live', 'polite');
+
     const regenBtn = document.createElement('button');
     regenBtn.className = 'btn-textual material-symbols-outlined round-action-btn';
     regenBtn.type = 'button';
@@ -219,7 +223,28 @@ export function ensureRoundBlockUi(block: HTMLDivElement, roundIndex: number): v
             `Regenerate from Round ${roundIndex}? This will delete Round ${roundIndex} and any later rounds, then re-run the AI from this point.`
         );
         if (!ok) return;
-        await regenerateRound(roundIndex);
+        const originalText = regenBtn.textContent || 'refresh';
+        regenBtn.disabled = true;
+        deleteBtn.disabled = true;
+        regenBtn.textContent = 'hourglass_top';
+        statusText.textContent = 'Regenerating…';
+        statusText.classList.remove('hidden');
+        info({
+            title: 'Regenerating round',
+            text: `Round ${roundIndex} is being regenerated. This can take a while for long chats.`,
+        });
+        try {
+            await regenerateRound(roundIndex);
+        } catch (error: any) {
+            console.error(error);
+            danger({ title: 'Error regenerating round', text: JSON.stringify(error?.message || error) });
+        } finally {
+            regenBtn.disabled = false;
+            deleteBtn.disabled = false;
+            regenBtn.textContent = originalText;
+            statusText.textContent = '';
+            statusText.classList.add('hidden');
+        }
     });
 
     const deleteBtn = document.createElement('button');
@@ -235,10 +260,31 @@ export function ensureRoundBlockUi(block: HTMLDivElement, roundIndex: number): v
             `Delete Round ${roundIndex}? This will permanently remove all messages in this round.`
         );
         if (!ok) return;
-        await deleteRound(roundIndex);
+        const originalText = deleteBtn.textContent || 'delete';
+        regenBtn.disabled = true;
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = 'hourglass_top';
+        statusText.textContent = 'Deleting…';
+        statusText.classList.remove('hidden');
+        info({
+            title: 'Deleting round',
+            text: `Round ${roundIndex} is being deleted. This can take a while for long chats.`,
+        });
+        try {
+            await deleteRound(roundIndex);
+        } catch (error: any) {
+            console.error(error);
+            danger({ title: 'Error deleting round', text: JSON.stringify(error?.message || error) });
+        } finally {
+            regenBtn.disabled = false;
+            deleteBtn.disabled = false;
+            deleteBtn.textContent = originalText;
+            statusText.textContent = '';
+            statusText.classList.add('hidden');
+        }
     });
 
-    actions.append(regenBtn, deleteBtn);
+    actions.append(statusText, regenBtn, deleteBtn);
     header.append(badge, actions);
     block.prepend(header);
 }

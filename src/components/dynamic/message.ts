@@ -561,7 +561,25 @@ function setupMessageRegeneration(messageElement: HTMLElement, index: number) {
     refreshButton.addEventListener("click", async () => {
         const confirmation = await helpers.confirmDialogDanger("This action will also clear messages after the response you wish to regenerate. This action cannot be undone!");
         if (confirmation) {
-            await messageService.regenerate(index);
+            const originalText = refreshButton.textContent || "refresh";
+            refreshButton.disabled = true;
+            refreshButton.textContent = "hourglass_top";
+            try {
+                toastService.info({
+                    title: "Regenerating",
+                    text: "Deleting following messages and regenerating. This can take a while for long chats.",
+                });
+                await messageService.regenerate(index);
+            } catch (error) {
+                console.error("Failed to regenerate message", error);
+                toastService.danger({
+                    title: "Regeneration failed",
+                    text: "An unexpected error occurred while regenerating the message.",
+                });
+            } finally {
+                refreshButton.disabled = false;
+                refreshButton.textContent = originalText;
+            }
         }
     });
 }
