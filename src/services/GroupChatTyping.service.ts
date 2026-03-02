@@ -1,6 +1,6 @@
 import { dispatchAppEvent } from "../events";
 
-type ChatId = number;
+type ChatId = string;
 
 const typingByChatId = new Map<ChatId, Set<string>>();
 

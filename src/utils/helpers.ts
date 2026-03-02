@@ -57,7 +57,7 @@ export function lightenCard(element: HTMLElement) {
 }
 
 export function getVersion() {
-    return "1.6";
+    return "1.6.0";
 }
 
 export function getSanitized(string: string) {
@@ -318,7 +318,14 @@ export function fuzzySearch(searchTerm: string, target: string): number | null {
     return (charMatchRatio * 0.4) + (consecutiveBonus * 0.4) + (lengthPenalty * 0.2);
 }
 
-export async function confirmDialogDanger(message: string): Promise<boolean> {
+export async function confirmDialog(
+    message: string,
+    options: {
+        okText?: string;
+        cancelText?: string;
+        danger?: boolean;
+    } = {}
+): Promise<boolean> {
     const dialog = document.querySelector<HTMLDivElement>("#dialog");
     const dialogMessage = document.querySelector<HTMLDivElement>("#dialog-message");
     const btnDialogOk = document.querySelector<HTMLButtonElement>("#btn-dialog-ok");
@@ -327,20 +334,31 @@ export async function confirmDialogDanger(message: string): Promise<boolean> {
         console.error("Dialog elements not found in the document");
         throw new Error("Dialog elements not found in the document");
     }
+
+    btnDialogOk.classList.remove("btn-danger", "btn-primary");
+    btnDialogOk.classList.add(options.danger ? "btn-danger" : "btn-primary");
+    btnDialogOk.textContent = options.okText ?? "OK";
+    btnDialogCancel.textContent = options.cancelText ?? "Cancel";
+
     showElement(dialog, false);
+
     return new Promise((resolve) => {
         dialogMessage.textContent = message;
 
         btnDialogOk.onclick = () => {
-            hideElement(dialog);
+            hideElement(dialog, true);
             resolve(true);
         };
 
         btnDialogCancel.onclick = () => {
-            hideElement(dialog);
+            hideElement(dialog, true);
             resolve(false);
         };
     });
+}
+
+export async function confirmDialogDanger(message: string): Promise<boolean> {
+    return confirmDialog(message, { danger: true });
 }
 
 // Class-based visibility helpers

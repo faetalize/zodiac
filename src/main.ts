@@ -6,6 +6,7 @@ import * as overlayService from './services/Overlay.service';
 import * as chatsService from './services/Chats.service';
 import * as onboardingService from './services/Onboarding.service';
 import * as supabaseService from './services/Supabase.service';
+import * as syncService from './services/Sync.service';
 
 //load all component code
 //eager ensures the modules execute at startup (no async race / ordering surprises)
@@ -23,6 +24,9 @@ await chatsService.initialize();
 await personalityService.initialize();
 personalityService.initSyncModalHandlers();
 personalityService.initAddPersonaModalHandlers();
+
+// Initialize cloud sync (attaches Dexie hooks + online/offline listeners)
+syncService.initialize();
 
 //event listeners
 const hideOverlayButton = document.querySelector("#btn-hide-overlay");

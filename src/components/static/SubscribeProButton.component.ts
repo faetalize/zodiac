@@ -1,5 +1,6 @@
 import { supabase } from "../../services/Supabase.service";
 import * as overlayService from "../../services/Overlay.service";
+import * as toastService from "../../services/Toast.service";
 
 // Pro tier ($30.00) subscription button inside the subscription form overlay
 const button = document.querySelector<HTMLButtonElement>("#btn-subscribe-pro");
@@ -33,6 +34,9 @@ button.addEventListener("click", async () => {
     } catch (e) {
         button.disabled = false;
         console.error(e);
-        alert("Unable to start checkout. Please try again in a moment.");
+        toastService.danger({
+            title: "Checkout Failed",
+            text: "Unable to start checkout. Please try again in a moment."
+        });
     }
 });

@@ -38,8 +38,10 @@ for (const tabGroup of tabGroups) {
         console.error("Tab highlight element not found. Please check the HTML structure.");
         throw new Error("Tab highlight element is not properly initialized.");
     }
-    tabHighlight!.style.width = `calc(100% / ${tabs.length})`;
-    tabHighlight!.style.left = `calc(100% / ${tabs.length} * 0)`;
+    const highlightInset = "0.1875rem";
+    const availableWidth = `calc(100% - (${highlightInset} * 2))`;
+    tabHighlight!.style.width = `calc(${availableWidth} / ${tabs.length})`;
+    tabHighlight!.style.left = highlightInset;
     //set the first tab as active
     tabs[0].classList.add("navbar-tab-active");
 
@@ -54,7 +56,7 @@ for (const tabGroup of tabGroups) {
             const targetView = t.views[targetIndex];
             const targetTab = t.tabs[targetIndex];
             targetTab.classList.add("navbar-tab-active");
-            tabHighlight!.style.left = `calc(100% / ${tabs.length} * ${targetIndex} - var(--navbar-tab-highlight-padding))`;
+            tabHighlight!.style.left = `calc(${highlightInset} + ((${availableWidth} / ${tabs.length}) * ${targetIndex}))`;
             helpers.hideElement(currentView);
             t.activeTabIndex = targetIndex;
             helpers.showElement(targetView, true);

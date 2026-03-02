@@ -6,20 +6,35 @@ import { Chat, ChatSortMode, DbChat } from "../types/Chat";
 import { Message } from "../types/Message";
 import { dispatchAppEvent } from "../events";
 import hljs from "highlight.js";
+import { v4 as uuidv4 } from 'uuid';
+import * as syncService from "./Sync.service";
+import * as toastService from "./Toast.service";
 const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
 const scrollableChatContainerSelector = "#scrollable-chat-container";
 const chatHistorySection = document.querySelector<HTMLDivElement>("#chatHistorySection");
 const sidebar = document.querySelector<HTMLDivElement>(".sidebar");
+const chatLoadingIndicator = document.querySelector<HTMLDivElement>("#chat-loading-indicator");
 
 // Incremental loading state for the currently opened chat
 const PAGE_SIZE = 50; // number of messages to load per page
-let currentChatIdState: number | null = null;
+const REMOTE_INITIAL_BATCH_SIZE = 10;
+let currentChatIdState: string | null = null;
 let currentChatMessages: Message[] = [];
 let loadedStartIndex = 0; // inclusive
 let loadedEndIndex = 0;   // exclusive
 let isLoadingOlder = false;
 let hasMoreOlder = false;
 let scrollListenerAttached = false;
+let isRemotePagedMode = false;
+let remoteOldestLoadedIndex = 0;
+let remoteWindowStartIndex = 0;
+const remoteChatsById = new Map<string, DbChat>();
+let currentChatSnapshot: DbChat | null = null;
+const chatWriteQueueById = new Map<string, Promise<void>>();
+let chatLoadInFlight = 0;
+let chatLoadDelayTimer: number | null = null;
+let activeChatLoadToken = 0;
+let activeChatLoadAbortController: AbortController | null = null;
 
 const CHAT_SORT_MODE_STORAGE_KEY = "chat-sort-mode";
 // Lazily initialized from localStorage on first access so that the initial
@@ -37,6 +52,120 @@ function loadChatSortModeFromStorage(): ChatSortMode {
         console.error("Failed to load chat sort mode from storage", error);
     }
     return "created_at";
+}
+
+function setChatLoadingVisibility(isVisible: boolean) {
+    if (!chatLoadingIndicator) {
+        return;
+    }
+
+    chatLoadingIndicator.classList.toggle("hidden", !isVisible);
+    chatLoadingIndicator.setAttribute("aria-hidden", String(!isVisible));
+}
+
+function beginChatLoadingFeedback() {
+    chatLoadInFlight += 1;
+    if (chatLoadInFlight !== 1) {
+        return;
+    }
+
+    if (chatLoadDelayTimer !== null) {
+        clearTimeout(chatLoadDelayTimer);
+    }
+
+    chatLoadDelayTimer = window.setTimeout(() => {
+        chatLoadDelayTimer = null;
+        if (chatLoadInFlight > 0) {
+            setChatLoadingVisibility(true);
+        }
+    }, 150);
+}
+
+function endChatLoadingFeedback() {
+    chatLoadInFlight = Math.max(0, chatLoadInFlight - 1);
+    if (chatLoadInFlight > 0) {
+        return;
+    }
+
+    if (chatLoadDelayTimer !== null) {
+        clearTimeout(chatLoadDelayTimer);
+        chatLoadDelayTimer = null;
+    }
+
+    setChatLoadingVisibility(false);
+}
+
+function resetChatLoadingFeedback() {
+    chatLoadInFlight = 0;
+
+    if (chatLoadDelayTimer !== null) {
+        clearTimeout(chatLoadDelayTimer);
+        chatLoadDelayTimer = null;
+    }
+
+    setChatLoadingVisibility(false);
+}
+
+function beginChatLoadRequest() {
+    activeChatLoadToken += 1;
+    activeChatLoadAbortController?.abort();
+    activeChatLoadAbortController = new AbortController();
+
+    const token = activeChatLoadToken;
+    const signal = activeChatLoadAbortController.signal;
+
+    return {
+        token,
+        signal,
+        isCurrent: () => activeChatLoadToken === token,
+    };
+}
+
+function finishChatLoadRequest(token: number) {
+    if (activeChatLoadToken !== token) return;
+}
+
+function cancelActiveChatLoad() {
+    activeChatLoadToken += 1;
+    activeChatLoadAbortController?.abort();
+    activeChatLoadAbortController = null;
+}
+
+function settleChatScrollToBottom(isCurrent: () => boolean) {
+    const scrollContainer = document.querySelector<HTMLDivElement>(scrollableChatContainerSelector);
+    if (!scrollContainer || !messageContainer) return;
+
+    const snapToBottom = () => {
+        if (!isCurrent()) return;
+        helpers.messageContainerScrollToBottom(true);
+    };
+
+    snapToBottom();
+
+    requestAnimationFrame(() => {
+        snapToBottom();
+        requestAnimationFrame(() => {
+            snapToBottom();
+        });
+    });
+
+    for (const delayMs of [120, 320, 650]) {
+        window.setTimeout(() => {
+            snapToBottom();
+        }, delayMs);
+    }
+
+    const mediaElements = messageContainer.querySelectorAll<HTMLImageElement>("img");
+    for (const media of mediaElements) {
+        if (media.complete) continue;
+
+        const onSettled = () => {
+            snapToBottom();
+        };
+
+        media.addEventListener("load", onSettled, { once: true });
+        media.addEventListener("error", onSettled, { once: true });
+    }
 }
 
 function getLastInteractionTimestamp(chat: DbChat): number {
@@ -91,12 +220,56 @@ function sortChats(chats: DbChat[], mode: ChatSortMode): DbChat[] {
     return list;
 }
 
-export function getCurrentChatId() {
+export function getCurrentChatId(): string | null {
     const currentChatElement = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
     if (currentChatElement) {
-        return parseInt(currentChatElement.value.replace("chat", ""), 10);
+        const val = currentChatElement.value.replace("chat", "");
+        return val || null;
     }
     return null;
+}
+
+export function isCurrentChatRemotePagedMode(): boolean {
+    return isRemotePagedMode;
+}
+
+async function enqueueChatWrite(chatId: string, task: () => Promise<void>): Promise<void> {
+    const previous = chatWriteQueueById.get(chatId) ?? Promise.resolve();
+    const run = previous
+        .catch(() => undefined)
+        .then(task);
+
+    const tracked = run.finally(() => {
+        if (chatWriteQueueById.get(chatId) === tracked) {
+            chatWriteQueueById.delete(chatId);
+        }
+    });
+
+    chatWriteQueueById.set(chatId, tracked);
+    return tracked;
+}
+
+export async function waitForPendingWrites(chatId: string): Promise<void> {
+    const pending = chatWriteQueueById.get(chatId);
+    if (!pending) return;
+    await pending.catch(() => undefined);
+}
+
+export async function waitForCurrentChatPendingWrites(): Promise<void> {
+    const chatId = getCurrentChatId();
+    if (!chatId) return;
+    await waitForPendingWrites(chatId);
+}
+
+function cacheRemoteChats(chats: DbChat[]) {
+    remoteChatsById.clear();
+    for (const chat of chats) {
+        remoteChatsById.set(chat.id, structuredClone(chat));
+    }
+}
+
+function upsertRemoteChat(chat: DbChat) {
+    remoteChatsById.set(chat.id, structuredClone(chat));
 }
 
 export async function initialize() {
@@ -167,7 +340,7 @@ async function reorderChatListInDom() {
 
 // Rebuild the chat list according to the current sort mode after data changes
 // (e.g., when messages are persisted and lastModified is updated).
-export async function refreshChatListAfterActivity(db: Db): Promise<void> {
+export async function refreshChatListAfterActivity(dbArg: Db = db): Promise<void> {
     try {
         const mode = getChatSortMode();
 
@@ -304,10 +477,35 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
     deleteItem.classList.add("chat-actions-item");
     deleteItem.setAttribute("role", "menuitem");
     deleteItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">delete</span><span>Delete</span>`;
-    deleteItem.addEventListener("click", (e) => {
+    deleteItem.addEventListener("click", async (e) => {
         e.stopPropagation();
         closeMenu();
-        deleteChat(chat.id, db);
+
+        const originalMarkup = deleteItem.innerHTML;
+        deleteItem.disabled = true;
+        deleteItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">hourglass_top</span><span>Deleting…</span>`;
+
+        toastService.info({
+            title: "Deleting chat",
+            text: "Deleting chat. This can take a while for long chats.",
+        });
+
+        try {
+            await deleteChat(chat.id, db);
+            toastService.info({
+                title: "Chat deleted",
+                text: "Chat deleted successfully.",
+            });
+        } catch (error) {
+            console.error("Failed to delete chat", error);
+            toastService.danger({
+                title: "Delete failed",
+                text: "Could not delete chat. Please try again.",
+            });
+        } finally {
+            deleteItem.disabled = false;
+            deleteItem.innerHTML = originalMarkup;
+        }
     });
 
     // Group settings (only for group chats)
@@ -395,50 +593,102 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
     }
 }
 
-export async function addChat(title: string, content?: Message[]) {
-    const chat: Chat = {
+export async function addChat(title: string, content?: Message[]): Promise<string> {
+    const id = uuidv4();
+    const chat: DbChat = {
+        id,
         title: title,
         timestamp: Date.now(),
         content: content || []
     };
-    const id = await db.chats.put(chat);
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) {
+            throw new Error('Cloud sync is enabled but locked. Unlock sync before creating chats.');
+        }
+        const ok = await syncService.upsertSyncedChat(chat);
+        if (!ok) {
+            try {
+                await syncService.deleteSyncedChat(chat.id);
+            } catch (cleanupError) {
+                console.warn('addChat cleanup failed for chat id=%s', chat.id, cleanupError);
+            }
+            throw new Error('Failed to create synced chat');
+        }
+        upsertRemoteChat(chat);
+    } else {
+        await db.chats.put(chat);
+    }
     // New chats should appear at the top when they are created.
-    insertChatEntry({ ...chat, id }, "prepend");
+    insertChatEntry(chat, "prepend");
     return id;
 }
 
-export async function addChatRecord(chat: Chat): Promise<number> {
-    const normalized: Chat = {
+export async function addChatRecord(chat: Chat): Promise<string> {
+    const id = (chat as any).id ?? uuidv4();
+    const record: DbChat = {
+        id,
         title: chat.title,
         timestamp: chat.timestamp ?? Date.now(),
         content: chat.content || [],
         lastModified: (chat as any).lastModified,
         groupChat: (chat as any).groupChat,
     };
-    try {
-        const id = await db.chats.add(normalized as any);
-        console.log(`addChatRecord: inserted chat id=${id}`, normalized);
-        insertChatEntry({ ...(normalized as any), id }, "prepend");
-        return id;
-    } catch (error) {
-        // Fall back to put for updates if add fails (e.g., id collision), but log the error.
-        console.error("addChatRecord: failed to add chat, falling back to put", error, normalized);
-        const id = await db.chats.put(normalized as any);
-        insertChatEntry({ ...(normalized as any), id }, "prepend");
-        return id;
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) {
+            throw new Error('Cloud sync is enabled but locked. Unlock sync before importing chats.');
+        }
+        const ok = await syncService.upsertSyncedChat(record);
+        if (!ok) {
+            try {
+                await syncService.deleteSyncedChat(record.id);
+            } catch (cleanupError) {
+                console.warn('addChatRecord cleanup failed for chat id=%s', record.id, cleanupError);
+            }
+            throw new Error('Failed to add synced chat record');
+        }
+        upsertRemoteChat(record);
+    } else {
+        await db.chats.put(record);
     }
+    console.log(`addChatRecord: inserted chat id=${id}`, record);
+    insertChatEntry(record, "prepend");
+    return id;
 }
 
-export async function getCurrentChat(db: Db) {
+export async function getCurrentChat(dbArg: Db = db) {
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) return null;
+        if (currentChatSnapshot) return structuredClone(currentChatSnapshot);
+        const id = getCurrentChatId();
+        if (!id) return null;
+        const remote = remoteChatsById.get(id) ?? await syncService.fetchSyncedChatMetadata(id);
+        if (!remote) return null;
+        currentChatSnapshot = structuredClone(remote);
+        upsertRemoteChat(remote);
+        return structuredClone(remote);
+    }
+
     const id = getCurrentChatId();
     if (!id) {
         return null;
     }
-    return (await db.chats.get(id));
+    return (await dbArg.chats.get(id));
 }
 
 export async function deleteAllChats(db: Db) {
-    await db.chats.clear();
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) {
+            throw new Error('Cloud sync is enabled but locked. Unlock sync before deleting chats.');
+        }
+        const chats = await getAllChats(db);
+        for (const chat of chats) {
+            await syncService.deleteSyncedChat(chat.id);
+        }
+        remoteChatsById.clear();
+        currentChatSnapshot = null;
+    } else {
+        await db.chats.clear();
+    }
     // Clear chat list and messages without rebuilding from DB
     if (chatHistorySection) {
         chatHistorySection.innerHTML = "";
@@ -447,8 +697,20 @@ export async function deleteAllChats(db: Db) {
 }
 
 
-export async function deleteChat(id: number, db: Db) {
-    await db.chats.delete(id);
+export async function deleteChat(id: string, db: Db) {
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) {
+            throw new Error('Cloud sync is enabled but locked. Unlock sync before deleting chats.');
+        }
+        const deleted = await syncService.deleteSyncedChat(id);
+        if (!deleted) {
+            throw new Error(`Failed to delete synced chat ${id}`);
+        }
+        remoteChatsById.delete(id);
+        if (currentChatSnapshot?.id === id) currentChatSnapshot = null;
+    } else {
+        await db.chats.delete(id);
+    }
     const currentId = getCurrentChatId();
 
     // Remove the radio + label for this chat from the DOM
@@ -474,6 +736,8 @@ export function newChat() {
         return;
     }
 
+    cancelActiveChatLoad();
+
     // Clear DOM
     messageContainer.innerHTML = "";
     document.querySelector("#chat-title")!.textContent = "";
@@ -485,6 +749,9 @@ export function newChat() {
     loadedEndIndex = 0;
     isLoadingOlder = false;
     hasMoreOlder = false;
+    currentChatSnapshot = null;
+    remoteWindowStartIndex = 0;
+    resetChatLoadingFeedback();
 
     // Uncheck current chat selection
     const checkedInput = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
@@ -496,9 +763,102 @@ export function newChat() {
     dispatchAppEvent('chat-loaded', { chat: null });
 }
 
-async function renderMessagesSlice(start: number, end: number, prepend: boolean) {
+export async function saveChat(chat: DbChat): Promise<void> {
+    await enqueueChatWrite(chat.id, async () => {
+        if (syncService.isOnlineSyncEnabled()) {
+            if (!syncService.isSyncActive()) {
+                throw new Error('Cloud sync is enabled but locked. Unlock sync before saving chat changes.');
+            }
+            let chatToSave = chat;
+            let previousForSync = remoteChatsById.get(chat.id) ?? (currentChatSnapshot?.id === chat.id ? currentChatSnapshot : undefined);
+
+            if (isRemotePagedMode && currentChatIdState === chat.id) {
+                const fullMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
+                if (fullMessages) {
+                    const localMessages = chat.content || [];
+                    const rebased = [...fullMessages];
+                    const previousLocalMessages = currentChatSnapshot?.id === chat.id
+                        ? (currentChatSnapshot.content || [])
+                        : [];
+
+                    for (let localIndex = 0; localIndex < localMessages.length; localIndex++) {
+                        const absoluteIndex = remoteWindowStartIndex + localIndex;
+                        rebased[absoluteIndex] = localMessages[localIndex];
+                    }
+
+                    if (localMessages.length < previousLocalMessages.length) {
+                        const truncateAt = Math.max(0, remoteWindowStartIndex + localMessages.length);
+                        rebased.length = Math.min(rebased.length, truncateAt);
+                    }
+
+                    chatToSave = {
+                        ...chat,
+                        content: rebased,
+                    };
+
+                    previousForSync = {
+                        ...(chat as any),
+                        content: fullMessages,
+                    } as DbChat;
+                }
+            }
+
+            const ok = await syncService.upsertSyncedChat(chatToSave, previousForSync);
+            if (!ok) {
+                throw new Error(`Failed to sync chat ${chat.id}`);
+            }
+            upsertRemoteChat(chatToSave);
+            if (currentChatSnapshot?.id === chat.id) {
+                currentChatSnapshot = structuredClone(chatToSave);
+            }
+            await refreshChatListAfterActivity(db);
+            return;
+        }
+
+        await db.chats.put(chat);
+        await refreshChatListAfterActivity(db);
+    });
+}
+
+export async function getChatById(id: string): Promise<DbChat | undefined> {
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) return undefined;
+        const cached = remoteChatsById.get(id);
+        if (cached) return structuredClone(cached);
+
+        const remote = await syncService.fetchSyncedChatMetadata(id);
+        if (!remote) return undefined;
+        upsertRemoteChat(remote);
+        return structuredClone(remote);
+    }
+
+    return db.chats.get(id);
+}
+
+export async function replaceCurrentChatMessages(messages: Message[]): Promise<void> {
+    if (!currentChatSnapshot) return;
+    currentChatMessages = structuredClone(messages);
+    loadedStartIndex = 0;
+    loadedEndIndex = currentChatMessages.length;
+    hasMoreOlder = false;
+    isRemotePagedMode = false;
+    remoteOldestLoadedIndex = 0;
+    remoteWindowStartIndex = 0;
+
+    currentChatSnapshot = {
+        ...currentChatSnapshot,
+        content: structuredClone(currentChatMessages),
+    };
+    upsertRemoteChat(currentChatSnapshot);
+}
+
+async function renderMessagesSlice(start: number, end: number, prepend: boolean, isCurrentLoad: () => boolean = () => true) {
     if (!messageContainer) {
         console.error("Message container not found while rendering messages slice");
+        return;
+    }
+
+    if (!isCurrentLoad()) {
         return;
     }
 
@@ -509,13 +869,17 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean)
     const scrollContainer = document.querySelector<HTMLDivElement>(scrollableChatContainerSelector);
     const previousScrollHeight = scrollContainer?.scrollHeight ?? 0;
     const previousScrollTop = scrollContainer?.scrollTop ?? 0;
+    const absoluteBase = isRemotePagedMode ? remoteWindowStartIndex : 0;
 
     // For initial load (prepend = false), render slice in natural order (older -> newer)
     if (!prepend) {
         for (let offset = 0; offset < slice.length; offset++) {
+            if (!isCurrentLoad()) {
+                return;
+            }
             const msg = slice[offset];
             // The real index in chat.content/currentChatMessages
-            const chatIndex = start + offset;
+            const chatIndex = absoluteBase + start + offset;
             await messageService.insertMessage(msg, chatIndex);
         }
     } else {
@@ -527,8 +891,11 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean)
         const fragment = document.createDocumentFragment();
 
         for (let i = 0; i < slice.length; i++) {
+            if (!isCurrentLoad()) {
+                return;
+            }
             const msg = slice[i];
-            const chatIndex = start + i;
+            const chatIndex = absoluteBase + start + i;
             const element = await messageElement(msg, chatIndex);
 
             // Turn Grouping Logic (Fragment Building)
@@ -579,6 +946,10 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean)
         }
     }
 
+    if (!isCurrentLoad()) {
+        return;
+    }
+
     if (prepend && scrollContainer) {
         const newScrollHeight = scrollContainer.scrollHeight;
         scrollContainer.scrollTop = newScrollHeight - previousScrollHeight + previousScrollTop;
@@ -620,29 +991,91 @@ function attachScrollListener() {
 async function loadOlderMessages() {
     if (isLoadingOlder) return;
     isLoadingOlder = true;
+    const loadChatId = currentChatIdState;
+    const signal = activeChatLoadAbortController?.signal;
 
     try {
+        if (isRemotePagedMode && currentChatIdState) {
+            let fetchedThisPass = 0;
+
+            while (currentChatIdState === loadChatId && hasMoreOlder && fetchedThisPass < PAGE_SIZE) {
+                const remaining = PAGE_SIZE - fetchedThisPass;
+                const nextBatchSize = Math.min(REMOTE_INITIAL_BATCH_SIZE, remaining);
+
+                const window = await syncService.hydrateOlderChatMessagesWindow(
+                    currentChatIdState,
+                    remoteOldestLoadedIndex,
+                    nextBatchSize,
+                    { signal },
+                );
+
+                if (currentChatIdState !== loadChatId) {
+                    return;
+                }
+                if (!window || window.messages.length === 0) {
+                    hasMoreOlder = false;
+                    break;
+                }
+
+                currentChatMessages = [...window.messages, ...currentChatMessages];
+                if (currentChatSnapshot) {
+                    currentChatSnapshot = {
+                        ...currentChatSnapshot,
+                        content: structuredClone(currentChatMessages),
+                    };
+                    upsertRemoteChat(currentChatSnapshot);
+                }
+
+                remoteWindowStartIndex = window.startIndex;
+                await renderMessagesSlice(0, window.messages.length, true, () => currentChatIdState === loadChatId);
+                if (currentChatIdState !== loadChatId) {
+                    return;
+                }
+
+                remoteOldestLoadedIndex = window.startIndex;
+                hasMoreOlder = window.hasMoreOlder;
+                loadedStartIndex = 0;
+                loadedEndIndex = currentChatMessages.length;
+                fetchedThisPass += window.messages.length;
+            }
+
+            return;
+        }
+
         const nextStart = Math.max(0, loadedStartIndex - PAGE_SIZE);
         if (nextStart === loadedStartIndex) {
             hasMoreOlder = false;
             return;
         }
 
-        await renderMessagesSlice(nextStart, loadedStartIndex, true);
+        await renderMessagesSlice(nextStart, loadedStartIndex, true, () => currentChatIdState === loadChatId);
+        if (currentChatIdState !== loadChatId) {
+            return;
+        }
         loadedStartIndex = nextStart;
         hasMoreOlder = loadedStartIndex > 0;
     } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+        }
         console.error("Failed to load older messages", error);
     } finally {
         isLoadingOlder = false;
     }
 }
 
-export async function loadChat(chatID: number, db: Db) {
+export async function loadChat(chatID: string, dbArg: Db = db) {
+    const chatLoadRequest = beginChatLoadRequest();
+    beginChatLoadingFeedback();
+
     try {
         if (!chatID || !messageContainer) {
             console.error("Chat ID is null or message container not found");
             throw new Error("Chat ID is null or message container not found");
+        }
+
+        if (!chatLoadRequest.isCurrent()) {
+            return null;
         }
 
         // Reset state for new chat
@@ -652,9 +1085,17 @@ export async function loadChat(chatID: number, db: Db) {
         loadedEndIndex = 0;
         isLoadingOlder = false;
         hasMoreOlder = false;
+        isRemotePagedMode = false;
+        remoteOldestLoadedIndex = 0;
+        remoteWindowStartIndex = 0;
 
-        messageContainer.innerHTML = ""; // Clear existing messages
-        const chat = await db.chats.get(chatID);
+        messageContainer.innerHTML = ''; // Clear existing messages
+        const chat = syncService.isOnlineSyncEnabled()
+            ? (remoteChatsById.get(chatID) ?? await syncService.fetchSyncedChatMetadata(chatID))
+            : await dbArg.chats.get(chatID);
+        if (!chatLoadRequest.isCurrent()) {
+            return null;
+        }
         if (!chat) {
             console.error("Chat not found", chatID);
             document.querySelector("#chat-title")!.textContent = "";
@@ -662,7 +1103,100 @@ export async function loadChat(chatID: number, db: Db) {
         }
 
         document.querySelector("#chat-title")!.textContent = chat.title || "";
+        currentChatSnapshot = {
+            ...chat,
+            content: [],
+        };
+
+        if (syncService.isOnlineSyncEnabled()) {
+            if (!syncService.isSyncActive()) {
+                document.querySelector("#chat-title")!.textContent = "";
+                return null;
+            }
+            const latestWindow = await syncService.hydrateLatestChatMessagesWindow(chatID, REMOTE_INITIAL_BATCH_SIZE, {
+                signal: chatLoadRequest.signal,
+            });
+            if (!chatLoadRequest.isCurrent()) {
+                return null;
+            }
+            if (latestWindow) {
+                isRemotePagedMode = true;
+                remoteOldestLoadedIndex = latestWindow.startIndex;
+                remoteWindowStartIndex = latestWindow.startIndex;
+                currentChatMessages = latestWindow.messages;
+                currentChatSnapshot = {
+                    ...chat,
+                    content: structuredClone(currentChatMessages),
+                };
+                upsertRemoteChat(currentChatSnapshot);
+                loadedStartIndex = 0;
+                loadedEndIndex = currentChatMessages.length;
+                hasMoreOlder = latestWindow.hasMoreOlder;
+
+                if (loadedEndIndex > 0) {
+                    await renderMessagesSlice(loadedStartIndex, loadedEndIndex, false, chatLoadRequest.isCurrent);
+                }
+                if (!chatLoadRequest.isCurrent()) {
+                    return null;
+                }
+
+                settleChatScrollToBottom(chatLoadRequest.isCurrent);
+
+                while (chatLoadRequest.isCurrent() && hasMoreOlder && currentChatMessages.length < PAGE_SIZE) {
+                    const remaining = PAGE_SIZE - currentChatMessages.length;
+                    const nextBatchSize = Math.min(REMOTE_INITIAL_BATCH_SIZE, remaining);
+                    const olderWindow = await syncService.hydrateOlderChatMessagesWindow(
+                        chatID,
+                        remoteOldestLoadedIndex,
+                        nextBatchSize,
+                        { signal: chatLoadRequest.signal },
+                    );
+
+                    if (!chatLoadRequest.isCurrent()) {
+                        return null;
+                    }
+
+                    if (!olderWindow || olderWindow.messages.length === 0) {
+                        hasMoreOlder = false;
+                        break;
+                    }
+
+                    currentChatMessages = [...olderWindow.messages, ...currentChatMessages];
+                    remoteWindowStartIndex = olderWindow.startIndex;
+                    remoteOldestLoadedIndex = olderWindow.startIndex;
+                    loadedStartIndex = 0;
+                    loadedEndIndex = currentChatMessages.length;
+                    hasMoreOlder = olderWindow.hasMoreOlder;
+
+                    currentChatSnapshot = {
+                        ...chat,
+                        content: structuredClone(currentChatMessages),
+                    };
+                    upsertRemoteChat(currentChatSnapshot);
+
+                    await renderMessagesSlice(0, olderWindow.messages.length, true, chatLoadRequest.isCurrent);
+                }
+
+                if (!chatLoadRequest.isCurrent()) {
+                    return null;
+                }
+
+                attachScrollListener();
+                dispatchAppEvent('chat-loaded', {
+                    chat: {
+                        ...chat,
+                        content: currentChatMessages,
+                    },
+                });
+                return chat;
+            }
+        }
+
         currentChatMessages = chat.content || [];
+        currentChatSnapshot = {
+            ...chat,
+            content: structuredClone(currentChatMessages),
+        };
 
         const total = currentChatMessages.length;
         if (total === 0) {
@@ -675,7 +1209,11 @@ export async function loadChat(chatID: number, db: Db) {
         loadedStartIndex = Math.max(0, total - PAGE_SIZE);
         hasMoreOlder = loadedStartIndex > 0;
 
-        await renderMessagesSlice(loadedStartIndex, loadedEndIndex, false);
+        await renderMessagesSlice(loadedStartIndex, loadedEndIndex, false, chatLoadRequest.isCurrent);
+        if (!chatLoadRequest.isCurrent()) {
+            return null;
+        }
+        settleChatScrollToBottom(chatLoadRequest.isCurrent);
         attachScrollListener();
 
         dispatchAppEvent('chat-loaded', { chat });
@@ -683,37 +1221,81 @@ export async function loadChat(chatID: number, db: Db) {
         return chat;
     }
     catch (error) {
-        alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
+        if (error instanceof DOMException && error.name === "AbortError") {
+            return null;
+        }
+        toastService.danger({
+            title: "Chat Load Error",
+            text: "Please report this to the developer. You might need to restart the page to continue normal usage."
+        });
         console.error(error);
+    } finally {
+        endChatLoadingFeedback();
+        finishChatLoadRequest(chatLoadRequest.token);
     }
 }
 
 export async function getAllChats(db: Db): Promise<DbChat[]> {
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) return [];
+        const remoteChats = await syncService.fetchSyncedChatsMetadata();
+        cacheRemoteChats(remoteChats);
+        return remoteChats;
+    }
     const chats = await db.chats.orderBy('timestamp').toArray(); // Get all objects
     return chats;
 }
 
-export async function editChat(id: number, title: string) {
-    const chat = await db.chats.get(id);
+export async function editChat(id: string, title: string) {
+    const chat = await getChatById(id);
     if (chat) {
         chat.title = title;
-        await db.chats.put(chat);
+        await saveChat(chat);
         // Resort entries in place to reflect updated title without full reload
         void reorderChatListInDom();
     }
 }
 
-export async function exportChat(id: number): Promise<void> {
-    const chat = await db.chats.get(id);
-    if (!chat) {
-        console.error("Chat not found for export", id);
+export async function exportChat(id: string): Promise<void> {
+    if (syncService.isOnlineSyncEnabled() && !syncService.isSyncActive()) {
+        toastService.danger({
+            title: "Export unavailable",
+            text: "Unlock cloud sync before exporting chats."
+        });
         return;
     }
+
+    const chat = await getChatById(id);
+    if (!chat) {
+        console.error("Chat not found for export", id);
+        toastService.danger({
+            title: "Export Failed",
+            text: "Chat not found."
+        });
+        return;
+    }
+
+    let chatForExport: DbChat = chat;
+    if (syncService.isOnlineSyncEnabled()) {
+        const syncedMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
+        if (syncedMessages === null) {
+            toastService.danger({
+                title: "Export Failed",
+                text: "Failed to fetch chat messages from cloud sync."
+            });
+            return;
+        }
+        chatForExport = {
+            ...chat,
+            content: syncedMessages,
+        };
+    }
+
     // Exclude the id so imported chats get a new one (mirrors exportAllChats behavior)
-    const { id: _omit, ...rest } = chat as DbChat & { id: number };
+    const { id: _omit, ...rest } = chatForExport;
     const blob = new Blob([JSON.stringify(rest, null, 2)], { type: 'application/json' });
     // Derive a safe filename from the chat title
-    const safeTitle = (chat.title || 'chat').toLowerCase().replace(/[^a-z0-9-_]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+    const safeTitle = (chatForExport.title || 'chat').toLowerCase().replace(/[^a-z0-9-_]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
     const a = document.createElement('a');
     const url = URL.createObjectURL(blob);
     a.href = url;
@@ -722,12 +1304,47 @@ export async function exportChat(id: number): Promise<void> {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+
+    toastService.info({
+        title: "Chat exported",
+        text: `Exported \"${chatForExport.title || 'chat'}\".`
+    });
 }
 
 export async function exportAllChats(): Promise<void> {
+    if (syncService.isOnlineSyncEnabled() && !syncService.isSyncActive()) {
+        toastService.danger({
+            title: "Export unavailable",
+            text: "Unlock cloud sync before exporting chats."
+        });
+        return;
+    }
+
     const chats = await getAllChats(db);
+
+    const chatsForExport: DbChat[] = [];
+    for (const chat of chats) {
+        if (syncService.isOnlineSyncEnabled()) {
+            const syncedMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
+            if (syncedMessages === null) {
+                toastService.danger({
+                    title: "Export Failed",
+                    text: `Failed to fetch messages for chat \"${chat.title || chat.id}\".`
+                });
+                return;
+            }
+            chatsForExport.push({
+                ...chat,
+                content: syncedMessages,
+            });
+            continue;
+        }
+
+        chatsForExport.push(chat);
+    }
+
     //we remove the id
-    const blob = new Blob([JSON.stringify(chats.map(({ id, ...rest }) => rest), null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(chatsForExport.map(({ id, ...rest }) => rest), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -736,34 +1353,54 @@ export async function exportAllChats(): Promise<void> {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+
+    toastService.info({
+        title: "Chats exported",
+        text: `Exported ${chatsForExport.length} chat${chatsForExport.length === 1 ? '' : 's'}.`
+    });
 }
 
 export async function importChats(files: FileList): Promise<void> {
-    const reader = new FileReader();
-    reader.addEventListener('load', async (event) => {
-        const content = event.target?.result as string;
-        try {
-            const chatOrChats = JSON.parse(content);
-            //check if it's iterable
-            const chats: Chat[] = Array.isArray(chatOrChats) ? chatOrChats : [chatOrChats]; //wrap single chat in array
-            for (const chat of chats) {
-                //we insert the chat with a new ID
-                await db.chats.add(chat);
-            }
-            initialize();
-        } catch (error) {
-            console.error("Error parsing chat file:", error);
-            alert("Failed to import chats. Please ensure the file is in the correct format.");
-        }
-    });
-    for (const file of files) {
-        reader.readAsText(file);
+    if (!files || files.length === 0) return;
+
+    if (syncService.isOnlineSyncEnabled() && !syncService.isSyncActive()) {
+        toastService.danger({
+            title: "Import unavailable",
+            text: "Unlock cloud sync before importing chats."
+        });
+        return;
     }
 
+    try {
+        const allChatsToImport: Chat[] = [];
 
+        for (const file of Array.from(files)) {
+            const content = await file.text();
+            const chatOrChats = JSON.parse(content);
+            const chats: Chat[] = Array.isArray(chatOrChats) ? chatOrChats : [chatOrChats];
+            allChatsToImport.push(...chats);
+        }
+
+        for (const chat of allChatsToImport) {
+            await addChatRecord(chat);
+        }
+
+        await initialize();
+
+        toastService.info({
+            title: "Chats imported",
+            text: `Imported ${allChatsToImport.length} chat${allChatsToImport.length === 1 ? '' : 's'}.`
+        });
+    } catch (error) {
+        console.error("Error importing chats:", error);
+        toastService.danger({
+            title: "Import Failed",
+            text: "Failed to import chats. Please ensure the file is in the correct format."
+        });
+    }
 }
 
-export async function moveChatDomEntryToTop(id: number) {
+export async function moveChatDomEntryToTop(id: string) {
     const identifier = "chat" + id;
     const radioButton = document.querySelector<HTMLInputElement>(`input[value='${identifier}']`);
     const label = document.querySelector<HTMLLabelElement>(`label[for='${identifier}']`);

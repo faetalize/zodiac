@@ -75,7 +75,7 @@ export interface ChatLoadedDetail {
 }
 
 export interface OpenGroupChatEditorDetail {
-    chatId: number;
+    chatId: string;
 }
 
 // --- RPG Group Chat Events ---
@@ -92,7 +92,7 @@ export interface RoundStateChangedDetail {
 // --- Dynamic Group Chat Events ---
 
 export interface GroupChatTypingChangedDetail {
-    chatId: number;
+    chatId: string;
     personaIds: string[];
 }
 
@@ -172,6 +172,35 @@ export interface LoraStateChangedDetail {
     // No detail payload - listeners should query current state
 }
 
+// --- Cloud Sync Events ---
+
+export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
+
+export interface SyncUnlockRequiredDetail {
+    /** True if this is a first-time setup (no encryption material yet). */
+    isFirstSetup: boolean;
+    /** Optional explicit mode for consumers that need to distinguish enable vs unlock vs setup. */
+    mode?: 'setup' | 'unlock' | 'enable';
+}
+
+export interface SyncStateChangedDetail {
+    status: SyncStatus;
+    error?: string;
+}
+
+export interface SyncQuotaUpdatedDetail {
+    usedBytes: number;
+    quotaBytes: number;
+}
+
+export interface SyncSetupCompleteDetail {
+    enabled: boolean;
+}
+
+export interface SyncDataPulledDetail {
+    // No detail payload
+}
+
 // ================================================================================
 // EVENT NAME CONSTANTS
 // ================================================================================
@@ -228,6 +257,13 @@ export const EventNames = {
     
     // Lora
     LORA_STATE_CHANGED: 'lora-state-changed',
+
+    // Cloud Sync
+    SYNC_UNLOCK_REQUIRED: 'sync-unlock-required',
+    SYNC_STATE_CHANGED: 'sync-state-changed',
+    SYNC_QUOTA_UPDATED: 'sync-quota-updated',
+    SYNC_SETUP_COMPLETE: 'sync-setup-complete',
+    SYNC_DATA_PULLED: 'sync-data-pulled',
 } as const;
 
 export type EventName = typeof EventNames[keyof typeof EventNames];
@@ -292,6 +328,13 @@ export interface AppEventMap {
     
     // Lora
     [EventNames.LORA_STATE_CHANGED]: LoraStateChangedDetail;
+
+    // Cloud Sync
+    [EventNames.SYNC_UNLOCK_REQUIRED]: SyncUnlockRequiredDetail;
+    [EventNames.SYNC_STATE_CHANGED]: SyncStateChangedDetail;
+    [EventNames.SYNC_QUOTA_UPDATED]: SyncQuotaUpdatedDetail;
+    [EventNames.SYNC_SETUP_COMPLETE]: SyncSetupCompleteDetail;
+    [EventNames.SYNC_DATA_PULLED]: SyncDataPulledDetail;
 }
 
 // ================================================================================

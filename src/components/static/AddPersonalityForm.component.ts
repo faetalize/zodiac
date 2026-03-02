@@ -169,7 +169,7 @@ formEl.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
     );
 });
 
-function handleFormSubmit() {
+async function handleFormSubmit() {
     //turn all the form data into a personality object
     const personality: Personality = {
         name: '',
@@ -218,23 +218,29 @@ function handleFormSubmit() {
     const idRaw = data.get('id');
     const id = typeof idRaw === 'string' ? idRaw : '';
     if (id && id.trim().length > 0) {
-        personalityService.edit(id, personality);
+        await personalityService.edit(id, personality);
     } else {
-        personalityService.add(personality);
+        const added = await personalityService.add(personality);
+        if (added) {
+            toastService.info({
+                title: 'Persona created',
+                text: `Created "${personality.name}".`
+            });
+        }
     }
 
     overlayService.closeOverlay();
 
 }
 
-formEl.addEventListener('submit', (e) => {
+formEl.addEventListener('submit', async (e) => {
     e.preventDefault();
-    handleFormSubmit();
+    await handleFormSubmit();
 });
 
 //fallback for any programmatic submit calls that bypass the submit event
 formEl.submit = () => {
-    handleFormSubmit();
+    void handleFormSubmit();
 };
 
 //this code is for setting up the `add tone example` button

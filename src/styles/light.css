@@ -8,6 +8,8 @@
     --navbar-tab-hover-bg: #3030300e;
 
     --chat-actions-menu-fg: #000000;
+    --sidebar-chrome-bg: rgba(255, 255, 255, 0.46);
+    --sidebar-chrome-border: rgba(0, 0, 0, 0.09);
 
     --toast-fg: #000000;
 
@@ -17,6 +19,11 @@
     --dialog-bg: #971c1c;
     --dialog-shadow: none;
     --dialog-message-fg: #ffe3e3;
+
+    /* Neutral Modal */
+    --modal-bg: var(--dropdown-menu-bg);
+    --modal-fg: var(--dropdown-menu-fg);
+    --modal-shadow: var(--dropdown-menu-shadow);
 
 
     /* dropdown */
@@ -45,7 +52,7 @@
     }
 
     .navbar-tab-highlight {
-        box-shadow: 0 0 8px 2px rgba(0, 0, 0, 0.103);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.04);
     }
 
     .btn-textual {

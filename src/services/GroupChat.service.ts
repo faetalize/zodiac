@@ -1,7 +1,5 @@
 import * as chatsService from "./Chats.service";
 import * as personalityService from "./Personality.service";
-import { db } from "./Db.service";
-export { db };
 import type { Chat, GroupChatConfig, GroupChatDynamicSettings, GroupChatRpgSettings } from "../types/Chat";
 import { defaultGuardFromIndependence, normalizeGuardMap } from "../utils/dynamicGroupChatGuards";
 
@@ -14,7 +12,7 @@ export async function createRpgGroupChat(options: {
     turnOrder: string[];
     scenarioPrompt?: string;
     narratorEnabled?: boolean;
-}): Promise<number | null> {
+}): Promise<string | null> {
     const participantIds = uniq(options.participantIds).slice(0, 5);
     if (participantIds.length < 2) {
         return null;
@@ -65,7 +63,7 @@ export async function createRpgGroupChat(options: {
         console.log("createRpgGroupChat: creating chat", chat);
         const id = await chatsService.addChatRecord(chat);
         console.log(`createRpgGroupChat: addChatRecord returned id=${id}`);
-        const loaded = await chatsService.loadChat(id, db);
+        const loaded = await chatsService.loadChat(id);
         console.log(`createRpgGroupChat: loadChat returned`, loaded);
         const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
         if (chatInput) {
@@ -82,7 +80,7 @@ export async function createDynamicGroupChat(options: {
     participantIds: string[];
     maxMessageGuardById?: Record<string, number>;
     allowPings?: boolean;
-}): Promise<number | null> {
+}): Promise<string | null> {
     const participantIds = uniq(options.participantIds).slice(0, 5);
     if (participantIds.length < 2) {
         return null;
@@ -134,7 +132,7 @@ export async function createDynamicGroupChat(options: {
         console.log("createDynamicGroupChat: creating chat", chat);
         const id = await chatsService.addChatRecord(chat);
         console.log(`createDynamicGroupChat: addChatRecord returned id=${id}`);
-        const loaded = await chatsService.loadChat(id, db);
+        const loaded = await chatsService.loadChat(id);
         console.log(`createDynamicGroupChat: loadChat returned`, loaded);
         const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
         if (chatInput) {
@@ -147,13 +145,13 @@ export async function createDynamicGroupChat(options: {
     }
 }
 
-export async function updateRpgGroupChat(chatId: number, options: {
+export async function updateRpgGroupChat(chatId: string, options: {
     participantIds: string[];
     turnOrder: string[];
     scenarioPrompt?: string;
     narratorEnabled?: boolean;
 }): Promise<boolean> {
-    const chat = await db.chats.get(chatId);
+    const chat = await chatsService.getChatById(chatId);
     if (!chat || !chat.groupChat) {
         return false;
     }
@@ -198,26 +196,26 @@ export async function updateRpgGroupChat(chatId: number, options: {
         chat.title = `Group: ${names.join(", ")}`.slice(0, 60);
     }
 
-    await db.chats.put(chat);
+    await chatsService.saveChat(chat);
     
     // If this is the current chat, reload it to reflect changes in UI
     const currentId = chatsService.getCurrentChatId();
     if (currentId === chatId) {
-        await chatsService.loadChat(chatId, db);
+        await chatsService.loadChat(chatId);
     } else {
         // Just refresh the sidebar entry
-        await chatsService.refreshChatListAfterActivity(db);
+        await chatsService.refreshChatListAfterActivity();
     }
 
     return true;
 }
 
-export async function updateDynamicGroupChat(chatId: number, options: {
+export async function updateDynamicGroupChat(chatId: string, options: {
     participantIds: string[];
     maxMessageGuardById?: Record<string, number>;
     allowPings?: boolean;
 }): Promise<boolean> {
-    const chat = await db.chats.get(chatId);
+    const chat = await chatsService.getChatById(chatId);
     if (!chat || !chat.groupChat) {
         return false;
     }
@@ -263,14 +261,14 @@ export async function updateDynamicGroupChat(chatId: number, options: {
         chat.title = `Group: ${names.join(", ")}`.slice(0, 60);
     }
 
-    await db.chats.put(chat);
+    await chatsService.saveChat(chat);
 
     // If this is the current chat, reload it to reflect changes in UI
     const currentId = chatsService.getCurrentChatId();
     if (currentId === chatId) {
-        await chatsService.loadChat(chatId, db);
+        await chatsService.loadChat(chatId);
     } else {
-        await chatsService.refreshChatListAfterActivity(db);
+        await chatsService.refreshChatListAfterActivity();
     }
 
     return true;

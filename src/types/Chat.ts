@@ -44,5 +44,5 @@ export interface Chat {
 }
 
 export interface DbChat extends Chat {
-    id: number;
+    id: string;
 }

@@ -19,7 +19,9 @@ export enum OnboardingStep {
     PLAN_SELECTION = 'plan-selection',
     SUBSCRIPTION_SETUP = 'subscription-setup',
     REGISTRATION = 'registration',
-    ADVANCED_SETTINGS = 'advanced-settings',
+    CLOUD_SYNC_SETUP = 'cloud-sync-setup',
+    ADVANCED_SETTINGS_PRIMARY = 'advanced-settings-primary',
+    ADVANCED_SETTINGS_BEHAVIOR = 'advanced-settings-behavior',
     SUMMARY = 'summary'
 }
 

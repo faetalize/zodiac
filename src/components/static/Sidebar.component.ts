@@ -1,6 +1,7 @@
 import * as helpers from "../../utils/helpers";
 import * as personalityService from "../../services/Personality.service";
 import * as chatsService from "../../services/Chats.service";
+import * as toastService from "../../services/Toast.service";
 import { db } from "../../services/Db.service";
 import "./ChatSearch.component";
 
@@ -72,20 +73,26 @@ importPersonalityButton.addEventListener("click", () => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = '.json,.personality';
-    fileInput.addEventListener('change', () => {
+    fileInput.addEventListener('change', async () => {
         const file = fileInput.files && fileInput.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            try {
-                const persona = JSON.parse(e.target?.result?.toString() || '{}');
-                personalityService.add(persona, persona?.id);
-            } catch (err) {
-                console.error("Failed to import personality", err);
-                alert("Failed to import personality. Please ensure the file is valid JSON.");
+        try {
+            const content = await file.text();
+            const persona = JSON.parse(content);
+            const added = await personalityService.add(persona, persona?.id);
+            if (added) {
+                toastService.info({
+                    title: "Persona imported",
+                    text: `Imported \"${persona.name || 'persona'}\".`
+                });
             }
-        };
-        reader.readAsText(file);
+        } catch (err) {
+            console.error("Failed to import personality", err);
+            toastService.danger({
+                title: "Import Failed",
+                text: "Failed to import personality. Please ensure the file is valid JSON."
+            });
+        }
     });
     fileInput.click();
     fileInput.remove();
@@ -95,23 +102,39 @@ bulkImportPersonasButton.addEventListener("click", () => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = '.json,.personality';
-    fileInput.addEventListener('change', () => {
-        const file = fileInput.files && fileInput.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            try {
-                const parsed = JSON.parse(e.target?.result?.toString() || '{}');
+    fileInput.multiple = true;
+    fileInput.addEventListener('change', async () => {
+        const files = fileInput.files;
+        if (!files || files.length === 0) return;
+
+        try {
+            const personasToImport: any[] = [];
+            for (const file of Array.from(files)) {
+                const content = await file.text();
+                const parsed = JSON.parse(content);
                 const personas = Array.isArray(parsed) ? parsed : [parsed];
-                personas.forEach((persona: any) => {
-                    personalityService.add(persona, persona?.id);
-                });
-            } catch (err) {
-                console.error("Failed to import personas", err);
-                alert("Failed to import personas. Please ensure the file is valid JSON.");
+                personasToImport.push(...personas);
             }
-        };
-        reader.readAsText(file);
+
+            let importedCount = 0;
+            for (const persona of personasToImport) {
+                const added = await personalityService.add(persona, persona?.id);
+                if (added) importedCount++;
+            }
+
+            if (importedCount > 0) {
+                toastService.info({
+                    title: "Personas imported",
+                    text: `Imported ${importedCount} persona${importedCount === 1 ? '' : 's'}.`
+                });
+            }
+        } catch (err) {
+            console.error("Failed to import personas", err);
+            toastService.danger({
+                title: "Import Failed",
+                text: "Failed to import personas. Please ensure the file is valid JSON."
+            });
+        }
     });
     fileInput.click();
     fileInput.remove();
@@ -129,9 +152,17 @@ exportAllPersonasButton.addEventListener("click", async () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+
+        toastService.info({
+            title: "Personas exported",
+            text: `Exported ${personalities.length} persona${personalities.length === 1 ? '' : 's'}.`
+        });
     } catch (err) {
         console.error("Failed to export personas", err);
-        alert("Failed to export personas.");
+        toastService.danger({
+            title: "Export Failed",
+            text: "Failed to export personas."
+        });
     }
 });
 

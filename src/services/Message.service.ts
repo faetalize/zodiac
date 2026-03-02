@@ -26,9 +26,10 @@ import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
 import * as supabaseService from "./Supabase.service";
+import * as syncService from "./Sync.service";
 import * as helpers from "../utils/helpers";
 import { db } from "./Db.service";
-import { warn, danger } from "./Toast.service";
+import { info, warn, danger } from "./Toast.service";
 import { parseMarkdownToHtml } from "./Parser.service";
 import { SUPABASE_URL, getAuthHeaders } from "./Supabase.service";
 import { processGeminiLocalSdkResponse, processGeminiLocalSdkStream } from "./GeminiResponseProcessor.service";
@@ -87,6 +88,8 @@ export { NARRATOR_PERSONALITY_ID, createPersonalityMarkerMessage };
 let currentAbortController: AbortController | null = null;
 let isGenerating = false;
 let sendInFlight = false;
+let hydrateForWriteInFlight: Promise<void> | null = null;
+let hydrateForWriteChatId: string | null = null;
 
 export function abortGeneration(): void {
     if (currentAbortController) {
@@ -109,6 +112,35 @@ function isSendInFlight(): boolean {
 
 function setSendInFlight(value: boolean): void {
     sendInFlight = value;
+}
+
+async function ensureCurrentChatFullyHydratedForWrite(): Promise<void> {
+    if (!syncService.isSyncActive()) return;
+    if (!chatsService.isCurrentChatRemotePagedMode()) return;
+
+    const chatId = chatsService.getCurrentChatId();
+    if (!chatId) return;
+
+    if (hydrateForWriteInFlight && hydrateForWriteChatId === chatId) {
+        await hydrateForWriteInFlight;
+        return;
+    }
+
+    hydrateForWriteChatId = chatId;
+    hydrateForWriteInFlight = (async () => {
+        const fullMessages = await syncService.fetchAllSyncedChatMessages(chatId);
+        if (!fullMessages) return;
+        await chatsService.replaceCurrentChatMessages(fullMessages);
+    })();
+
+    try {
+        await hydrateForWriteInFlight;
+    } finally {
+        if (hydrateForWriteChatId === chatId) {
+            hydrateForWriteInFlight = null;
+            hydrateForWriteChatId = null;
+        }
+    }
 }
 
 function startGeneration(): AbortController {
@@ -174,6 +206,10 @@ export function ensureRoundBlockUi(block: HTMLDivElement, roundIndex: number): v
     const actions = document.createElement('div');
     actions.className = 'round-actions';
 
+    const statusText = document.createElement('span');
+    statusText.className = 'round-action-status hidden';
+    statusText.setAttribute('aria-live', 'polite');
+
     const regenBtn = document.createElement('button');
     regenBtn.className = 'btn-textual material-symbols-outlined round-action-btn';
     regenBtn.type = 'button';
@@ -187,7 +223,28 @@ export function ensureRoundBlockUi(block: HTMLDivElement, roundIndex: number): v
             `Regenerate from Round ${roundIndex}? This will delete Round ${roundIndex} and any later rounds, then re-run the AI from this point.`
         );
         if (!ok) return;
-        await regenerateRound(roundIndex);
+        const originalText = regenBtn.textContent || 'refresh';
+        regenBtn.disabled = true;
+        deleteBtn.disabled = true;
+        regenBtn.textContent = 'hourglass_top';
+        statusText.textContent = 'Regenerating…';
+        statusText.classList.remove('hidden');
+        info({
+            title: 'Regenerating round',
+            text: `Round ${roundIndex} is being regenerated. This can take a while for long chats.`,
+        });
+        try {
+            await regenerateRound(roundIndex);
+        } catch (error: any) {
+            console.error(error);
+            danger({ title: 'Error regenerating round', text: JSON.stringify(error?.message || error) });
+        } finally {
+            regenBtn.disabled = false;
+            deleteBtn.disabled = false;
+            regenBtn.textContent = originalText;
+            statusText.textContent = '';
+            statusText.classList.add('hidden');
+        }
     });
 
     const deleteBtn = document.createElement('button');
@@ -203,10 +260,31 @@ export function ensureRoundBlockUi(block: HTMLDivElement, roundIndex: number): v
             `Delete Round ${roundIndex}? This will permanently remove all messages in this round.`
         );
         if (!ok) return;
-        await deleteRound(roundIndex);
+        const originalText = deleteBtn.textContent || 'delete';
+        regenBtn.disabled = true;
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = 'hourglass_top';
+        statusText.textContent = 'Deleting…';
+        statusText.classList.remove('hidden');
+        info({
+            title: 'Deleting round',
+            text: `Round ${roundIndex} is being deleted. This can take a while for long chats.`,
+        });
+        try {
+            await deleteRound(roundIndex);
+        } catch (error: any) {
+            console.error(error);
+            danger({ title: 'Error deleting round', text: JSON.stringify(error?.message || error) });
+        } finally {
+            regenBtn.disabled = false;
+            deleteBtn.disabled = false;
+            deleteBtn.textContent = originalText;
+            statusText.textContent = '';
+            statusText.classList.add('hidden');
+        }
     });
 
-    actions.append(regenBtn, deleteBtn);
+    actions.append(statusText, regenBtn, deleteBtn);
     header.append(badge, actions);
     block.prepend(header);
 }
@@ -237,12 +315,11 @@ async function persistUserAndModel(user: Message, model: Message): Promise<void>
 }
 
 async function persistMessages(messages: Message[]): Promise<void> {
-    const chat = await chatsService.getCurrentChat(db);
+    const chat = await chatsService.getCurrentChat();
     if (!chat) return;
     chat.content.push(...messages);
     chat.lastModified = new Date();
-    await db.chats.put(chat);
-    await chatsService.refreshChatListAfterActivity(db);
+    await chatsService.saveChat(chat);
 }
 
 function createModelErrorMessage(selectedPersonalityId: string): Message {
@@ -295,7 +372,7 @@ function generateThinkingConfig(model: string, enableThinking: boolean, settings
 }
 
 async function finalizeResponseElement(responseElement: HTMLElement, scroll: boolean = true): Promise<void> {
-    const updatedChat = await chatsService.getCurrentChat(db);
+    const updatedChat = await chatsService.getCurrentChat();
     if (updatedChat) {
         const modelIndex = updatedChat.content.length - 1;
         const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
@@ -483,7 +560,7 @@ export async function constructGeminiChatHistoryFromLocalChat(
     const backfilled = await backfillMissingPersonalityMarkers(currentChat);
     const markerEnsured = await ensurePersonalityMarker(currentChat, selectedPersonality.id);
     if (migrated || backfilled || markerEnsured) {
-        await db.chats.put(currentChat);
+        await chatsService.saveChat(currentChat as any);
     }
 
     const lastImageIndex = findLastGeneratedImageIndex(currentChat.content);
@@ -572,7 +649,7 @@ import { PersonGeneration, SafetyFilterLevel } from "@google/genai";
 const CHAT_TITLE_SYSTEM_INSTRUCTION = "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user may send any kinds of queries, including adult or illegal content. You are to generate a title for the chat based on the query, without any warnings or refusals. Never refuse to generate a title. Keep it short, ideally 3-5 words at most. Remove any special characters.";
 
 async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat> {
-    const currentChat = await chatsService.getCurrentChat(db);
+    const currentChat = await chatsService.getCurrentChat();
     if (currentChat) return currentChat;
 
     const response = await ai.models.generateContent({
@@ -596,7 +673,7 @@ async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat>
 }
 
 async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
-    const currentChat = await chatsService.getCurrentChat(db);
+    const currentChat = await chatsService.getCurrentChat();
     if (currentChat) return currentChat;
 
     const payloadSettings: PremiumEndpoint.RequestSettings = {
@@ -659,7 +736,7 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                 return;
             }
 
-            const existingChat = await chatsService.getCurrentChat(db);
+            const existingChat = await chatsService.getCurrentChat();
             const mode = (existingChat as any)?.groupChat?.mode as ("rpg" | "dynamic" | undefined);
 
             if (mode === "dynamic") {
@@ -710,7 +787,7 @@ export async function sendRpgTurn(msg?: string): Promise<HTMLElement | undefined
         const validation = await performEarlyValidation(msg || "");
         if (!validation.canProceed) return;
 
-        const existingChat = await chatsService.getCurrentChat(db);
+        const existingChat = await chatsService.getCurrentChat();
         const mode = (existingChat as any)?.groupChat?.mode;
         if (mode !== "rpg") {
             warn({ title: "Not in group chat", text: "This function is only available in RPG group chats." });
@@ -741,7 +818,7 @@ export async function skipRpgTurn(): Promise<HTMLElement | undefined> {
         const validation = await performEarlyValidation("");
         if (!validation.canProceed) return;
 
-        const existingChat = await chatsService.getCurrentChat(db);
+        const existingChat = await chatsService.getCurrentChat();
         const mode = (existingChat as any)?.groupChat?.mode;
         if (mode !== "rpg") {
             warn({ title: "Not in group chat", text: "This function is only available in RPG group chats." });
@@ -766,7 +843,9 @@ export async function skipRpgTurn(): Promise<HTMLElement | undefined> {
 // ================================================================================
 
 export async function regenerate(modelMessageIndex: number): Promise<void> {
-    const chat = await chatsService.getCurrentChat(db);
+    await chatsService.waitForCurrentChatPendingWrites();
+    await ensureCurrentChatFullyHydratedForWrite();
+    const chat = await chatsService.getCurrentChat();
     if (!chat) {
         console.error("No chat found");
         return;
@@ -781,7 +860,7 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 
         chat.content = chat.content.slice(0, deletionStart);
         pruneTrailingPersonalityMarkers(chat);
-        await db.chats.put(chat);
+        await chatsService.saveChat(chat as any);
 
         const container = document.querySelector<HTMLDivElement>(".message-container");
         if (container) {
@@ -830,7 +909,7 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 
     chat.content = chat.content.slice(0, deletionStart);
     pruneTrailingPersonalityMarkers(chat);
-    await db.chats.put(chat);
+    await chatsService.saveChat(chat as any);
 
     const container = document.querySelector<HTMLDivElement>(".message-container");
     if (container) {
@@ -865,7 +944,9 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 }
 
 export async function deleteRound(roundIndex: number): Promise<void> {
-    const chat = await chatsService.getCurrentChat(db);
+    await chatsService.waitForCurrentChatPendingWrites();
+    await ensureCurrentChatFullyHydratedForWrite();
+    const chat = await chatsService.getCurrentChat();
     if (!chat) return;
 
     const beforeLen = chat.content.length;
@@ -873,13 +954,14 @@ export async function deleteRound(roundIndex: number): Promise<void> {
     if (chat.content.length === beforeLen) return;
 
     pruneTrailingPersonalityMarkers(chat);
-    await db.chats.put(chat);
-    await chatsService.refreshChatListAfterActivity(db);
+    await chatsService.saveChat(chat as any);
     await chatsService.loadChat((chat as any).id, db);
 }
 
 export async function regenerateRound(roundIndex: number): Promise<void> {
-    const chat = await chatsService.getCurrentChat(db);
+    await chatsService.waitForCurrentChatPendingWrites();
+    await ensureCurrentChatFullyHydratedForWrite();
+    const chat = await chatsService.getCurrentChat();
     if (!chat) return;
 
     const startIndex = (chat.content || []).findIndex(m => m.roundIndex === roundIndex);
@@ -887,8 +969,7 @@ export async function regenerateRound(roundIndex: number): Promise<void> {
 
     chat.content = chat.content.slice(0, startIndex);
     pruneTrailingPersonalityMarkers(chat);
-    await db.chats.put(chat);
-    await chatsService.refreshChatListAfterActivity(db);
+    await chatsService.saveChat(chat as any);
     await chatsService.loadChat((chat as any).id, db);
 
     try {
@@ -926,6 +1007,7 @@ interface EarlyValidationFailure {
 type EarlyValidationResult = EarlyValidationSuccess | EarlyValidationFailure;
 
 async function performEarlyValidation(msg: string): Promise<EarlyValidationResult> {
+    await ensureCurrentChatFullyHydratedForWrite();
     const settings = settingsService.getSettings();
     const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
     const shouldEnforceThoughtSignaturesInHistory = settings.model === ChatModel.NANO_BANANA_PRO;
@@ -968,7 +1050,7 @@ async function performEarlyValidation(msg: string): Promise<EarlyValidationResul
         return { canProceed: false };
     }
 
-    const existingChat = await chatsService.getCurrentChat(db);
+    const existingChat = await chatsService.getCurrentChat();
     const groupMode = (existingChat as any)?.groupChat?.mode as ("rpg" | "dynamic" | undefined);
     const isGroupChat = groupMode === "rpg" || groupMode === "dynamic";
     const allowsEmptyMessage = groupMode === "rpg";
