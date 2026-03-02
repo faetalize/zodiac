@@ -170,52 +170,61 @@ btnSyncConfirm?.addEventListener('click', async () => {
         btnSyncConfirm!.disabled = true;
         btnSyncConfirm!.textContent = 'Setting up…';
 
-        const success = await syncService.setupSync(password);
-        btnSyncConfirm!.disabled = false;
-        btnSyncConfirm!.textContent = 'Confirm';
+        try {
+            const success = await syncService.setupSync(password);
 
-        if (success) {
-            hideModal(syncModal);
-            info({ title: 'Cloud sync enabled', text: 'Migration complete. Local chat/persona data was deleted for maximum security; synced data now loads in-memory per session.' });
-            updateSettingsUI(true);
-        } else {
-            showError('Setup failed. Please try again.');
+            if (success) {
+                hideModal(syncModal);
+                info({ title: 'Cloud sync enabled', text: 'Migration complete. Local chat/persona data was deleted for maximum security; synced data now loads in-memory per session.' });
+                updateSettingsUI(true);
+            } else {
+                showError('Setup failed. Please try again.');
+            }
+        } finally {
+            btnSyncConfirm!.disabled = false;
+            btnSyncConfirm!.textContent = 'Confirm';
         }
     } else if (modalMode === 'unlock') {
         btnSyncConfirm!.disabled = true;
         btnSyncConfirm!.textContent = 'Unlocking…';
 
-        const success = await syncService.unlock(password);
-        btnSyncConfirm!.disabled = false;
-        btnSyncConfirm!.textContent = 'Confirm';
+        try {
+            const success = await syncService.unlock(password);
 
-        if (success) {
-            hideModal(syncModal);
-            await syncService.applySyncedSettingsToLocalStorage();
-            settingsService.loadSettings();
-            themeService.reloadFromStorage();
-            await loraService.initialize();
-            dispatchEmptyAppEvent('lora-state-changed');
-            await chatsService.initialize();
-            await personalityService.reloadFromDb();
-            info({ title: 'Sync unlocked', text: 'Your synced data is available for this session (in-memory only).' });
-        } else {
-            showError('Incorrect password. Please try again.');
+            if (success) {
+                hideModal(syncModal);
+                await syncService.applySyncedSettingsToLocalStorage();
+                settingsService.loadSettings();
+                themeService.reloadFromStorage();
+                await loraService.initialize();
+                dispatchEmptyAppEvent('lora-state-changed');
+                await chatsService.initialize();
+                await personalityService.reloadFromDb();
+                info({ title: 'Sync unlocked', text: 'Your synced data is available for this session (in-memory only).' });
+            } else {
+                showError('Incorrect password. Please try again.');
+            }
+        } finally {
+            btnSyncConfirm!.disabled = false;
+            btnSyncConfirm!.textContent = 'Confirm';
         }
     } else if (modalMode === 'enable') {
         btnSyncConfirm!.disabled = true;
         btnSyncConfirm!.textContent = 'Enabling…';
 
-        const success = await syncService.enableSync(password);
-        btnSyncConfirm!.disabled = false;
-        btnSyncConfirm!.textContent = 'Confirm';
+        try {
+            const success = await syncService.enableSync(password);
 
-        if (success) {
-            hideModal(syncModal);
-            info({ title: 'Cloud sync re-enabled', text: 'Syncing your data now.' });
-            updateSettingsUI(true);
-        } else {
-            showError('Incorrect password. Please try again.');
+            if (success) {
+                hideModal(syncModal);
+                info({ title: 'Cloud sync re-enabled', text: 'Syncing your data now.' });
+                updateSettingsUI(true);
+            } else {
+                showError('Incorrect password. Please try again.');
+            }
+        } finally {
+            btnSyncConfirm!.disabled = false;
+            btnSyncConfirm!.textContent = 'Confirm';
         }
     }
 });

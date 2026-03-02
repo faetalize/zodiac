@@ -961,41 +961,6 @@ function setupSubscriptionConfirmation(): void {
 }
 
 function setupCloudSyncSetup(): void {
-    const applyCloudSyncModeUi = () => {
-        if (onboardingCloudSyncMode === "unlock") {
-            cloudSyncTitle!.textContent = "Unlock Cloud Sync";
-            cloudSyncSubtitle!.textContent = "Enter your encryption password to load your synced settings";
-            cloudSyncEnableGroup!.classList.add("hidden");
-            cloudSyncPasswordConfirmGroup!.classList.add("hidden");
-            cloudSyncSkipButton!.classList.remove("hidden");
-            cloudSyncSkipButton!.textContent = "Continue without synced settings";
-            cloudSyncContinueButton!.textContent = "Unlock and Continue";
-            cloudSyncPasswordInput!.disabled = false;
-            cloudSyncPasswordConfirmInput!.disabled = true;
-            return;
-        }
-
-        if (onboardingCloudSyncMode === "enable") {
-            cloudSyncTitle!.textContent = "Re-enable Cloud Sync";
-            cloudSyncSubtitle!.textContent = "Encrypted cloud data already exists. Re-enable sync with your encryption password.";
-            cloudSyncEnableGroup!.classList.add("hidden");
-            cloudSyncPasswordConfirmGroup!.classList.add("hidden");
-            cloudSyncSkipButton!.classList.remove("hidden");
-            cloudSyncSkipButton!.textContent = "Keep Sync Disabled";
-            cloudSyncContinueButton!.textContent = "Re-enable and Continue";
-            cloudSyncPasswordInput!.disabled = false;
-            cloudSyncPasswordConfirmInput!.disabled = true;
-            return;
-        }
-
-        cloudSyncTitle!.textContent = "Enable Cloud Sync";
-        cloudSyncSubtitle!.textContent = "Included with Pro — set it up now or keep data local";
-        cloudSyncEnableGroup!.classList.remove("hidden");
-        cloudSyncPasswordConfirmGroup!.classList.remove("hidden");
-        cloudSyncSkipButton!.textContent = "Keep Data Local";
-        cloudSyncContinueButton!.textContent = "Continue";
-    };
-
     const updateCloudSyncInputState = () => {
         if (onboardingCloudSyncMode === "unlock" || onboardingCloudSyncMode === "enable") {
             cloudSyncPasswordInput!.disabled = false;
@@ -1163,7 +1128,7 @@ function setupCloudSyncSetup(): void {
         }
     });
 
-    applyCloudSyncModeUi();
+    applyCloudSyncModeUi(onboardingCloudSyncMode);
     updateCloudSyncInputState();
 }
 
@@ -1183,10 +1148,8 @@ async function shouldShowCloudSyncSetupInOnboarding(): Promise<boolean> {
     return preferences?.syncEnabled !== true;
 }
 
-function prepareCloudSyncSetupStep(mode: OnboardingCloudSyncMode): void {
-    onboardingCloudSyncMode = mode;
-
-    if (onboardingCloudSyncMode === "unlock") {
+function applyCloudSyncModeUi(mode: OnboardingCloudSyncMode): void {
+    if (mode === "unlock") {
         cloudSyncTitle!.textContent = "Unlock Cloud Sync";
         cloudSyncSubtitle!.textContent = "Enter your encryption password to load your synced settings";
         cloudSyncEnableGroup!.classList.add("hidden");
@@ -1194,7 +1157,10 @@ function prepareCloudSyncSetupStep(mode: OnboardingCloudSyncMode): void {
         cloudSyncSkipButton!.classList.remove("hidden");
         cloudSyncSkipButton!.textContent = "Continue without synced settings";
         cloudSyncContinueButton!.textContent = "Unlock and Continue";
-    } else if (onboardingCloudSyncMode === "enable") {
+        return;
+    }
+
+    if (mode === "enable") {
         cloudSyncTitle!.textContent = "Re-enable Cloud Sync";
         cloudSyncSubtitle!.textContent = "Encrypted cloud data already exists. Re-enable sync with your encryption password.";
         cloudSyncEnableGroup!.classList.add("hidden");
@@ -1202,14 +1168,21 @@ function prepareCloudSyncSetupStep(mode: OnboardingCloudSyncMode): void {
         cloudSyncSkipButton!.classList.remove("hidden");
         cloudSyncSkipButton!.textContent = "Keep Sync Disabled";
         cloudSyncContinueButton!.textContent = "Re-enable and Continue";
-    } else {
-        cloudSyncTitle!.textContent = "Enable Cloud Sync";
-        cloudSyncSubtitle!.textContent = "Included with Pro — set it up now or keep data local";
-        cloudSyncEnableGroup!.classList.remove("hidden");
-        cloudSyncPasswordConfirmGroup!.classList.remove("hidden");
-        cloudSyncSkipButton!.textContent = "Keep Data Local";
-        cloudSyncContinueButton!.textContent = "Continue";
+        return;
     }
+
+    cloudSyncTitle!.textContent = "Enable Cloud Sync";
+    cloudSyncSubtitle!.textContent = "Included with Pro — set it up now or keep data local";
+    cloudSyncEnableGroup!.classList.remove("hidden");
+    cloudSyncPasswordConfirmGroup!.classList.remove("hidden");
+    cloudSyncSkipButton!.textContent = "Keep Data Local";
+    cloudSyncContinueButton!.textContent = "Continue";
+}
+
+function prepareCloudSyncSetupStep(mode: OnboardingCloudSyncMode): void {
+    onboardingCloudSyncMode = mode;
+
+    applyCloudSyncModeUi(onboardingCloudSyncMode);
 
     cloudSyncEnableCheckbox!.checked = true;
     cloudSyncPasswordInput!.value = "";
