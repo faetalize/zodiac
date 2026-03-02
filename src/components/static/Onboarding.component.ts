@@ -1215,8 +1215,7 @@ function prepareCloudSyncSetupStep(mode: OnboardingCloudSyncMode): void {
     cloudSyncPasswordInput!.value = "";
     cloudSyncPasswordConfirmInput!.value = "";
     cloudSyncPasswordInput!.disabled = false;
-    cloudSyncPasswordConfirmInput!.disabled = onboardingCloudSyncMode === "unlock";
-        cloudSyncPasswordConfirmInput!.disabled = onboardingCloudSyncMode !== "setup";
+    cloudSyncPasswordConfirmInput!.disabled = onboardingCloudSyncMode !== "setup";
     cloudSyncSkipButton!.classList.remove("hidden");
     cloudSyncStatus!.classList.add("hidden");
     cloudSyncStatus!.classList.remove("status-loading", "status-success", "status-error");
