@@ -19,7 +19,6 @@
     "buffer": "^6.0.3",
     "dexie": "^4.0.10",
     "dompurify": "^3.2.3",
-    "fake-indexeddb": "^6.2.5",
     "highlight.js": "^11.11.1",
     "marked": "^15.0.11",
     "openai": "^6.2.0",

@@ -223,8 +223,17 @@ function sortChats(chats: DbChat[], mode: ChatSortMode): DbChat[] {
 export function getCurrentChatId(): string | null {
     const currentChatElement = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
     if (currentChatElement) {
-        const val = currentChatElement.value.replace("chat", "");
-        return val || null;
+        const rawValue = currentChatElement.value;
+        if (!rawValue || rawValue === "none") {
+            return null;
+        }
+
+        if (!rawValue.startsWith("chat")) {
+            return null;
+        }
+
+        const chatId = rawValue.slice(4);
+        return chatId || null;
     }
     return null;
 }

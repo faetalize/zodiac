@@ -213,7 +213,7 @@ btnSyncConfirm?.addEventListener('click', async () => {
         btnSyncConfirm!.textContent = 'Enabling…';
 
         try {
-            const success = await syncService.enableSync(password);
+            const success = await syncService.enableSync(password, { strategy: 'pull-remote' });
 
             if (success) {
                 hideModal(syncModal);
