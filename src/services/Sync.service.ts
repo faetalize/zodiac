@@ -286,7 +286,7 @@ export async function setupSync(password: string): Promise<boolean> {
  *
  * @returns true if the password was correct and sync is now active.
  */
-export async function unlock(password: string): Promise<boolean> {
+export async function unlock(password: string, options?: { skipFlush?: boolean }): Promise<boolean> {
     const prefs = syncPrefsCache ?? await fetchSyncPreferences();
     if (!prefs?.syncEnabled || !prefs.encryptionSalt || !prefs.keyVerification || !prefs.keyVerificationIv) {
         return false;
@@ -301,10 +301,12 @@ export async function unlock(password: string): Promise<boolean> {
     setSyncStatus('synced');
 
     // Flush queued offline operations in the background so unlock UX stays fast.
-    // This can include heavy batched deletes after large chat operations.
-    void flushOfflineQueue().catch((error) => {
-        console.error('Background offline queue flush failed after unlock:', error);
-    });
+    // Skip for final-download flow — writes will fail against write RLS anyway.
+    if (!options?.skipFlush) {
+        void flushOfflineQueue().catch((error) => {
+            console.error('Background offline queue flush failed after unlock:', error);
+        });
+    }
 
     return true;
 }
@@ -1714,7 +1716,15 @@ export async function checkSyncOnLogin(): Promise<void> {
     // Check subscription tier
     const sub = await getUserSubscription();
     const tier = getSubscriptionTier(sub);
-    if (tier !== 'pro' && tier !== 'max') return;
+    if (tier !== 'pro' && tier !== 'max') {
+        // Downgraded users get one final recovery flow:
+        // unlock once, restore an unencrypted local copy, then disable/revoke sync.
+        const prefs = await fetchSyncPreferences();
+        if (prefs?.syncEnabled) {
+            dispatchAppEvent('sync-unlock-required', { isFirstSetup: false, mode: 'final-download' });
+        }
+        return;
+    }
 
     const prefs = await fetchSyncPreferences();
 

@@ -180,7 +180,7 @@ export interface SyncUnlockRequiredDetail {
     /** True if this is a first-time setup (no encryption material yet). */
     isFirstSetup: boolean;
     /** Optional explicit mode for consumers that need to distinguish enable vs unlock vs setup. */
-    mode?: 'setup' | 'unlock' | 'enable';
+    mode?: 'setup' | 'unlock' | 'enable' | 'final-download';
 }
 
 export interface SyncStateChangedDetail {

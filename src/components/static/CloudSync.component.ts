@@ -52,11 +52,12 @@ const syncQuotaLabel = document.querySelector<HTMLElement>('#sync-quota-label');
 const btnSyncNow = document.querySelector<HTMLButtonElement>('#btn-sync-now');
 const btnSyncWipe = document.querySelector<HTMLButtonElement>('#btn-sync-wipe');
 const syncUpgradeHint = document.querySelector<HTMLElement>('#sync-upgrade-hint');
+const btnSyncForgotPassword = document.querySelector<HTMLButtonElement>('#btn-sync-forgot-password');
 
 // ── State ──────────────────────────────────────────────────────────────────
 
 /** Track current modal mode to handle confirm button correctly. */
-let modalMode: 'setup' | 'unlock' | 'enable' = 'setup';
+let modalMode: 'setup' | 'unlock' | 'enable' | 'final-download' = 'setup';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -115,9 +116,14 @@ btnSyncPromptLocal?.addEventListener('click', () => {
 
 // ── Encryption Password Modal ──────────────────────────────────────────────
 
+function hideCommonOptionalElements() {
+    btnSyncForgotPassword?.classList.add('hidden');
+}
+
 function showSetupModal() {
     modalMode = 'setup';
     resetModalFields();
+    hideCommonOptionalElements();
     if (syncModalTitle) syncModalTitle.textContent = 'Create Encryption Password';
     if (syncModalDescription) syncModalDescription.textContent =
         'Your data is encrypted on your device before syncing. For maximum security, local chat/persona data is deleted after migration and used in-memory only while unlocked. This password cannot be recovered if lost.';
@@ -129,10 +135,12 @@ function showSetupModal() {
 function showUnlockModal() {
     modalMode = 'unlock';
     resetModalFields();
+    hideCommonOptionalElements();
     if (syncModalTitle) syncModalTitle.textContent = 'Unlock Synced Data';
     if (syncModalDescription) syncModalDescription.textContent =
         'Enter your encryption password to access your synced data.';
     syncPasswordConfirm?.classList.add('hidden');
+    btnSyncForgotPassword?.classList.remove('hidden');
     if (btnSyncSkip) btnSyncSkip.textContent = 'Skip';
     showModal(syncModal);
 }
@@ -140,11 +148,24 @@ function showUnlockModal() {
 function showEnableModal() {
     modalMode = 'enable';
     resetModalFields();
+    hideCommonOptionalElements();
     if (syncModalTitle) syncModalTitle.textContent = 'Enter Encryption Password';
     if (syncModalDescription) syncModalDescription.textContent =
         'Enter your encryption password to re-enable cloud sync.';
     syncPasswordConfirm?.classList.add('hidden');
     if (btnSyncSkip) btnSyncSkip.textContent = 'Cancel';
+    showModal(syncModal);
+}
+
+function showFinalDownloadModal() {
+    modalMode = 'final-download';
+    resetModalFields();
+    if (syncModalTitle) syncModalTitle.textContent = 'Final Cloud Sync Download';
+    if (syncModalDescription) syncModalDescription.textContent =
+        'Your subscription is no longer active. You have 7 days from when it ended to download your synced data. Enter your encryption password to restore a local copy. Cloud sync access will then be revoked.';
+    syncPasswordConfirm?.classList.add('hidden');
+    btnSyncForgotPassword?.classList.remove('hidden');
+    if (btnSyncSkip) btnSyncSkip.textContent = 'Not now';
     showModal(syncModal);
 }
 
@@ -226,12 +247,62 @@ btnSyncConfirm?.addEventListener('click', async () => {
             btnSyncConfirm!.disabled = false;
             btnSyncConfirm!.textContent = 'Confirm';
         }
+    } else if (modalMode === 'final-download') {
+        btnSyncConfirm!.disabled = true;
+        btnSyncConfirm!.textContent = 'Downloading…';
+
+        try {
+            const unlocked = await syncService.unlock(password, { skipFlush: true });
+            if (!unlocked) {
+                showError('Incorrect password. Please try again.');
+                return;
+            }
+
+            const disabled = await syncService.disableSync({ keepLocalCopy: true });
+            if (!disabled) {
+                showError('Failed to restore your local copy. Please try again.');
+                return;
+            }
+
+            hideModal(syncModal);
+            updateSettingsUI(false);
+            info({
+                title: 'Local backup restored',
+                text: 'Your synced data was downloaded to this device. Cloud sync has been disabled.'
+            });
+        } finally {
+            btnSyncConfirm!.disabled = false;
+            btnSyncConfirm!.textContent = 'Confirm';
+        }
     }
 });
 
 btnSyncSkip?.addEventListener('click', () => {
     hideModal(syncModal);
     resetModalFields();
+});
+
+// Forgot password escape hatch (visible in unlock and final-download modes)
+btnSyncForgotPassword?.addEventListener('click', async () => {
+    hideModal(syncModal);
+
+    const shouldWipe = await confirmDialogDanger(
+        'If you forgot your encryption password, you can permanently delete all your synced data from the cloud. This cannot be undone and your encrypted data will be lost. Continue?'
+    );
+    if (!shouldWipe) {
+        showModal(syncModal);
+        return;
+    }
+
+    resetModalFields();
+
+    const success = await syncService.wipeRemoteData({ keepLocalCopy: false });
+    if (success) {
+        updateSettingsUI(false);
+        info({ title: 'Cloud data wiped', text: 'All synced data has been removed from the server.' });
+    } else {
+        danger({ title: 'Error', text: 'Failed to wipe cloud data. Please try again.' });
+    }
 });
 
 // Allow Enter key to confirm
@@ -399,6 +470,13 @@ onAppEvent('auth-state-changed', async (event) => {
         cloudSyncSection.classList.remove('hidden');
         syncUpgradeHint?.classList.remove('hidden');
         syncToggle?.setAttribute('disabled', 'true');
+
+        // Downgraded users may still have encrypted remote data.
+        // Offer one final restore-to-local flow and then revoke sync.
+        const onboardingCompleted = localStorage.getItem('onboardingCompleted') === 'true';
+        if (onboardingCompleted) {
+            await syncService.checkSyncOnLogin();
+        }
     }
 });
 
@@ -426,6 +504,11 @@ onAppEvent('sync-unlock-required', async (event) => {
         } else {
             info({ title: 'Cloud sync remains disabled', text: 'You can re-enable it anytime from Settings → Data Management.' });
         }
+        return;
+    }
+
+    if (resolvedMode === 'final-download') {
+        showFinalDownloadModal();
         return;
     }
 
