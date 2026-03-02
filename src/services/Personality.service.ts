@@ -6,6 +6,7 @@ import { getMarketplacePersonaVersion, getMarketplacePersonaVersions, fetchMarke
 import { info, danger } from "./Toast.service";
 import { showElement } from "../utils/helpers";
 import * as syncService from "./Sync.service";
+import { onAppEvent } from "../events";
 
 const SYNCED_PERSONAS_CACHE_TTL_MS = 5000;
 
@@ -66,10 +67,10 @@ export async function initialize() {
     //setup marketplace banner dismiss
     setupMarketplaceBanner();
 
-    window.addEventListener('sync-data-pulled', () => {
+    onAppEvent('sync-data-pulled', () => {
         invalidateSyncedPersonasCache();
     });
-    window.addEventListener('sync-setup-complete', () => {
+    onAppEvent('sync-setup-complete', () => {
         invalidateSyncedPersonasCache();
     });
 

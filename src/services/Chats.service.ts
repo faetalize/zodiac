@@ -13,9 +13,11 @@ const messageContainer = document.querySelector<HTMLDivElement>(".message-contai
 const scrollableChatContainerSelector = "#scrollable-chat-container";
 const chatHistorySection = document.querySelector<HTMLDivElement>("#chatHistorySection");
 const sidebar = document.querySelector<HTMLDivElement>(".sidebar");
+const chatLoadingIndicator = document.querySelector<HTMLDivElement>("#chat-loading-indicator");
 
 // Incremental loading state for the currently opened chat
 const PAGE_SIZE = 50; // number of messages to load per page
+const REMOTE_INITIAL_BATCH_SIZE = 10;
 let currentChatIdState: string | null = null;
 let currentChatMessages: Message[] = [];
 let loadedStartIndex = 0; // inclusive
@@ -29,6 +31,10 @@ let remoteWindowStartIndex = 0;
 const remoteChatsById = new Map<string, DbChat>();
 let currentChatSnapshot: DbChat | null = null;
 const chatWriteQueueById = new Map<string, Promise<void>>();
+let chatLoadInFlight = 0;
+let chatLoadDelayTimer: number | null = null;
+let activeChatLoadToken = 0;
+let activeChatLoadAbortController: AbortController | null = null;
 
 const CHAT_SORT_MODE_STORAGE_KEY = "chat-sort-mode";
 // Lazily initialized from localStorage on first access so that the initial
@@ -46,6 +52,120 @@ function loadChatSortModeFromStorage(): ChatSortMode {
         console.error("Failed to load chat sort mode from storage", error);
     }
     return "created_at";
+}
+
+function setChatLoadingVisibility(isVisible: boolean) {
+    if (!chatLoadingIndicator) {
+        return;
+    }
+
+    chatLoadingIndicator.classList.toggle("hidden", !isVisible);
+    chatLoadingIndicator.setAttribute("aria-hidden", String(!isVisible));
+}
+
+function beginChatLoadingFeedback() {
+    chatLoadInFlight += 1;
+    if (chatLoadInFlight !== 1) {
+        return;
+    }
+
+    if (chatLoadDelayTimer !== null) {
+        clearTimeout(chatLoadDelayTimer);
+    }
+
+    chatLoadDelayTimer = window.setTimeout(() => {
+        chatLoadDelayTimer = null;
+        if (chatLoadInFlight > 0) {
+            setChatLoadingVisibility(true);
+        }
+    }, 150);
+}
+
+function endChatLoadingFeedback() {
+    chatLoadInFlight = Math.max(0, chatLoadInFlight - 1);
+    if (chatLoadInFlight > 0) {
+        return;
+    }
+
+    if (chatLoadDelayTimer !== null) {
+        clearTimeout(chatLoadDelayTimer);
+        chatLoadDelayTimer = null;
+    }
+
+    setChatLoadingVisibility(false);
+}
+
+function resetChatLoadingFeedback() {
+    chatLoadInFlight = 0;
+
+    if (chatLoadDelayTimer !== null) {
+        clearTimeout(chatLoadDelayTimer);
+        chatLoadDelayTimer = null;
+    }
+
+    setChatLoadingVisibility(false);
+}
+
+function beginChatLoadRequest() {
+    activeChatLoadToken += 1;
+    activeChatLoadAbortController?.abort();
+    activeChatLoadAbortController = new AbortController();
+
+    const token = activeChatLoadToken;
+    const signal = activeChatLoadAbortController.signal;
+
+    return {
+        token,
+        signal,
+        isCurrent: () => activeChatLoadToken === token,
+    };
+}
+
+function finishChatLoadRequest(token: number) {
+    if (activeChatLoadToken !== token) return;
+}
+
+function cancelActiveChatLoad() {
+    activeChatLoadToken += 1;
+    activeChatLoadAbortController?.abort();
+    activeChatLoadAbortController = null;
+}
+
+function settleChatScrollToBottom(isCurrent: () => boolean) {
+    const scrollContainer = document.querySelector<HTMLDivElement>(scrollableChatContainerSelector);
+    if (!scrollContainer || !messageContainer) return;
+
+    const snapToBottom = () => {
+        if (!isCurrent()) return;
+        helpers.messageContainerScrollToBottom(true);
+    };
+
+    snapToBottom();
+
+    requestAnimationFrame(() => {
+        snapToBottom();
+        requestAnimationFrame(() => {
+            snapToBottom();
+        });
+    });
+
+    for (const delayMs of [120, 320, 650]) {
+        window.setTimeout(() => {
+            snapToBottom();
+        }, delayMs);
+    }
+
+    const mediaElements = messageContainer.querySelectorAll<HTMLImageElement>("img");
+    for (const media of mediaElements) {
+        if (media.complete) continue;
+
+        const onSettled = () => {
+            snapToBottom();
+        };
+
+        media.addEventListener("load", onSettled, { once: true });
+        media.addEventListener("error", onSettled, { once: true });
+    }
 }
 
 function getLastInteractionTimestamp(chat: DbChat): number {
@@ -578,6 +698,8 @@ export function newChat() {
         return;
     }
 
+    cancelActiveChatLoad();
+
     // Clear DOM
     messageContainer.innerHTML = "";
     document.querySelector("#chat-title")!.textContent = "";
@@ -591,6 +713,7 @@ export function newChat() {
     hasMoreOlder = false;
     currentChatSnapshot = null;
     remoteWindowStartIndex = 0;
+    resetChatLoadingFeedback();
 
     // Uncheck current chat selection
     const checkedInput = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
@@ -691,9 +814,13 @@ export async function replaceCurrentChatMessages(messages: Message[]): Promise<v
     upsertRemoteChat(currentChatSnapshot);
 }
 
-async function renderMessagesSlice(start: number, end: number, prepend: boolean) {
+async function renderMessagesSlice(start: number, end: number, prepend: boolean, isCurrentLoad: () => boolean = () => true) {
     if (!messageContainer) {
         console.error("Message container not found while rendering messages slice");
+        return;
+    }
+
+    if (!isCurrentLoad()) {
         return;
     }
 
@@ -709,6 +836,9 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean)
     // For initial load (prepend = false), render slice in natural order (older -> newer)
     if (!prepend) {
         for (let offset = 0; offset < slice.length; offset++) {
+            if (!isCurrentLoad()) {
+                return;
+            }
             const msg = slice[offset];
             // The real index in chat.content/currentChatMessages
             const chatIndex = absoluteBase + start + offset;
@@ -723,6 +853,9 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean)
         const fragment = document.createDocumentFragment();
 
         for (let i = 0; i < slice.length; i++) {
+            if (!isCurrentLoad()) {
+                return;
+            }
             const msg = slice[i];
             const chatIndex = absoluteBase + start + i;
             const element = await messageElement(msg, chatIndex);
@@ -775,6 +908,10 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean)
         }
     }
 
+    if (!isCurrentLoad()) {
+        return;
+    }
+
     if (prepend && scrollContainer) {
         const newScrollHeight = scrollContainer.scrollHeight;
         scrollContainer.scrollTop = newScrollHeight - previousScrollHeight + previousScrollTop;
@@ -816,31 +953,54 @@ function attachScrollListener() {
 async function loadOlderMessages() {
     if (isLoadingOlder) return;
     isLoadingOlder = true;
+    const loadChatId = currentChatIdState;
+    const signal = activeChatLoadAbortController?.signal;
 
     try {
         if (isRemotePagedMode && currentChatIdState) {
-            const window = await syncService.hydrateOlderChatMessagesWindow(currentChatIdState, remoteOldestLoadedIndex, PAGE_SIZE);
-            if (!window || window.messages.length === 0) {
-                hasMoreOlder = false;
-                return;
+            let fetchedThisPass = 0;
+
+            while (currentChatIdState === loadChatId && hasMoreOlder && fetchedThisPass < PAGE_SIZE) {
+                const remaining = PAGE_SIZE - fetchedThisPass;
+                const nextBatchSize = Math.min(REMOTE_INITIAL_BATCH_SIZE, remaining);
+
+                const window = await syncService.hydrateOlderChatMessagesWindow(
+                    currentChatIdState,
+                    remoteOldestLoadedIndex,
+                    nextBatchSize,
+                    { signal },
+                );
+
+                if (currentChatIdState !== loadChatId) {
+                    return;
+                }
+                if (!window || window.messages.length === 0) {
+                    hasMoreOlder = false;
+                    break;
+                }
+
+                currentChatMessages = [...window.messages, ...currentChatMessages];
+                if (currentChatSnapshot) {
+                    currentChatSnapshot = {
+                        ...currentChatSnapshot,
+                        content: structuredClone(currentChatMessages),
+                    };
+                    upsertRemoteChat(currentChatSnapshot);
+                }
+
+                remoteWindowStartIndex = window.startIndex;
+                await renderMessagesSlice(0, window.messages.length, true, () => currentChatIdState === loadChatId);
+                if (currentChatIdState !== loadChatId) {
+                    return;
+                }
+
+                remoteOldestLoadedIndex = window.startIndex;
+                hasMoreOlder = window.hasMoreOlder;
+                loadedStartIndex = 0;
+                loadedEndIndex = currentChatMessages.length;
+                fetchedThisPass += window.messages.length;
             }
 
-            currentChatMessages = [...window.messages, ...currentChatMessages];
-            if (currentChatSnapshot) {
-                currentChatSnapshot = {
-                    ...currentChatSnapshot,
-                    content: structuredClone(currentChatMessages),
-                };
-                upsertRemoteChat(currentChatSnapshot);
-            }
-
-            remoteWindowStartIndex = window.startIndex;
-            await renderMessagesSlice(0, window.messages.length, true);
-
-            remoteOldestLoadedIndex = window.startIndex;
-            hasMoreOlder = window.hasMoreOlder;
-            loadedStartIndex = 0;
-            loadedEndIndex = currentChatMessages.length;
             return;
         }
 
@@ -850,10 +1010,16 @@ async function loadOlderMessages() {
             return;
         }
 
-        await renderMessagesSlice(nextStart, loadedStartIndex, true);
+        await renderMessagesSlice(nextStart, loadedStartIndex, true, () => currentChatIdState === loadChatId);
+        if (currentChatIdState !== loadChatId) {
+            return;
+        }
         loadedStartIndex = nextStart;
         hasMoreOlder = loadedStartIndex > 0;
     } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+        }
         console.error("Failed to load older messages", error);
     } finally {
         isLoadingOlder = false;
@@ -861,10 +1027,17 @@ async function loadOlderMessages() {
 }
 
 export async function loadChat(chatID: string, dbArg: Db = db) {
+    const chatLoadRequest = beginChatLoadRequest();
+    beginChatLoadingFeedback();
+
     try {
         if (!chatID || !messageContainer) {
             console.error("Chat ID is null or message container not found");
             throw new Error("Chat ID is null or message container not found");
+        }
+
+        if (!chatLoadRequest.isCurrent()) {
+            return null;
         }
 
         // Reset state for new chat
@@ -882,6 +1055,9 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         const chat = syncService.isOnlineSyncEnabled()
             ? (remoteChatsById.get(chatID) ?? await syncService.fetchSyncedChatMetadata(chatID))
             : await dbArg.chats.get(chatID);
+        if (!chatLoadRequest.isCurrent()) {
+            return null;
+        }
         if (!chat) {
             console.error("Chat not found", chatID);
             document.querySelector("#chat-title")!.textContent = "";
@@ -899,7 +1075,12 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
                 document.querySelector("#chat-title")!.textContent = "";
                 return null;
             }
-            const latestWindow = await syncService.hydrateLatestChatMessagesWindow(chatID, PAGE_SIZE);
+            const latestWindow = await syncService.hydrateLatestChatMessagesWindow(chatID, REMOTE_INITIAL_BATCH_SIZE, {
+                signal: chatLoadRequest.signal,
+            });
+            if (!chatLoadRequest.isCurrent()) {
+                return null;
+            }
             if (latestWindow) {
                 isRemotePagedMode = true;
                 remoteOldestLoadedIndex = latestWindow.startIndex;
@@ -907,22 +1088,66 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
                 currentChatMessages = latestWindow.messages;
                 currentChatSnapshot = {
                     ...chat,
-                    content: structuredClone(latestWindow.messages),
+                    content: structuredClone(currentChatMessages),
                 };
                 upsertRemoteChat(currentChatSnapshot);
                 loadedStartIndex = 0;
-                loadedEndIndex = latestWindow.messages.length;
+                loadedEndIndex = currentChatMessages.length;
                 hasMoreOlder = latestWindow.hasMoreOlder;
 
                 if (loadedEndIndex > 0) {
-                    await renderMessagesSlice(loadedStartIndex, loadedEndIndex, false);
+                    await renderMessagesSlice(loadedStartIndex, loadedEndIndex, false, chatLoadRequest.isCurrent);
+                }
+                if (!chatLoadRequest.isCurrent()) {
+                    return null;
+                }
+
+                settleChatScrollToBottom(chatLoadRequest.isCurrent);
+
+                while (chatLoadRequest.isCurrent() && hasMoreOlder && currentChatMessages.length < PAGE_SIZE) {
+                    const remaining = PAGE_SIZE - currentChatMessages.length;
+                    const nextBatchSize = Math.min(REMOTE_INITIAL_BATCH_SIZE, remaining);
+                    const olderWindow = await syncService.hydrateOlderChatMessagesWindow(
+                        chatID,
+                        remoteOldestLoadedIndex,
+                        nextBatchSize,
+                        { signal: chatLoadRequest.signal },
+                    );
+
+                    if (!chatLoadRequest.isCurrent()) {
+                        return null;
+                    }
+
+                    if (!olderWindow || olderWindow.messages.length === 0) {
+                        hasMoreOlder = false;
+                        break;
+                    }
+
+                    currentChatMessages = [...olderWindow.messages, ...currentChatMessages];
+                    remoteWindowStartIndex = olderWindow.startIndex;
+                    remoteOldestLoadedIndex = olderWindow.startIndex;
+                    loadedStartIndex = 0;
+                    loadedEndIndex = currentChatMessages.length;
+                    hasMoreOlder = olderWindow.hasMoreOlder;
+
+                    currentChatSnapshot = {
+                        ...chat,
+                        content: structuredClone(currentChatMessages),
+                    };
+                    upsertRemoteChat(currentChatSnapshot);
+
+                    await renderMessagesSlice(0, olderWindow.messages.length, true, chatLoadRequest.isCurrent);
+                }
+
+                if (!chatLoadRequest.isCurrent()) {
+                    return null;
                 }
 
                 attachScrollListener();
                 dispatchAppEvent('chat-loaded', {
                     chat: {
                         ...chat,
-                        content: latestWindow.messages,
+                        content: currentChatMessages,
                     },
                 });
                 return chat;
@@ -946,7 +1171,11 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         loadedStartIndex = Math.max(0, total - PAGE_SIZE);
         hasMoreOlder = loadedStartIndex > 0;
 
-        await renderMessagesSlice(loadedStartIndex, loadedEndIndex, false);
+        await renderMessagesSlice(loadedStartIndex, loadedEndIndex, false, chatLoadRequest.isCurrent);
+        if (!chatLoadRequest.isCurrent()) {
+            return null;
+        }
+        settleChatScrollToBottom(chatLoadRequest.isCurrent);
         attachScrollListener();
 
         dispatchAppEvent('chat-loaded', { chat });
@@ -954,11 +1183,17 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         return chat;
     }
     catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+            return null;
+        }
         toastService.danger({
             title: "Chat Load Error",
             text: "Please report this to the developer. You might need to restart the page to continue normal usage."
         });
         console.error(error);
+    } finally {
+        endChatLoadingFeedback();
+        finishChatLoadRequest(chatLoadRequest.token);
     }
 }
 

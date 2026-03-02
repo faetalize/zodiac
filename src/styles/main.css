@@ -1999,6 +1999,33 @@ body.full-width-chat .message-container {
     padding-top: 1rem;
 }
 
+.chat-loading-indicator {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    outline: var(--turn-control-outline, var(--elevated-ui-outline));
+    background: var(--turn-control-bg, var(--message-box-bg, var(--card-bg, rgba(0, 0, 0, 0.05))));
+    box-shadow: var(--elevated-ui-shadow);
+    backdrop-filter: blur(12px);
+    width: fit-content;
+    font-size: 0.9rem;
+    pointer-events: none;
+}
+
+.chat-loading-indicator .loading-spinner {
+    width: 1rem;
+    height: 1rem;
+    border-width: 2px;
+}
+
+.chat-loading-indicator.hidden {
+    display: none;
+}
+
 /* when an image is attached we should increase the padding of scrollable-chat-container by an extra 4 rem */
 /* we check if #attachment-preview has more than 2 elements */
 

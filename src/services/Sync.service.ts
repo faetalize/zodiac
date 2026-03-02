@@ -55,6 +55,7 @@ interface QueuedOperation {
     operation: 'upsert' | 'delete';
     entityId?: string;
     timestamp: number;
+    retryCount?: number;
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -69,6 +70,8 @@ const remoteMessageCountByChatId = new Map<string, number>();
 const SYNC_PROMPT_SEEN_KEY = 'zodiac-sync-prompt-seen';
 const OFFLINE_QUEUE_KEY = 'zodiac-sync-offline-queue';
 const MESSAGE_UPSERT_BATCH_SIZE = 50;
+const MESSAGE_DECRYPT_CONCURRENCY = 4;
+const MAX_OFFLINE_RETRIES = 5;
 
 function areSyncHooksSuppressed(): boolean {
     return suppressSyncHooksDepth > 0;
@@ -422,7 +425,7 @@ export async function restoreRemoteDataToLocalUnencrypted(): Promise<boolean> {
 
     try {
         await withSyncHooksSuppressed(async () => {
-            await pullChats(user.id, key);
+            await pullChats(user.id, key, { hydrateMessages: true });
             await pullPersonas(user.id, key);
             await pullSettings(user.id, key);
         });
@@ -451,9 +454,9 @@ export async function fetchSyncedChatsMetadata(): Promise<DbChat[]> {
         return [];
     }
 
-    const chats: DbChat[] = [];
-    for (const row of data) {
-        try {
+    // Decrypt all rows concurrently for faster sidebar population
+    const results = await Promise.allSettled(
+        data.map(async (row) => {
             const plaintext = await crypto.decrypt(
                 key,
                 crypto.fromHex(row.encrypted_data),
@@ -461,10 +464,17 @@ export async function fetchSyncedChatsMetadata(): Promise<DbChat[]> {
             );
             const parsed = JSON.parse(plaintext);
             const { chat, messageCount } = parseChatMetadata(row.id, parsed);
-            chats.push(chat);
             remoteMessageCountByChatId.set(row.id, messageCount);
-        } catch (decryptError) {
-            console.error(`fetchSyncedChatsMetadata: failed to decrypt chat ${row.id}`, decryptError);
+            return chat;
+        }),
+    );
+
+    const chats: DbChat[] = [];
+    for (const result of results) {
+        if (result.status === 'fulfilled') {
+            chats.push(result.value);
+        } else {
+            console.error('fetchSyncedChatsMetadata: failed to decrypt a chat', result.reason);
         }
     }
 
@@ -588,7 +598,7 @@ export async function applySyncedSettingsToLocalStorage(): Promise<boolean> {
  * Chat metadata payload for cloud sync v2.
  * Message bodies are stored separately in user_synced_messages.
  */
-async function serializeChatMetadata(chat: DbChat, messageCountOverride?: number): Promise<string> {
+function serializeChatMetadata(chat: DbChat, messageCountOverride?: number): string {
     const resolvedMessageCount = typeof messageCountOverride === 'number'
         ? Math.max(0, messageCountOverride)
         : (chat.content?.length ?? 0);
@@ -689,7 +699,7 @@ export async function pushChat(chat: DbChat, messageCountOverride?: number): Pro
     if (!user) return false;
 
     try {
-        const plaintext = await serializeChatMetadata(chat, messageCountOverride);
+        const plaintext = serializeChatMetadata(chat, messageCountOverride);
         const { ciphertext, iv } = await crypto.encrypt(key, plaintext);
 
         const { error } = await supabase
@@ -881,17 +891,18 @@ export async function deleteSyncedChat(chatId: string): Promise<boolean> {
     if (!user) return false;
 
     try {
-        const { error } = await supabase
-            .from('user_synced_chats')
-            .update({ deleted: true })
-            .eq('user_id', user.id)
-            .eq('id', chatId);
-
-        const { error: messagesError } = await supabase
-            .from('user_synced_messages')
-            .update({ deleted: true })
-            .eq('user_id', user.id)
-            .eq('chat_id', chatId);
+        const [{ error }, { error: messagesError }] = await Promise.all([
+            supabase
+                .from('user_synced_chats')
+                .update({ deleted: true })
+                .eq('user_id', user.id)
+                .eq('id', chatId),
+            supabase
+                .from('user_synced_messages')
+                .update({ deleted: true })
+                .eq('user_id', user.id)
+                .eq('chat_id', chatId),
+        ]);
 
         if (error || messagesError) {
             console.error('deleteSyncedChat failed:', error || messagesError);
@@ -937,7 +948,6 @@ export async function pushPersona(persona: DbPersonality): Promise<boolean> {
             return false;
         }
 
-        await fetchSyncQuota();
         return true;
     } catch (err) {
         console.error('pushPersona error:', err);
@@ -1001,7 +1011,6 @@ export async function pushSettings(settings: Record<string, string>): Promise<bo
             return false;
         }
 
-        await fetchSyncQuota();
         return true;
     } catch (err) {
         console.error('pushSettings error:', err);
@@ -1104,7 +1113,7 @@ export async function pullAll(): Promise<void> {
     }
 }
 
-async function pullChats(userId: string, key: CryptoKey): Promise<void> {
+async function pullChats(userId: string, key: CryptoKey, options?: { hydrateMessages?: boolean }): Promise<void> {
     const { data, error } = await supabase
         .from('user_synced_chats')
         .select('id, encrypted_data, iv, updated_at, deleted')
@@ -1133,13 +1142,38 @@ async function pullChats(userId: string, key: CryptoKey): Promise<void> {
                 crypto.fromHex(row.iv),
             );
             const parsed = JSON.parse(plaintext);
-            const { chat } = parseChatMetadata(row.id, parsed);
+            const { chat, messageCount } = parseChatMetadata(row.id, parsed);
             const existing = await db.chats.get(row.id);
+            remoteMessageCountByChatId.set(row.id, messageCount);
+
+            let content: Message[] = existing?.content ?? [];
+            if (options?.hydrateMessages) {
+                const totalCount = await getRemoteMessageCount(row.id, userId);
+                const remoteMessages = await fetchRemoteMessageRange({
+                    userId,
+                    key,
+                    chatId: row.id,
+                    startIndex: 0,
+                    endExclusive: totalCount,
+                });
+
+                if (remoteMessages !== null) {
+                    if (remoteMessages.length > 0) {
+                        content = remoteMessages;
+                    } else if (Array.isArray(parsed?.content)) {
+                        content = parsed.content as Message[];
+                    } else {
+                        content = [];
+                    }
+                    remoteMessageCountByChatId.set(row.id, content.length);
+                    hydratedChats.add(row.id);
+                }
+            }
 
             // Preserve current local message cache; messages hydrate on demand.
             await db.chats.put({
                 ...chat,
-                content: existing?.content ?? [],
+                content,
             });
 
             // If this row is still old full-chat format, compact it to metadata-only.
@@ -1152,10 +1186,10 @@ async function pullChats(userId: string, key: CryptoKey): Promise<void> {
     }
 }
 
-async function getRemoteMessageCount(chatId: string, userId: string): Promise<number> {
+async function getRemoteMessageCount(chatId: string, userId: string, options?: { signal?: AbortSignal }): Promise<number> {
     const cached = remoteMessageCountByChatId.get(chatId);
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('user_synced_messages')
         .select('message_index')
         .eq('user_id', userId)
@@ -1164,7 +1198,16 @@ async function getRemoteMessageCount(chatId: string, userId: string): Promise<nu
         .order('message_index', { ascending: false })
         .limit(1);
 
+    if (options?.signal) {
+        query = query.abortSignal(options.signal);
+    }
+
+    const { data, error } = await query;
+
     if (error) {
+        if (error.message?.includes('AbortError') || (error as any)?.code === 'ABORT_ERR') {
+            throw new DOMException('The operation was aborted.', 'AbortError');
+        }
         console.error('getRemoteMessageCount failed:', error);
         return typeof cached === 'number' ? cached : 0;
     }
@@ -1181,11 +1224,12 @@ async function fetchRemoteMessageRange(args: {
     chatId: string;
     startIndex: number;
     endExclusive: number;
+    signal?: AbortSignal;
 }): Promise<Message[] | null> {
-    const { userId, key, chatId, startIndex, endExclusive } = args;
+    const { userId, key, chatId, startIndex, endExclusive, signal } = args;
     if (endExclusive <= startIndex) return [];
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('user_synced_messages')
         .select('message_index, encrypted_data, iv')
         .eq('user_id', userId)
@@ -1195,36 +1239,63 @@ async function fetchRemoteMessageRange(args: {
         .lt('message_index', endExclusive)
         .order('message_index', { ascending: true });
 
+    if (signal) {
+        query = query.abortSignal(signal);
+    }
+
+    const { data, error } = await query;
+
     if (error || !data) {
         console.error('fetchRemoteMessageRange failed:', error);
         return null;
     }
 
-    const messages: Message[] = [];
-    for (const row of data) {
-        try {
-            const plaintext = await crypto.decrypt(
-                key,
-                crypto.fromHex(row.encrypted_data),
-                crypto.fromHex(row.iv),
-            );
-            messages.push(deserializeMessage(JSON.parse(plaintext)));
-        } catch (err) {
-            console.error(`fetchRemoteMessageRange: failed to decrypt chat=${chatId} idx=${row.message_index}`, err);
-        }
-    }
+    const orderedMessages: Array<Message | null> = new Array(data.length).fill(null);
+    let nextIndex = 0;
 
-    return messages;
+    const workerCount = Math.max(1, Math.min(MESSAGE_DECRYPT_CONCURRENCY, data.length));
+    const workers = Array.from({ length: workerCount }, async () => {
+        while (true) {
+            if (signal?.aborted) {
+                throw new DOMException('The operation was aborted.', 'AbortError');
+            }
+
+            const rowIndex = nextIndex;
+            nextIndex += 1;
+            if (rowIndex >= data.length) {
+                return;
+            }
+
+            const row = data[rowIndex];
+            try {
+                const plaintext = await crypto.decrypt(
+                    key,
+                    crypto.fromHex(row.encrypted_data),
+                    crypto.fromHex(row.iv),
+                );
+                orderedMessages[rowIndex] = deserializeMessage(JSON.parse(plaintext));
+            } catch (err) {
+                console.error(`fetchRemoteMessageRange: failed to decrypt chat=${chatId} idx=${row.message_index}`, err);
+            }
+        }
+    });
+
+    await Promise.all(workers);
+    return orderedMessages.filter((message): message is Message => message !== null);
 }
 
-export async function hydrateLatestChatMessagesWindow(chatId: string, limit: number): Promise<RemoteMessageWindow | null> {
+export async function hydrateLatestChatMessagesWindow(
+    chatId: string,
+    limit: number,
+    options?: { signal?: AbortSignal },
+): Promise<RemoteMessageWindow | null> {
     if (!isSyncActive()) return null;
 
     const user = await getCurrentUser();
     const key = crypto.getCachedKey();
     if (!user || !key) return null;
 
-    const totalCount = await getRemoteMessageCount(chatId, user.id);
+    const totalCount = await getRemoteMessageCount(chatId, user.id, { signal: options?.signal });
     const safeLimit = Math.max(1, limit);
     const startIndex = Math.max(0, totalCount - safeLimit);
     const endExclusive = totalCount;
@@ -1235,6 +1306,7 @@ export async function hydrateLatestChatMessagesWindow(chatId: string, limit: num
         chatId,
         startIndex,
         endExclusive,
+        signal: options?.signal,
     });
 
     if (messages === null) return null;
@@ -1248,14 +1320,19 @@ export async function hydrateLatestChatMessagesWindow(chatId: string, limit: num
     };
 }
 
-export async function hydrateOlderChatMessagesWindow(chatId: string, beforeIndex: number, limit: number): Promise<RemoteMessageWindow | null> {
+export async function hydrateOlderChatMessagesWindow(
+    chatId: string,
+    beforeIndex: number,
+    limit: number,
+    options?: { signal?: AbortSignal },
+): Promise<RemoteMessageWindow | null> {
     if (!isSyncActive()) return null;
 
     const user = await getCurrentUser();
     const key = crypto.getCachedKey();
     if (!user || !key) return null;
 
-    const totalCount = await getRemoteMessageCount(chatId, user.id);
+    const totalCount = await getRemoteMessageCount(chatId, user.id, { signal: options?.signal });
     const endExclusive = Math.max(0, Math.min(beforeIndex, totalCount));
     const safeLimit = Math.max(1, limit);
     const startIndex = Math.max(0, endExclusive - safeLimit);
@@ -1266,6 +1343,7 @@ export async function hydrateOlderChatMessagesWindow(chatId: string, beforeIndex
         chatId,
         startIndex,
         endExclusive,
+        signal: options?.signal,
     });
 
     if (messages === null) return null;
@@ -1316,20 +1394,21 @@ export async function hydrateChatMessages(chatId: string): Promise<boolean> {
     return true;
 }
 
-export async function fetchAllSyncedChatMessages(chatId: string): Promise<Message[] | null> {
+export async function fetchAllSyncedChatMessages(chatId: string, options?: { signal?: AbortSignal }): Promise<Message[] | null> {
     if (!isSyncActive()) return null;
 
     const user = await getCurrentUser();
     const key = crypto.getCachedKey();
     if (!user || !key) return null;
 
-    const totalCount = await getRemoteMessageCount(chatId, user.id);
+    const totalCount = await getRemoteMessageCount(chatId, user.id, { signal: options?.signal });
     return fetchRemoteMessageRange({
         userId: user.id,
         key,
         chatId,
         startIndex: 0,
         endExclusive: totalCount,
+        signal: options?.signal,
     });
 }
 
@@ -1417,8 +1496,12 @@ async function flushOfflineQueue(): Promise<void> {
             }
         } catch (err) {
             console.error('flushOfflineQueue: failed to process operation', op, err);
-            // Re-queue failures
-            offlineQueue.push(op);
+            const retries = (op.retryCount ?? 0) + 1;
+            if (retries < MAX_OFFLINE_RETRIES) {
+                offlineQueue.push({ ...op, retryCount: retries });
+            } else {
+                console.warn('flushOfflineQueue: dropping operation after max retries', op);
+            }
         }
     }
 
