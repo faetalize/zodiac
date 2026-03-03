@@ -75,6 +75,10 @@ const MESSAGE_DELETE_MARK_BATCH_SIZE = 500;
 const CHAT_DELETE_MARK_BATCH_SIZE = 500;
 const MESSAGE_DECRYPT_CONCURRENCY = 4;
 const MAX_OFFLINE_RETRIES = 5;
+/** Client-side page size for reading messages from Supabase. Independent of
+ *  the server-side PostgREST max-rows setting (typically 1000 on hosted
+ *  Supabase). Cursor-based paging handles lower server caps safely. */
+const READ_PAGE_SIZE = 500;
 
 function areSyncHooksSuppressed(): boolean {
     return suppressSyncHooksDepth > 0;
@@ -1339,59 +1343,89 @@ async function fetchRemoteMessageRange(args: {
     const { userId, key, chatId, startIndex, endExclusive, signal } = args;
     if (endExclusive <= startIndex) return [];
 
-    let query = supabase
-        .from('user_synced_messages')
-        .select('message_index, encrypted_data, iv')
-        .eq('user_id', userId)
-        .eq('chat_id', chatId)
-        .eq('deleted', false)
-        .gte('message_index', startIndex)
-        .lt('message_index', endExclusive)
-        .order('message_index', { ascending: true });
+    const allMessages: Message[] = [];
+    let cursor = startIndex;
 
-    if (signal) {
-        query = query.abortSignal(signal);
-    }
+    while (cursor < endExclusive) {
+        if (signal?.aborted) {
+            throw new DOMException('The operation was aborted.', 'AbortError');
+        }
 
-    const { data, error } = await query;
+        let query = supabase
+            .from('user_synced_messages')
+            .select('message_index, encrypted_data, iv')
+            .eq('user_id', userId)
+            .eq('chat_id', chatId)
+            .eq('deleted', false)
+            .gte('message_index', cursor)
+            .lt('message_index', endExclusive)
+            .order('message_index', { ascending: true })
+            .limit(READ_PAGE_SIZE);
 
-    if (error || !data) {
-        console.error('fetchRemoteMessageRange failed:', error);
-        return null;
-    }
+        if (signal) {
+            query = query.abortSignal(signal);
+        }
 
-    const orderedMessages: Array<Message | null> = new Array(data.length).fill(null);
-    let nextIndex = 0;
+        const { data, error } = await query;
 
-    const workerCount = Math.max(1, Math.min(MESSAGE_DECRYPT_CONCURRENCY, data.length));
-    const workers = Array.from({ length: workerCount }, async () => {
-        while (true) {
-            if (signal?.aborted) {
+        if (error) {
+            if (error.message?.includes('AbortError') || (error as any)?.code === 'ABORT_ERR') {
                 throw new DOMException('The operation was aborted.', 'AbortError');
             }
-
-            const rowIndex = nextIndex;
-            nextIndex += 1;
-            if (rowIndex >= data.length) {
-                return;
-            }
-
-            const row = data[rowIndex];
-            try {
-                const plaintext = await crypto.decrypt(
-                    key,
-                    crypto.fromHex(row.encrypted_data),
-                    crypto.fromHex(row.iv),
-                );
-                orderedMessages[rowIndex] = deserializeMessage(JSON.parse(plaintext));
-            } catch (err) {
-                console.error(`fetchRemoteMessageRange: failed to decrypt chat=${chatId} idx=${row.message_index}`, err);
-            }
+            console.error(`fetchRemoteMessageRange failed (chat=${chatId} cursor=${cursor}):`, error);
+            return null;
         }
-    });
 
-    await Promise.all(workers);
-    return orderedMessages.filter((message): message is Message => message !== null);
+        if (!data || data.length === 0) {
+            break;
+        }
+
+        // Advance cursor past the highest message_index we received.
+        // This is robust against server caps lower than READ_PAGE_SIZE
+        // and against sparse/non-contiguous indices.
+        const lastIndex = Number(data[data.length - 1].message_index);
+        if (!Number.isFinite(lastIndex) || lastIndex < cursor) {
+            console.error(
+                `fetchRemoteMessageRange: cursor cannot advance (chat=${chatId} cursor=${cursor} lastIndex=${lastIndex}). Aborting to prevent infinite loop.`,
+            );
+            return null;
+        }
+        cursor = lastIndex + 1;
+
+        // Decrypt rows in parallel (bounded concurrency)
+        const pageMessages: Array<Message | null> = new Array(data.length).fill(null);
+        let nextRowIndex = 0;
+
+        const workerCount = Math.max(1, Math.min(MESSAGE_DECRYPT_CONCURRENCY, data.length));
+        const workers = Array.from({ length: workerCount }, async () => {
+            while (true) {
+                if (signal?.aborted) {
+                    throw new DOMException('The operation was aborted.', 'AbortError');
+                }
+
+                const rowIndex = nextRowIndex;
+                nextRowIndex += 1;
+                if (rowIndex >= data.length) return;
+
+                const row = data[rowIndex];
+                try {
+                    const plaintext = await crypto.decrypt(
+                        key,
+                        crypto.fromHex(row.encrypted_data),
+                        crypto.fromHex(row.iv),
+                    );
+                    pageMessages[rowIndex] = deserializeMessage(JSON.parse(plaintext));
+                } catch (err) {
+                    console.error(`fetchRemoteMessageRange: failed to decrypt chat=${chatId} idx=${row.message_index}`, err);
+                }
+            }
+        });
+
+        await Promise.all(workers);
+        allMessages.push(...pageMessages.filter((m): m is Message => m !== null));
+    }
+
+    return allMessages;
 }
 
 export async function hydrateLatestChatMessagesWindow(
