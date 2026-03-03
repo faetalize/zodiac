@@ -444,7 +444,8 @@ function calculateNextParticipants(ctx: RpgContext): {
         const nextIndex = (lastScheduledIndex + 1) % effectiveOrder.length;
         const nextId = effectiveOrder[nextIndex];
 
-        startsNewRound = !stoppedForUser;
+        stoppedForUser = nextId === "user";
+        startsNewRound = nextId === effectiveOrder[0];
         return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: nextId };
     }
 
