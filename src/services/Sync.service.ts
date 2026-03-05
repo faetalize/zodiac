@@ -448,6 +448,116 @@ export async function restoreRemoteDataToLocalUnencrypted(): Promise<boolean> {
     }
 }
 
+async function fetchAllSyncedChatsPaged(userId: string): Promise<Array<{
+    id: string;
+    encrypted_data: string;
+    iv: string;
+    updated_at: string | null;
+    deleted: boolean;
+}> | null> {
+    const rows: Array<{
+        id: string;
+        encrypted_data: string;
+        iv: string;
+        updated_at: string | null;
+        deleted: boolean;
+    }> = [];
+
+    let cursorId: string | null = null;
+
+    while (true) {
+        let query = supabase
+            .from('user_synced_chats')
+            .select('id, encrypted_data, iv, updated_at, deleted')
+            .eq('user_id', userId)
+            .order('id', { ascending: true })
+            .limit(READ_PAGE_SIZE);
+
+        if (cursorId !== null) {
+            query = query.gt('id', cursorId);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            console.error(`fetchAllSyncedChatsPaged failed (cursor=${cursorId ?? '∅'}):`, error);
+            return null;
+        }
+
+        if (!data || data.length === 0) {
+            break;
+        }
+
+        rows.push(...data);
+
+        const lastId = data[data.length - 1]?.id;
+        if (typeof lastId !== 'string' || (cursorId !== null && lastId <= cursorId)) {
+            console.error(
+                `fetchAllSyncedChatsPaged: cursor cannot advance (cursor=${cursorId ?? '∅'} lastId=${String(lastId)}).`,
+            );
+            return rows;
+        }
+        cursorId = lastId;
+    }
+
+    return rows;
+}
+
+async function fetchAllSyncedPersonasPaged(userId: string): Promise<Array<{
+    id: string;
+    encrypted_data: string;
+    iv: string;
+    updated_at: string | null;
+    deleted: boolean;
+}> | null> {
+    const rows: Array<{
+        id: string;
+        encrypted_data: string;
+        iv: string;
+        updated_at: string | null;
+        deleted: boolean;
+    }> = [];
+
+    let cursorId: string | null = null;
+
+    while (true) {
+        let query = supabase
+            .from('user_synced_personas')
+            .select('id, encrypted_data, iv, updated_at, deleted')
+            .eq('user_id', userId)
+            .order('id', { ascending: true })
+            .limit(READ_PAGE_SIZE);
+
+        if (cursorId !== null) {
+            query = query.gt('id', cursorId);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            console.error(`fetchAllSyncedPersonasPaged failed (cursor=${cursorId ?? '∅'}):`, error);
+            return null;
+        }
+
+        if (!data || data.length === 0) {
+            break;
+        }
+
+        rows.push(...data);
+
+        const lastId = data[data.length - 1]?.id;
+        if (typeof lastId !== 'string' || (cursorId !== null && lastId <= cursorId)) {
+            console.error(
+                `fetchAllSyncedPersonasPaged: cursor cannot advance (cursor=${cursorId ?? '∅'} lastId=${String(lastId)}).`,
+            );
+            return rows;
+        }
+        cursorId = lastId;
+    }
+
+    return rows;
+}
+
 export async function fetchSyncedChatsMetadata(): Promise<DbChat[]> {
     if (!isSyncActive()) return [];
 
@@ -455,20 +565,17 @@ export async function fetchSyncedChatsMetadata(): Promise<DbChat[]> {
     const key = crypto.getCachedKey();
     if (!user || !key) return [];
 
-    const { data, error } = await supabase
-        .from('user_synced_chats')
-        .select('id, encrypted_data, iv, deleted')
-        .eq('user_id', user.id)
-        .eq('deleted', false);
-
-    if (error || !data) {
-        console.error('fetchSyncedChatsMetadata failed:', error);
+    const data = await fetchAllSyncedChatsPaged(user.id);
+    if (!data) {
+        console.error('fetchSyncedChatsMetadata failed to read synced chats');
         return [];
     }
 
+    const activeRows = data.filter((row) => !row.deleted);
+
     // Decrypt all rows concurrently for faster sidebar population
     const results = await Promise.allSettled(
-        data.map(async (row) => {
+        activeRows.map(async (row) => {
             const plaintext = await crypto.decrypt(
                 key,
                 crypto.fromHex(row.encrypted_data),
@@ -538,19 +645,17 @@ export async function fetchSyncedPersonas(): Promise<DbPersonality[]> {
     const key = crypto.getCachedKey();
     if (!user || !key) return [];
 
-    const { data, error } = await supabase
-        .from('user_synced_personas')
-        .select('id, encrypted_data, iv, deleted')
-        .eq('user_id', user.id)
-        .eq('deleted', false);
+    const data = await fetchAllSyncedPersonasPaged(user.id);
 
-    if (error || !data) {
-        console.error('fetchSyncedPersonas failed:', error);
+    if (!data) {
+        console.error('fetchSyncedPersonas failed to read synced personas');
         return [];
     }
 
+    const activeRows = data.filter((row) => !row.deleted);
+
     const personas: DbPersonality[] = [];
-    for (const row of data) {
+    for (const row of activeRows) {
         try {
             const plaintext = await crypto.decrypt(
                 key,
@@ -1228,13 +1333,10 @@ export async function pullAll(): Promise<void> {
 }
 
 async function pullChats(userId: string, key: CryptoKey, options?: { hydrateMessages?: boolean }): Promise<void> {
-    const { data, error } = await supabase
-        .from('user_synced_chats')
-        .select('id, encrypted_data, iv, updated_at, deleted')
-        .eq('user_id', userId);
+    const data = await fetchAllSyncedChatsPaged(userId);
 
-    if (error || !data) {
-        console.error('pullChats failed:', error);
+    if (!data) {
+        console.error('pullChats failed to read synced chats');
         return;
     }
 
@@ -1557,13 +1659,10 @@ export async function fetchAllSyncedChatMessages(chatId: string, options?: { sig
 }
 
 async function pullPersonas(userId: string, key: CryptoKey): Promise<void> {
-    const { data, error } = await supabase
-        .from('user_synced_personas')
-        .select('id, encrypted_data, iv, updated_at, deleted')
-        .eq('user_id', userId);
+    const data = await fetchAllSyncedPersonasPaged(userId);
 
-    if (error || !data) {
-        console.error('pullPersonas failed:', error);
+    if (!data) {
+        console.error('pullPersonas failed to read synced personas');
         return;
     }
 
