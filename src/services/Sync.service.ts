@@ -1006,10 +1006,10 @@ async function serializeMessage(message: Message): Promise<{ json: string; uploa
     if (serializedGeneratedImages) {
         serializable.generatedImages = serializedGeneratedImages;
     }
-    // Strip _blobRef from any generatedImages that may have been left inline
+    // Strip runtime-only refs from any generatedImages that may have been left inline
     if (serializable.generatedImages) {
         serializable.generatedImages = serializable.generatedImages.map((img: any) => {
-            const { _blobRef, ...rest } = img;
+            const { _blobRef, _thoughtSignatureRef, ...rest } = img;
             return rest;
         });
     }
