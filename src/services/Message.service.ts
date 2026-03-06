@@ -44,6 +44,7 @@ import { shouldPreferPremiumEndpoint } from "../components/static/ApiKeyInput.co
 import { getSelectedEditingModel } from "../components/static/ImageEditModelSelector.component";
 
 import { isAbortError, throwAbortError } from "../utils/abort";
+import { resolveThoughtSignature } from "../utils/blobResolver";
 import { dispatchAppEvent } from "../events";
 import { MODEL_IMAGE_LIMITS } from "../constants/ImageModels";
 import {
@@ -603,9 +604,10 @@ export async function constructGeminiChatHistoryFromLocalChat(
             const text = part.text || "";
             const attachments = part.attachments || [];
 
-            if (text.trim().length > 0 || part.thoughtSignature) {
+            if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
+                const resolvedThoughtSignature = await resolveThoughtSignature(part);
                 const partObj: any = { text };
-                partObj.thoughtSignature = part.thoughtSignature ?? (shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+                partObj.thoughtSignature = resolvedThoughtSignature ?? (shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
                 aggregatedParts.push(partObj);
             }
 
@@ -621,7 +623,7 @@ export async function constructGeminiChatHistoryFromLocalChat(
             parts: aggregatedParts
         };
 
-        const imageParts = processGeneratedImagesToParts({
+        const imageParts = await processGeneratedImagesToParts({
             images: dbMessage.generatedImages,
             shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
             enforceThoughtSignatures: shouldEnforceThoughtSignatures,

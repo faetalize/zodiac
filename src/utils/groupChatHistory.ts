@@ -11,6 +11,7 @@ import {
     processAttachmentsToParts,
     processGeneratedImagesToParts,
 } from "./chatHistoryBuilder";
+import { resolveThoughtSignature } from "./blobResolver";
 
 export async function constructGeminiChatHistoryForGroupChat(
     currentChat: DbChat,
@@ -46,9 +47,10 @@ export async function constructGeminiChatHistoryForGroupChat(
             const text = (part.text || "").toString();
             const attachments = part.attachments || [];
 
-            if (text.trim().length > 0 || part.thoughtSignature) {
+            if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
+                const resolvedThoughtSignature = await resolveThoughtSignature(part);
                 const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
-                partObj.thoughtSignature = part.thoughtSignature ?? (shouldEnforceThoughtSignatures ? args.skipThoughtSignatureValidator : undefined);
+                partObj.thoughtSignature = resolvedThoughtSignature ?? (shouldEnforceThoughtSignatures ? args.skipThoughtSignatureValidator : undefined);
                 aggregatedParts.push(partObj);
             }
 
@@ -61,7 +63,7 @@ export async function constructGeminiChatHistoryForGroupChat(
 
         const genAiMessage: Content = { role: dbMessage.role, parts: aggregatedParts };
 
-        const imageParts = processGeneratedImagesToParts({
+        const imageParts = await processGeneratedImagesToParts({
             images: dbMessage.generatedImages,
             shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
             enforceThoughtSignatures: shouldEnforceThoughtSignatures,

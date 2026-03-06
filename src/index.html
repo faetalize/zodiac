@@ -85,6 +85,31 @@
             </div>
         </div>
 
+        <!-- Cloud Sync: One-time media migration modal -->
+        <div id="sync-media-migration-modal" class="dialog hidden">
+            <div id="sync-media-migration-content">
+                <span class="material-symbols-outlined sync-prompt-icon">construction</span>
+                <h3>Quick Account Maintenance</h3>
+                <p id="sync-media-migration-description" class="sync-modal-description">
+                    We need to move your older synced media to a faster storage layout. This is a one-time process. Please keep this tab open until it finishes.
+                </p>
+
+                <div id="sync-media-migration-progress-wrapper" class="hidden">
+                    <div class="cloud-sync-quota-bar sync-media-migration-progress-bar">
+                        <div id="sync-media-migration-progress-fill" class="cloud-sync-quota-fill"></div>
+                    </div>
+                    <span id="sync-media-migration-progress-label" class="cloud-sync-quota-label">Preparing…</span>
+                    <span id="sync-media-migration-row-label" class="cloud-sync-quota-label">0 / 0 messages scanned</span>
+                </div>
+
+                <p id="sync-media-migration-error" class="sync-modal-error hidden"></p>
+
+                <div class="btn-array">
+                    <button class="btn btn-primary" id="btn-sync-media-migration-start">Start Maintenance</button>
+                </div>
+            </div>
+        </div>
+
         <div class="sidebar">
             <div class="sidebar-top-bar">
                 <div class="header" style="padding-block: 10px;">
@@ -680,14 +705,20 @@
                                                 </div>
                                                 <span id="sync-quota-label" class="cloud-sync-quota-label">0 MB / 5 GB</span>
                                             </div>
-                                            <div class="btn-array">
-                                                <button class="btn btn-primary" id="btn-sync-now">
-                                                    <span class="material-symbols-outlined">sync</span>
-                                                    Sync Now
-                                                </button>
-                                                <button class="btn btn-danger" id="btn-sync-wipe">
-                                                    <span class="material-symbols-outlined">delete_forever</span>
-                                                    Wipe Data
+                                            <div class="cloud-sync-actions">
+                                                <div class="btn-array cloud-sync-actions-main">
+                                                    <button class="btn btn-primary" id="btn-sync-now">
+                                                        <span class="material-symbols-outlined">sync</span>
+                                                        Sync Now
+                                                    </button>
+                                                    <button class="btn btn-danger" id="btn-sync-wipe">
+                                                        <span class="material-symbols-outlined">delete_forever</span>
+                                                        Wipe Data
+                                                    </button>
+                                                </div>
+                                                <button class="btn btn-secondary" id="btn-sync-media-maintenance">
+                                                    <span class="material-symbols-outlined">build</span>
+                                                    Media Maintenance
                                                 </button>
                                             </div>
                                         </div>

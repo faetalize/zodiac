@@ -7,7 +7,7 @@
  * Contributors: Treat this as READ-ONLY.
  * If you need schema changes, open an issue describing the required modifications.
  * 
- * Generated: 2026-02-22
+ * Generated: 2026-03-06
  */
 
 export type Json =
@@ -197,6 +197,21 @@ export type Database = {
           persona_description?: string | null
           persona_id?: string
           persona_name?: string
+        }
+        Relationships: []
+      }
+      feature_flags: {
+        Row: {
+          key: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          value?: Json
         }
         Relationships: []
       }
@@ -848,11 +863,16 @@ export type Database = {
       }
     }
     Functions: {
+      can_read_cloud_sync: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
       can_use_cloud_sync: { Args: { target_user_id: string }; Returns: boolean }
       check_array_items_length: {
         Args: { arr: string[]; max_len: number }
         Returns: boolean
       }
+      cleanup_sync_tombstones: { Args: never; Returns: undefined }
       get_popular_tags: {
         Args: { tag_limit?: number }
         Returns: {
@@ -861,6 +881,7 @@ export type Database = {
         }[]
       }
       migrate_to_image_generations: { Args: never; Returns: undefined }
+      purge_expired_synced_data: { Args: never; Returns: undefined }
       recalculate_user_storage: {
         Args: { target_user_id: string }
         Returns: undefined
