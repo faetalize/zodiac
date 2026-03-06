@@ -2184,8 +2184,6 @@ async function fetchRemoteMessageRange(args: {
     const { userId, key, chatId, startIndex, endExclusive, signal } = args;
     if (endExclusive <= startIndex) return [];
 
-    const shouldLogSyncDebugPayloads = localStorage.getItem('zodiac-sync-debug-payloads') === 'true';
-
     const allMessages: Message[] = [];
     let cursor = startIndex;
 
@@ -2257,43 +2255,6 @@ async function fetchRemoteMessageRange(args: {
                         crypto.fromHex(row.encrypted_data),
                         crypto.fromHex(row.iv),
                     );
-                    if (shouldLogSyncDebugPayloads && plaintext.length > 10_000) {
-                        console.warn(
-                            `[SYNC DEBUG] chat=${chatId} idx=${row.message_index} decryptedLen=${plaintext.length} encryptedHexLen=${row.encrypted_data.length}`,
-                        );
-                        try {
-                            const raw = JSON.parse(plaintext);
-                            // For each generatedImage and part, log EVERY property name and its JSON size
-                            const propSizes = (obj: any) => {
-                                const sizes: Record<string, number | string> = {};
-                                for (const k of Object.keys(obj)) {
-                                    const val = obj[k];
-                                    sizes[k] = typeof val === 'string' ? val.length : JSON.stringify(val).length;
-                                    sizes[k + '_type'] = typeof val === 'object' && val !== null ? (Array.isArray(val) ? 'array' : 'object') : typeof val;
-                                }
-                                return sizes;
-                            };
-                            const summary: Record<string, unknown> = { role: raw.role };
-                            if (Array.isArray(raw.generatedImages)) {
-                                summary.generatedImages = raw.generatedImages.map((img: any, i: number) => ({
-                                    index: i,
-                                    _allProps: propSizes(img),
-                                }));
-                            }
-                            if (Array.isArray(raw.parts)) {
-                                summary.parts = raw.parts.map((part: any, pi: number) => ({
-                                    index: pi,
-                                    _allProps: propSizes(part),
-                                }));
-                            }
-                            const keySizes: Record<string, number> = {};
-                            for (const k of Object.keys(raw)) {
-                                keySizes[k] = JSON.stringify(raw[k]).length;
-                            }
-                            summary.keySizes = keySizes;
-                            console.warn('[SYNC DEBUG] raw message shape:', summary);
-                        } catch { /* ignore parse errors for debug log */ }
-                    }
                     pageMessages[rowIndex] = deserializeMessage(JSON.parse(plaintext));
                 } catch (err) {
                     console.error(`fetchRemoteMessageRange: failed to decrypt chat=${chatId} idx=${row.message_index}`, err);
