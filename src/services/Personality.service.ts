@@ -7,6 +7,7 @@ import { info, danger } from "./Toast.service";
 import { showElement } from "../utils/helpers";
 import * as syncService from "./Sync.service";
 import { onAppEvent } from "../events";
+import * as pinningService from "./Pinning.service";
 
 const SYNCED_PERSONAS_CACHE_TTL_MS = 5000;
 
@@ -63,6 +64,19 @@ async function fetchSyncedPersonasCached(force = false): Promise<DbPersonality[]
     return syncedPersonasFetchPromise;
 }
 
+function sortPersonasPinnedFirst(personas: DbPersonality[]): DbPersonality[] {
+    const pinnedIds = new Set(pinningService.getPinnedPersonaIds());
+    const pinned: DbPersonality[] = [];
+    const unpinned: DbPersonality[] = [];
+
+    for (const persona of personas) {
+        if (pinnedIds.has(persona.id)) pinned.push(persona);
+        else unpinned.push(persona);
+    }
+
+    return [...pinned, ...unpinned];
+}
+
 export async function initialize() {
     //setup marketplace banner dismiss
     setupMarketplaceBanner();
@@ -86,19 +100,13 @@ export async function reloadFromDb() {
 
     personalitiesDiv.innerHTML = '';
 
-    //default personality setup
-    const defaultPersonalityCard = insert(getDefault(), "-1");
-    if (!defaultPersonalityCard) {
-        console.error("Default personality failed to insert");
-        return
-    }
-    defaultPersonalityCard.querySelector(".btn-edit-card")?.remove(); 
-    defaultPersonalityCard.querySelector(".btn-delete-card")?.remove(); 
-    defaultPersonalityCard.querySelector(".btn-share-card")?.remove(); 
-    defaultPersonalityCard.querySelector(".sync-badge")?.remove();
-
     //load all personalities from local storage
-    const personalitiesArray = await getAll();
+    const personalitiesArray = sortPersonasPinnedFirst(await getAll());
+    const pinnedIds = new Set(pinningService.getPinnedPersonaIds());
+    const hasPinned = personalitiesArray.some((personality) => pinnedIds.has(personality.id));
+    const pinnedPersonas = personalitiesArray.filter((personality) => pinnedIds.has(personality.id));
+    const unpinnedPersonas = personalitiesArray.filter((personality) => !pinnedIds.has(personality.id));
+    let defaultPersonalityCard: HTMLElement | undefined;
     
     //fetch sync status for all synced personalities
     const syncedIds = personalitiesArray
@@ -126,12 +134,40 @@ export async function reloadFromDb() {
         return { status: 'outdated', remoteVersion: remote.version };
     };
 
-    if (personalitiesArray) {
-        for (let personality of personalitiesArray) {
-            const { id: id, ...personalityData } = personality;
+    if (pinnedPersonas.length > 0) {
+        const pinnedHeader = document.createElement("div");
+        pinnedHeader.classList.add("sidebar-group-divider", "persona-group-divider");
+        pinnedHeader.textContent = "Pinned";
+        personalitiesDiv.append(pinnedHeader);
+
+        for (const personality of pinnedPersonas) {
+            const { id, ...personalityData } = personality;
             const syncInfo = getSyncInfo(personality);
             insertWithSync(personalityData, String(id), syncInfo);
         }
+    }
+
+    if (hasPinned) {
+        const othersHeader = document.createElement("div");
+        othersHeader.classList.add("sidebar-group-divider", "persona-group-divider");
+        othersHeader.textContent = "All personas";
+        personalitiesDiv.append(othersHeader);
+    }
+
+    defaultPersonalityCard = insert(getDefault(), "-1");
+    if (!defaultPersonalityCard) {
+        console.error("Default personality failed to insert");
+        return;
+    }
+    defaultPersonalityCard.querySelector(".btn-edit-card")?.remove();
+    defaultPersonalityCard.querySelector(".btn-delete-card")?.remove();
+    defaultPersonalityCard.querySelector(".btn-share-card")?.remove();
+    defaultPersonalityCard.querySelector(".sync-badge")?.remove();
+
+    for (const personality of unpinnedPersonas) {
+        const { id, ...personalityData } = personality;
+        const syncInfo = getSyncInfo(personality);
+        insertWithSync(personalityData, String(id), syncInfo);
     }
 
     // After loading, restore last selected personality (if present and still existing)
@@ -230,10 +266,12 @@ export async function remove(id: string) {
         if (ok) {
             removeCachedSyncedPersona(id);
         }
+        await pinningService.removePersonaPin(id);
         return;
     }
 
     await db.personalities.delete(id);
+    await pinningService.removePersonaPin(id);
 }
 
 function insert(personality: Personality, id: string) {
@@ -361,6 +399,7 @@ export async function removeAll() {
     } else {
         await db.personalities.clear();
     }
+    await pinningService.clearPersonaPins();
     const personalityElements = document.querySelector<HTMLDivElement>("#personalitiesDiv")!.children;
     for (let i = personalityElements.length - 1; i >= 0; i--) {
         const element = personalityElements[i];
@@ -509,6 +548,7 @@ export function generateCard(personality: Personality, id: string, syncInfo?: Sy
             <img class="background-img" src="${personality.image}"></img>
             <input  type="radio" name="personality" value="${personality.name}">
             <div class="btn-array-personalityactions">
+                ${id && id !== "-1" ? `<button class="btn-textual btn-pin-card material-symbols-outlined" title="Pin persona">keep</button>` : ''}
                 ${id ? `<button class="btn-textual btn-edit-card material-symbols-outlined" 
                     id="btn-edit-personality-${personality.name}">edit</button>` : ''}
                 <button class="btn-textual btn-share-card material-symbols-outlined" 
@@ -529,8 +569,33 @@ export function generateCard(personality: Personality, id: string, syncInfo?: Sy
     const shareButton = card.querySelector(".btn-share-card");
     const deleteButton = card.querySelector(".btn-delete-card");
     const editButton = card.querySelector(".btn-edit-card");
+    const pinButton = card.querySelector<HTMLButtonElement>(".btn-pin-card");
     const input = card.querySelector("input");
     const outdatedBadge = card.querySelector(".sync-badge-outdated");
+
+    const updatePinButtonUi = () => {
+        if (!pinButton || !id || id === "-1") return;
+        const isPinned = pinningService.isPersonaPinned(id);
+        pinButton.textContent = isPinned ? "keep_off" : "keep";
+        pinButton.classList.toggle("active", isPinned);
+        pinButton.title = isPinned ? "Unpin persona" : "Pin persona";
+    };
+
+    updatePinButtonUi();
+
+    if (pinButton && id && id !== "-1") {
+        pinButton.addEventListener("click", async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const wasSelected = !!input?.checked;
+            await pinningService.togglePersonaPinned(id);
+            updatePinButtonUi();
+            await reloadFromDb();
+            if (wasSelected) {
+                document.querySelector<HTMLInputElement>(`#personality-${id} input[name='personality']`)?.click();
+            }
+        });
+    }
 
     shareButton?.addEventListener("click", () => {
         share(personality, id);
@@ -771,4 +836,3 @@ function setupMarketplaceBanner() {
         banner.classList.add('hidden');
     });
 }
-
