@@ -44,6 +44,10 @@ export interface Personality {
 export interface DbPersonality extends Personality {
     /** Local UUID - used for chat associations and internal operations. Never the marketplace ID. */
     id: string;
+    /** When this persona was added/imported into the user's library (epoch ms). */
+    dateAdded: number;
+    /** Last time this persona was modified in the user's library (epoch ms). */
+    lastModified: number;
     /** Marketplace persona ID if imported. Used for sync/update checks. */
     syncedFrom?: string;
     /** Marketplace version at time of import/last update. 0 = locally modified. */
@@ -51,6 +55,8 @@ export interface DbPersonality extends Personality {
     /** True if user edited after import (deprecated, use version=0 instead). */
     localModifications?: boolean;
 }
+
+export type PersonaSortMode = "date_added" | "last_modified" | "alphabetical";
 
 export type SyncStatus = 'local' | 'up-to-date' | 'outdated' | 'deleted';
 

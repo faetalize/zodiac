@@ -2358,6 +2358,13 @@ async function pullPersonas(userId: string, key: CryptoKey): Promise<void> {
                 crypto.fromHex(row.iv),
             );
             const persona: DbPersonality = JSON.parse(plaintext);
+            const now = Date.now();
+            if (typeof (persona as any).dateAdded !== 'number') {
+                (persona as any).dateAdded = now;
+            }
+            if (typeof (persona as any).lastModified !== 'number') {
+                (persona as any).lastModified = (persona as any).dateAdded;
+            }
             await db.personalities.put(persona);
         } catch (err) {
             console.error(`pullPersonas: failed to decrypt persona ${row.id}`, err);

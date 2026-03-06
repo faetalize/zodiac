@@ -1,6 +1,6 @@
 import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
-import { DbPersonality, Personality, SyncInfo, SyncStatus } from "../types/Personality";
+import { DbPersonality, Personality, PersonaSortMode, SyncInfo, SyncStatus } from "../types/Personality";
 import { v4 as uuidv4 } from 'uuid';
 import { getMarketplacePersonaVersion, getMarketplacePersonaVersions, fetchMarketplacePersona, type MarketplacePersonaInfo } from "./Supabase.service";
 import { info, danger } from "./Toast.service";
@@ -10,10 +10,98 @@ import { onAppEvent } from "../events";
 import * as pinningService from "./Pinning.service";
 
 const SYNCED_PERSONAS_CACHE_TTL_MS = 5000;
+const PERSONA_SORT_MODE_STORAGE_KEY = "persona-sort-mode";
 
 let syncedPersonasCache: DbPersonality[] | null = null;
 let syncedPersonasCacheAt = 0;
 let syncedPersonasFetchPromise: Promise<DbPersonality[]> | null = null;
+let currentPersonaSortMode: PersonaSortMode | undefined;
+
+function normalizeTimestamp(value: unknown): number | undefined {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+
+    if (typeof value === "string") {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+    }
+
+    return undefined;
+}
+
+function loadPersonaSortModeFromStorage(): PersonaSortMode {
+    try {
+        const stored = localStorage.getItem(PERSONA_SORT_MODE_STORAGE_KEY);
+        if (stored === "date_added" || stored === "last_modified" || stored === "alphabetical") {
+            return stored;
+        }
+    } catch (error) {
+        console.error("Failed to load persona sort mode from storage", error);
+    }
+
+    return "date_added";
+}
+
+function normalizePersonaTimestamps(persona: DbPersonality): DbPersonality {
+    const dateAdded = normalizeTimestamp(persona.dateAdded) ?? 0;
+    const lastModified = normalizeTimestamp(persona.lastModified) ?? dateAdded;
+    return {
+        ...persona,
+        dateAdded,
+        lastModified,
+    };
+}
+
+function getPersonaLastModifiedTimestamp(persona: DbPersonality): number {
+    const lastModified = normalizeTimestamp(persona.lastModified);
+    if (lastModified !== undefined) {
+        return lastModified;
+    }
+
+    const dateAdded = normalizeTimestamp(persona.dateAdded);
+    if (dateAdded !== undefined) {
+        return dateAdded;
+    }
+
+    return 0;
+}
+
+function getPersonaDateAddedTimestamp(persona: DbPersonality): number {
+    return normalizeTimestamp(persona.dateAdded) ?? 0;
+}
+
+function sortPersonas(personas: DbPersonality[], mode: PersonaSortMode): DbPersonality[] {
+    const baseSort = (list: DbPersonality[]): DbPersonality[] => {
+        const sorted = [...list];
+
+        if (mode === "alphabetical") {
+            sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+            return sorted;
+        }
+
+        if (mode === "date_added") {
+            sorted.sort((a, b) => getPersonaDateAddedTimestamp(b) - getPersonaDateAddedTimestamp(a));
+            return sorted;
+        }
+
+        sorted.sort((a, b) => getPersonaLastModifiedTimestamp(b) - getPersonaLastModifiedTimestamp(a));
+        return sorted;
+    };
+
+    const pinnedIds = new Set(pinningService.getPinnedPersonaIds());
+    const pinned: DbPersonality[] = [];
+    const unpinned: DbPersonality[] = [];
+
+    for (const persona of baseSort(personas)) {
+        if (pinnedIds.has(persona.id)) pinned.push(persona);
+        else unpinned.push(persona);
+    }
+
+    return [...baseSort(pinned), ...baseSort(unpinned)];
+}
 
 function invalidateSyncedPersonasCache(): void {
     syncedPersonasCache = null;
@@ -53,28 +141,15 @@ async function fetchSyncedPersonasCached(force = false): Promise<DbPersonality[]
 
     syncedPersonasFetchPromise = syncService.fetchSyncedPersonas()
         .then((remote) => {
-            syncedPersonasCache = remote;
+            syncedPersonasCache = remote.map(normalizePersonaTimestamps);
             syncedPersonasCacheAt = Date.now();
-            return remote;
+            return syncedPersonasCache;
         })
         .finally(() => {
             syncedPersonasFetchPromise = null;
         });
 
     return syncedPersonasFetchPromise;
-}
-
-function sortPersonasPinnedFirst(personas: DbPersonality[]): DbPersonality[] {
-    const pinnedIds = new Set(pinningService.getPinnedPersonaIds());
-    const pinned: DbPersonality[] = [];
-    const unpinned: DbPersonality[] = [];
-
-    for (const persona of personas) {
-        if (pinnedIds.has(persona.id)) pinned.push(persona);
-        else unpinned.push(persona);
-    }
-
-    return [...pinned, ...unpinned];
 }
 
 export async function initialize() {
@@ -91,6 +166,24 @@ export async function initialize() {
     await reloadFromDb();
 }
 
+export function getPersonaSortMode(): PersonaSortMode {
+    if (!currentPersonaSortMode) {
+        currentPersonaSortMode = loadPersonaSortModeFromStorage();
+    }
+    return currentPersonaSortMode;
+}
+
+export async function setPersonaSortMode(mode: PersonaSortMode): Promise<void> {
+    currentPersonaSortMode = mode;
+    try {
+        localStorage.setItem(PERSONA_SORT_MODE_STORAGE_KEY, mode);
+    } catch (error) {
+        console.error("Failed to persist persona sort mode", error);
+    }
+
+    await reloadFromDb();
+}
+
 export async function reloadFromDb() {
     const personalitiesDiv = document.querySelector<HTMLElement>("#personalitiesDiv");
     if (!personalitiesDiv) {
@@ -100,8 +193,15 @@ export async function reloadFromDb() {
 
     personalitiesDiv.innerHTML = '';
 
-    //load all personalities from local storage
-    const personalitiesArray = sortPersonasPinnedFirst(await getAll());
+    //load all personalities from local storage and include the default persona
+    //in the same sort flow as user personas
+    const defaultPersonality: DbPersonality = {
+        id: "-1",
+        ...getDefault(),
+        dateAdded: 0,
+        lastModified: 0,
+    };
+    const personalitiesArray = sortPersonas([defaultPersonality, ...(await getAll())], getPersonaSortMode());
     const pinnedIds = new Set(pinningService.getPinnedPersonaIds());
     const hasPinned = personalitiesArray.some((personality) => pinnedIds.has(personality.id));
     const pinnedPersonas = personalitiesArray.filter((personality) => pinnedIds.has(personality.id));
@@ -143,7 +243,15 @@ export async function reloadFromDb() {
         for (const personality of pinnedPersonas) {
             const { id, ...personalityData } = personality;
             const syncInfo = getSyncInfo(personality);
-            insertWithSync(personalityData, String(id), syncInfo);
+            const card = insertWithSync(personalityData, String(id), syncInfo);
+
+            if (id === "-1" && card) {
+                defaultPersonalityCard = card;
+                defaultPersonalityCard.querySelector(".btn-edit-card")?.remove();
+                defaultPersonalityCard.querySelector(".btn-delete-card")?.remove();
+                defaultPersonalityCard.querySelector(".btn-share-card")?.remove();
+                defaultPersonalityCard.querySelector(".sync-badge")?.remove();
+            }
         }
     }
 
@@ -154,20 +262,18 @@ export async function reloadFromDb() {
         personalitiesDiv.append(othersHeader);
     }
 
-    defaultPersonalityCard = insert(getDefault(), "-1");
-    if (!defaultPersonalityCard) {
-        console.error("Default personality failed to insert");
-        return;
-    }
-    defaultPersonalityCard.querySelector(".btn-edit-card")?.remove();
-    defaultPersonalityCard.querySelector(".btn-delete-card")?.remove();
-    defaultPersonalityCard.querySelector(".btn-share-card")?.remove();
-    defaultPersonalityCard.querySelector(".sync-badge")?.remove();
-
     for (const personality of unpinnedPersonas) {
         const { id, ...personalityData } = personality;
         const syncInfo = getSyncInfo(personality);
-        insertWithSync(personalityData, String(id), syncInfo);
+        const card = insertWithSync(personalityData, String(id), syncInfo);
+
+        if (id === "-1" && card) {
+            defaultPersonalityCard = card;
+            defaultPersonalityCard.querySelector(".btn-edit-card")?.remove();
+            defaultPersonalityCard.querySelector(".btn-delete-card")?.remove();
+            defaultPersonalityCard.querySelector(".btn-share-card")?.remove();
+            defaultPersonalityCard.querySelector(".sync-badge")?.remove();
+        }
     }
 
     // After loading, restore last selected personality (if present and still existing)
@@ -175,8 +281,7 @@ export async function reloadFromDb() {
         const lastId = getLastSelectedPersonalityId();
         if (lastId) {
             if (lastId === "-1") {
-                // First child is default card
-                defaultPersonalityCard.querySelector("input")?.click();
+                defaultPersonalityCard?.querySelector("input")?.click();
             } else {
                 const input = document.querySelector<HTMLInputElement>(`#personality-${lastId} input[name='personality']`);
                 if (input) {
@@ -185,7 +290,7 @@ export async function reloadFromDb() {
             }
         }
         else {
-            defaultPersonalityCard.querySelector("input")?.click();
+            defaultPersonalityCard?.querySelector("input")?.click();
         }
     } catch (e) {
         console.warn("Failed to restore last selected personality", e);
@@ -194,6 +299,8 @@ export async function reloadFromDb() {
     // Add the "Create New" card at the end
     const createCard = createAddPersonalityCard();
     document.querySelector("#personalitiesDiv")?.appendChild(createCard);
+
+    window.dispatchEvent(new CustomEvent('persona-list-updated'));
 }
 
 export async function getSelected(): Promise<Personality | undefined> {
@@ -245,14 +352,14 @@ export async function get(id: string): Promise<Personality> {
 export async function getAll() {
     if (syncService.isOnlineSyncEnabled()) {
         if (!syncService.isSyncActive()) return [];
-        return await fetchSyncedPersonasCached();
+        return (await fetchSyncedPersonasCached()).map(normalizePersonaTimestamps);
     }
 
     const personalities = await db.personalities.toArray();
     if (!personalities) {
         return [];
     };
-    return personalities;
+    return personalities.map(normalizePersonaTimestamps);
 }
 
 export async function remove(id: string) {
@@ -407,6 +514,8 @@ export async function removeAll() {
             element.remove();
         }
     }
+
+    window.dispatchEvent(new CustomEvent('persona-list-updated'));
 }
 
 export async function add(personality: Personality, explicitId?: string): Promise<boolean> {
@@ -429,8 +538,13 @@ export async function add(personality: Personality, explicitId?: string): Promis
         return false;
     }
     
-    let syncInfo: SyncInfo = { status: 'local' };
-    const personaToSave: any = { ...structuredClone(personality), id };
+    const now = Date.now();
+    const personaToSave: DbPersonality = {
+        ...(structuredClone(personality) as Personality),
+        id,
+        dateAdded: now,
+        lastModified: now,
+    };
     
     if (marketplaceId) {
         const marketplaceInfo = await getMarketplacePersonaVersion(marketplaceId);
@@ -439,14 +553,6 @@ export async function add(personality: Personality, explicitId?: string): Promis
             personaToSave.syncedFrom = marketplaceId;
             personaToSave.version = importedPersona.version ?? marketplaceInfo.version;
             personaToSave.localModifications = false;
-            
-            //determine if up-to-date or outdated
-            const localVersion = personaToSave.version ?? 0;
-            if (localVersion >= marketplaceInfo.version) {
-                syncInfo = { status: 'up-to-date', remoteVersion: marketplaceInfo.version };
-            } else {
-                syncInfo = { status: 'outdated', remoteVersion: marketplaceInfo.version };
-            }
         }
     } else if (explicitId && explicitId !== "-1") {
         //fallback: check if the explicit ID itself is a marketplace ID
@@ -455,7 +561,6 @@ export async function add(personality: Personality, explicitId?: string): Promis
             personaToSave.syncedFrom = explicitId;
             personaToSave.version = marketplaceInfo.version;
             personaToSave.localModifications = false;
-            syncInfo = { status: 'up-to-date', remoteVersion: marketplaceInfo.version };
         }
     }
     
@@ -465,23 +570,16 @@ export async function add(personality: Personality, explicitId?: string): Promis
             danger({ title: 'Sync locked', text: 'Unlock cloud sync before adding personas.' });
             return false;
         }
-        const syncedOk = await syncService.pushPersona(personaToSave as DbPersonality);
+        const syncedOk = await syncService.pushPersona(personaToSave);
         if (!syncedOk) {
             danger({ title: 'Sync failed', text: 'Failed to save persona to cloud.' });
             return false;
         }
-        upsertCachedSyncedPersona(personaToSave as DbPersonality);
+        upsertCachedSyncedPersona(personaToSave);
     } else {
         await db.personalities.add(personaToSave);
     }
-    insertWithSync(personality, id, syncInfo);
-
-    // Move the add card to be the last element
-    const addCard = document.querySelector("#btn-add-personality");
-    if (addCard) {
-        document.querySelector("#personalitiesDiv")?.appendChild(addCard);
-    }
-
+    await reloadFromDb();
     return true;
 }
 
@@ -490,7 +588,10 @@ export async function edit(id: string, personality: Personality) {
     const existing = syncService.isOnlineSyncEnabled()
         ? (await fetchSyncedPersonasCached()).find((p) => p.id === id)
         : await db.personalities.get(id);
-    const updateData: Partial<Personality & { version?: number }> = { ...personality };
+    const updateData: Partial<DbPersonality> = {
+        ...personality,
+        lastModified: Date.now(),
+    };
     
     //if synced from marketplace, set version to 0 to mark as locally modified
     if (existing?.syncedFrom) {
@@ -503,19 +604,19 @@ export async function edit(id: string, personality: Personality) {
             return;
         }
         if (!existing) return;
-        const syncedOk = await syncService.pushPersona({ ...(existing as any), ...updateData, id } as DbPersonality);
+        const merged = normalizePersonaTimestamps({ ...(existing as DbPersonality), ...updateData, id });
+        const syncedOk = await syncService.pushPersona(merged);
         if (!syncedOk) {
             danger({ title: 'Sync failed', text: 'Failed to update persona in cloud.' });
             return;
         }
-        upsertCachedSyncedPersona({ ...(existing as any), ...updateData, id } as DbPersonality);
+        upsertCachedSyncedPersona(merged);
     } else {
         await db.personalities.update(id, updateData);
     }
 
-    //refresh the card with correct sync status
-    await refreshCard(id);
-    
+    await reloadFromDb();
+
     //reselect the personality if it was selected prior
     document.querySelector(`#personality-${id}`)?.querySelector("input")?.click();
 }
@@ -548,7 +649,7 @@ export function generateCard(personality: Personality, id: string, syncInfo?: Sy
             <img class="background-img" src="${personality.image}"></img>
             <input  type="radio" name="personality" value="${personality.name}">
             <div class="btn-array-personalityactions">
-                ${id && id !== "-1" ? `<button class="btn-textual btn-pin-card material-symbols-outlined" title="Pin persona">keep</button>` : ''}
+                ${id ? `<button class="btn-textual btn-pin-card material-symbols-outlined" title="Pin persona">keep</button>` : ''}
                 ${id ? `<button class="btn-textual btn-edit-card material-symbols-outlined" 
                     id="btn-edit-personality-${personality.name}">edit</button>` : ''}
                 <button class="btn-textual btn-share-card material-symbols-outlined" 
@@ -574,7 +675,7 @@ export function generateCard(personality: Personality, id: string, syncInfo?: Sy
     const outdatedBadge = card.querySelector(".sync-badge-outdated");
 
     const updatePinButtonUi = () => {
-        if (!pinButton || !id || id === "-1") return;
+        if (!pinButton || !id) return;
         const isPinned = pinningService.isPersonaPinned(id);
         pinButton.textContent = isPinned ? "keep_off" : "keep";
         pinButton.classList.toggle("active", isPinned);
@@ -583,7 +684,7 @@ export function generateCard(personality: Personality, id: string, syncInfo?: Sy
 
     updatePinButtonUi();
 
-    if (pinButton && id && id !== "-1") {
+    if (pinButton && id) {
         pinButton.addEventListener("click", async (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -604,7 +705,7 @@ export function generateCard(personality: Personality, id: string, syncInfo?: Sy
         deleteButton.addEventListener("click", () => {
             //first if the personality to delete is the one currently selected, we select the default personality
             if (input?.checked) {
-                ((document.querySelector("#personalitiesDiv")?.firstElementChild) as HTMLElement).click();
+                document.querySelector<HTMLInputElement>("#personalitiesDiv .card-personality:not([id]) input[name='personality']")?.click();
             }
             if (id && id != "-1") {
                 remove(id);
@@ -671,6 +772,9 @@ export async function updateFromMarketplace(localId: string, marketplaceId: stri
         return false;
     }
 
+    const existing = await db.table('personalities').get(localId) as DbPersonality | undefined;
+    const now = Date.now();
+
     //map marketplace fields to local DbPersonality format
     const updatedPersona: DbPersonality = {
         id: localId,
@@ -690,6 +794,8 @@ export async function updateFromMarketplace(localId: string, marketplaceId: stri
         syncedFrom: marketplaceId,
         version: marketplaceData.version,
         localModifications: false,
+        dateAdded: existing?.dateAdded ?? now,
+        lastModified: now,
     };
 
     await db.table('personalities').put(updatedPersona);
@@ -711,6 +817,7 @@ export async function duplicateAndUpdate(localId: string, marketplaceId: string)
 
     //create duplicate with new ID and "old - " prefix
     const duplicateId = uuidv4();
+    const now = Date.now();
     const duplicate: DbPersonality = {
         ...current,
         id: duplicateId,
@@ -718,6 +825,8 @@ export async function duplicateAndUpdate(localId: string, marketplaceId: string)
         syncedFrom: undefined, //no longer linked to marketplace
         version: undefined,
         localModifications: false,
+        dateAdded: now,
+        lastModified: now,
     };
 
     await db.table('personalities').put(duplicate);

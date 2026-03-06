@@ -207,6 +207,42 @@ export async function setupDB() {
         chats_uuid: null
     });
 
+    // v17: Add persona timestamp fields for sorting (dateAdded, lastModified).
+    db.version(17).stores({
+        personalities: `
+            id,
+            name,
+            image,
+            prompt,
+            aggressiveness,
+            sensuality,
+            independence,
+            nsfw,
+            internetEnabled,
+            roleplayEnabled,
+            toneExamples,
+            tags,
+            category,
+            syncedFrom,
+            version,
+            localModifications,
+            dateAdded,
+            lastModified
+        `
+    }).upgrade(async (tx) => {
+        const personalities = await tx.table('personalities').toArray().catch(() => [] as any[]);
+        const now = Date.now();
+        for (const personality of personalities) {
+            await tx.table('personalities').put({
+                ...personality,
+                dateAdded: typeof personality.dateAdded === 'number' ? personality.dateAdded : now,
+                lastModified: typeof personality.lastModified === 'number'
+                    ? personality.lastModified
+                    : (typeof personality.dateAdded === 'number' ? personality.dateAdded : now),
+            });
+        }
+    });
+
     return db;
 }
 
