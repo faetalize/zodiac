@@ -1,6 +1,6 @@
 import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
-import { DbPersonality, Personality, SyncInfo, SyncStatus } from "../types/Personality";
+import { DbPersonality, Personality, PersonaSortMode, SyncInfo, SyncStatus } from "../types/Personality";
 import { v4 as uuidv4 } from 'uuid';
 import { getMarketplacePersonaVersion, getMarketplacePersonaVersions, fetchMarketplacePersona, type MarketplacePersonaInfo } from "./Supabase.service";
 import { info, danger } from "./Toast.service";
@@ -9,10 +9,63 @@ import * as syncService from "./Sync.service";
 import { onAppEvent } from "../events";
 
 const SYNCED_PERSONAS_CACHE_TTL_MS = 5000;
+const PERSONA_SORT_MODE_STORAGE_KEY = "persona-sort-mode";
 
 let syncedPersonasCache: DbPersonality[] | null = null;
 let syncedPersonasCacheAt = 0;
 let syncedPersonasFetchPromise: Promise<DbPersonality[]> | null = null;
+let currentPersonaSortMode: PersonaSortMode | undefined;
+
+function loadPersonaSortModeFromStorage(): PersonaSortMode {
+    try {
+        const stored = localStorage.getItem(PERSONA_SORT_MODE_STORAGE_KEY);
+        if (stored === "date_added" || stored === "last_modified" || stored === "alphabetical") {
+            return stored;
+        }
+    } catch (error) {
+        console.error("Failed to load persona sort mode from storage", error);
+    }
+
+    return "date_added";
+}
+
+function normalizePersonaTimestamps(persona: DbPersonality): DbPersonality {
+    const now = Date.now();
+    const dateAdded = typeof persona.dateAdded === "number" ? persona.dateAdded : now;
+    const lastModified = typeof persona.lastModified === "number" ? persona.lastModified : dateAdded;
+    return {
+        ...persona,
+        dateAdded,
+        lastModified,
+    };
+}
+
+function getPersonaLastModifiedTimestamp(persona: DbPersonality): number {
+    if (typeof persona.lastModified === "number") {
+        return persona.lastModified;
+    }
+    if (typeof persona.dateAdded === "number") {
+        return persona.dateAdded;
+    }
+    return 0;
+}
+
+function sortPersonas(personas: DbPersonality[], mode: PersonaSortMode): DbPersonality[] {
+    const list = [...personas];
+
+    if (mode === "alphabetical") {
+        list.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+        return list;
+    }
+
+    if (mode === "date_added") {
+        list.sort((a, b) => (b.dateAdded ?? 0) - (a.dateAdded ?? 0));
+        return list;
+    }
+
+    list.sort((a, b) => getPersonaLastModifiedTimestamp(b) - getPersonaLastModifiedTimestamp(a));
+    return list;
+}
 
 function invalidateSyncedPersonasCache(): void {
     syncedPersonasCache = null;
@@ -52,9 +105,9 @@ async function fetchSyncedPersonasCached(force = false): Promise<DbPersonality[]
 
     syncedPersonasFetchPromise = syncService.fetchSyncedPersonas()
         .then((remote) => {
-            syncedPersonasCache = remote;
+            syncedPersonasCache = remote.map(normalizePersonaTimestamps);
             syncedPersonasCacheAt = Date.now();
-            return remote;
+            return syncedPersonasCache;
         })
         .finally(() => {
             syncedPersonasFetchPromise = null;
@@ -77,6 +130,24 @@ export async function initialize() {
     await reloadFromDb();
 }
 
+export function getPersonaSortMode(): PersonaSortMode {
+    if (!currentPersonaSortMode) {
+        currentPersonaSortMode = loadPersonaSortModeFromStorage();
+    }
+    return currentPersonaSortMode;
+}
+
+export async function setPersonaSortMode(mode: PersonaSortMode): Promise<void> {
+    currentPersonaSortMode = mode;
+    try {
+        localStorage.setItem(PERSONA_SORT_MODE_STORAGE_KEY, mode);
+    } catch (error) {
+        console.error("Failed to persist persona sort mode", error);
+    }
+
+    await reloadFromDb();
+}
+
 export async function reloadFromDb() {
     const personalitiesDiv = document.querySelector<HTMLElement>("#personalitiesDiv");
     if (!personalitiesDiv) {
@@ -86,19 +157,15 @@ export async function reloadFromDb() {
 
     personalitiesDiv.innerHTML = '';
 
-    //default personality setup
-    const defaultPersonalityCard = insert(getDefault(), "-1");
-    if (!defaultPersonalityCard) {
-        console.error("Default personality failed to insert");
-        return
-    }
-    defaultPersonalityCard.querySelector(".btn-edit-card")?.remove(); 
-    defaultPersonalityCard.querySelector(".btn-delete-card")?.remove(); 
-    defaultPersonalityCard.querySelector(".btn-share-card")?.remove(); 
-    defaultPersonalityCard.querySelector(".sync-badge")?.remove();
-
-    //load all personalities from local storage
-    const personalitiesArray = await getAll();
+    //load all personalities from local storage and include the default persona
+    //in the same sort flow as user personas
+    const defaultPersonality: DbPersonality = {
+        id: "-1",
+        ...getDefault(),
+        dateAdded: 0,
+        lastModified: 0,
+    };
+    const personalitiesArray = sortPersonas([defaultPersonality, ...(await getAll())], getPersonaSortMode());
     
     //fetch sync status for all synced personalities
     const syncedIds = personalitiesArray
@@ -126,11 +193,21 @@ export async function reloadFromDb() {
         return { status: 'outdated', remoteVersion: remote.version };
     };
 
+    let defaultPersonalityCard: HTMLElement | undefined;
+
     if (personalitiesArray) {
         for (let personality of personalitiesArray) {
             const { id: id, ...personalityData } = personality;
             const syncInfo = getSyncInfo(personality);
-            insertWithSync(personalityData, String(id), syncInfo);
+            const card = insertWithSync(personalityData, String(id), syncInfo);
+
+            if (id === "-1" && card) {
+                defaultPersonalityCard = card;
+                defaultPersonalityCard.querySelector(".btn-edit-card")?.remove();
+                defaultPersonalityCard.querySelector(".btn-delete-card")?.remove();
+                defaultPersonalityCard.querySelector(".btn-share-card")?.remove();
+                defaultPersonalityCard.querySelector(".sync-badge")?.remove();
+            }
         }
     }
 
@@ -139,8 +216,7 @@ export async function reloadFromDb() {
         const lastId = getLastSelectedPersonalityId();
         if (lastId) {
             if (lastId === "-1") {
-                // First child is default card
-                defaultPersonalityCard.querySelector("input")?.click();
+                defaultPersonalityCard?.querySelector("input")?.click();
             } else {
                 const input = document.querySelector<HTMLInputElement>(`#personality-${lastId} input[name='personality']`);
                 if (input) {
@@ -149,7 +225,7 @@ export async function reloadFromDb() {
             }
         }
         else {
-            defaultPersonalityCard.querySelector("input")?.click();
+            defaultPersonalityCard?.querySelector("input")?.click();
         }
     } catch (e) {
         console.warn("Failed to restore last selected personality", e);
@@ -158,6 +234,8 @@ export async function reloadFromDb() {
     // Add the "Create New" card at the end
     const createCard = createAddPersonalityCard();
     document.querySelector("#personalitiesDiv")?.appendChild(createCard);
+
+    window.dispatchEvent(new CustomEvent('persona-list-updated'));
 }
 
 export async function getSelected(): Promise<Personality | undefined> {
@@ -209,14 +287,14 @@ export async function get(id: string): Promise<Personality> {
 export async function getAll() {
     if (syncService.isOnlineSyncEnabled()) {
         if (!syncService.isSyncActive()) return [];
-        return await fetchSyncedPersonasCached();
+        return (await fetchSyncedPersonasCached()).map(normalizePersonaTimestamps);
     }
 
     const personalities = await db.personalities.toArray();
     if (!personalities) {
         return [];
     };
-    return personalities;
+    return personalities.map(normalizePersonaTimestamps);
 }
 
 export async function remove(id: string) {
@@ -368,6 +446,8 @@ export async function removeAll() {
             element.remove();
         }
     }
+
+    window.dispatchEvent(new CustomEvent('persona-list-updated'));
 }
 
 export async function add(personality: Personality, explicitId?: string): Promise<boolean> {
@@ -390,8 +470,13 @@ export async function add(personality: Personality, explicitId?: string): Promis
         return false;
     }
     
-    let syncInfo: SyncInfo = { status: 'local' };
-    const personaToSave: any = { ...structuredClone(personality), id };
+    const now = Date.now();
+    const personaToSave: DbPersonality = {
+        ...(structuredClone(personality) as Personality),
+        id,
+        dateAdded: now,
+        lastModified: now,
+    };
     
     if (marketplaceId) {
         const marketplaceInfo = await getMarketplacePersonaVersion(marketplaceId);
@@ -400,14 +485,6 @@ export async function add(personality: Personality, explicitId?: string): Promis
             personaToSave.syncedFrom = marketplaceId;
             personaToSave.version = importedPersona.version ?? marketplaceInfo.version;
             personaToSave.localModifications = false;
-            
-            //determine if up-to-date or outdated
-            const localVersion = personaToSave.version ?? 0;
-            if (localVersion >= marketplaceInfo.version) {
-                syncInfo = { status: 'up-to-date', remoteVersion: marketplaceInfo.version };
-            } else {
-                syncInfo = { status: 'outdated', remoteVersion: marketplaceInfo.version };
-            }
         }
     } else if (explicitId && explicitId !== "-1") {
         //fallback: check if the explicit ID itself is a marketplace ID
@@ -416,7 +493,6 @@ export async function add(personality: Personality, explicitId?: string): Promis
             personaToSave.syncedFrom = explicitId;
             personaToSave.version = marketplaceInfo.version;
             personaToSave.localModifications = false;
-            syncInfo = { status: 'up-to-date', remoteVersion: marketplaceInfo.version };
         }
     }
     
@@ -426,23 +502,16 @@ export async function add(personality: Personality, explicitId?: string): Promis
             danger({ title: 'Sync locked', text: 'Unlock cloud sync before adding personas.' });
             return false;
         }
-        const syncedOk = await syncService.pushPersona(personaToSave as DbPersonality);
+        const syncedOk = await syncService.pushPersona(personaToSave);
         if (!syncedOk) {
             danger({ title: 'Sync failed', text: 'Failed to save persona to cloud.' });
             return false;
         }
-        upsertCachedSyncedPersona(personaToSave as DbPersonality);
+        upsertCachedSyncedPersona(personaToSave);
     } else {
         await db.personalities.add(personaToSave);
     }
-    insertWithSync(personality, id, syncInfo);
-
-    // Move the add card to be the last element
-    const addCard = document.querySelector("#btn-add-personality");
-    if (addCard) {
-        document.querySelector("#personalitiesDiv")?.appendChild(addCard);
-    }
-
+    await reloadFromDb();
     return true;
 }
 
@@ -451,7 +520,10 @@ export async function edit(id: string, personality: Personality) {
     const existing = syncService.isOnlineSyncEnabled()
         ? (await fetchSyncedPersonasCached()).find((p) => p.id === id)
         : await db.personalities.get(id);
-    const updateData: Partial<Personality & { version?: number }> = { ...personality };
+    const updateData: Partial<DbPersonality> = {
+        ...personality,
+        lastModified: Date.now(),
+    };
     
     //if synced from marketplace, set version to 0 to mark as locally modified
     if (existing?.syncedFrom) {
@@ -464,19 +536,19 @@ export async function edit(id: string, personality: Personality) {
             return;
         }
         if (!existing) return;
-        const syncedOk = await syncService.pushPersona({ ...(existing as any), ...updateData, id } as DbPersonality);
+        const merged = normalizePersonaTimestamps({ ...(existing as DbPersonality), ...updateData, id });
+        const syncedOk = await syncService.pushPersona(merged);
         if (!syncedOk) {
             danger({ title: 'Sync failed', text: 'Failed to update persona in cloud.' });
             return;
         }
-        upsertCachedSyncedPersona({ ...(existing as any), ...updateData, id } as DbPersonality);
+        upsertCachedSyncedPersona(merged);
     } else {
         await db.personalities.update(id, updateData);
     }
 
-    //refresh the card with correct sync status
-    await refreshCard(id);
-    
+    await reloadFromDb();
+
     //reselect the personality if it was selected prior
     document.querySelector(`#personality-${id}`)?.querySelector("input")?.click();
 }
@@ -606,6 +678,9 @@ export async function updateFromMarketplace(localId: string, marketplaceId: stri
         return false;
     }
 
+    const existing = await db.table('personalities').get(localId) as DbPersonality | undefined;
+    const now = Date.now();
+
     //map marketplace fields to local DbPersonality format
     const updatedPersona: DbPersonality = {
         id: localId,
@@ -625,6 +700,8 @@ export async function updateFromMarketplace(localId: string, marketplaceId: stri
         syncedFrom: marketplaceId,
         version: marketplaceData.version,
         localModifications: false,
+        dateAdded: existing?.dateAdded ?? now,
+        lastModified: now,
     };
 
     await db.table('personalities').put(updatedPersona);
@@ -646,6 +723,7 @@ export async function duplicateAndUpdate(localId: string, marketplaceId: string)
 
     //create duplicate with new ID and "old - " prefix
     const duplicateId = uuidv4();
+    const now = Date.now();
     const duplicate: DbPersonality = {
         ...current,
         id: duplicateId,
@@ -653,6 +731,8 @@ export async function duplicateAndUpdate(localId: string, marketplaceId: string)
         syncedFrom: undefined, //no longer linked to marketplace
         version: undefined,
         localModifications: false,
+        dateAdded: now,
+        lastModified: now,
     };
 
     await db.table('personalities').put(duplicate);
@@ -771,4 +851,3 @@ function setupMarketplaceBanner() {
         banner.classList.add('hidden');
     });
 }
-

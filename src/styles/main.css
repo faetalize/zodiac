@@ -3658,16 +3658,25 @@ body.full-width-chat #message-box {
     margin-right: 0.4rem;
 }
 
-.chat-search-wrapper input#chat-search-input {
+.chat-search-wrapper input#chat-search-input,
+.chat-search-wrapper input#persona-search-input {
     flex: 1 1 auto;
     border: none;
     background: transparent;
     padding: 0;
-    padding-right: 100px;
     font-size: 0.9rem;
 }
 
-.chat-search-wrapper input#chat-search-input:focus-visible {
+.chat-search-wrapper input#chat-search-input {
+    padding-right: 100px;
+}
+
+.chat-search-wrapper input#persona-search-input {
+    padding-right: 100px;
+}
+
+.chat-search-wrapper input#chat-search-input:focus-visible,
+.chat-search-wrapper input#persona-search-input:focus-visible {
     outline: none;
 }
 

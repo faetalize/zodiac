@@ -1136,9 +1136,15 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
     }
 
     const selectedPersonality = await personalityService.getSelected();
+    const selectedPersonaForHistory = {
+        id: selectedPersonalityId,
+        dateAdded: Date.now(),
+        lastModified: Date.now(),
+        ...selectedPersonality!,
+    };
     const { history: chatHistory, pinnedHistoryIndices } = await constructGeminiChatHistoryFromLocalChat(
         currentChat,
-        { id: selectedPersonalityId, ...selectedPersonality! },
+        selectedPersonaForHistory,
         { enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory }
     );
 
