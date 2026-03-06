@@ -54,6 +54,7 @@ import {
     processGeneratedImagesToParts,
     extractTextAndThinkingFromResponse,
 } from "../utils/chatHistoryBuilder";
+import { resolveThoughtSignature } from "../utils/blobResolver";
 
 import { throwAbortError } from "../utils/abort";
 import { dispatchAppEvent } from "../events";
@@ -1566,9 +1567,10 @@ async function constructGeminiChatHistoryForGroupChatRpg(
             const text = (part.text || "").toString();
             const attachments = part.attachments || [];
 
-            if (text.trim().length > 0 || part.thoughtSignature) {
+            if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
+                const resolvedThoughtSignature = await resolveThoughtSignature(part);
                 const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
-                partObj.thoughtSignature = part.thoughtSignature ?? (shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+                partObj.thoughtSignature = resolvedThoughtSignature ?? (shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
                 aggregatedParts.push(partObj);
             }
 
@@ -1581,7 +1583,7 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 
         const genAiMessage: Content = { role: dbMessage.role, parts: aggregatedParts };
 
-        const imageParts = processGeneratedImagesToParts({
+        const imageParts = await processGeneratedImagesToParts({
             images: dbMessage.generatedImages,
             shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
             enforceThoughtSignatures: shouldEnforceThoughtSignatures,

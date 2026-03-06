@@ -12,6 +12,7 @@
 import type { Message, GeneratedImage } from "../types/Message";
 import type { Chat, DbChat } from "../types/Chat";
 import * as helpers from "./helpers";
+import { resolveAttachmentFile, resolveGeneratedImageSrc, resolveThoughtSignature } from "./blobResolver";
 
 // ================================================================================
 // INDEX FINDING
@@ -92,8 +93,9 @@ export async function processAttachmentsToParts(config: AttachmentProcessingConf
     const { createPartFromBase64 } = await import("@google/genai");
     
     for (const attachment of Array.from(attachments)) {
-        const base64 = await helpers.fileToBase64(attachment);
-        const mimeType = attachment.type || "application/octet-stream";
+        const resolvedAttachment = await resolveAttachmentFile(attachment);
+        const base64 = await helpers.fileToBase64(resolvedAttachment);
+        const mimeType = resolvedAttachment.type || "application/octet-stream";
         parts.push(await createPartFromBase64(base64, mimeType));
     }
     
@@ -114,24 +116,38 @@ export interface GeneratedImageProcessingConfig {
  * Processes generated images into Gemini API inline data parts.
  * Returns an array of parts ready to be added to a message.
  */
-export function processGeneratedImagesToParts(config: GeneratedImageProcessingConfig): any[] {
+export async function processGeneratedImagesToParts(config: GeneratedImageProcessingConfig): Promise<any[]> {
     const { images, shouldProcess, enforceThoughtSignatures, skipThoughtSignatureValidator } = config;
     
     if (!shouldProcess || !images || images.length === 0) {
         return [];
     }
 
-    return images.map(img => {
+    const parts: any[] = [];
+    for (const img of images) {
+        let base64 = img.base64 || "";
+        if (base64.length === 0 && img._blobRef) {
+            const dataUri = await resolveGeneratedImageSrc(img);
+            const commaIdx = dataUri.indexOf(',');
+            base64 = commaIdx >= 0 ? dataUri.slice(commaIdx + 1) : '';
+        }
+        if (!base64) {
+            continue;
+        }
+
+        const resolvedThoughtSignature = await resolveThoughtSignature(img);
+
         const part: any = {
-            inlineData: { data: img.base64, mimeType: img.mimeType }
+            inlineData: { data: base64, mimeType: img.mimeType }
         };
-        part.thoughtSignature = img.thoughtSignature ?? 
+        part.thoughtSignature = resolvedThoughtSignature ??
             (enforceThoughtSignatures ? skipThoughtSignatureValidator : undefined);
         if (img.thought) {
             part.thought = img.thought;
         }
-        return part;
-    });
+        parts.push(part);
+    }
+    return parts;
 }
 
 // ================================================================================

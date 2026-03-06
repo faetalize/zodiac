@@ -14,14 +14,16 @@
 
 import { supabase, getCurrentUser, getSubscriptionTier, getUserSubscription } from './Supabase.service';
 import * as crypto from './Crypto.service';
+import * as blobStore from './BlobStore.service';
 import { db } from './Db.service';
 import { dispatchAppEvent } from '../events';
 import type { SyncStatus } from '../events';
 import type { DbChat } from '../types/Chat';
-import type { Message } from '../types/Message';
+import type { Message, GeneratedImage } from '../types/Message';
 import type { DbPersonality } from '../types/Personality';
+import { isBlobReference, type BlobReference } from '../types/BlobReference';
 import { fileToBase64 } from '../utils/helpers';
-import { SYNCABLE_SETTINGS_KEYS } from '../constants/SettingsStorageKeys';
+import { SETTINGS_STORAGE_KEYS, SYNCABLE_SETTINGS_KEYS } from '../constants/SettingsStorageKeys';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -49,6 +51,22 @@ export interface RemoteMessageWindow {
     hasMoreOlder: boolean;
 }
 
+export interface LegacyMediaMigrationProgress {
+    phase: 'starting' | 'scanning' | 'migrating' | 'finalizing' | 'done';
+    totalRows: number;
+    scannedRows: number;
+    migratedRows: number;
+    failedRows: number;
+    message: string;
+}
+
+export interface LegacyMediaMigrationResult {
+    totalRows: number;
+    scannedRows: number;
+    migratedRows: number;
+    failedRows: number;
+}
+
 interface QueuedOperation {
     id: string;
     table: 'chats' | 'personas' | 'settings';
@@ -69,6 +87,9 @@ const remoteMessageCountByChatId = new Map<string, number>();
 
 const SYNC_PROMPT_SEEN_KEY = 'zodiac-sync-prompt-seen';
 const OFFLINE_QUEUE_KEY = 'zodiac-sync-offline-queue';
+const LEGACY_MEDIA_MIGRATION_BATCH_SIZE = 500;
+const LEGACY_MEDIA_MIGRATION_COMPLETION_VALUE = 'true';
+const LEGACY_MEDIA_MIGRATION_MIN_HEX_CANDIDATE_LENGTH = 8_000;
 const MESSAGE_UPSERT_MAX_ROWS = 1000;
 const MESSAGE_UPSERT_MAX_BYTES = 6_500_000;
 const MESSAGE_DELETE_MARK_BATCH_SIZE = 500;
@@ -112,6 +133,25 @@ export function hasSeenSyncPrompt(): boolean {
 
 export function markSyncPromptSeen(): void {
     localStorage.setItem(SYNC_PROMPT_SEEN_KEY, 'true');
+}
+
+function isLegacyMediaMigrationMarkedComplete(): boolean {
+    return localStorage.getItem(SETTINGS_STORAGE_KEYS.CLOUD_MEDIA_MIGRATION_V1_DONE) === LEGACY_MEDIA_MIGRATION_COMPLETION_VALUE;
+}
+
+function markLegacyMediaMigrationCompleteLocally(): void {
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.CLOUD_MEDIA_MIGRATION_V1_DONE, LEGACY_MEDIA_MIGRATION_COMPLETION_VALUE);
+}
+
+export async function hasCompletedLegacyMediaMigration(): Promise<boolean> {
+    if (isLegacyMediaMigrationMarkedComplete()) {
+        return true;
+    }
+
+    // If this flag came from another device via synced settings, apply it once
+    // before deciding whether to show the migration modal.
+    await applySyncedSettingsToLocalStorage();
+    return isLegacyMediaMigrationMarkedComplete();
 }
 
 // ── Offline queue persistence ──────────────────────────────────────────────
@@ -191,6 +231,10 @@ export function isOnlineSyncEnabled(): boolean {
 
 /**
  * Fetch the user's storage quota from Supabase.
+ *
+ * Server-side triggers on both the sync tables and storage.objects
+ * (`encrypted-blobs` bucket) keep `storage_used_bytes` up-to-date
+ * automatically, so we just read the pre-computed value here.
  */
 export async function fetchSyncQuota(): Promise<SyncQuota | null> {
     const user = await getCurrentUser();
@@ -343,6 +387,7 @@ export async function disableSync(options?: { keepLocalCopy?: boolean }): Promis
 
     if (syncPrefsCache) syncPrefsCache.syncEnabled = false;
     crypto.clearCachedKey();
+    blobStore.clearCache();
     setSyncStatus('idle');
     dispatchAppEvent('sync-setup-complete', { enabled: false });
     return true;
@@ -411,6 +456,7 @@ export async function wipeRemoteData(options?: { keepLocalCopy?: boolean }): Pro
             return false;
         }
         crypto.clearCachedKey();
+        blobStore.clearCache();
         syncPrefsCache = null;
         setSyncStatus('idle');
         dispatchAppEvent('sync-setup-complete', { enabled: false });
@@ -448,6 +494,116 @@ export async function restoreRemoteDataToLocalUnencrypted(): Promise<boolean> {
     }
 }
 
+async function fetchAllSyncedChatsPaged(userId: string): Promise<Array<{
+    id: string;
+    encrypted_data: string;
+    iv: string;
+    updated_at: string | null;
+    deleted: boolean;
+}> | null> {
+    const rows: Array<{
+        id: string;
+        encrypted_data: string;
+        iv: string;
+        updated_at: string | null;
+        deleted: boolean;
+    }> = [];
+
+    let cursorId: string | null = null;
+
+    while (true) {
+        let query = supabase
+            .from('user_synced_chats')
+            .select('id, encrypted_data, iv, updated_at, deleted')
+            .eq('user_id', userId)
+            .order('id', { ascending: true })
+            .limit(READ_PAGE_SIZE);
+
+        if (cursorId !== null) {
+            query = query.gt('id', cursorId);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            console.error(`fetchAllSyncedChatsPaged failed (cursor=${cursorId ?? '∅'}):`, error);
+            return null;
+        }
+
+        if (!data || data.length === 0) {
+            break;
+        }
+
+        rows.push(...data);
+
+        const lastId = data[data.length - 1]?.id;
+        if (typeof lastId !== 'string' || (cursorId !== null && lastId <= cursorId)) {
+            console.error(
+                `fetchAllSyncedChatsPaged: cursor cannot advance (cursor=${cursorId ?? '∅'} lastId=${String(lastId)}).`,
+            );
+            return rows;
+        }
+        cursorId = lastId;
+    }
+
+    return rows;
+}
+
+async function fetchAllSyncedPersonasPaged(userId: string): Promise<Array<{
+    id: string;
+    encrypted_data: string;
+    iv: string;
+    updated_at: string | null;
+    deleted: boolean;
+}> | null> {
+    const rows: Array<{
+        id: string;
+        encrypted_data: string;
+        iv: string;
+        updated_at: string | null;
+        deleted: boolean;
+    }> = [];
+
+    let cursorId: string | null = null;
+
+    while (true) {
+        let query = supabase
+            .from('user_synced_personas')
+            .select('id, encrypted_data, iv, updated_at, deleted')
+            .eq('user_id', userId)
+            .order('id', { ascending: true })
+            .limit(READ_PAGE_SIZE);
+
+        if (cursorId !== null) {
+            query = query.gt('id', cursorId);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            console.error(`fetchAllSyncedPersonasPaged failed (cursor=${cursorId ?? '∅'}):`, error);
+            return null;
+        }
+
+        if (!data || data.length === 0) {
+            break;
+        }
+
+        rows.push(...data);
+
+        const lastId = data[data.length - 1]?.id;
+        if (typeof lastId !== 'string' || (cursorId !== null && lastId <= cursorId)) {
+            console.error(
+                `fetchAllSyncedPersonasPaged: cursor cannot advance (cursor=${cursorId ?? '∅'} lastId=${String(lastId)}).`,
+            );
+            return rows;
+        }
+        cursorId = lastId;
+    }
+
+    return rows;
+}
+
 export async function fetchSyncedChatsMetadata(): Promise<DbChat[]> {
     if (!isSyncActive()) return [];
 
@@ -455,20 +611,17 @@ export async function fetchSyncedChatsMetadata(): Promise<DbChat[]> {
     const key = crypto.getCachedKey();
     if (!user || !key) return [];
 
-    const { data, error } = await supabase
-        .from('user_synced_chats')
-        .select('id, encrypted_data, iv, deleted')
-        .eq('user_id', user.id)
-        .eq('deleted', false);
-
-    if (error || !data) {
-        console.error('fetchSyncedChatsMetadata failed:', error);
+    const data = await fetchAllSyncedChatsPaged(user.id);
+    if (!data) {
+        console.error('fetchSyncedChatsMetadata failed to read synced chats');
         return [];
     }
 
+    const activeRows = data.filter((row) => !row.deleted);
+
     // Decrypt all rows concurrently for faster sidebar population
     const results = await Promise.allSettled(
-        data.map(async (row) => {
+        activeRows.map(async (row) => {
             const plaintext = await crypto.decrypt(
                 key,
                 crypto.fromHex(row.encrypted_data),
@@ -538,19 +691,17 @@ export async function fetchSyncedPersonas(): Promise<DbPersonality[]> {
     const key = crypto.getCachedKey();
     if (!user || !key) return [];
 
-    const { data, error } = await supabase
-        .from('user_synced_personas')
-        .select('id, encrypted_data, iv, deleted')
-        .eq('user_id', user.id)
-        .eq('deleted', false);
+    const data = await fetchAllSyncedPersonasPaged(user.id);
 
-    if (error || !data) {
-        console.error('fetchSyncedPersonas failed:', error);
+    if (!data) {
+        console.error('fetchSyncedPersonas failed to read synced personas');
         return [];
     }
 
+    const activeRows = data.filter((row) => !row.deleted);
+
     const personas: DbPersonality[] = [];
-    for (const row of data) {
+    for (const row of activeRows) {
         try {
             const plaintext = await crypto.decrypt(
                 key,
@@ -628,27 +779,242 @@ function serializeChatMetadata(chat: DbChat, messageCountOverride?: number): str
     return JSON.stringify(metadata);
 }
 
-async function serializeMessage(message: Message): Promise<string> {
+/**
+ * Serialized attachment — either inline base64 or a BlobReference.
+ */
+interface SerializedAttachment {
+    name: string;
+    type: string;
+    lastModified: number;
+    size: number;
+    base64: string | BlobReference;
+}
+
+function estimateBase64ByteLength(base64: string): number {
+    if (!base64) return 0;
+    const len = base64.length;
+    let padding = 0;
+    if (base64.endsWith('==')) {
+        padding = 2;
+    } else if (base64.endsWith('=')) {
+        padding = 1;
+    }
+    return Math.max(0, Math.floor((len * 3) / 4) - padding);
+}
+
+function utf8Encode(text: string): Uint8Array {
+    return new TextEncoder().encode(text);
+}
+
+/**
+ * Serialize a message for cloud sync.
+ *
+ * Large payload fields (>BLOB_SIZE_THRESHOLD) are extracted, encrypted, and
+ * uploaded to blob storage. This includes image/attachment base64 and very
+ * large thoughtSignature strings. The serialized JSON contains BlobReferences
+ * instead of inline payloads for those items.
+ *
+ * If blob upload fails for any item, it falls back to inline base64 so the
+ * message still syncs (just larger).
+ *
+ * @returns The serialized JSON string AND an array of uploaded blob IDs
+ *          (for cleanup on downstream failure).
+ */
+async function serializeMessage(message: Message): Promise<{ json: string; uploadedBlobIds: string[] }> {
+    const uploadedBlobIds: string[] = [];
+
+    // ── Serialize generatedImages ──────────────────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let serializedGeneratedImages: any[] | undefined;
+    if (message.generatedImages && message.generatedImages.length > 0) {
+        const preservedImageRefs = new Map<number, BlobReference>();
+        const preservedThoughtSignatureRefs = new Map<number, BlobReference>();
+        const imageUploadItems: Array<{ index: number; data: Uint8Array; mimeType: string }> = [];
+        const thoughtSignatureUploadItems: Array<{ index: number; data: Uint8Array }> = [];
+
+        for (let i = 0; i < message.generatedImages.length; i++) {
+            const img = message.generatedImages[i];
+
+            // Preserve existing image blob reference if available.
+            if (img._blobRef) {
+                preservedImageRefs.set(i, img._blobRef);
+            } else if (img.base64 && img.base64.length > 0) {
+                const estimatedBytes = estimateBase64ByteLength(img.base64);
+                if (estimatedBytes > blobStore.BLOB_SIZE_THRESHOLD) {
+                    const rawBytes = blobStore.base64ToUint8Array(img.base64);
+                    if (rawBytes.byteLength > blobStore.BLOB_SIZE_THRESHOLD) {
+                        imageUploadItems.push({ index: i, data: rawBytes, mimeType: img.mimeType });
+                    }
+                }
+            }
+
+            // Preserve existing thoughtSignature blob reference if available.
+            if (img._thoughtSignatureRef) {
+                preservedThoughtSignatureRefs.set(i, img._thoughtSignatureRef);
+            } else if (typeof img.thoughtSignature === 'string' && img.thoughtSignature.length > 0) {
+                const sigBytes = utf8Encode(img.thoughtSignature);
+                if (sigBytes.byteLength > blobStore.BLOB_SIZE_THRESHOLD) {
+                    thoughtSignatureUploadItems.push({ index: i, data: sigBytes });
+                }
+            }
+        }
+
+        const imageBlobRefs = new Map<number, BlobReference>();
+        if (imageUploadItems.length > 0) {
+            try {
+                const refs = await blobStore.uploadEncryptedBlobsBatch(
+                    imageUploadItems.map(item => ({ data: item.data, mimeType: item.mimeType })),
+                );
+                for (let j = 0; j < imageUploadItems.length; j++) {
+                    imageBlobRefs.set(imageUploadItems[j].index, refs[j]);
+                    uploadedBlobIds.push(refs[j].blobId);
+                }
+            } catch (err) {
+                console.warn('serializeMessage: blob upload failed for generatedImages, falling back to inline:', err);
+            }
+        }
+
+        const thoughtSignatureBlobRefs = new Map<number, BlobReference>();
+        if (thoughtSignatureUploadItems.length > 0) {
+            try {
+                const refs = await blobStore.uploadEncryptedBlobsBatch(
+                    thoughtSignatureUploadItems.map(item => ({ data: item.data, mimeType: 'text/plain;charset=utf-8' })),
+                );
+                for (let j = 0; j < thoughtSignatureUploadItems.length; j++) {
+                    thoughtSignatureBlobRefs.set(thoughtSignatureUploadItems[j].index, refs[j]);
+                    uploadedBlobIds.push(refs[j].blobId);
+                }
+            } catch (err) {
+                console.warn('serializeMessage: blob upload failed for generatedImage thought signatures, falling back to inline:', err);
+            }
+        }
+
+        // Build the serialized array, preserving existing refs and adding new refs.
+        serializedGeneratedImages = message.generatedImages.map((img, i) => {
+            const imageRef = imageBlobRefs.get(i) ?? preservedImageRefs.get(i);
+            const thoughtSignatureRef = thoughtSignatureBlobRefs.get(i) ?? preservedThoughtSignatureRefs.get(i);
+            const { _blobRef, _thoughtSignatureRef, ...rest } = img;
+            const serialized: any = { ...rest };
+            if (imageRef) {
+                serialized.base64 = imageRef as unknown as string | BlobReference;
+            }
+            if (thoughtSignatureRef) {
+                serialized.thoughtSignature = thoughtSignatureRef as unknown as string | BlobReference;
+            }
+            return serialized;
+        });
+    }
+
+    // ── Serialize parts (with attachments) ─────────────────────────────
     const parts = await Promise.all((message.parts || []).map(async (part: any) => {
         const attachments = Array.from<File>(part.attachments || []);
-        const serializedAttachments = await Promise.all(attachments.map(async (file: File) => ({
-            name: file.name,
-            type: file.type,
-            lastModified: file.lastModified,
-            size: file.size,
-            base64: await fileToBase64(file),
-        })));
+        const preservedAttachmentRefs = new Map<number, BlobReference>();
+        const preservedPartThoughtSignatureRef = (part as any)._thoughtSignatureRef as BlobReference | undefined;
+        let partThoughtSignatureRef: BlobReference | undefined;
 
-        return {
-            ...part,
+        const attachmentUploadItems: Array<{ index: number; data: Uint8Array; mimeType: string }> = [];
+
+        for (let i = 0; i < attachments.length; i++) {
+            const file = attachments[i];
+
+            // Preserve existing blob reference on placeholder files.
+            const existingRef = (file as any)._blobRef as BlobReference | undefined;
+            if (existingRef && file.size === 0) {
+                preservedAttachmentRefs.set(i, existingRef);
+                continue;
+            }
+
+            if (file.size <= blobStore.BLOB_SIZE_THRESHOLD) {
+                continue;
+            }
+
+            const arrayBuf = await file.arrayBuffer();
+            const rawBytes = new Uint8Array(arrayBuf);
+            if (rawBytes.byteLength > blobStore.BLOB_SIZE_THRESHOLD) {
+                attachmentUploadItems.push({ index: i, data: rawBytes, mimeType: file.type });
+            }
+        }
+
+        const attachmentBlobRefs = new Map<number, BlobReference>();
+        if (attachmentUploadItems.length > 0) {
+            try {
+                const refs = await blobStore.uploadEncryptedBlobsBatch(
+                    attachmentUploadItems.map(item => ({ data: item.data, mimeType: item.mimeType })),
+                );
+                for (let j = 0; j < attachmentUploadItems.length; j++) {
+                    attachmentBlobRefs.set(attachmentUploadItems[j].index, refs[j]);
+                    uploadedBlobIds.push(refs[j].blobId);
+                }
+            } catch (err) {
+                console.warn('serializeMessage: blob upload failed for attachments, falling back to inline:', err);
+            }
+        }
+
+        if (preservedPartThoughtSignatureRef) {
+            partThoughtSignatureRef = preservedPartThoughtSignatureRef;
+        } else if (typeof part.thoughtSignature === 'string' && part.thoughtSignature.length > 0) {
+            const sigBytes = utf8Encode(part.thoughtSignature);
+            if (sigBytes.byteLength > blobStore.BLOB_SIZE_THRESHOLD) {
+                try {
+                    partThoughtSignatureRef = await blobStore.uploadEncryptedBlob(sigBytes, 'text/plain;charset=utf-8');
+                    uploadedBlobIds.push(partThoughtSignatureRef.blobId);
+                } catch (err) {
+                    console.warn('serializeMessage: blob upload failed for part thoughtSignature, falling back to inline:', err);
+                }
+            }
+        }
+
+        const serializedAttachments: SerializedAttachment[] = await Promise.all(
+            attachments.map(async (file: File, i: number) => {
+                const ref = attachmentBlobRefs.get(i) ?? preservedAttachmentRefs.get(i);
+                if (ref) {
+                    return {
+                        name: file.name,
+                        type: file.type,
+                        lastModified: file.lastModified,
+                        size: file.size,
+                        base64: ref as unknown as string | BlobReference,
+                    };
+                }
+
+                return {
+                    name: file.name,
+                    type: file.type,
+                    lastModified: file.lastModified,
+                    size: file.size,
+                    base64: await fileToBase64(file),
+                };
+            }),
+        );
+
+        const { _thoughtSignatureRef, ...restPart } = part;
+        const serializedPart: any = {
+            ...restPart,
             attachments: serializedAttachments,
         };
+
+        if (partThoughtSignatureRef) {
+            serializedPart.thoughtSignature = partThoughtSignatureRef as unknown as string | BlobReference;
+        }
+
+        return serializedPart;
     }));
 
-    return JSON.stringify({
-        ...message,
-        parts,
-    });
+    // ── Build final JSON ───────────────────────────────────────────────
+    const serializable: any = { ...message, parts };
+    // Strip runtime-only _blobRef from the serialized payload
+    if (serializedGeneratedImages) {
+        serializable.generatedImages = serializedGeneratedImages;
+    }
+    // Strip runtime-only refs from any generatedImages that may have been left inline
+    if (serializable.generatedImages) {
+        serializable.generatedImages = serializable.generatedImages.map((img: any) => {
+            const { _blobRef, _thoughtSignatureRef, ...rest } = img;
+            return rest;
+        });
+    }
+
+    return { json: JSON.stringify(serializable), uploadedBlobIds };
 }
 
 function base64ToFile(base64: string, name: string, type: string, lastModified: number): File {
@@ -662,25 +1028,76 @@ function base64ToFile(base64: string, name: string, type: string, lastModified: 
     return new File([blob], name || 'attachment', { type: type || 'application/octet-stream', lastModified: lastModified || Date.now() });
 }
 
+/**
+ * Deserialize a message from cloud sync JSON.
+ *
+ * Handles both old format (inline base64) and new format (BlobReference).
+ * For blob references:
+ *   - generatedImages: sets base64='' and _blobRef=ref (lazy resolution by renderer)
+ *   - thought signatures: sets *_thoughtSignatureRef for lazy resolution during history build
+ *   - attachments: creates a placeholder empty File with _blobRef metadata (lazy resolution)
+ */
 function deserializeMessage(message: any): Message {
-    return {
-        ...message,
-        parts: (message.parts || []).map((part: any) => {
-            const serializedAttachments = Array.isArray(part.attachments) ? part.attachments : [];
-            const files = serializedAttachments.map((att: any) => {
-                try {
-                    return base64ToFile(att.base64 || '', att.name || 'attachment', att.type || 'application/octet-stream', att.lastModified || Date.now());
-                } catch {
-                    return null;
-                }
-            }).filter(Boolean);
+    // ── Handle generatedImages (inline or blob ref) ────────────────────
+    let generatedImages: GeneratedImage[] | undefined;
+    if (Array.isArray(message.generatedImages) && message.generatedImages.length > 0) {
+        generatedImages = message.generatedImages.map((img: any) => {
+            const imageRef = isBlobReference(img.base64) ? img.base64 : undefined;
+            const thoughtSignatureRef = isBlobReference(img.thoughtSignature) ? img.thoughtSignature : undefined;
 
             return {
-                ...part,
-                attachments: files,
-            };
-        }),
-    } as Message;
+                mimeType: img.mimeType,
+                base64: imageRef ? '' : (typeof img.base64 === 'string' ? img.base64 : ''),
+                thoughtSignature: thoughtSignatureRef
+                    ? undefined
+                    : (typeof img.thoughtSignature === 'string' ? img.thoughtSignature : undefined),
+                thought: img.thought,
+                _blobRef: imageRef,
+                _thoughtSignatureRef: thoughtSignatureRef,
+            } satisfies GeneratedImage;
+        });
+    }
+
+    // ── Handle parts with attachments (inline or blob ref) ─────────────
+    const parts = (message.parts || []).map((part: any) => {
+        const serializedAttachments = Array.isArray(part.attachments) ? part.attachments : [];
+        const files = serializedAttachments.map((att: any) => {
+            if (isBlobReference(att.base64)) {
+                // New format: blob reference attachment — create a small placeholder File.
+                // The _blobRef metadata is stored on the File object for lazy resolution.
+                const placeholder = new File([], att.name || 'attachment', {
+                    type: att.type || 'application/octet-stream',
+                    lastModified: att.lastModified || Date.now(),
+                });
+                // Attach the blob reference as an expando property for downstream resolution
+                (placeholder as any)._blobRef = att.base64 as BlobReference;
+                return placeholder;
+            }
+            // Old format: inline base64
+            try {
+                return base64ToFile(att.base64 || '', att.name || 'attachment', att.type || 'application/octet-stream', att.lastModified || Date.now());
+            } catch {
+                return null;
+            }
+        }).filter(Boolean);
+
+        const thoughtSignatureRef = isBlobReference(part.thoughtSignature) ? part.thoughtSignature : undefined;
+
+        return {
+            ...part,
+            thoughtSignature: thoughtSignatureRef
+                ? undefined
+                : (typeof part.thoughtSignature === 'string' ? part.thoughtSignature : undefined),
+            _thoughtSignatureRef: thoughtSignatureRef,
+            attachments: files,
+        };
+    });
+
+    const result: any = { ...message, parts };
+    if (generatedImages) {
+        result.generatedImages = generatedImages;
+    }
+    return result as Message;
 }
 
 function parseChatMetadata(chatId: string, raw: any): { chat: DbChat; messageCount: number } {
@@ -792,9 +1209,11 @@ async function pushChatMessagesRange(chat: DbChat, startInclusive: number, endEx
     let currentBatchBytes = 2; // Account for JSON array brackets: []
 
     for (let messageIndex = clampedStart; messageIndex < clampedEnd; messageIndex++) {
+        let uploadedBlobIdsForMessage: string[] = [];
         try {
             const message = chat.content[messageIndex];
-            const plaintext = await serializeMessage(message);
+            const { json: plaintext, uploadedBlobIds } = await serializeMessage(message);
+            uploadedBlobIdsForMessage = uploadedBlobIds;
             const { ciphertext, iv } = await crypto.encrypt(key, plaintext);
 
             const row = {
@@ -827,6 +1246,10 @@ async function pushChatMessagesRange(chat: DbChat, startInclusive: number, endEx
                 messageIndex,
                 err,
             );
+            // Clean up only blobs uploaded while serializing this message.
+            if (uploadedBlobIdsForMessage.length > 0) {
+                blobStore.deleteBlobsBatch(uploadedBlobIdsForMessage).catch(() => {});
+            }
             failures += 1;
             enqueue({ table: 'chats', operation: 'upsert', entityId: chat.id });
         }
@@ -848,13 +1271,31 @@ function messageSignature(message: Message): string {
         hidden: message.hidden,
         interrupted: message.interrupted,
         roundIndex: message.roundIndex,
-        generatedImages: message.generatedImages,
+        // Use content-addressable metadata for images instead of full base64.
+        // This avoids re-syncing a message just because the storage format
+        // changed (inline vs blob ref) while the image content is the same.
+        generatedImages: (message.generatedImages || []).map((img) => ({
+            mimeType: img.mimeType,
+            thoughtSignatureSize: typeof img.thoughtSignature === 'string'
+                ? img.thoughtSignature.length
+                : img._thoughtSignatureRef?.size ?? 0,
+            thought: img.thought,
+            // Use base64 length as a stable size proxy — cheaper than hashing.
+            // For blob-ref images (base64=''), use the _blobRef.size if available.
+            size: img.base64.length > 0
+                ? img.base64.length
+                : img._blobRef?.size ?? 0,
+        })),
         parts: (message.parts || []).map((part) => ({
             text: part.text,
-            thoughtSignature: part.thoughtSignature,
+            thoughtSignatureSize: typeof part.thoughtSignature === 'string'
+                ? part.thoughtSignature.length
+                : part._thoughtSignatureRef?.size ?? 0,
             attachments: Array.from(part.attachments || []).map((file) => ({
                 name: file.name,
-                size: file.size,
+                size: file.size > 0
+                    ? file.size
+                    : ((file as any)?._blobRef?.size ?? 0),
                 type: file.type,
                 lastModified: file.lastModified,
             })),
@@ -955,6 +1396,16 @@ async function pushChatIncremental(previous: DbChat | undefined, current: DbChat
     const failures = await pushChatMessagesRange(current, diffStart, currentMessages.length);
     if (currentMessages.length < previousMessages.length) {
         await markDeletedMessages(current.id, currentMessages.length, previousMessages.length);
+
+        // Clean up blobs from deleted messages (fire-and-forget).
+        // The previous messages are in memory so we can extract blob refs directly.
+        const deletedMessages = previousMessages.slice(currentMessages.length);
+        const blobIds = extractBlobIdsFromMessages(deletedMessages);
+        if (blobIds.length > 0) {
+            blobStore.deleteBlobsBatch(blobIds).catch((err) => {
+                console.warn(`pushChatIncremental: blob cleanup failed for ${blobIds.length} blobs:`, err);
+            });
+        }
     }
 
     hydratedChats.add(current.id);
@@ -963,7 +1414,100 @@ async function pushChatIncremental(previous: DbChat | undefined, current: DbChat
 }
 
 /**
+ * Extract blob IDs from in-memory Message objects.
+ * Used when the messages are already decrypted/hydrated locally
+ * (e.g., during pushChatIncremental when messages are removed).
+ */
+function extractBlobIdsFromMessages(messages: Message[]): string[] {
+    const blobIds = new Set<string>();
+    for (const msg of messages) {
+        if (msg.generatedImages) {
+            for (const img of msg.generatedImages) {
+                if (img._blobRef) {
+                    blobIds.add(img._blobRef.blobId);
+                }
+                if (img._thoughtSignatureRef) {
+                    blobIds.add(img._thoughtSignatureRef.blobId);
+                }
+            }
+        }
+        for (const part of msg.parts || []) {
+            if (part._thoughtSignatureRef) {
+                blobIds.add(part._thoughtSignatureRef.blobId);
+            }
+            const attachments = Array.from(part.attachments || []);
+            for (const file of attachments) {
+                const ref = (file as any)?._blobRef;
+                if (ref && typeof ref.blobId === 'string') {
+                    blobIds.add(ref.blobId);
+                }
+            }
+        }
+    }
+    return Array.from(blobIds);
+}
+
+/**
+ * Extract blob IDs from a set of encrypted message rows.
+ * Decrypts each message, parses the JSON, and collects any BlobReference blobIds
+ * found in generatedImages, part thought signatures, or parts[].attachments.
+ *
+ * Best-effort: decryption failures are silently skipped.
+ */
+async function extractBlobIdsFromEncryptedMessages(
+    rows: Array<{ encrypted_data: string; iv: string }>,
+): Promise<string[]> {
+    const key = crypto.getCachedKey();
+    if (!key) return [];
+
+    const blobIds = new Set<string>();
+    for (const row of rows) {
+        try {
+            const plaintext = await crypto.decrypt(
+                key,
+                crypto.fromHex(row.encrypted_data),
+                crypto.fromHex(row.iv),
+            );
+            const parsed = JSON.parse(plaintext);
+
+            // Check generatedImages
+            if (Array.isArray(parsed.generatedImages)) {
+                for (const img of parsed.generatedImages) {
+                    if (isBlobReference(img.base64)) {
+                        blobIds.add(img.base64.blobId);
+                    }
+                    if (isBlobReference(img.thoughtSignature)) {
+                        blobIds.add(img.thoughtSignature.blobId);
+                    }
+                }
+            }
+
+            // Check parts[].attachments
+            if (Array.isArray(parsed.parts)) {
+                for (const part of parsed.parts) {
+                    if (isBlobReference(part.thoughtSignature)) {
+                        blobIds.add(part.thoughtSignature.blobId);
+                    }
+                    if (Array.isArray(part.attachments)) {
+                        for (const att of part.attachments) {
+                            if (isBlobReference(att.base64)) {
+                                blobIds.add(att.base64.blobId);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch {
+            // Decryption or parse failure — skip this message
+        }
+    }
+
+    return Array.from(blobIds);
+}
+
+/**
  * Mark a chat as deleted on Supabase (soft delete).
+ * Also cleans up any associated encrypted blobs in storage.
  */
 export async function deleteSyncedChat(chatId: string): Promise<boolean> {
     if (!isSyncActive()) return false;
@@ -971,6 +1515,37 @@ export async function deleteSyncedChat(chatId: string): Promise<boolean> {
     if (!user) return false;
 
     try {
+        // ── Collect blob IDs from messages before soft-deleting ─────────
+        // We need to read the encrypted messages BEFORE marking them deleted
+        // so we can extract any blob references for cleanup.
+        const blobIdsToDelete: string[] = [];
+        try {
+            let cursor = 0;
+            const BLOB_SCAN_PAGE = 500;
+            while (true) {
+                const { data, error } = await supabase
+                    .from('user_synced_messages')
+                    .select('encrypted_data, iv')
+                    .eq('user_id', user.id)
+                    .eq('chat_id', chatId)
+                    .eq('deleted', false)
+                    .gte('message_index', cursor)
+                    .order('message_index', { ascending: true })
+                    .limit(BLOB_SCAN_PAGE);
+
+                if (error || !data || data.length === 0) break;
+
+                const ids = await extractBlobIdsFromEncryptedMessages(data);
+                blobIdsToDelete.push(...ids);
+
+                if (data.length < BLOB_SCAN_PAGE) break;
+                cursor += data.length;
+            }
+        } catch (err) {
+            console.warn('deleteSyncedChat: blob ID extraction failed (will skip blob cleanup):', err);
+        }
+
+        // ── Soft-delete the chat ───────────────────────────────────────
         const { error: chatError } = await supabase
             .from('user_synced_chats')
             .update({ deleted: true })
@@ -983,6 +1558,7 @@ export async function deleteSyncedChat(chatId: string): Promise<boolean> {
             return false;
         }
 
+        // ── Soft-delete all messages ───────────────────────────────────
         const { data: latestMessage, error: latestError } = await supabase
             .from('user_synced_messages')
             .select('message_index')
@@ -1021,6 +1597,13 @@ export async function deleteSyncedChat(chatId: string): Promise<boolean> {
                     break;
                 }
             }
+        }
+
+        // ── Clean up blobs (fire-and-forget) ───────────────────────────
+        if (blobIdsToDelete.length > 0) {
+            blobStore.deleteBlobsBatch(blobIdsToDelete).catch((err) => {
+                console.warn(`deleteSyncedChat: blob cleanup failed for ${blobIdsToDelete.length} blobs:`, err);
+            });
         }
 
         hydratedChats.delete(chatId);
@@ -1193,6 +1776,267 @@ export async function pushCurrentSettings(): Promise<boolean> {
     return pushSettings(settings);
 }
 
+function hasInlineMediaAboveThreshold(message: any): boolean {
+    if (Array.isArray(message?.generatedImages)) {
+        for (const img of message.generatedImages) {
+            if (typeof img?.base64 === 'string' && estimateBase64ByteLength(img.base64) > blobStore.BLOB_SIZE_THRESHOLD) {
+                return true;
+            }
+            if (typeof img?.thoughtSignature === 'string' && utf8Encode(img.thoughtSignature).byteLength > blobStore.BLOB_SIZE_THRESHOLD) {
+                return true;
+            }
+        }
+    }
+
+    if (Array.isArray(message?.parts)) {
+        for (const part of message.parts) {
+            if (typeof part?.thoughtSignature === 'string' && utf8Encode(part.thoughtSignature).byteLength > blobStore.BLOB_SIZE_THRESHOLD) {
+                return true;
+            }
+
+            if (typeof part?.inlineData?.data === 'string' && estimateBase64ByteLength(part.inlineData.data) > blobStore.BLOB_SIZE_THRESHOLD) {
+                return true;
+            }
+
+            if (!Array.isArray(part?.attachments)) continue;
+            for (const att of part.attachments) {
+                if (typeof att?.base64 === 'string' && estimateBase64ByteLength(att.base64) > blobStore.BLOB_SIZE_THRESHOLD) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+function emitLegacyMediaMigrationProgress(
+    cb: ((progress: LegacyMediaMigrationProgress) => void) | undefined,
+    progress: LegacyMediaMigrationProgress,
+): void {
+    cb?.(progress);
+}
+
+export async function shouldRunLegacyMediaMigration(): Promise<boolean> {
+    if (!isSyncActive()) return false;
+    return !(await hasCompletedLegacyMediaMigration());
+}
+
+export async function migrateLegacySyncedMediaToBlobs(
+    onProgress?: (progress: LegacyMediaMigrationProgress) => void,
+): Promise<LegacyMediaMigrationResult> {
+    if (!isSyncActive()) {
+        throw new Error('Cloud sync is not active. Unlock sync before running migration.');
+    }
+
+    const user = await getCurrentUser();
+    const key = crypto.getCachedKey();
+    if (!user || !key) {
+        throw new Error('Not authenticated or key not cached.');
+    }
+
+    const totalCountQuery = await supabase
+        .from('user_synced_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('deleted', false);
+
+    if (totalCountQuery.error) {
+        throw new Error(`Failed to count synced messages: ${totalCountQuery.error.message}`);
+    }
+
+    const totalRows = totalCountQuery.count ?? 0;
+    let scannedRows = 0;
+    let migratedRows = 0;
+    let failedRows = 0;
+
+    emitLegacyMediaMigrationProgress(onProgress, {
+        phase: 'starting',
+        totalRows,
+        scannedRows,
+        migratedRows,
+        failedRows,
+        message: 'Preparing migration…',
+    });
+
+    if (totalRows === 0) {
+        markLegacyMediaMigrationCompleteLocally();
+        await pushCurrentSettings();
+        emitLegacyMediaMigrationProgress(onProgress, {
+            phase: 'done',
+            totalRows,
+            scannedRows,
+            migratedRows,
+            failedRows,
+            message: 'No synced messages found. Migration complete.',
+        });
+        return { totalRows, scannedRows, migratedRows, failedRows };
+    }
+
+    for (let offset = 0; offset < totalRows; offset += LEGACY_MEDIA_MIGRATION_BATCH_SIZE) {
+        const { data, error } = await supabase
+            .from('user_synced_messages')
+            .select('chat_id, message_index, encrypted_data, iv')
+            .eq('user_id', user.id)
+            .eq('deleted', false)
+            .order('chat_id', { ascending: true })
+            .order('message_index', { ascending: true })
+            .range(offset, offset + LEGACY_MEDIA_MIGRATION_BATCH_SIZE - 1);
+
+        if (error) {
+            throw new Error(`Failed to fetch synced messages for migration: ${error.message}`);
+        }
+
+        if (!data || data.length === 0) {
+            break;
+        }
+
+        for (const row of data) {
+            scannedRows += 1;
+            emitLegacyMediaMigrationProgress(onProgress, {
+                phase: 'scanning',
+                totalRows,
+                scannedRows,
+                migratedRows,
+                failedRows,
+                message: `Scanning message ${scannedRows} / ${totalRows}…`,
+            });
+
+            if ((row.encrypted_data?.length ?? 0) < LEGACY_MEDIA_MIGRATION_MIN_HEX_CANDIDATE_LENGTH) {
+                continue;
+            }
+
+            try {
+                const plaintext = await crypto.decrypt(
+                    key,
+                    crypto.fromHex(row.encrypted_data),
+                    crypto.fromHex(row.iv),
+                );
+
+                const parsed = JSON.parse(plaintext);
+                if (!hasInlineMediaAboveThreshold(parsed)) {
+                    continue;
+                }
+
+                emitLegacyMediaMigrationProgress(onProgress, {
+                    phase: 'migrating',
+                    totalRows,
+                    scannedRows,
+                    migratedRows,
+                    failedRows,
+                    message: `Migrating media (${migratedRows + 1} so far)…`,
+                });
+
+                const deserialized = deserializeMessage(parsed);
+                const { json, uploadedBlobIds } = await serializeMessage(deserialized);
+                let stillHasInlineMedia = false;
+                try {
+                    stillHasInlineMedia = hasInlineMediaAboveThreshold(JSON.parse(json));
+                } catch {
+                    // If the serialized JSON is invalid for any reason, treat this row
+                    // as unresolved so the migration fails loudly and can be retried.
+                    stillHasInlineMedia = true;
+                }
+
+                // If serialization didn't materially change the payload, skip update.
+                if (json === plaintext) {
+                    if (uploadedBlobIds.length > 0) {
+                        await blobStore.deleteBlobsBatch(uploadedBlobIds);
+                    }
+
+                    if (stillHasInlineMedia) {
+                        failedRows += 1;
+                        console.error(
+                            'Legacy media migration: row still contains oversized inline media after conversion attempt',
+                            row.chat_id,
+                            row.message_index,
+                        );
+                    }
+                    continue;
+                }
+
+                const { ciphertext, iv } = await crypto.encrypt(key, json);
+                const { error: updateError } = await supabase
+                    .from('user_synced_messages')
+                    .update({
+                        encrypted_data: crypto.toHex(ciphertext),
+                        iv: crypto.toHex(iv),
+                    })
+                    .eq('user_id', user.id)
+                    .eq('chat_id', row.chat_id)
+                    .eq('message_index', row.message_index);
+
+                if (updateError) {
+                    if (uploadedBlobIds.length > 0) {
+                        await blobStore.deleteBlobsBatch(uploadedBlobIds);
+                    }
+                    failedRows += 1;
+                    console.error(
+                        'Legacy media migration: failed to update message row',
+                        row.chat_id,
+                        row.message_index,
+                        updateError,
+                    );
+                    continue;
+                }
+
+                if (stillHasInlineMedia) {
+                    failedRows += 1;
+                    console.error(
+                        'Legacy media migration: row updated but oversized inline media still remains',
+                        row.chat_id,
+                        row.message_index,
+                    );
+                    continue;
+                }
+
+                migratedRows += 1;
+            } catch (rowError) {
+                failedRows += 1;
+                console.error(
+                    'Legacy media migration: failed processing message row',
+                    row.chat_id,
+                    row.message_index,
+                    rowError,
+                );
+            }
+        }
+    }
+
+    emitLegacyMediaMigrationProgress(onProgress, {
+        phase: 'finalizing',
+        totalRows,
+        scannedRows,
+        migratedRows,
+        failedRows,
+        message: 'Finalizing migration…',
+    });
+
+    if (failedRows > 0) {
+        throw new Error(`Migration completed with ${failedRows} failed row(s). Please retry.`);
+    }
+
+    markLegacyMediaMigrationCompleteLocally();
+    await pushCurrentSettings();
+    await fetchSyncQuota();
+
+    emitLegacyMediaMigrationProgress(onProgress, {
+        phase: 'done',
+        totalRows,
+        scannedRows,
+        migratedRows,
+        failedRows,
+        message: 'Migration complete.',
+    });
+
+    return {
+        totalRows,
+        scannedRows,
+        migratedRows,
+        failedRows,
+    };
+}
+
 // ── Pull operations (remote → local) ───────────────────────────────────────
 
 /**
@@ -1228,13 +2072,10 @@ export async function pullAll(): Promise<void> {
 }
 
 async function pullChats(userId: string, key: CryptoKey, options?: { hydrateMessages?: boolean }): Promise<void> {
-    const { data, error } = await supabase
-        .from('user_synced_chats')
-        .select('id, encrypted_data, iv, updated_at, deleted')
-        .eq('user_id', userId);
+    const data = await fetchAllSyncedChatsPaged(userId);
 
-    if (error || !data) {
-        console.error('pullChats failed:', error);
+    if (!data) {
+        console.error('pullChats failed to read synced chats');
         return;
     }
 
@@ -1557,13 +2398,10 @@ export async function fetchAllSyncedChatMessages(chatId: string, options?: { sig
 }
 
 async function pullPersonas(userId: string, key: CryptoKey): Promise<void> {
-    const { data, error } = await supabase
-        .from('user_synced_personas')
-        .select('id, encrypted_data, iv, updated_at, deleted')
-        .eq('user_id', userId);
+    const data = await fetchAllSyncedPersonasPaged(userId);
 
-    if (error || !data) {
-        console.error('pullPersonas failed:', error);
+    if (!data) {
+        console.error('pullPersonas failed to read synced personas');
         return;
     }
 
@@ -1580,6 +2418,13 @@ async function pullPersonas(userId: string, key: CryptoKey): Promise<void> {
                 crypto.fromHex(row.iv),
             );
             const persona: DbPersonality = JSON.parse(plaintext);
+            const now = Date.now();
+            if (typeof (persona as any).dateAdded !== 'number') {
+                (persona as any).dateAdded = now;
+            }
+            if (typeof (persona as any).lastModified !== 'number') {
+                (persona as any).lastModified = (persona as any).dateAdded;
+            }
             await db.personalities.put(persona);
         } catch (err) {
             console.error(`pullPersonas: failed to decrypt persona ${row.id}`, err);

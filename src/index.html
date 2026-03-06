@@ -85,6 +85,31 @@
             </div>
         </div>
 
+        <!-- Cloud Sync: One-time media migration modal -->
+        <div id="sync-media-migration-modal" class="dialog hidden">
+            <div id="sync-media-migration-content">
+                <span class="material-symbols-outlined sync-prompt-icon">construction</span>
+                <h3>Quick Account Maintenance</h3>
+                <p id="sync-media-migration-description" class="sync-modal-description">
+                    We need to move your older synced media to a faster storage layout. This is a one-time process. Please keep this tab open until it finishes.
+                </p>
+
+                <div id="sync-media-migration-progress-wrapper" class="hidden">
+                    <div class="cloud-sync-quota-bar sync-media-migration-progress-bar">
+                        <div id="sync-media-migration-progress-fill" class="cloud-sync-quota-fill"></div>
+                    </div>
+                    <span id="sync-media-migration-progress-label" class="cloud-sync-quota-label">Preparing…</span>
+                    <span id="sync-media-migration-row-label" class="cloud-sync-quota-label">0 / 0 messages scanned</span>
+                </div>
+
+                <p id="sync-media-migration-error" class="sync-modal-error hidden"></p>
+
+                <div class="btn-array">
+                    <button class="btn btn-primary" id="btn-sync-media-migration-start">Start Maintenance</button>
+                </div>
+            </div>
+        </div>
+
         <div class="sidebar">
             <div class="sidebar-top-bar">
                 <div class="header" style="padding-block: 10px;">
@@ -184,6 +209,17 @@
                         <button class="btn btn-primary" id="btn-clearall-personality">
                             <span class="material-symbols-outlined">clear_all</span>Clear All
                         </button>
+                    </div>
+                    <div class="filter-group chat-filter-group">
+                        <div class="chat-search-wrapper">
+                            <span class="material-symbols-outlined chat-search-icon">search</span>
+                            <input type="text" id="persona-search-input" placeholder="Search personas...">
+                            <button class="chat-sort-toggle btn-textual" id="btn-persona-sort" aria-label="Sort personas"
+                                aria-haspopup="true" aria-expanded="false">
+                                <span class="material-symbols-outlined chat-sort-icon">sort</span>
+                                <span class="chat-sort-label" id="persona-sort-label">Added</span>
+                            </button>
+                        </div>
                     </div>
                     <div id="personalitiesDiv"></div>
                 </div>
@@ -680,14 +716,20 @@
                                                 </div>
                                                 <span id="sync-quota-label" class="cloud-sync-quota-label">0 MB / 5 GB</span>
                                             </div>
-                                            <div class="btn-array">
-                                                <button class="btn btn-primary" id="btn-sync-now">
-                                                    <span class="material-symbols-outlined">sync</span>
-                                                    Sync Now
-                                                </button>
-                                                <button class="btn btn-danger" id="btn-sync-wipe">
-                                                    <span class="material-symbols-outlined">delete_forever</span>
-                                                    Wipe Data
+                                            <div class="cloud-sync-actions">
+                                                <div class="btn-array cloud-sync-actions-main">
+                                                    <button class="btn btn-primary" id="btn-sync-now">
+                                                        <span class="material-symbols-outlined">sync</span>
+                                                        Sync Now
+                                                    </button>
+                                                    <button class="btn btn-danger" id="btn-sync-wipe">
+                                                        <span class="material-symbols-outlined">delete_forever</span>
+                                                        Wipe Data
+                                                    </button>
+                                                </div>
+                                                <button class="btn btn-secondary" id="btn-sync-media-maintenance">
+                                                    <span class="material-symbols-outlined">build</span>
+                                                    Media Maintenance
                                                 </button>
                                             </div>
                                         </div>
@@ -1061,10 +1103,9 @@
             <div id="whats-new" class="hidden">
                 <h1 id="header-version">What's New in </h1>
                 <ul id="changelog">
-                    <li><b>Online sync:</b> End to end encrypted, secure, private (still in beta)</li>
-                    <li><b>Memory improvements:</b> Almost double the memory recall</li>
-                    <li><b>Gemini 3.1:</b> The 3.1 models are here! Try gemini 3.1 Pro now</li>
-                    <li><b>Nano Banana 2:</b> Unlimited for subscribers</li>
+                    <li><b>Online sync fixes:</b> Now faster in chats with lots of media. You will be prompted to do a maintenance step</li>
+                    <li><b>Chat and Persona pinning:</b> Keep your favorite chats and personas at the top of the list</li>
+                    <li><b>Personas are searchable:</b> Find your favorite personas quickly</li>
 
 
                     <li>Visit my Discord if you'd like to connect regarding the project, need support, or have any
