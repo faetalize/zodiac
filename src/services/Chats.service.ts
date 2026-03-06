@@ -9,6 +9,7 @@ import hljs from "highlight.js";
 import { v4 as uuidv4 } from 'uuid';
 import * as syncService from "./Sync.service";
 import * as toastService from "./Toast.service";
+import * as pinningService from "./Pinning.service";
 const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
 const scrollableChatContainerSelector = "#scrollable-chat-container";
 const chatHistorySection = document.querySelector<HTMLDivElement>("#chatHistorySection");
@@ -190,34 +191,43 @@ function getLastInteractionTimestamp(chat: DbChat): number {
 }
 
 function sortChats(chats: DbChat[], mode: ChatSortMode): DbChat[] {
-    const list = [...chats];
+    const baseSort = (list: DbChat[]): DbChat[] => {
+        const sorted = [...list];
 
-    if (mode === "alphabetical") {
-        list.sort((a, b) => {
-            const titleA = (a.title || "").toLocaleLowerCase();
-            const titleB = (b.title || "").toLocaleLowerCase();
-            // Alphabetical A → Z
-            if (titleA < titleB) return -1;
-            if (titleA > titleB) return 1;
-            return 0;
+        if (mode === "alphabetical") {
+            sorted.sort((a, b) => {
+                const titleA = (a.title || "").toLocaleLowerCase();
+                const titleB = (b.title || "").toLocaleLowerCase();
+                if (titleA < titleB) return -1;
+                if (titleA > titleB) return 1;
+                return 0;
+            });
+            return sorted;
+        }
+
+        if (mode === "created_at") {
+            sorted.sort((a, b) => b.timestamp - a.timestamp);
+            return sorted;
+        }
+
+        sorted.sort((a, b) => {
+            const aLast = getLastInteractionTimestamp(a);
+            const bLast = getLastInteractionTimestamp(b);
+            return bLast - aLast;
         });
-        return list;
+        return sorted;
+    };
+
+    const pinnedIds = new Set(pinningService.getPinnedChatIds());
+    const pinned: DbChat[] = [];
+    const unpinned: DbChat[] = [];
+
+    for (const chat of chats) {
+        if (pinnedIds.has(chat.id)) pinned.push(chat);
+        else unpinned.push(chat);
     }
 
-    if (mode === "created_at") {
-        // Newest first (most recently created at the top)
-        list.sort((a, b) => b.timestamp - a.timestamp);
-        return list;
-    }
-
-    // last_interaction
-    list.sort((a, b) => {
-        const aLast = getLastInteractionTimestamp(a);
-        const bLast = getLastInteractionTimestamp(b);
-        // Most recent first (chat with latest activity at the top)
-        return bLast - aLast;
-    });
-    return list;
+    return [...baseSort(pinned), ...baseSort(unpinned)];
 }
 
 export function getCurrentChatId(): string | null {
@@ -297,6 +307,7 @@ export async function initialize() {
     for (let chat of sortedChats) {
         insertChatEntry(chat, "append");
     }
+    await reorderChatListInDom();
 }
 
 export function setChatSortMode(mode: ChatSortMode) {
@@ -331,9 +342,31 @@ async function reorderChatListInDom() {
     if (!chatHistorySection) return;
 
     const sorted = await getSortedChatsSnapshotFromDb();
+    const pinnedIds = new Set(pinningService.getPinnedChatIds());
+    const pinnedCount = sorted.reduce((count, chat) => count + (pinnedIds.has(chat.id) ? 1 : 0), 0);
+    let didInsertPinnedHeader = false;
+    let didInsertOtherHeader = false;
 
     const fragment = document.createDocumentFragment();
     for (const chat of sorted) {
+        const isPinned = pinnedIds.has(chat.id);
+
+        if (pinnedCount > 0 && isPinned && !didInsertPinnedHeader) {
+            const pinnedHeader = document.createElement("div");
+            pinnedHeader.classList.add("sidebar-group-divider");
+            pinnedHeader.textContent = "Pinned";
+            fragment.appendChild(pinnedHeader);
+            didInsertPinnedHeader = true;
+        }
+
+        if (pinnedCount > 0 && !isPinned && !didInsertOtherHeader) {
+            const othersHeader = document.createElement("div");
+            othersHeader.classList.add("sidebar-group-divider");
+            othersHeader.textContent = "All chats";
+            fragment.appendChild(othersHeader);
+            didInsertOtherHeader = true;
+        }
+
         const identifier = "chat" + chat.id;
         const radio = document.querySelector<HTMLInputElement>(`input[value='${identifier}']`);
         const label = document.querySelector<HTMLLabelElement>(`label[for='${identifier}']`);
@@ -364,6 +397,8 @@ export async function refreshChatListAfterActivity(dbArg: Db = db): Promise<void
 }
 
 function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend") {
+    let isPinned = pinningService.isChatPinned(chat.id);
+
     //radio button
     const chatRadioButton = document.createElement("input");
     chatRadioButton.setAttribute("type", "radio");
@@ -385,6 +420,12 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
     chatLabelText.style.overflow = "hidden";
     chatLabelText.style.textOverflow = "ellipsis";
     chatLabelText.textContent = chat.title;
+
+    const pinnedIndicator = document.createElement("span");
+    pinnedIndicator.classList.add("material-symbols-outlined", "chat-pinned-indicator");
+    pinnedIndicator.textContent = "keep";
+    pinnedIndicator.setAttribute("aria-hidden", "true");
+    pinnedIndicator.classList.toggle("hidden", !isPinned);
 
     // chat icon
     const chatIcon = document.createElement("span");
@@ -429,8 +470,8 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
                 const buttonRect = actionsButton.getBoundingClientRect();
                 const containerRect = scrollContainer.getBoundingClientRect();
 
-                // Estimate menu height (we'll use 120px as approximate height for 3 items)
-                const estimatedMenuHeight = 120;
+                const menuItemsCount = menu.querySelectorAll("button.chat-actions-item").length;
+                const estimatedMenuHeight = Math.max(120, (menuItemsCount * 40) + 16);
                 const spaceBelow = containerRect.bottom - buttonRect.bottom;
                 const spaceAbove = buttonRect.top - containerRect.top;
 
@@ -543,10 +584,32 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
         await exportChat(chat.id);
     });
 
+    const pinItem = document.createElement("button");
+    pinItem.classList.add("chat-actions-item");
+    pinItem.setAttribute("role", "menuitem");
+
+    const updatePinMenuUi = () => {
+        pinItem.innerHTML = isPinned
+            ? `<span class="material-symbols-outlined chat-action-icon">keep_off</span><span>Unpin</span>`
+            : `<span class="material-symbols-outlined chat-action-icon">keep</span><span>Pin</span>`;
+
+        pinnedIndicator.classList.toggle("hidden", !isPinned);
+    };
+
+    updatePinMenuUi();
+
+    pinItem.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        closeMenu();
+        isPinned = await pinningService.toggleChatPinned(chat.id);
+        updatePinMenuUi();
+        await reorderChatListInDom();
+    });
+
     if (groupSettingsItem) {
         menu.append(groupSettingsItem);
     }
-    menu.append(editItem, exportItem, deleteItem);
+    menu.append(pinItem, editItem, exportItem, deleteItem);
     actionsWrapper.append(actionsButton, menu);
 
     // close on outside click
@@ -585,6 +648,7 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 
     chatLabel.append(chatIcon);
     chatLabel.append(chatLabelText);
+    chatLabel.append(pinnedIndicator);
     chatLabel.append(actionsWrapper);
 
     chatRadioButton.addEventListener("change", async () => {
@@ -629,6 +693,7 @@ export async function addChat(title: string, content?: Message[]): Promise<strin
     }
     // New chats should appear at the top when they are created.
     insertChatEntry(chat, "prepend");
+    await reorderChatListInDom();
     return id;
 }
 
@@ -661,6 +726,7 @@ export async function addChatRecord(chat: Chat): Promise<string> {
     }
     console.log(`addChatRecord: inserted chat id=${id}`, record);
     insertChatEntry(record, "prepend");
+    await reorderChatListInDom();
     return id;
 }
 
@@ -698,6 +764,9 @@ export async function deleteAllChats(db: Db) {
     } else {
         await db.chats.clear();
     }
+
+    await pinningService.clearChatPins();
+
     // Clear chat list and messages without rebuilding from DB
     if (chatHistorySection) {
         chatHistorySection.innerHTML = "";
@@ -720,6 +789,9 @@ export async function deleteChat(id: string, db: Db) {
     } else {
         await db.chats.delete(id);
     }
+
+    await pinningService.removeChatPin(id);
+
     const currentId = getCurrentChatId();
 
     // Remove the radio + label for this chat from the DOM
@@ -737,6 +809,8 @@ export async function deleteChat(id: string, db: Db) {
     if (currentId === id) {
         newChat();
     }
+
+    await reorderChatListInDom();
 }
 
 export function newChat() {
