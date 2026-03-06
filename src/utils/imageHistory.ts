@@ -1,5 +1,6 @@
 import { Chat } from "../types/Chat";
 import { GeneratedImage, Message } from "../types/Message";
+import { resolveGeneratedImageSrc } from "./blobResolver";
 
 export interface EditableImage {
     dataUri: string; // data:image/{mimeType};base64,{data}
@@ -44,7 +45,7 @@ export async function findLastEditableImage(chat: Chat): Promise<EditableImage |
 
         // Check for model-generated images
         if (message.role === 'model' && !lastModelGenerated) {
-            const generatedImage = findImageInGeneratedImages(message);
+            const generatedImage = await findImageInGeneratedImages(message);
             if (generatedImage) {
                 lastModelGenerated = {
                     dataUri: generatedImage.dataUri,
@@ -90,9 +91,10 @@ async function findImageInAttachments(message: Message): Promise<string | null> 
 }
 
 /**
- * Finds the last generated image in a model message
+ * Finds the last generated image in a model message.
+ * Handles both inline base64 images and blob-referenced images.
  */
-function findImageInGeneratedImages(message: Message): { dataUri: string; index: number } | null {
+async function findImageInGeneratedImages(message: Message): Promise<{ dataUri: string; index: number } | null> {
     if (!message.generatedImages || message.generatedImages.length === 0) {
         return null;
     }
@@ -101,10 +103,11 @@ function findImageInGeneratedImages(message: Message): { dataUri: string; index:
     const lastIndex = message.generatedImages.length - 1;
     const image = message.generatedImages[lastIndex];
 
-    return {
-        dataUri: `data:${image.mimeType};base64,${image.base64}`,
-        index: lastIndex
-    };
+    // Resolve the image source (handles both inline and blob ref)
+    const dataUri = await resolveGeneratedImageSrc(image);
+    if (!dataUri) return null;
+
+    return { dataUri, index: lastIndex };
 }
 
 /**

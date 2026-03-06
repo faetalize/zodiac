@@ -1,4 +1,4 @@
-import { Message } from "../../types/Message";
+import { Message, GeneratedImage } from "../../types/Message";
 import { Personality } from "../../types/Personality";
 import hljs from 'highlight.js';
 import * as helpers from "../../utils/helpers";
@@ -11,6 +11,7 @@ import * as settingsService from "../../services/Settings.service";
 import { MENTION_RE, MENTION_RE_GLOBAL } from "../../utils/mentions";
 import * as toastService from "../../services/Toast.service";
 import { dispatchAppEvent } from "../../events";
+import { resolveAttachmentFile, resolveGeneratedImageSrc, resolveThoughtSignature } from "../../utils/blobResolver";
 
 function resolveChatIndex(element: HTMLElement): number {
     const attr = element.dataset.chatIndex;
@@ -171,10 +172,12 @@ export const messageElement = async (
         <div class="message-role-api" style="display: none;">${message.role}</div>
         <div class="message-text">${initialHtml}</div>
         <div class="attachment-preview-container">
-            ${Array.from(message.parts[0]?.attachments || []).map((attachment: File) => {
+            ${Array.from(message.parts[0]?.attachments || []).map((attachment: File, attachmentIndex: number) => {
                 if (attachment.type.startsWith("image/")) {
+                    const hasBlobRef = !!(attachment as any)._blobRef;
+                    const needsBlobResolve = hasBlobRef && attachment.size === 0;
                     return `<div class="attachment-container">
-                        <img src="${URL.createObjectURL(attachment)}" alt="${attachment.name}" class="attachment-image">
+                        <img ${needsBlobResolve ? '' : `src="${URL.createObjectURL(attachment)}"`} alt="${attachment.name}" class="attachment-image" data-attachment-index="${attachmentIndex}">
                         </div>`;
                 }
                 if (attachment.type === "application/pdf" || attachment.type === "text/plain") {
@@ -261,17 +264,21 @@ export const messageElement = async (
                     <div class="message-text-content">${initialHtml}</div>
             </div>
             <div class="message-images">
-                ${hasImages ? message.generatedImages!.map((img, idx) => `
-                    <div class="generated-image-wrapper" data-index="${idx}">
-                        <img class="generated-image" src="data:${img.mimeType};base64,${img.base64}" loading="lazy" />
+                ${hasImages ? message.generatedImages!.map((img, idx) => {
+                    const needsBlob = (!img.base64 || img.base64.length === 0) && !!img._blobRef;
+                    const src = needsBlob ? '' : `data:${img.mimeType};base64,${img.base64}`;
+                    return `
+                    <div class="generated-image-wrapper${needsBlob ? ' is-loading-blob' : ''}" data-index="${idx}">
+                        <img class="generated-image" ${src ? `src="${src}"` : ''} loading="lazy" />
+                        ${needsBlob ? '<span class="message-spinner blob-spinner"></span>' : ''}
                         <div class="generated-image-overlay">
                             <button class="btn-textual btn-image-action btn-edit material-symbols-outlined" title="Edit this image">edit</button>
                             <button class="btn-textual btn-image-action btn-attach material-symbols-outlined" title="Attach this image">attachment</button>
                             <button class="btn-textual btn-image-action btn-download material-symbols-outlined" title="Download">download</button>
                             <button class="btn-textual btn-image-action btn-expand material-symbols-outlined" title="Expand">open_in_full</button>
                         </div>
-                    </div>
-                `).join("") : ""}
+                    </div>`;
+                }).join("") : ""}
             </div>
             <div class="message-grounding-rendered-content"></div>`;
             if (hasThinking) {
@@ -305,6 +312,18 @@ export const messageElement = async (
     setupMessageClipboard(messageDiv);
     setupMessageEditing(messageDiv);
     setupGeneratedImageInteractions(messageDiv);
+
+    // Lazily resolve any blob-backed user attachment previews (async, non-blocking)
+    resolveBlobAttachmentPreviews(messageDiv, message);
+
+    // Lazily resolve any blob-referenced images (async, non-blocking)
+    if (Array.isArray(message.generatedImages) && message.generatedImages.length > 0) {
+        resolveBlobImages(messageDiv, message);
+    }
+
+    // Pre-warm thought signature blobs in the background so they're cached
+    // by the time the user sends a message (no DOM update needed).
+    prefetchThoughtSignatures(message);
 
     return messageDiv;
 
@@ -670,17 +689,35 @@ function setupGeneratedImageInteractions(root: HTMLElement) {
 
         // Helper to convert base64 image to File
         const imageToFile = async (): Promise<File> => {
-            const base64Data = img.src.split(',')[1];
-            const mimeType = img.src.match(/data:(.*?);/)?.[1] || 'image/png';
-            const byteString = atob(base64Data);
-            const arrayBuffer = new ArrayBuffer(byteString.length);
-            const uint8Array = new Uint8Array(arrayBuffer);
-            for (let i = 0; i < byteString.length; i++) {
-                uint8Array[i] = byteString.charCodeAt(i);
+            if (!img.src) {
+                throw new Error('Image source unavailable');
             }
-            const blob = new Blob([uint8Array], { type: mimeType });
-            const ext = mimeType.split('/')[1];
-            return new File([blob], `image-${Date.now()}.${ext}`, { type: mimeType });
+
+            // Preferred path: data URI
+            if (img.src.startsWith('data:')) {
+                const base64Data = img.src.split(',')[1] || '';
+                const mimeType = img.src.match(/data:(.*?);/)?.[1] || 'image/png';
+                const byteString = atob(base64Data);
+                const arrayBuffer = new ArrayBuffer(byteString.length);
+                const uint8Array = new Uint8Array(arrayBuffer);
+                for (let i = 0; i < byteString.length; i++) {
+                    uint8Array[i] = byteString.charCodeAt(i);
+                }
+                const blob = new Blob([uint8Array], { type: mimeType });
+                const ext = mimeType.split('/')[1] || 'png';
+                return new File([blob], `image-${Date.now()}.${ext}`, { type: mimeType });
+            }
+
+            // Fallback path: blob/object URL
+            if (img.src.startsWith('blob:')) {
+                const response = await fetch(img.src);
+                const blob = await response.blob();
+                const mimeType = blob.type || 'image/png';
+                const ext = mimeType.split('/')[1] || 'png';
+                return new File([blob], `image-${Date.now()}.${ext}`, { type: mimeType });
+            }
+
+            throw new Error('Unsupported image source format');
         };
 
         // Edit button: attach image + toggle editing mode
@@ -823,4 +860,189 @@ function findPersonaInput(personalityId: string): HTMLInputElement | null {
     }
 
     return null;
+}
+
+/**
+ * Pre-warm thought signature blobs in the background so they're already
+ * cached in memory by the time the user sends a new message.
+ * No DOM updates — purely a cache-warming pass.
+ */
+function prefetchThoughtSignatures(message: Message): void {
+    // Parts
+    for (const part of message.parts || []) {
+        if (part._thoughtSignatureRef) {
+            resolveThoughtSignature(part);
+        }
+    }
+    // Generated images
+    for (const img of message.generatedImages || []) {
+        if (img._thoughtSignatureRef) {
+            resolveThoughtSignature(img);
+        }
+    }
+}
+
+function isScrolledToBottom(): boolean {
+    const container = document.querySelector<HTMLDivElement>('#scrollable-chat-container');
+    if (!container) return false;
+    const threshold = 50;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+}
+
+function scrollToBottomIfNeeded(wasAtBottom: boolean): void {
+    if (wasAtBottom) {
+        helpers.messageContainerScrollToBottom(true);
+    }
+}
+
+function waitForImageLoadOrError(imgEl: HTMLImageElement): Promise<void> {
+    if (imgEl.complete) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+        const done = () => resolve();
+        imgEl.addEventListener('load', done, { once: true });
+        imgEl.addEventListener('error', done, { once: true });
+    });
+}
+
+/**
+ * Lazily resolve any blob-referenced generated images in a rendered message.
+ * Downloads, decrypts, and populates the <img> src once the blob is ready.
+ * Non-blocking — fires and forgets so the message DOM is returned immediately.
+ */
+function resolveBlobImages(messageDiv: HTMLElement, message: Message): void {
+    const images = message.generatedImages;
+    if (!images) return;
+
+    const wrappers = messageDiv.querySelectorAll<HTMLElement>('.generated-image-wrapper');
+    const pending: Array<{ img: GeneratedImage; wrapper: HTMLElement; imgEl: HTMLImageElement }> = [];
+
+    for (let i = 0; i < images.length; i++) {
+        const img = images[i];
+        if (img.base64 && img.base64.length > 0) continue; // Already inline
+        if (!img._blobRef) continue; // No ref to resolve
+
+        const wrapper = wrappers[i];
+        const imgEl = wrapper?.querySelector<HTMLImageElement>('.generated-image');
+        if (!imgEl) continue;
+
+        pending.push({ img, wrapper, imgEl });
+    }
+
+    if (pending.length === 0) return;
+
+    const wasAtBottom = isScrolledToBottom();
+    let remaining = pending.length;
+    const markDone = () => {
+        remaining -= 1;
+        if (remaining === 0) {
+            scrollToBottomIfNeeded(wasAtBottom);
+        }
+    };
+
+    for (const { img, wrapper, imgEl } of pending) {
+        const spinner = wrapper.querySelector('.blob-spinner');
+
+        resolveGeneratedImageSrc(img).then((dataUri: string) => {
+            if (dataUri) {
+                const settle = waitForImageLoadOrError(imgEl);
+                imgEl.src = dataUri;
+
+                settle.finally(() => {
+                    wrapper.classList.remove('is-loading-blob');
+                    if (imgEl.naturalWidth > 0) {
+                        spinner?.remove();
+                    } else {
+                        wrapper.classList.add('blob-load-error');
+                        if (spinner) {
+                            spinner.textContent = 'Image unavailable';
+                            spinner.classList.remove('message-spinner');
+                            spinner.classList.add('blob-error-label');
+                        }
+                    }
+                    markDone();
+                });
+            } else {
+                wrapper.classList.remove('is-loading-blob');
+                wrapper.classList.add('blob-load-error');
+                if (spinner) {
+                    spinner.textContent = 'Image unavailable';
+                    spinner.classList.remove('message-spinner');
+                    spinner.classList.add('blob-error-label');
+                }
+                markDone();
+            }
+        });
+    }
+}
+
+/**
+ * Resolve blob-backed attachment image previews in user messages.
+ *
+ * Cloud-synced messages using blob references deserialize attachments as
+ * placeholder Files (size 0) with an attached _blobRef. This function resolves
+ * those placeholders to real Files and updates the preview <img> src.
+ */
+function resolveBlobAttachmentPreviews(messageDiv: HTMLElement, message: Message): void {
+    if (message.personalityid) return; // user messages only
+
+    const firstPart = message.parts[0];
+    if (!firstPart?.attachments || firstPart.attachments.length === 0) return;
+
+    const attachments = Array.from(firstPart.attachments);
+    const imageEls = messageDiv.querySelectorAll<HTMLImageElement>('.attachment-image[data-attachment-index]');
+    if (imageEls.length === 0) return;
+
+    const pending: Array<{ idx: number; imgEl: HTMLImageElement; original: File }> = [];
+
+    imageEls.forEach((imgEl) => {
+        const idxRaw = imgEl.dataset.attachmentIndex;
+        const idx = idxRaw ? Number(idxRaw) : -1;
+        if (idx < 0 || idx >= attachments.length) return;
+
+        const original = attachments[idx];
+        const hasBlobRef = !!(original as any)._blobRef;
+        if (!hasBlobRef || original.size > 0) return;
+
+        pending.push({ idx, imgEl, original });
+    });
+
+    if (pending.length === 0) return;
+
+    const wasAtBottom = isScrolledToBottom();
+    let remaining = pending.length;
+    const markDone = () => {
+        remaining -= 1;
+        if (remaining === 0) {
+            scrollToBottomIfNeeded(wasAtBottom);
+        }
+    };
+
+    pending.forEach(({ idx, imgEl, original }) => {
+        resolveAttachmentFile(original).then((resolved: File) => {
+            if (!resolved || resolved.size === 0) {
+                imgEl.classList.add('attachment-image-error');
+                markDone();
+                return;
+            }
+
+            // Update preview src
+            const settle = waitForImageLoadOrError(imgEl);
+            imgEl.src = URL.createObjectURL(resolved);
+
+            // Replace placeholder in message object so downstream logic
+            // (e.g. edit/save/regenerate paths) sees a real File.
+            attachments[idx] = resolved;
+            const transfer = new DataTransfer();
+            attachments.forEach(file => transfer.items.add(file));
+            firstPart.attachments = transfer.files;
+
+            settle.finally(markDone);
+        }).catch(() => {
+            imgEl.classList.add('attachment-image-error');
+            markDone();
+        });
+    });
 }

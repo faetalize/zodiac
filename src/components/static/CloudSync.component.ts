@@ -41,6 +41,16 @@ const syncModalError = document.querySelector<HTMLElement>('#sync-modal-error');
 const btnSyncConfirm = document.querySelector<HTMLButtonElement>('#btn-sync-confirm');
 const btnSyncSkip = document.querySelector<HTMLButtonElement>('#btn-sync-skip');
 
+// One-time media migration modal
+const syncMediaMigrationModal = document.querySelector<HTMLElement>('#sync-media-migration-modal');
+const syncMediaMigrationDescription = document.querySelector<HTMLElement>('#sync-media-migration-description');
+const syncMediaMigrationProgressWrapper = document.querySelector<HTMLElement>('#sync-media-migration-progress-wrapper');
+const syncMediaMigrationProgressFill = document.querySelector<HTMLElement>('#sync-media-migration-progress-fill');
+const syncMediaMigrationProgressLabel = document.querySelector<HTMLElement>('#sync-media-migration-progress-label');
+const syncMediaMigrationRowLabel = document.querySelector<HTMLElement>('#sync-media-migration-row-label');
+const syncMediaMigrationError = document.querySelector<HTMLElement>('#sync-media-migration-error');
+const btnSyncMediaMigrationStart = document.querySelector<HTMLButtonElement>('#btn-sync-media-migration-start');
+
 // Settings page elements
 const cloudSyncSection = document.querySelector<HTMLElement>('#cloud-sync-section');
 const syncToggle = document.querySelector<HTMLInputElement>('#sync-toggle');
@@ -50,6 +60,7 @@ const syncDetails = document.querySelector<HTMLElement>('#sync-details');
 const syncQuotaFill = document.querySelector<HTMLElement>('#sync-quota-fill');
 const syncQuotaLabel = document.querySelector<HTMLElement>('#sync-quota-label');
 const btnSyncNow = document.querySelector<HTMLButtonElement>('#btn-sync-now');
+const btnSyncMediaMaintenance = document.querySelector<HTMLButtonElement>('#btn-sync-media-maintenance');
 const btnSyncWipe = document.querySelector<HTMLButtonElement>('#btn-sync-wipe');
 const syncUpgradeHint = document.querySelector<HTMLElement>('#sync-upgrade-hint');
 const btnSyncForgotPassword = document.querySelector<HTMLButtonElement>('#btn-sync-forgot-password');
@@ -94,6 +105,105 @@ function formatBytes(bytes: number): string {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function resetMediaMigrationModalUi(): void {
+    if (syncMediaMigrationDescription) {
+        syncMediaMigrationDescription.textContent =
+            'We need to move your older synced media to a faster storage layout. This is a one-time process. Please keep this tab open until it finishes.';
+    }
+    syncMediaMigrationProgressWrapper?.classList.add('hidden');
+    if (syncMediaMigrationProgressFill) {
+        syncMediaMigrationProgressFill.style.width = '0%';
+    }
+    if (syncMediaMigrationProgressLabel) {
+        syncMediaMigrationProgressLabel.textContent = 'Preparing…';
+    }
+    if (syncMediaMigrationRowLabel) {
+        syncMediaMigrationRowLabel.textContent = '0 / 0 messages scanned';
+    }
+    if (syncMediaMigrationError) {
+        syncMediaMigrationError.textContent = '';
+        syncMediaMigrationError.classList.add('hidden');
+    }
+    if (btnSyncMediaMigrationStart) {
+        btnSyncMediaMigrationStart.disabled = false;
+        btnSyncMediaMigrationStart.textContent = 'Start Maintenance';
+    }
+}
+
+function updateMediaMigrationProgress(progress: syncService.LegacyMediaMigrationProgress): void {
+    const total = Math.max(0, progress.totalRows);
+    const scanned = Math.max(0, progress.scannedRows);
+    const pct = total > 0 ? Math.min(100, (scanned / total) * 100) : 100;
+    if (syncMediaMigrationProgressFill) {
+        syncMediaMigrationProgressFill.style.width = `${pct}%`;
+    }
+    if (syncMediaMigrationProgressLabel) {
+        const migratedSuffix = progress.migratedRows > 0 ? ` • ${progress.migratedRows} migrated` : '';
+        syncMediaMigrationProgressLabel.textContent = `${progress.message}${migratedSuffix}`;
+    }
+    if (syncMediaMigrationRowLabel) {
+        syncMediaMigrationRowLabel.textContent = `${Math.min(scanned, total)} / ${total} messages scanned`;
+    }
+}
+
+async function runLegacyMediaMigrationFlowIfNeeded(options?: { force?: boolean }): Promise<boolean> {
+    const shouldRun = options?.force ? true : await syncService.shouldRunLegacyMediaMigration();
+    if (!shouldRun) {
+        return true;
+    }
+
+    if (!syncMediaMigrationModal || !btnSyncMediaMigrationStart) {
+        // Fallback for missing DOM: run migration directly.
+        await syncService.migrateLegacySyncedMediaToBlobs();
+        return true;
+    }
+
+    resetMediaMigrationModalUi();
+    showModal(syncMediaMigrationModal);
+
+    return await new Promise<boolean>((resolve) => {
+        const startMigration = async () => {
+            btnSyncMediaMigrationStart.removeEventListener('click', startMigration);
+            btnSyncMediaMigrationStart.disabled = true;
+            btnSyncMediaMigrationStart.textContent = 'Migrating…';
+            syncMediaMigrationProgressWrapper?.classList.remove('hidden');
+
+            try {
+                await syncService.migrateLegacySyncedMediaToBlobs((progress) => {
+                    updateMediaMigrationProgress(progress);
+                });
+
+                if (syncMediaMigrationProgressFill) {
+                    syncMediaMigrationProgressFill.style.width = '100%';
+                }
+                if (syncMediaMigrationProgressLabel) {
+                    syncMediaMigrationProgressLabel.textContent = 'Maintenance complete.';
+                }
+                if (syncMediaMigrationDescription) {
+                    syncMediaMigrationDescription.textContent = 'All done. Your synced media now uses the optimized storage layout.';
+                }
+
+                window.setTimeout(() => {
+                    hideModal(syncMediaMigrationModal);
+                    resolve(true);
+                }, 500);
+            } catch (error) {
+                if (syncMediaMigrationError) {
+                    syncMediaMigrationError.textContent =
+                        `Maintenance failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+                    syncMediaMigrationError.classList.remove('hidden');
+                }
+
+                btnSyncMediaMigrationStart.disabled = false;
+                btnSyncMediaMigrationStart.textContent = 'Retry Maintenance';
+                btnSyncMediaMigrationStart.addEventListener('click', startMigration, { once: true });
+            }
+        };
+
+        btnSyncMediaMigrationStart.addEventListener('click', startMigration, { once: true });
+    });
 }
 
 // ── Sync Prompt Modal (first-time offer) ───────────────────────────────────
@@ -215,6 +325,7 @@ btnSyncConfirm?.addEventListener('click', async () => {
             if (success) {
                 hideModal(syncModal);
                 await syncService.applySyncedSettingsToLocalStorage();
+                await runLegacyMediaMigrationFlowIfNeeded();
                 settingsService.loadSettings();
                 themeService.reloadFromStorage();
                 await loraService.initialize();
@@ -372,6 +483,26 @@ btnSyncNow?.addEventListener('click', async () => {
     btnSyncNow!.innerHTML = '<span class="material-symbols-outlined">sync</span> Sync Now';
 
     info({ title: 'Sync complete', text: 'All data has been synchronized.' });
+});
+
+btnSyncMediaMaintenance?.addEventListener('click', async () => {
+    if (!syncService.isSyncActive()) {
+        danger({ title: 'Sync not active', text: 'Please unlock sync first.' });
+        return;
+    }
+
+    btnSyncMediaMaintenance.disabled = true;
+    btnSyncMediaMaintenance.innerHTML = '<span class="material-symbols-outlined">hourglass_top</span> Maintenance…';
+
+    try {
+        const ok = await runLegacyMediaMigrationFlowIfNeeded({ force: true });
+        if (ok) {
+            info({ title: 'Maintenance complete', text: 'Media payloads were checked and optimized.' });
+        }
+    } finally {
+        btnSyncMediaMaintenance.disabled = false;
+        btnSyncMediaMaintenance.innerHTML = '<span class="material-symbols-outlined">build</span> Media Maintenance';
+    }
 });
 
 btnSyncWipe?.addEventListener('click', async () => {

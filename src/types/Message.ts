@@ -1,3 +1,5 @@
+import type { BlobReference } from './BlobReference';
+
 /**
  * Text and thinking content extracted from a model response.
  */
@@ -11,6 +13,18 @@ export interface GeneratedImage {
     base64: string; // raw base64 bytes without data: prefix
     thoughtSignature?: string;
     thought?: boolean;
+    /**
+     * Runtime-only blob reference for images stored in encrypted blob storage.
+     * Present when the image was pulled from cloud sync using the blob store
+     * format. Not persisted to IndexedDB — only used to lazily resolve the
+     * base64 data on demand (base64 will be '' until resolved).
+     */
+    _blobRef?: BlobReference;
+    /**
+     * Runtime-only blob reference for oversized thought signatures.
+     * Present when thoughtSignature is stored in encrypted blob storage.
+     */
+    _thoughtSignatureRef?: BlobReference;
 }
 
 export interface Message {
@@ -19,6 +33,7 @@ export interface Message {
         text: string;
         attachments?: FileList;
         thoughtSignature?: string;
+        _thoughtSignatureRef?: BlobReference;
     }>;
     personalityid?: string;
     groundingContent?: string;

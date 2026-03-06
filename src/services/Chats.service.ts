@@ -880,16 +880,48 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean,
     const previousScrollTop = scrollContainer?.scrollTop ?? 0;
     const absoluteBase = isRemotePagedMode ? remoteWindowStartIndex : 0;
 
+    const appendToRoundContainer = (target: DocumentFragment | HTMLElement, msg: Message, element: HTMLElement) => {
+        const lastBlock = target.lastElementChild as HTMLElement | null;
+        const currentRoundIndex = msg.roundIndex;
+
+        if (
+            typeof currentRoundIndex === 'number' &&
+            lastBlock?.classList.contains('round-block') &&
+            lastBlock.dataset.roundIndex === String(currentRoundIndex)
+        ) {
+            lastBlock.append(element);
+            return;
+        }
+
+        if (typeof currentRoundIndex === 'number') {
+            const block = document.createElement("div");
+            block.classList.add("round-block");
+            block.dataset.roundIndex = String(currentRoundIndex);
+            messageService.ensureRoundBlockUi(block as HTMLDivElement, currentRoundIndex);
+            block.append(element);
+            target.append(block);
+            return;
+        }
+
+        target.append(element);
+    };
+
     // For initial load (prepend = false), render slice in natural order (older -> newer)
     if (!prepend) {
-        for (let offset = 0; offset < slice.length; offset++) {
+        for (let i = 0; i < slice.length; i++) {
             if (!isCurrentLoad()) {
                 return;
             }
-            const msg = slice[offset];
-            // The real index in chat.content/currentChatMessages
-            const chatIndex = absoluteBase + start + offset;
-            await messageService.insertMessage(msg, chatIndex);
+
+            const msg = slice[i];
+            const chatIndex = absoluteBase + start + i;
+            const element = await messageElement(msg, chatIndex);
+
+            if (!isCurrentLoad()) {
+                return;
+            }
+
+            appendToRoundContainer(messageContainer, msg, element);
         }
     } else {
         // For prepending older messages:
@@ -907,26 +939,7 @@ async function renderMessagesSlice(start: number, end: number, prepend: boolean,
             const chatIndex = absoluteBase + start + i;
             const element = await messageElement(msg, chatIndex);
 
-            // Turn Grouping Logic (Fragment Building)
-            const lastBlock = fragment.lastElementChild as HTMLElement;
-            const currentRoundIndex = msg.roundIndex;
-
-            if (
-                typeof currentRoundIndex === 'number' &&
-                lastBlock?.classList.contains('round-block') &&
-                lastBlock.dataset.roundIndex === String(currentRoundIndex)
-            ) {
-                lastBlock.append(element);
-            } else if (typeof currentRoundIndex === 'number') {
-                const block = document.createElement("div");
-                block.classList.add("round-block");
-                block.dataset.roundIndex = String(currentRoundIndex);
-                messageService.ensureRoundBlockUi(block as HTMLDivElement, currentRoundIndex);
-                block.append(element);
-                fragment.append(block);
-            } else {
-                fragment.append(element);
-            }
+            appendToRoundContainer(fragment, msg, element);
         }
 
         // Boundary merging: If the last block of the fragment matches the first block of the DOM
@@ -1151,40 +1164,54 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
 
                 settleChatScrollToBottom(chatLoadRequest.isCurrent);
 
-                while (chatLoadRequest.isCurrent() && hasMoreOlder && currentChatMessages.length < PAGE_SIZE) {
-                    const remaining = PAGE_SIZE - currentChatMessages.length;
-                    const nextBatchSize = Math.min(REMOTE_INITIAL_BATCH_SIZE, remaining);
-                    const olderWindow = await syncService.hydrateOlderChatMessagesWindow(
-                        chatID,
-                        remoteOldestLoadedIndex,
-                        nextBatchSize,
-                        { signal: chatLoadRequest.signal },
-                    );
+                void (async () => {
+                    if (isLoadingOlder) return;
+                    isLoadingOlder = true;
 
-                    if (!chatLoadRequest.isCurrent()) {
-                        return null;
+                    try {
+                        while (chatLoadRequest.isCurrent() && hasMoreOlder && currentChatMessages.length < PAGE_SIZE) {
+                            const remaining = PAGE_SIZE - currentChatMessages.length;
+                            const nextBatchSize = Math.min(REMOTE_INITIAL_BATCH_SIZE, remaining);
+                            const olderWindow = await syncService.hydrateOlderChatMessagesWindow(
+                                chatID,
+                                remoteOldestLoadedIndex,
+                                nextBatchSize,
+                                { signal: chatLoadRequest.signal },
+                            );
+
+                            if (!chatLoadRequest.isCurrent()) {
+                                return;
+                            }
+
+                            if (!olderWindow || olderWindow.messages.length === 0) {
+                                hasMoreOlder = false;
+                                break;
+                            }
+
+                            currentChatMessages = [...olderWindow.messages, ...currentChatMessages];
+                            remoteWindowStartIndex = olderWindow.startIndex;
+                            remoteOldestLoadedIndex = olderWindow.startIndex;
+                            loadedStartIndex = 0;
+                            loadedEndIndex = currentChatMessages.length;
+                            hasMoreOlder = olderWindow.hasMoreOlder;
+
+                            currentChatSnapshot = {
+                                ...chat,
+                                content: structuredClone(currentChatMessages),
+                            };
+                            upsertRemoteChat(currentChatSnapshot);
+
+                            await renderMessagesSlice(0, olderWindow.messages.length, true, chatLoadRequest.isCurrent);
+                        }
+                    } catch (error) {
+                        if (error instanceof DOMException && error.name === "AbortError") {
+                            return;
+                        }
+                        console.error("Failed to prefetch older messages", error);
+                    } finally {
+                        isLoadingOlder = false;
                     }
-
-                    if (!olderWindow || olderWindow.messages.length === 0) {
-                        hasMoreOlder = false;
-                        break;
-                    }
-
-                    currentChatMessages = [...olderWindow.messages, ...currentChatMessages];
-                    remoteWindowStartIndex = olderWindow.startIndex;
-                    remoteOldestLoadedIndex = olderWindow.startIndex;
-                    loadedStartIndex = 0;
-                    loadedEndIndex = currentChatMessages.length;
-                    hasMoreOlder = olderWindow.hasMoreOlder;
-
-                    currentChatSnapshot = {
-                        ...chat,
-                        content: structuredClone(currentChatMessages),
-                    };
-                    upsertRemoteChat(currentChatSnapshot);
-
-                    await renderMessagesSlice(0, olderWindow.messages.length, true, chatLoadRequest.isCurrent);
-                }
+                })();
 
                 if (!chatLoadRequest.isCurrent()) {
                     return null;
@@ -1418,4 +1445,3 @@ export async function moveChatDomEntryToTop(id: string) {
         chatHistorySection.prepend(radioButton);
     }
 }
-
