@@ -19,7 +19,7 @@ import hljs from "highlight.js";
 import type { Message, GeneratedImage } from "../types/Message";
 import type { Chat, DbChat } from "../types/Chat";
 import type { DbPersonality } from "../types/Personality";
-import { ChatModel } from "../types/Models";
+import { ChatModel, getPreferredNarratorLocalModel, isGeminiModel, isOpenRouterModel, modelSupportsThinking, modelSupportsTemperature } from "../types/Models";
 import { PremiumEndpoint } from "../types/PremiumEndpoint";
 
 import * as settingsService from "./Settings.service";
@@ -34,6 +34,7 @@ import { parseMarkdownToHtml } from "./Parser.service";
 import { SUPABASE_URL, getAuthHeaders } from "./Supabase.service";
 import { processGeminiLocalSdkResponse, processGeminiLocalSdkStream } from "./GeminiResponseProcessor.service";
 import { processPremiumEndpointSse } from "./PremiumEndpointResponseProcessor.service";
+import { buildOpenRouterRequest, buildOpenRouterRequestMessages, requestOpenRouterCompletion } from "./OpenRouter.service";
 
 import { messageElement } from "../components/dynamic/message";
 import { isImageModeActive } from "../components/static/ImageButton.component";
@@ -372,6 +373,16 @@ function generateThinkingConfig(model: string, enableThinking: boolean, settings
     };
 }
 
+function getLocalApiKeyForModel(model: string, settings: ReturnType<typeof settingsService.getSettings>): string {
+    return isOpenRouterModel(model)
+        ? (settings.openRouterApiKey || "").trim()
+        : (settings.geminiApiKey || settings.apiKey || "").trim();
+}
+
+function hasLocalApiKeyForModel(model: string, settings: ReturnType<typeof settingsService.getSettings>): boolean {
+    return getLocalApiKeyForModel(model, settings).length > 0;
+}
+
 async function finalizeResponseElement(responseElement: HTMLElement, scroll: boolean = true): Promise<void> {
     const updatedChat = await chatsService.getCurrentChat();
     if (updatedChat) {
@@ -672,6 +683,50 @@ async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat>
     const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
     if (chatInput) chatInput.checked = true;
     return chat!;
+}
+
+async function createChatIfAbsentOpenRouter(apiKey: string, msg: string): Promise<DbChat> {
+    const currentChat = await chatsService.getCurrentChat();
+    if (currentChat) return currentChat;
+
+    const response = await requestOpenRouterCompletion({
+        apiKey,
+        request: buildOpenRouterRequest({
+            model: getPreferredNarratorLocalModel({ geminiApiKey: "", openRouterApiKey: apiKey }),
+            messages: [
+                { role: "system", content: CHAT_TITLE_SYSTEM_INSTRUCTION },
+                { role: "user", content: msg },
+            ],
+            stream: false,
+            maxTokens: 100,
+            temperature: 0.9,
+            enableThinking: false,
+            thinkingBudget: 0,
+            isInternetSearchEnabled: false,
+        }),
+    });
+
+    const title = response.text || "New Chat";
+    const id = await chatsService.addChat(title);
+    const chat = await chatsService.loadChat(id, db);
+    const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
+    if (chatInput) chatInput.checked = true;
+    return chat!;
+}
+
+async function createChatIfAbsentLocal(settings: ReturnType<typeof settingsService.getSettings>, msg: string): Promise<DbChat> {
+    const currentChat = await chatsService.getCurrentChat();
+    if (currentChat) return currentChat;
+
+    if ((settings.geminiApiKey || "").trim()) {
+        return await createChatIfAbsent(new GoogleGenAI({ apiKey: settings.geminiApiKey }), msg);
+    }
+
+    if ((settings.openRouterApiKey || "").trim()) {
+        return await createChatIfAbsentOpenRouter(settings.openRouterApiKey, msg);
+    }
+
+    throw new Error("No local API key available for chat creation.");
 }
 
 async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
@@ -1047,8 +1102,9 @@ async function performEarlyValidation(msg: string): Promise<EarlyValidationResul
     const isPremiumEndpointPreferred = hasSubscription && shouldPreferPremiumEndpoint();
     const isImagePremiumEndpointPreferred = (await supabaseService.isImageGenerationAvailable()).type === "all";
 
-    if (!isPremiumEndpointPreferred && settings.apiKey === "") {
-        warn({ title: "API Key Required", text: "Please enter your API key in settings, or subscribe to Pro for unlimited access." });
+    if (!isPremiumEndpointPreferred && !hasLocalApiKeyForModel(settings.model, settings)) {
+        const providerName = isOpenRouterModel(settings.model) ? "OpenRouter" : "Gemini";
+        warn({ title: `${providerName} API Key Required`, text: `Please enter your ${providerName} API key in settings, switch to a model from a provider you already configured, or subscribe to Pro for unlimited access.` });
         return { canProceed: false };
     }
 
@@ -1084,7 +1140,7 @@ interface SendContext {
     selectedPersonalityId: string;
     settings: ReturnType<typeof settingsService.getSettings>;
     config: GenerateContentConfig;
-    ai: GoogleGenAI;
+    ai?: GoogleGenAI;
     chatHistory: Content[];
     pinnedHistoryIndices: number[];
     attachmentFiles: FileList;
@@ -1115,22 +1171,24 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
 
     const abortController = startGeneration();
     const thinkingConfig = generateThinkingConfig(settings.model, settings.enableThinking, settings);
-    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
+    const ai = isGeminiModel(settings.model)
+        ? new GoogleGenAI({ apiKey: getLocalApiKeyForModel(settings.model, settings) })
+        : undefined;
 
     const config: GenerateContentConfig = {
         maxOutputTokens: parseInt(settings.maxTokens),
-        temperature: parseInt(settings.temperature) / 100,
+        temperature: modelSupportsTemperature(settings.model) ? parseInt(settings.temperature) / 100 : undefined,
         systemInstruction: await settingsService.getSystemPrompt("chat"),
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain",
         tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
         thinkingConfig: thinkingConfig,
-        imageConfig: settings.model === ChatModel.NANO_BANANA_PRO ? { imageSize: "4K" } : undefined
+        imageConfig: settings.model === ChatModel.NANO_BANANA_PRO ? { imageSize: "4K" } : undefined,
     };
 
     const currentChat = isPremiumEndpointPreferred
         ? await createChatIfAbsentPremium(msg)
-        : await createChatIfAbsent(ai, msg);
+        : await createChatIfAbsentLocal(settings, msg);
 
     if (!currentChat) {
         console.error("No current chat found");
@@ -1248,6 +1306,8 @@ async function handleTextChat(ctx: SendContext): Promise<HTMLElement | undefined
     try {
         if (ctx.isPremiumEndpointPreferred) {
             await handleTextChatPremium(ctx, state);
+        } else if (isOpenRouterModel(ctx.settings.model)) {
+            await handleTextChatOpenRouter(ctx, state);
         } else {
             await handleTextChatLocalSdk(ctx, state);
         }
@@ -1464,8 +1524,62 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
     }
 }
 
+async function handleTextChatOpenRouter(ctx: SendContext, state: TextChatResponseState): Promise<void> {
+    const systemInstructionText = ((ctx.config.systemInstruction as Content | undefined)?.parts?.[0]?.text || "").toString();
+    const messages = await buildOpenRouterRequestMessages({
+        history: ctx.chatHistory,
+        systemInstructionText,
+        userText: ctx.msg,
+        attachments: ctx.attachmentFiles,
+    });
+
+    const request = buildOpenRouterRequest({
+        model: ctx.settings.model,
+        messages,
+        stream: ctx.settings.streamResponses,
+        maxTokens: parseInt(ctx.settings.maxTokens),
+        temperature: parseInt(ctx.settings.temperature) / 100,
+        enableThinking: ctx.settings.enableThinking,
+        thinkingBudget: ctx.settings.thinkingBudget,
+        isInternetSearchEnabled: document.querySelector<HTMLButtonElement>("#btn-internet")?.classList.contains("btn-toggled") ?? false,
+    });
+
+    if (request.reasoning && modelSupportsThinking(ctx.settings.model) && ctx.settings.enableThinking) {
+        ctx.ensureThinkingElements();
+    }
+
+    const result = await requestOpenRouterCompletion({
+        apiKey: getLocalApiKeyForModel(ctx.settings.model, ctx.settings),
+        request,
+        signal: ctx.abortController?.signal,
+        onText: async ({ text }) => {
+            state.rawText = text;
+            ctx.responseElement.querySelector(".message-text")?.classList.remove("is-loading");
+            ctx.messageContent.innerHTML = await parseMarkdownToHtml(state.rawText);
+            helpers.messageContainerScrollToBottom();
+        },
+        onThinking: async ({ thinking }) => {
+            state.thinking = thinking;
+            ctx.ensureThinkingElements();
+            if (ctx.thinkingContentElm) {
+                ctx.thinkingContentElm.innerHTML = await parseMarkdownToHtml(state.thinking);
+            }
+            helpers.messageContainerScrollToBottom();
+        },
+    });
+
+    state.rawText = result.text;
+    state.thinking = result.thinking;
+    state.finishReason = result.finishReason;
+}
+
 async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseState): Promise<void> {
-    const chat = ctx.ai.chats.create({
+    const ai = ctx.ai;
+    if (!ai) {
+        throw new Error("Gemini client is not available for the selected model.");
+    }
+
+    const chat = ai.chats.create({
         model: ctx.settings.model,
         history: ctx.chatHistory,
         config: ctx.config,
@@ -1473,7 +1587,7 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 
     const uploadedFiles = await Promise.all(
         Array.from(ctx.attachmentFiles || []).map(async (file) => {
-            return await ctx.ai.files.upload({ file });
+            return await ai.files.upload({ file });
         })
     );
 
@@ -1603,7 +1717,12 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
         b64 = await helpers.arrayBufferToBase64(arrayBuf);
         returnedMimeType = response.headers.get("Content-Type") || "image/png";
     } else {
-        const response = await ctx.ai.models.generateImages(payload);
+        const ai = ctx.ai;
+        if (!ai) {
+            throw new Error("Gemini client is not available for image generation.");
+        }
+
+        const response = await ai.models.generateImages(payload);
         if (!response || !response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
             const extraMessage = response?.generatedImages?.[0]?.raiFilteredReason;
             danger({ text: `${extraMessage ? "Reason: " + extraMessage : ""}`, title: "Image generation failed" });

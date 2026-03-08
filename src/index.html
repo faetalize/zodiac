@@ -295,10 +295,11 @@
                                 <button class="settings-page-back btn-textual" type="button" data-settings-back>
                                     <span class="material-symbols-outlined">arrow_back</span>
                                 </button>
-                                <h3 class="settings-page-title">API Key</h3>
+                                <h3 class="settings-page-title">API Keys</h3>
                             </div>
                             <div class="settings-page-content">
                                 <div class="api-key-group">
+                                    <label class="setting-label" for="apiKeyInput">Gemini</label>
                                     <div class="api-key">
                                         <input type="password" autocomplete="off" placeholder="Paste API key here"
                                             id="apiKeyInput" class="input-field"></input>
@@ -307,7 +308,20 @@
                                             help
                                         </button>
                                     </div>
-                                    <div class="api-key-error hidden">
+                                    <div id="gemini-api-key-error" class="api-key-error hidden">
+                                        <span class="material-symbols-outlined">error</span> Invalid API Key
+                                    </div>
+
+                                    <label class="setting-label" for="openRouterApiKeyInput">OpenRouter</label>
+                                    <div class="api-key">
+                                        <input type="password" autocomplete="off" placeholder="Paste OpenRouter key here"
+                                            id="openRouterApiKeyInput" class="input-field"></input>
+                                        <button class="material-symbols-outlined btn-textual"
+                                            onclick="window.open('https://openrouter.ai/settings/keys', '_blank')">
+                                            help
+                                        </button>
+                                    </div>
+                                    <div id="openrouter-api-key-error" class="api-key-error hidden">
                                         <span class="material-symbols-outlined">error</span> Invalid API Key
                                     </div>
                                 </div>
@@ -340,14 +354,7 @@
                                                 info="Pro model has a very low daily limit. It is recommmended to stick to Flash or Flash Lite, only falling back to pro for high priority requests.">
                                                 info
                                             </span> </label>
-                                        <select id="selectedModel" class="input-field">
-                                            <option value="gemini-flash-lite-latest">Flash Lite</option>
-                                            <option value="gemini-3-flash-preview">Flash</option>
-                                            <option value="gemini-3.1-pro-preview">Pro</option>
-                                            <option value="gemini-3-pro-image-preview">Pro Image (Nano Banana Pro)
-                                            </option>
-                                            <option value="gemini-3.1-flash-image-preview">Flash Image (Nano Banana 2)</option>
-                                        </select>
+                                        <select id="selectedModel" class="input-field"></select>
                                     </div>
                                     <div>
                                         <label class="setting-label" for="maxTokens"><span
@@ -1626,35 +1633,48 @@
             <!-- Step 3a: API Key Setup -->
             <div id="onboarding-api-key-setup" class="onboarding-step hidden">
                 <div class="onboarding-content">
-                    <h1 class="onboarding-title">Set Up Your API Key</h1>
-                    <p class="onboarding-subtitle">Get your free API key from Google AI Studio</p>
+                    <h1 class="onboarding-title">Set Up Your API Keys</h1>
+                    <p class="onboarding-subtitle">Use Gemini, OpenRouter, or both. One valid key is enough to start chatting.</p>
 
                     <div class="onboarding-instructions">
                         <div class="instruction-step">
                             <div class="instruction-number">1</div>
                             <div class="instruction-text">
-                                Visit <a href="https://aistudio.google.com/app/apikey" target="_blank"
-                                    rel="noopener noreferrer">Google AI Studio</a> to generate your API key
+                                Generate a key from <a href="https://aistudio.google.com/app/apikey" target="_blank"
+                                    rel="noopener noreferrer">Google AI Studio</a> or <a href="https://openrouter.ai/settings/keys" target="_blank"
+                                    rel="noopener noreferrer">OpenRouter</a>
                             </div>
                         </div>
                         <div class="instruction-step">
                             <div class="instruction-number">2</div>
-                            <div class="instruction-text">Copy your API key and paste it below</div>
+                            <div class="instruction-text">Paste one or both keys below</div>
                         </div>
                         <div class="instruction-step">
                             <div class="instruction-number">3</div>
-                            <div class="instruction-text">Click "Validate API Key" to test the connection</div>
+                            <div class="instruction-text">Validate at least one key to continue</div>
                         </div>
                     </div>
 
                     <div class="onboarding-form-group">
+                        <label class="setting-label" for="onboarding-api-key">Gemini</label>
                         <div class="onboarding-input-row">
                             <input type="password" id="onboarding-api-key" class="onboarding-input"
-                                placeholder="Paste your API key here" autocomplete="off">
-                            <button id="onboarding-btn-validate-api" class="onboarding-btn-secondary">Validate API
+                                placeholder="Paste your Gemini key here" autocomplete="off">
+                            <button id="onboarding-btn-validate-api" class="onboarding-btn-secondary">Validate Gemini
                                 Key</button>
                         </div>
                         <div id="onboarding-api-key-status" class="onboarding-status hidden"></div>
+                    </div>
+
+                    <div class="onboarding-form-group">
+                        <label class="setting-label" for="onboarding-openrouter-api-key">OpenRouter</label>
+                        <div class="onboarding-input-row">
+                            <input type="password" id="onboarding-openrouter-api-key" class="onboarding-input"
+                                placeholder="Paste your OpenRouter key here" autocomplete="off">
+                            <button id="onboarding-btn-validate-openrouter-api" class="onboarding-btn-secondary">Validate OpenRouter
+                                Key</button>
+                        </div>
+                        <div id="onboarding-openrouter-api-key-status" class="onboarding-status hidden"></div>
                     </div>
 
                     <div class="choice-card-note choice-card-note--neutral" id="api-key-image-note">
@@ -1973,11 +1993,7 @@
                                 <span class="material-symbols-outlined setting-icon">memory</span>
                                 Preferred Model
                             </label>
-                            <select id="onboarding-model-select" class="onboarding-select">
-                                <option value="gemini-flash-lite-latest">Gemini Flash Lite (Fastest)</option>
-                                <option value="gemini-3-flash-preview">Gemini Flash (Balanced)</option>
-                                <option value="gemini-3.1-pro-preview">Gemini Pro (Most Capable)</option>
-                            </select>
+                            <select id="onboarding-model-select" class="onboarding-select"></select>
                             <p class="setting-hint">Flash is faster, Pro provides deeper reasoning</p>
                         </div>
 

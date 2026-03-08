@@ -14,6 +14,7 @@ import hljs from "highlight.js";
 import type { Message } from "../types/Message";
 import type { DbChat } from "../types/Chat";
 import type { DbPersonality } from "../types/Personality";
+import { isOpenRouterModel, modelSupportsTemperature } from "../types/Models";
 import { resolveGuardForPersona } from "../utils/dynamicGroupChatGuards";
 import { PremiumEndpoint } from "../types/PremiumEndpoint";
 
@@ -32,6 +33,7 @@ import {
 } from "./Message.service";
 
 import { processGeminiLocalSdkResponse } from "./GeminiResponseProcessor.service";
+import { buildOpenRouterRequest, buildOpenRouterRequestMessages, requestOpenRouterCompletion } from "./OpenRouter.service";
 import { extractTextAndThinkingFromResponse } from "../utils/chatHistoryBuilder";
 import { buildDynamicGroupChatRosterSystemPrompt, buildSpeakerToneExamplesSystemPrompt } from "../utils/chatHistory";
 import { constructGeminiChatHistoryForGroupChat } from "../utils/groupChatHistory";
@@ -371,40 +373,65 @@ async function respondAsPersona(args: {
             resultText = extracted.text;
             resultThinking = extracted.thinking;
         } else {
-            const ai = new GoogleGenAI({ apiKey: settings.apiKey });
-            const config: GenerateContentConfig = {
-                maxOutputTokens: parseInt(settings.maxTokens),
-                temperature: parseInt(settings.temperature) / 100,
-                systemInstruction: { parts: [{ text: systemInstructionText }] } as Content,
-                safetySettings: settings.safetySettings,
-                responseMimeType: "text/plain",
-                tools: args.isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
-                thinkingConfig: generateThinkingConfig(settings.model, settings.enableThinking, settings),
-            } as any;
+            if (isOpenRouterModel(settings.model)) {
+                const messages = await buildOpenRouterRequestMessages({
+                    history,
+                    systemInstructionText,
+                    userText: instruction,
+                });
 
-            const chat = ai.chats.create({ model: settings.model, history, config });
-            const response = await chat.sendMessage({ message: [{ text: instruction }] });
-            const processed = await processGeminiLocalSdkResponse({
-                response,
-                process: {
-                    includeThoughts: !!config.thinkingConfig?.includeThoughts,
-                    useSkipThoughtSignature: false,
-                    skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE,
-                    abortMode: "throw",
-                    throwOnBlocked: false,
-                },
-            });
+                const response = await requestOpenRouterCompletion({
+                    apiKey: settings.openRouterApiKey,
+                    request: buildOpenRouterRequest({
+                        model: settings.model,
+                        messages,
+                        stream: false,
+                        maxTokens: parseInt(settings.maxTokens),
+                        temperature: parseInt(settings.temperature) / 100,
+                        enableThinking: settings.enableThinking,
+                        thinkingBudget: settings.thinkingBudget,
+                        isInternetSearchEnabled: args.isInternetSearchEnabled,
+                    }),
+                });
 
-            resultText = processed.text;
-            resultThinking = processed.thinking;
-            thoughtSignature = processed.textSignature;
+                resultText = response.text;
+                resultThinking = response.thinking;
+            } else {
+                const ai = new GoogleGenAI({ apiKey: settings.geminiApiKey || settings.apiKey });
+                const config: GenerateContentConfig = {
+                    maxOutputTokens: parseInt(settings.maxTokens),
+                    temperature: modelSupportsTemperature(settings.model) ? parseInt(settings.temperature) / 100 : undefined,
+                    systemInstruction: { parts: [{ text: systemInstructionText }] } as Content,
+                    safetySettings: settings.safetySettings,
+                    responseMimeType: "text/plain",
+                    tools: args.isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
+                    thinkingConfig: generateThinkingConfig(settings.model, settings.enableThinking, settings),
+                } as any;
 
-            if (
-                processed.finishReason === FinishReason.PROHIBITED_CONTENT ||
-                processed.finishReason === FinishReason.OTHER ||
-                processed.finishReason === BlockedReason.PROHIBITED_CONTENT
-            ) {
-                showGeminiProhibitedContentToast({ finishReason: processed.finishReason });
+                const chat = ai.chats.create({ model: settings.model, history, config });
+                const response = await chat.sendMessage({ message: [{ text: instruction }] });
+                const processed = await processGeminiLocalSdkResponse({
+                    response,
+                    process: {
+                        includeThoughts: !!config.thinkingConfig?.includeThoughts,
+                        useSkipThoughtSignature: false,
+                        skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE,
+                        abortMode: "throw",
+                        throwOnBlocked: false,
+                    },
+                });
+
+                resultText = processed.text;
+                resultThinking = processed.thinking;
+                thoughtSignature = processed.textSignature;
+
+                if (
+                    processed.finishReason === FinishReason.PROHIBITED_CONTENT ||
+                    processed.finishReason === FinishReason.OTHER ||
+                    processed.finishReason === BlockedReason.PROHIBITED_CONTENT
+                ) {
+                    showGeminiProhibitedContentToast({ finishReason: processed.finishReason });
+                }
             }
         }
 

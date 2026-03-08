@@ -2,7 +2,6 @@
  * Onboarding component - handles user interaction and flow logic
  */
 
-import { GoogleGenAI } from "@google/genai";
 import { OnboardingPath, OnboardingStep } from "../../types/Onboarding";
 import { SubscriptionPriceIDs } from "../../types/Price";
 import type { ColorTheme, ThemeMode, ThemePreference } from "../../types/Theme";
@@ -12,9 +11,18 @@ import * as syncService from "../../services/Sync.service";
 import * as settingsService from "../../services/Settings.service";
 import * as toastService from "../../services/Toast.service";
 import { themeService } from "../../services/Theme.service";
-import { ChatModel } from "../../types/Models";
-import { getValidEnumValue } from "../../utils/helpers";
+import {
+    GEMINI_CHAT_MODELS,
+    OPENROUTER_CHAT_MODELS,
+    getAccessibleChatModels,
+    getDefaultChatModel,
+    getValidChatModel,
+    modelRequiresThinking,
+    modelSupportsThinking,
+    type ChatModelAccess,
+} from "../../types/Models";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
+import { validateGeminiApiKey, validateOpenRouterApiKey } from "../../services/ApiKeyValidation.service";
 
 // Path selection buttons
 const easyPathButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-easy");
@@ -60,6 +68,9 @@ const chooseSubscriptionButton = document.querySelector<HTMLButtonElement>("#onb
 const apiKeyInput = document.querySelector<HTMLInputElement>("#onboarding-api-key");
 const validateApiKeyButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-validate-api");
 const apiKeyStatus = document.querySelector<HTMLDivElement>("#onboarding-api-key-status");
+const openRouterApiKeyInput = document.querySelector<HTMLInputElement>("#onboarding-openrouter-api-key");
+const validateOpenRouterApiKeyButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-validate-openrouter-api");
+const openRouterApiKeyStatus = document.querySelector<HTMLDivElement>("#onboarding-openrouter-api-key-status");
 const apiKeyNextButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-api-next");
 
 // Registration elements
@@ -152,6 +163,9 @@ const requiredElements = {
     apiKeyInput,
     validateApiKeyButton,
     apiKeyStatus,
+    openRouterApiKeyInput,
+    validateOpenRouterApiKeyButton,
+    openRouterApiKeyStatus,
     apiKeyNextButton,
     registerEmailInput,
     registerPasswordInput,
@@ -217,6 +231,69 @@ let refreshAdvancedSettingsFromStorage: (() => void) | null = null;
 let hasCloudSyncEnabledForCurrentUser = false;
 type OnboardingCloudSyncMode = "setup" | "unlock" | "enable";
 let onboardingCloudSyncMode: OnboardingCloudSyncMode = "setup";
+
+function hasAnyValidatedApiKey(): boolean {
+    return onboardingService.getState().apiKeyValidated;
+}
+
+async function getOnboardingModelAccess(): Promise<ChatModelAccess> {
+    const currentUser = await supabaseService.getCurrentUser();
+    const subscription = currentUser ? await supabaseService.getUserSubscription() : null;
+    const tier = supabaseService.getSubscriptionTier(subscription);
+    const hasPremiumAccess = tier === "pro" || tier === "max" || onboardingService.getState().setupOption === "subscription";
+
+    return {
+        hasGeminiAccess: hasPremiumAccess || (localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "").trim().length > 0,
+        hasOpenRouterAccess: hasPremiumAccess || (localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "").trim().length > 0,
+    };
+}
+
+function buildOptionGroup(label: string, options: { id: string; label: string }[]): HTMLOptGroupElement {
+    const optGroup = document.createElement("optgroup");
+    optGroup.label = label;
+
+    for (const option of options) {
+        const element = document.createElement("option");
+        element.value = option.id;
+        element.textContent = option.label;
+        optGroup.append(element);
+    }
+
+    return optGroup;
+}
+
+async function refreshOnboardingModelOptions(preferredModel?: string): Promise<void> {
+    const access = await getOnboardingModelAccess();
+    const available = getAccessibleChatModels(access);
+    const currentValue = preferredModel || advancedModelSelect!.value || localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL) || "";
+
+    advancedModelSelect!.replaceChildren();
+
+    const geminiModels = available.filter((model) => GEMINI_CHAT_MODELS.some((candidate) => candidate.id === model.id));
+    const openRouterModels = available.filter((model) => OPENROUTER_CHAT_MODELS.some((candidate) => candidate.id === model.id));
+
+    if (geminiModels.length > 0) {
+        advancedModelSelect!.append(buildOptionGroup("Gemini", geminiModels));
+    }
+
+    if (openRouterModels.length > 0) {
+        advancedModelSelect!.append(buildOptionGroup("OpenRouter", openRouterModels));
+    }
+
+    if (available.length === 0) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "Add or validate a key to unlock models";
+        option.disabled = true;
+        option.selected = true;
+        advancedModelSelect!.append(option);
+        advancedModelSelect!.disabled = true;
+        return;
+    }
+
+    advancedModelSelect!.disabled = false;
+    advancedModelSelect!.value = getValidChatModel(currentValue, access) || getDefaultChatModel(access);
+}
 
 /**
  * Initialize onboarding component
@@ -438,11 +515,8 @@ function setupApiOrSubscriptionChoice(): void {
         onboardingService.setSetupOption("api-key");
         onboardingService.setPendingCredentials(null);
         
-        // Prefill API key if it exists in localStorage
-        const existingApiKey = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY);
-        if (existingApiKey) {
-            apiKeyInput!.value = existingApiKey;
-        }
+        apiKeyInput!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
+        openRouterApiKeyInput!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "";
         
         onboardingService.goToStep(OnboardingStep.API_KEY_SETUP);
     });
@@ -472,60 +546,102 @@ function setupApiOrSubscriptionChoice(): void {
  * API key setup step handlers
  */
 function setupApiKeySetup(): void {
-    validateApiKeyButton!.addEventListener("click", async () => {
-        const apiKey = apiKeyInput!.value.trim();
-        
+    const updateApiKeyNextState = () => {
+        const hasValidatedKey =
+            apiKeyStatus!.classList.contains("status-success") ||
+            openRouterApiKeyStatus!.classList.contains("status-success");
+
+        onboardingService.setApiKeyValidated(hasValidatedKey);
+        apiKeyNextButton!.disabled = !hasValidatedKey;
+    };
+
+    const revealContinueButton = () => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const onboardingOverlay = document.querySelector("#onboarding-overlay");
+                if (onboardingOverlay) {
+                    onboardingOverlay.scrollTo({ top: onboardingOverlay.scrollHeight, behavior: "smooth" });
+                }
+            });
+        });
+    };
+
+    const runValidation = async (args: {
+        input: HTMLInputElement;
+        button: HTMLButtonElement;
+        statusElement: HTMLDivElement;
+        storageKey: string;
+        validator: (apiKey: string) => Promise<boolean>;
+        loadingMessage: string;
+        successMessage: string;
+        errorMessage: string;
+        idleLabel: string;
+    }) => {
+        const apiKey = args.input.value.trim();
         if (!apiKey) {
-            showApiKeyStatus("Please enter an API key", "error");
+            showApiKeyStatus(args.statusElement, "Please enter an API key", "error");
+            updateApiKeyNextState();
             return;
         }
-        
-        // Disable button and show loading state
-        validateApiKeyButton!.disabled = true;
-        validateApiKeyButton!.textContent = "Validating...";
-        showApiKeyStatus("Testing your API key...", "loading");
-        
+
+        args.button.disabled = true;
+        args.button.textContent = "Validating...";
+        showApiKeyStatus(args.statusElement, args.loadingMessage, "loading");
+
         try {
-            // Test the API key with a simple call to Gemini 2.5 Flash Lite
-            const ai = new GoogleGenAI({ apiKey });
-            await ai.models.generateContent({
-                model: ChatModel.FLASH_LITE_LATEST,
-                contents: "Say 'Hello' in one word."
-            });
-            
-            // Success!
-            showApiKeyStatus("✓ API key is valid!", "success");
-            onboardingService.setApiKeyValidated(true);
-            
-            // Save to localStorage
-            localStorage.setItem(SETTINGS_STORAGE_KEYS.API_KEY, apiKey);
+            const isValid = await args.validator(apiKey);
+            if (!isValid) {
+                showApiKeyStatus(args.statusElement, args.errorMessage, "error");
+                updateApiKeyNextState();
+                return;
+            }
+
+            showApiKeyStatus(args.statusElement, args.successMessage, "success");
+            localStorage.setItem(args.storageKey, apiKey);
             settingsService.loadSettings();
-            
-            // Enable next button
-            apiKeyNextButton!.disabled = false;
-            
-            // Scroll to bottom to reveal the Continue button (wait for browser paint)
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    const onboardingOverlay = document.querySelector("#onboarding-overlay");
-                    if (onboardingOverlay) {
-                        onboardingOverlay.scrollTo({ top: onboardingOverlay.scrollHeight, behavior: 'smooth' });
-                    }
-                });
-            });
+            await refreshOnboardingModelOptions(localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL) || undefined);
+            updateApiKeyNextState();
+            revealContinueButton();
         } catch (error) {
             console.error("API key validation failed:", error);
-            showApiKeyStatus("✗ Invalid API key. Please check and try again.", "error");
-            onboardingService.setApiKeyValidated(false);
-            apiKeyNextButton!.disabled = true;
+            showApiKeyStatus(args.statusElement, args.errorMessage, "error");
+            updateApiKeyNextState();
         } finally {
-            validateApiKeyButton!.disabled = false;
-            validateApiKeyButton!.textContent = "Validate API Key";
+            args.button.disabled = false;
+            args.button.textContent = args.idleLabel;
         }
+    };
+
+    validateApiKeyButton!.addEventListener("click", async () => {
+        await runValidation({
+            input: apiKeyInput!,
+            button: validateApiKeyButton!,
+            statusElement: apiKeyStatus!,
+            storageKey: SETTINGS_STORAGE_KEYS.API_KEY,
+            validator: validateGeminiApiKey,
+            loadingMessage: "Testing your Gemini key...",
+            successMessage: "✓ Gemini key is valid!",
+            errorMessage: "✗ Invalid Gemini key. Please check and try again.",
+            idleLabel: "Validate Gemini Key",
+        });
+    });
+
+    validateOpenRouterApiKeyButton!.addEventListener("click", async () => {
+        await runValidation({
+            input: openRouterApiKeyInput!,
+            button: validateOpenRouterApiKeyButton!,
+            statusElement: openRouterApiKeyStatus!,
+            storageKey: SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY,
+            validator: validateOpenRouterApiKey,
+            loadingMessage: "Testing your OpenRouter key...",
+            successMessage: "✓ OpenRouter key is valid!",
+            errorMessage: "✗ Invalid OpenRouter key. Please check and try again.",
+            idleLabel: "Validate OpenRouter Key",
+        });
     });
     
     apiKeyNextButton!.addEventListener("click", async () => {
-        if (!onboardingService.getState().apiKeyValidated) {
+        if (!hasAnyValidatedApiKey()) {
             return;
         }
 
@@ -549,10 +665,23 @@ function setupApiKeySetup(): void {
     });
     
     // Reset next button state when input changes
+    const handleApiKeyInputChange = async (args: { statusElement: HTMLDivElement; storageKey: string }) => {
+        localStorage.removeItem(args.storageKey);
+        hideApiKeyStatus(args.statusElement);
+        const hasValidatedKey =
+            apiKeyStatus!.classList.contains("status-success") ||
+            openRouterApiKeyStatus!.classList.contains("status-success");
+        onboardingService.setApiKeyValidated(hasValidatedKey);
+        apiKeyNextButton!.disabled = !hasValidatedKey;
+        await refreshOnboardingModelOptions(localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL) || undefined);
+    };
+
     apiKeyInput!.addEventListener("input", () => {
-        apiKeyNextButton!.disabled = true;
-        onboardingService.setApiKeyValidated(false);
-        hideApiKeyStatus();
+        void handleApiKeyInputChange({ statusElement: apiKeyStatus!, storageKey: SETTINGS_STORAGE_KEYS.API_KEY });
+    });
+
+    openRouterApiKeyInput!.addEventListener("input", () => {
+        void handleApiKeyInputChange({ statusElement: openRouterApiKeyStatus!, storageKey: SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY });
     });
 }
 
@@ -760,7 +889,7 @@ function setupSummary(): void {
         // Apply Easy path settings for ALL outcomes
         const selectedPath = onboardingService.getState().selectedPath;
         if (selectedPath === OnboardingPath.EASY && !hasCloudSyncEnabledForCurrentUser) {
-            applyEasyPathSettings();
+            await applyEasyPathSettings();
         }
         
         // Subscription flow - redirect to Stripe checkout
@@ -821,11 +950,13 @@ function setupSummary(): void {
 /**
  * Apply default settings for Easy path onboarding
  */
-function applyEasyPathSettings(): void {
+async function applyEasyPathSettings(): Promise<void> {
+    const access = await getOnboardingModelAccess();
+
     // Set Easy path defaults in localStorage
     localStorage.setItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL, "true");
     localStorage.setItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES, "true");
-    localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, ChatModel.FLASH);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, getDefaultChatModel(access));
     localStorage.setItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS, "1000");
     localStorage.setItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING, "true");
     localStorage.setItem(SETTINGS_STORAGE_KEYS.THINKING_BUDGET, "500");
@@ -1289,12 +1420,13 @@ function setupAdvancedSettings(): void {
     };
 
     // Load current or default settings
-    const loadDefaultSettings = () => {
-        advancedModelSelect!.value = getValidEnumValue(
+    const loadDefaultSettings = async () => {
+        const access = await getOnboardingModelAccess();
+        await refreshOnboardingModelOptions(localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL) || undefined);
+        advancedModelSelect!.value = getValidChatModel(
             localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL),
-            ChatModel,
-            ChatModel.FLASH
-        )
+            access,
+        );
         advancedTemperature!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
         updateTemperatureDisplay();
         advancedMaxOutputTokens!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
@@ -1340,14 +1472,17 @@ function setupAdvancedSettings(): void {
     const updateThinkingRestrictions = () => {
         const selectedModel = advancedModelSelect!.value;
         
-        if (selectedModel === ChatModel.PRO) {
-            // Pro model: force thinking enabled
+        if (modelRequiresThinking(selectedModel)) {
             advancedThinkingEnabled!.checked = true;
             advancedThinkingEnabled!.disabled = true;
             advancedThinkingHint!.style.display = '';
             advancedThinkingHint!.textContent = "Thinking is required for this model.";
+        } else if (!modelSupportsThinking(selectedModel)) {
+            advancedThinkingEnabled!.checked = false;
+            advancedThinkingEnabled!.disabled = true;
+            advancedThinkingHint!.style.display = '';
+            advancedThinkingHint!.textContent = "Thinking is not available for this model.";
         } else {
-            // Other models: thinking is optional
             advancedThinkingEnabled!.disabled = false;
             advancedThinkingHint!.style.display = 'none';
         }
@@ -1468,8 +1603,8 @@ function setupAdvancedSettings(): void {
 
     // Load defaults when the advanced settings step is shown
     // This will be called from wherever the step transition happens
-    refreshAdvancedSettingsFromStorage = loadDefaultSettings;
-    loadDefaultSettings();
+    refreshAdvancedSettingsFromStorage = () => { void loadDefaultSettings(); };
+    void loadDefaultSettings();
 }
 
 /**
@@ -1492,17 +1627,19 @@ async function routeToSettingsOrSummary(): Promise<void> {
 /**
  * Helper: Show API key validation status
  */
-function showApiKeyStatus(message: string, type: "loading" | "success" | "error"): void {
-    apiKeyStatus!.textContent = message;
-    apiKeyStatus!.classList.remove("hidden", "status-loading", "status-success", "status-error");
-    apiKeyStatus!.classList.add(`status-${type}`);
+function showApiKeyStatus(element: HTMLDivElement, message: string, type: "loading" | "success" | "error"): void {
+    element.textContent = message;
+    element.classList.remove("hidden", "status-loading", "status-success", "status-error");
+    element.classList.add(`status-${type}`);
 }
 
 /**
  * Helper: Hide API key status
  */
-function hideApiKeyStatus(): void {
-    apiKeyStatus!.classList.add("hidden");
+function hideApiKeyStatus(element: HTMLDivElement): void {
+    element.classList.add("hidden");
+    element.classList.remove("status-loading", "status-success", "status-error");
+    element.textContent = "";
 }
 
 /**

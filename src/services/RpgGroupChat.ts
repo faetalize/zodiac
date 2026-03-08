@@ -11,7 +11,7 @@ import hljs from "highlight.js";
 import type { Message } from "../types/Message";
 import type { DbChat } from "../types/Chat";
 import type { DbPersonality } from "../types/Personality";
-import { ChatModel } from "../types/Models";
+import { ChatModel, getPreferredNarratorLocalModel, isOpenRouterModel, modelSupportsTemperature } from "../types/Models";
 import { PremiumEndpoint } from "../types/PremiumEndpoint";
 import type {
     GroupChatParticipantPersona,
@@ -33,6 +33,7 @@ import { messageElement } from "../components/dynamic/message";
 
 import { isGeminiBlockedFinishReason, throwGeminiBlocked, processGeminiLocalSdkStream, processGeminiLocalSdkResponse } from "./GeminiResponseProcessor.service";
 import { processPremiumEndpointSse } from "./PremiumEndpointResponseProcessor.service";
+import { buildOpenRouterRequest, buildOpenRouterRequestMessages, requestOpenRouterCompletion } from "./OpenRouter.service";
 
 import {
     NARRATOR_PERSONALITY_ID,
@@ -897,7 +898,7 @@ async function executeTurnLocalSdk(args: {
 
     const config: GenerateContentConfig = {
         maxOutputTokens: parseInt(settings.maxTokens),
-        temperature: parseInt(settings.temperature) / 100,
+        temperature: modelSupportsTemperature(settings.model) ? parseInt(settings.temperature) / 100 : undefined,
         systemInstruction: ({
             parts: [{ text: ((await settingsService.getSystemPrompt("rpg")).parts?.[0].text ?? "") + rosterSystemPrompt + speakerToneSystemPrompt }]
         }) as Content,
@@ -956,7 +957,39 @@ async function runLocalSdkRpgTurn(args: {
 }): Promise<TextAndThinking> {
     const { settings, history, config, turnInstruction, signal, onThinking, onText } = args;
 
-    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
+    if (isOpenRouterModel(settings.model)) {
+        const systemInstructionText = ((config.systemInstruction as Content | undefined)?.parts?.[0]?.text || "").toString();
+        return await requestOpenRouterCompletion({
+            apiKey: settings.openRouterApiKey,
+            request: buildOpenRouterRequest({
+                model: settings.model,
+                messages: await buildOpenRouterRequestMessages({
+                    history,
+                    systemInstructionText,
+                    userText: turnInstruction,
+                }),
+                stream: settings.streamResponses,
+                maxTokens: parseInt(settings.maxTokens),
+                temperature: parseInt(settings.temperature) / 100,
+                enableThinking: settings.enableThinking,
+                thinkingBudget: settings.thinkingBudget,
+                isInternetSearchEnabled: false,
+                responseFormat: {
+                    type: "json_schema",
+                    json_schema: {
+                        name: "group_turn_decision",
+                        strict: true,
+                        schema: GROUP_TURN_DECISION_SCHEMA,
+                    },
+                },
+            }),
+            signal,
+            onThinking: onThinking ? ({ thinking }) => onThinking(thinking) : undefined,
+            onText: onText ? async ({ text }) => { await onText(text); } : undefined,
+        });
+    }
+
+    const ai = new GoogleGenAI({ apiKey: settings.geminiApiKey || settings.apiKey });
     const chat = ai.chats.create({ model: settings.model, history, config });
 
     if (settings.streamResponses) {
@@ -1164,7 +1197,12 @@ async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<Te
         (rosterSystemPrompt?.trim() ? `\n${rosterSystemPrompt}` : "")
     ).trim();
 
-    const narratorModel = ChatModel.FLASH;
+    const narratorModel = isPremiumEndpointPreferred
+        ? ChatModel.FLASH
+        : getPreferredNarratorLocalModel({
+            geminiApiKey: settings.geminiApiKey || settings.apiKey,
+            openRouterApiKey: settings.openRouterApiKey,
+        });
     const narratorPrompt = buildNarratorPrompt(mode, scenarioPrompt, userName, participantNames);
 
     try {
@@ -1262,7 +1300,28 @@ async function generateNarratorLocalSdk(args: {
 }): Promise<TextAndThinking> {
     const { narratorModel, narratorSystemInstructionText, narratorPrompt, history, settings, signal } = args;
 
-    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
+    if (isOpenRouterModel(narratorModel)) {
+        return await requestOpenRouterCompletion({
+            apiKey: settings.openRouterApiKey,
+            request: buildOpenRouterRequest({
+                model: narratorModel,
+                messages: await buildOpenRouterRequestMessages({
+                    history,
+                    systemInstructionText: narratorSystemInstructionText,
+                    userText: narratorPrompt,
+                }),
+                stream: settings.streamResponses,
+                maxTokens: parseInt(settings.maxTokens),
+                temperature: 1.0,
+                enableThinking: false,
+                thinkingBudget: 0,
+                isInternetSearchEnabled: false,
+            }),
+            signal,
+        });
+    }
+
+    const ai = new GoogleGenAI({ apiKey: settings.geminiApiKey || settings.apiKey });
     const config: GenerateContentConfig = {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: 1.0,

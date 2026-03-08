@@ -1,103 +1,121 @@
-import { GoogleGenAI } from "@google/genai";
 import { getSubscriptionTier, type SubscriptionTier } from "../../services/Supabase.service";
-import { ChatModel } from "../../types/Models";
 import { dispatchAppEvent, onAppEvent } from "../../events";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
+import { validateGeminiApiKey, validateOpenRouterApiKey } from "../../services/ApiKeyValidation.service";
 
-const apiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
-const apiKeyGroup = document.querySelector<HTMLDivElement>(".api-key");
+const geminiApiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
+const openRouterApiKeyInput = document.querySelector<HTMLInputElement>("#openRouterApiKeyInput");
+const geminiError = document.querySelector<HTMLElement>("#gemini-api-key-error");
+const openRouterError = document.querySelector<HTMLElement>("#openrouter-api-key-error");
 const preferPremiumToggle = document.querySelector<HTMLDivElement>("#prefer-premium-endpoint-toggle");
 const preferPremiumCheckbox = document.querySelector<HTMLInputElement>("#preferPremiumEndpoint");
 
-if (!apiKeyInput || !apiKeyGroup || !preferPremiumToggle || !preferPremiumCheckbox) {
+if (!geminiApiKeyInput || !openRouterApiKeyInput || !geminiError || !openRouterError || !preferPremiumToggle || !preferPremiumCheckbox) {
     console.error("One or more API key input elements are missing.");
     throw new Error("API key input initialization failed.");
 }
 
-// API key input is always editable regardless of subscription status
+const ensuredGeminiApiKeyInput = geminiApiKeyInput;
+const ensuredOpenRouterApiKeyInput = openRouterApiKeyInput;
+const ensuredGeminiError = geminiError;
+const ensuredOpenRouterError = openRouterError;
+const ensuredPreferPremiumToggle = preferPremiumToggle;
+const ensuredPreferPremiumCheckbox = preferPremiumCheckbox;
 
 function applyPremiumPreferenceFromStorage(): void {
     const savedPreference = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
     if (savedPreference !== null) {
-        preferPremiumCheckbox!.checked = savedPreference === 'true';
+        ensuredPreferPremiumCheckbox.checked = savedPreference === "true";
     } else {
-        // Default to true (prefer premium ON by default)
-        preferPremiumCheckbox!.checked = true;
+        ensuredPreferPremiumCheckbox.checked = true;
     }
 }
 
-// Load saved preference - default to true for subscribers
+function clearValidationState(input: HTMLInputElement, errorElement: HTMLElement): void {
+    input.classList.remove("api-key-valid", "api-key-invalid");
+    errorElement.classList.add("hidden");
+}
+
+function setValidationState(args: {
+    input: HTMLInputElement;
+    errorElement: HTMLElement;
+    isValid: boolean;
+}): void {
+    args.input.classList.toggle("api-key-valid", args.isValid);
+    args.input.classList.toggle("api-key-invalid", !args.isValid);
+    args.errorElement.classList.toggle("hidden", args.isValid);
+}
+
+function attachValidation(args: {
+    input: HTMLInputElement;
+    errorElement: HTMLElement;
+    validator: (apiKey: string) => Promise<boolean>;
+}): void {
+    let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+    args.input.addEventListener("input", () => {
+        const value = args.input.value.trim();
+        if (debounceTimer) clearTimeout(debounceTimer);
+
+        if (!value) {
+            clearValidationState(args.input, args.errorElement);
+            return;
+        }
+
+        debounceTimer = setTimeout(async () => {
+            const isValid = await args.validator(value);
+            setValidationState({ input: args.input, errorElement: args.errorElement, isValid });
+        }, 750);
+    });
+}
+
 applyPremiumPreferenceFromStorage();
 
-// Save preference when changed
-preferPremiumCheckbox.addEventListener('change', () => {
-    localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, preferPremiumCheckbox.checked.toString());
-    // Dispatch event to notify other components
-    dispatchAppEvent('premium-endpoint-preference-changed', { preferred: preferPremiumCheckbox.checked });
+ensuredPreferPremiumCheckbox.addEventListener("change", () => {
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, ensuredPreferPremiumCheckbox.checked.toString());
+    dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
 });
 
-// Show/hide the toggle based on subscription status
-onAppEvent('auth-state-changed', (event) => {
+onAppEvent("auth-state-changed", (event) => {
     const { subscription: sub } = event.detail;
-    const savedPreference = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
+        const savedPreference = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
     if (!sub) {
-        preferPremiumToggle.classList.add('hidden');
-        preferPremiumCheckbox.checked = false; // Turn OFF for free users
+        ensuredPreferPremiumToggle.classList.add("hidden");
+        ensuredPreferPremiumCheckbox.checked = false;
         return;
     }
-    
+
     const tier: SubscriptionTier = getSubscriptionTier(sub);
-    if (tier === 'pro' || tier === 'max') {
-        preferPremiumToggle.classList.remove('hidden');
-        // Set default to ON for subscribers if not previously saved
+    if (tier === "pro" || tier === "max") {
+        ensuredPreferPremiumToggle.classList.remove("hidden");
         if (savedPreference === null) {
-            preferPremiumCheckbox.checked = true;
-            localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, 'true');
+            ensuredPreferPremiumCheckbox.checked = true;
+            localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "true");
         }
     } else {
-        preferPremiumToggle.classList.add('hidden');
-        preferPremiumCheckbox.checked = false; // Turn OFF for free users
+        ensuredPreferPremiumToggle.classList.add("hidden");
+        ensuredPreferPremiumCheckbox.checked = false;
     }
 });
 
-onAppEvent('sync-data-pulled', () => {
+onAppEvent("sync-data-pulled", () => {
     applyPremiumPreferenceFromStorage();
-    dispatchAppEvent('premium-endpoint-preference-changed', { preferred: preferPremiumCheckbox.checked });
+    dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
 });
 
-
-let debounceTimer: NodeJS.Timeout;
-apiKeyInput?.addEventListener("input", () => {
-    if (debounceTimer) {
-        clearTimeout(debounceTimer);
-    }
-    debounceTimer = setTimeout(async () => {
-        const apiKey = apiKeyInput.value.trim();
-        const ai = new GoogleGenAI({ apiKey: apiKey });
-        try {
-            // Test the API key with a simple query
-            await ai.models.generateContent({
-                model: ChatModel.FLASH_LITE_LATEST,
-                contents: "test"
-            });
-            apiKeyInput.classList.add("api-key-valid");
-            apiKeyInput.classList.remove("api-key-invalid");
-            document.querySelector<HTMLElement>(".api-key-error")!.classList.add("hidden");
-        } catch (error) {
-            apiKeyInput.classList.add("api-key-invalid");
-            apiKeyInput.classList.remove("api-key-valid");
-            document.querySelector<HTMLElement>(".api-key-error")!.classList.remove("hidden");
-        }
-    }, 750);
+attachValidation({
+    input: ensuredGeminiApiKeyInput,
+    errorElement: ensuredGeminiError,
+    validator: validateGeminiApiKey,
 });
 
-/**
- * Check if user prefers to use premium endpoint over their API key
- * @returns true if premium endpoint should be preferred (default), false otherwise
- */
+attachValidation({
+    input: ensuredOpenRouterApiKeyInput,
+    errorElement: ensuredOpenRouterError,
+    validator: validateOpenRouterApiKey,
+});
+
 export function shouldPreferPremiumEndpoint(): boolean {
     const saved = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
-    // Default to true (prefer premium) if not set
-    return saved === null ? true : saved === 'true';
+    return saved === null ? true : saved === "true";
 }
-

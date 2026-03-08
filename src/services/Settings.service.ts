@@ -1,12 +1,12 @@
 import { Content, HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
 import { User } from "../types/User";
-import { ChatModel } from "../types/Models";
-import { getValidEnumValue } from "../utils/helpers";
+import { getDefaultChatModel, getValidChatModel } from "../types/Models";
 import * as syncService from "./Sync.service";
 import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
 
-const ApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
+const geminiApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
+const openRouterApiKeyInput = document.querySelector("#openRouterApiKeyInput") as HTMLInputElement;
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
 const temperatureInput = document.querySelector("#temperature") as HTMLInputElement;
 const modelSelect = document.querySelector("#selectedModel") as HTMLSelectElement;
@@ -30,12 +30,35 @@ const customThoughtInstructionInput = document.querySelector("#customThoughtInst
 const delimiterPreviewDialogue = document.querySelector("#delimiterPreviewDialogue") as HTMLParagraphElement;
 const delimiterPreviewAction = document.querySelector("#delimiterPreviewAction") as HTMLParagraphElement;
 const delimiterPreviewThought = document.querySelector("#delimiterPreviewThought") as HTMLParagraphElement;
-if (!ApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector || !rpgGroupChatsProgressAutomaticallyToggle || !disallowPersonaPingingToggle || !dynamicGroupChatPingOnlyToggle || !fullWidthChatToggle || !uiScaleInput || !delimiterPresetSelect || !customDelimiterInstructionsContainer || !delimiterPreviewContainer || !customDialogueInstructionInput || !customActionInstructionInput || !customThoughtInstructionInput || !delimiterPreviewDialogue || !delimiterPreviewAction || !delimiterPreviewThought) {
+if (!geminiApiKeyInput || !openRouterApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector || !rpgGroupChatsProgressAutomaticallyToggle || !disallowPersonaPingingToggle || !dynamicGroupChatPingOnlyToggle || !fullWidthChatToggle || !uiScaleInput || !delimiterPresetSelect || !customDelimiterInstructionsContainer || !delimiterPreviewContainer || !customDialogueInstructionInput || !customActionInstructionInput || !customThoughtInstructionInput || !delimiterPreviewDialogue || !delimiterPreviewAction || !delimiterPreviewThought) {
     throw new Error("One or more settings elements are missing in the DOM.");
 }
 
 const UI_SCALE_VALUES = [0.5, 0.75, 1, 1.25, 1.5] as const;
 const DEFAULT_UI_SCALE = 1;
+
+function getCurrentModelAccess() {
+    return {
+        hasGeminiAccess: geminiApiKeyInput.value.trim().length > 0 || (localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "").trim().length > 0,
+        hasOpenRouterAccess: openRouterApiKeyInput.value.trim().length > 0 || (localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "").trim().length > 0,
+    };
+}
+
+function getSelectedOrFallbackModel(): string {
+    const optionValues = Array.from(modelSelect.options).map((option) => option.value).filter(Boolean);
+    const stored = localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL);
+    if (stored && optionValues.includes(stored)) {
+        return stored;
+    }
+
+    const access = getCurrentModelAccess();
+    const validStored = getValidChatModel(stored, access);
+    if (optionValues.includes(validStored)) {
+        return validStored;
+    }
+
+    return optionValues[0] || getDefaultChatModel(access);
+}
 
 function getStoredUiScale(): number {
     const stored = Number(localStorage.getItem(SETTINGS_STORAGE_KEYS.UI_SCALE));
@@ -187,7 +210,8 @@ function buildRoleplayGuidelinesPrompt(): string {
 
 export function initialize() {
     loadSettings();
-    ApiKeyInput.addEventListener("input", saveSettings);
+    geminiApiKeyInput.addEventListener("input", saveSettings);
+    openRouterApiKeyInput.addEventListener("input", saveSettings);
     maxTokensInput.addEventListener("input", saveSettings);
     temperatureInput.addEventListener("input", saveSettings);
     modelSelect.addEventListener("change", saveSettings);
@@ -213,10 +237,11 @@ export function initialize() {
 
 export function loadSettings() {
 
-    ApiKeyInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
+    geminiApiKeyInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
+    openRouterApiKeyInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "";
     maxTokensInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
     temperatureInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
-    modelSelect.value = getValidEnumValue(localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL), ChatModel, ChatModel.FLASH);
+    modelSelect.value = getSelectedOrFallbackModel();
     imageModelSelect.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || "imagen-4.0-ultra-generate-001";
     imageEditModelSelector.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) || "qwen";
     autoscrollToggle.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) ? localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) === "true" : true;
@@ -250,7 +275,8 @@ export function loadSettings() {
 }
 
 export function saveSettings() {
-    localStorage.setItem(SETTINGS_STORAGE_KEYS.API_KEY, ApiKeyInput.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.API_KEY, geminiApiKeyInput.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY, openRouterApiKeyInput.value);
     localStorage.setItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS, maxTokensInput.value);
     localStorage.setItem(SETTINGS_STORAGE_KEYS.TEMPERATURE, temperatureInput.value);
     localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, modelSelect.value);
@@ -287,8 +313,13 @@ function debouncedSyncPush() {
 }
 
 export function getSettings() {
+    const geminiApiKey = geminiApiKeyInput.value;
+    const openRouterApiKey = openRouterApiKeyInput.value;
+
     return {
-        apiKey: ApiKeyInput.value,
+        apiKey: geminiApiKey,
+        geminiApiKey,
+        openRouterApiKey,
         maxTokens: maxTokensInput.value,
         temperature: temperatureInput.value,
         safetySettings: [
