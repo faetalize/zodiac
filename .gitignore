@@ -151,3 +151,4 @@ cloudflare-workers/*
 .github/instructions/*
 src/services/GLM.service.ts
 opencode.json
+zozo-edge/
