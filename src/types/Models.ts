@@ -145,16 +145,6 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         supportsImageOutput: false,
     },
     {
-        id: "openai/gpt-4",
-        label: "GPT-4",
-        provider: "openrouter",
-        supportsThinking: false,
-        supportsTemperature: true,
-        supportsImageInput: false,
-        supportsFileInput: false,
-        supportsImageOutput: false,
-    },
-    {
         id: "anthropic/claude-sonnet-4.6",
         label: "Claude Sonnet 4.6",
         provider: "openrouter",
