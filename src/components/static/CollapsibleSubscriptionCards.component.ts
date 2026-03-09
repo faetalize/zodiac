@@ -26,6 +26,7 @@ function init(): void {
     // Profile panel cards
     const profileFreeCard = document.getElementById("profile-free-card");
     const profileProCard = document.getElementById("profile-pro-card");
+    const profileProPlusCard = document.getElementById("profile-pro-plus-card");
     const profileMaxCard = document.getElementById("profile-max-card");
 
     const cards = [
@@ -33,6 +34,7 @@ function init(): void {
         onboardingMaxCard,
         profileFreeCard,
         profileProCard,
+        profileProPlusCard,
         profileMaxCard
     ].filter((card): card is HTMLElement => card !== null);
 
@@ -63,7 +65,7 @@ function init(): void {
         // Add expand indicator to header
         const expandIndicator = document.createElement("span");
         expandIndicator.className = "material-symbols-outlined subscription-expand-indicator";
-        expandIndicator.textContent = "chevron_left";
+        expandIndicator.textContent = "expand_more";
         header.appendChild(expandIndicator);
     });
 
@@ -98,11 +100,11 @@ function updateCardState(collapsibleCard: CollapsibleCard): void {
         if (isExpanded) {
             card.classList.add("subscription-card-expanded");
             card.classList.remove("subscription-card-collapsed");
-            if (indicator) indicator.textContent = "expand_more";
+            if (indicator) indicator.textContent = "expand_less";
         } else {
             card.classList.add("subscription-card-collapsed");
             card.classList.remove("subscription-card-expanded");
-            if (indicator) indicator.textContent = "chevron_left";
+            if (indicator) indicator.textContent = "expand_more";
         }
     } else {
         // Desktop: always expanded

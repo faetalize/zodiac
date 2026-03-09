@@ -1042,14 +1042,21 @@ form {
 }
 
 .tier-badge-pro {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #38bdf8 0%, #0f766e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.tier-badge-pro-plus {
+    background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
 
 .tier-badge-max {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: linear-gradient(135deg, #0f172a 0%, #475569 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -1129,18 +1136,29 @@ form {
     /* Show expand indicators on mobile */
     .subscription-expand-indicator {
         display: block !important;
+        position: absolute;
+        left: 50%;
+        bottom: -0.95rem;
+        transform: translateX(-50%);
+        margin-left: 0;
+        padding: 0.1rem;
+        border-radius: 999px;
+        background: var(--subscription-card-bg);
+        border: 1px solid var(--subscription-card-border);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+        z-index: 1;
     }
 
     /* Make headers flex containers to position indicator */
     .subscription-card-header {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
+        align-items: flex-start;
+        justify-content: flex-start;
         cursor: pointer;
         user-select: none;
         position: relative;
         margin-bottom: 0 !important;
-        padding-bottom: 1rem;
+        padding-bottom: 1.35rem;
         border-bottom: 1px solid rgba(0, 0, 0, 0.1);
     }
 
@@ -1151,7 +1169,7 @@ form {
 
     /* Collapsed state */
     .subscription-card-collapsed {
-        padding: 1rem !important;
+        padding: 1rem 1rem 0.7rem !important;
     }
 
     .subscription-card-collapsed .subscription-card-body {
@@ -1164,10 +1182,13 @@ form {
             margin-top 0.3s ease;
     }
 
-    .subscription-card-collapsed .subscription-cta {
+    #form-subscription .subscription-card-collapsed .subscription-cta {
         max-height: 0;
+        min-height: 0;
         overflow: hidden;
         opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
         padding-top: 0;
         padding-bottom: 0;
         margin-top: 0;
@@ -1208,9 +1229,12 @@ form {
             margin-top 0.3s ease;
     }
 
-    .subscription-card-expanded .subscription-cta {
+    #form-subscription .subscription-card-expanded .subscription-cta {
         max-height: 200px;
+        min-height: 3.25rem;
         opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
         padding: 1rem 2rem;
         margin-top: 0.75rem;
         transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
@@ -1249,6 +1273,7 @@ form {
     #onboarding-pro-card,
     #profile-free-card,
     #profile-pro-card,
+    #profile-pro-plus-card,
     #profile-max-card {
         height: auto !important;
     }
@@ -1414,6 +1439,647 @@ form {
 
 .subscription-card-max {
     background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+}
+
+#form-subscription {
+    width: min(96vw, 130rem);
+    max-width: none;
+    margin: 0 auto;
+}
+
+#form-subscription .subscription-shell {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+    max-height: calc(var(--vvh, 100dvh) - 2rem);
+    padding: clamp(1.25rem, 2vw, 2rem);
+    border-radius: 2rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    color: var(--subscription-card-fg);
+    background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(245, 158, 11, 0.12), transparent 26%),
+        var(--subscription-card-bg);
+    border: 1px solid var(--subscription-card-border);
+    box-shadow: var(--subscription-card-shadow);
+}
+
+#form-subscription .subscription-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    opacity: 0.45;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 2.75rem 2.75rem;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent 82%);
+}
+
+#form-subscription .subscription-header {
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    align-items: center;
+    text-align: center;
+}
+
+#form-subscription .subscription-eyebrow {
+    margin: 0;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #0f172a;
+    background: linear-gradient(135deg, rgba(186, 230, 253, 0.95), rgba(253, 230, 138, 0.92));
+}
+
+#form-subscription .subscription-header h1 {
+    max-width: 16ch;
+    margin: 0;
+    color: inherit;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    font-size: clamp(2.5rem, 5vw, 4.35rem);
+    line-height: 0.95;
+    letter-spacing: -0.045em;
+}
+
+#form-subscription .subscription-header p:last-child {
+    max-width: 48rem;
+    margin: 0;
+    color: inherit;
+    opacity: 0.78;
+    font-size: 1.02rem;
+    line-height: 1.65;
+}
+
+#form-subscription .subscription-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.15rem;
+    border-radius: 1.4rem;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(12px);
+}
+
+#form-subscription .subscription-billing-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+#form-subscription .subscription-billing-option,
+#form-subscription .subscription-plan-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+#form-subscription .subscription-billing-option {
+    appearance: none;
+    cursor: pointer;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    color: inherit;
+    font-family: inherit;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+#form-subscription .subscription-billing-label {
+    line-height: 1.1;
+}
+
+#form-subscription .subscription-billing-note {
+    font-size: 0.7rem;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    opacity: 0.82;
+}
+
+#form-subscription .subscription-billing-separator {
+    font-size: 0.8rem;
+    opacity: 0.6;
+}
+
+#form-subscription .subscription-billing-option:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+#form-subscription .subscription-billing-option-active:hover,
+#form-subscription .subscription-billing-option[aria-pressed="true"]:hover {
+    background: linear-gradient(135deg, #0f766e, #0369a1);
+}
+
+#form-subscription .subscription-billing-option:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+#form-subscription .subscription-billing-option[aria-pressed="true"] {
+    color: inherit;
+}
+
+#form-subscription .billing-only-yearly {
+    display: none;
+}
+
+#form-subscription[data-billing="yearly"] .billing-only-monthly {
+    display: none;
+}
+
+#form-subscription[data-billing="yearly"] .billing-only-yearly {
+    display: inline;
+}
+
+#form-subscription .subscription-billing-option-active {
+    background: linear-gradient(135deg, #0f766e, #0369a1);
+    color: #f8fafc;
+    border-color: rgba(14, 116, 144, 0.55);
+    box-shadow: 0 10px 24px rgba(3, 105, 161, 0.28);
+}
+
+#form-subscription .subscription-trust-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: inherit;
+    opacity: 0.75;
+}
+
+#form-subscription .subscription-trust-row span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+#form-subscription .subscription-trust-row span::before {
+    content: "";
+    width: 0.35rem;
+    height: 0.35rem;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.55;
+}
+
+#form-subscription .subscription-grid-showcase {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.25rem;
+    padding-bottom: 0;
+}
+
+#form-subscription .subscription-plan {
+    display: flex;
+    flex-direction: column;
+    padding: 1.35rem;
+    border-radius: 1.6rem;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02));
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+    backdrop-filter: blur(14px);
+}
+
+#form-subscription .subscription-plan:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 24px 55px rgba(15, 23, 42, 0.2);
+}
+
+#form-subscription .subscription-card-popular {
+    border-color: rgba(34, 197, 94, 0.4);
+    box-shadow: 0 24px 64px rgba(20, 184, 166, 0.18);
+}
+
+#form-subscription .subscription-card-popular:hover {
+    box-shadow: 0 28px 72px rgba(20, 184, 166, 0.24);
+}
+
+#form-subscription .popular-badge {
+    top: 1rem;
+    left: auto;
+    right: 1rem;
+    transform: none;
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #0f766e, #14b8a6);
+    box-shadow: 0 10px 24px rgba(15, 118, 110, 0.24);
+}
+
+#form-subscription .subscription-card-header {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.35rem;
+}
+
+#form-subscription .subscription-plan-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+#form-subscription .tier-badge {
+    font-size: 1.1rem;
+    letter-spacing: 0.12em;
+}
+
+#form-subscription .tier-badge-free {
+    color: inherit;
+    opacity: 0.82;
+}
+
+#form-subscription .tier-badge-pro {
+    background: linear-gradient(135deg, #38bdf8, #0f766e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+#form-subscription .tier-badge-pro-plus {
+    background: linear-gradient(135deg, #f59e0b, #b45309);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+#form-subscription .tier-badge-max {
+    background: linear-gradient(135deg, #0f172a, #475569);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+#form-subscription .subscription-plan-subtitle {
+    margin: 0;
+    font-size: 0.97rem;
+    line-height: 1.55;
+    opacity: 0.76;
+}
+
+#form-subscription .subscription-plan-pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+#form-subscription .subscription-plan-pill {
+    color: inherit;
+    background: rgba(148, 163, 184, 0.14);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+#form-subscription .subscription-plan-pill-accent {
+    background: rgba(56, 189, 248, 0.16);
+    border-color: rgba(56, 189, 248, 0.24);
+}
+
+#form-subscription .subscription-plan-pill-highlight {
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(245, 158, 11, 0.26);
+}
+
+#form-subscription .subscription-plan-pill-max {
+    background: rgba(15, 23, 42, 0.52);
+    border-color: rgba(248, 250, 252, 0.16);
+}
+
+#form-subscription .subscription-card-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    align-items: flex-start;
+    gap: 1rem;
+    width: calc(100% + 2.7rem);
+    margin-inline: -1.35rem;
+}
+
+#form-subscription .subscription-price-stack {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 6.7rem;
+    padding: 1rem;
+    border-radius: 1.2rem;
+    background: rgba(15, 23, 42, 0.12);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+#form-subscription .subscription-price-line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+#form-subscription .subscription-price-line-primary .price-amount {
+    font-size: clamp(2.35rem, 3vw, 3rem);
+}
+
+#form-subscription .subscription-price-line-secondary {
+    min-height: 1.5rem;
+    font-size: 0.95rem;
+    opacity: 0.8;
+}
+
+#form-subscription .subscription-price-line-secondary .billing-only-monthly,
+#form-subscription .subscription-price-line-secondary .billing-only-yearly {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
+#form-subscription[data-billing="monthly"] .subscription-price-line-secondary .billing-only-yearly {
+    display: none;
+}
+
+#form-subscription[data-billing="yearly"] .subscription-price-line-secondary .billing-only-monthly {
+    display: none;
+}
+
+#form-subscription[data-billing="yearly"] .subscription-price-line-secondary .billing-only-yearly {
+    display: inline-flex;
+}
+
+#form-subscription .subscription-price-caption,
+#form-subscription .subscription-price-note {
+    font-size: 0.86rem;
+    line-height: 1.5;
+    opacity: 0.72;
+}
+
+#form-subscription .subscription-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    gap: 0.65rem;
+}
+
+#form-subscription .subscription-stat {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 6.25rem;
+    padding: 0.9rem 0.85rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+#form-subscription .subscription-stat-label {
+    font-size: 0.69rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.58;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#form-subscription .subscription-stat strong {
+    font-size: 0.88rem;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+#form-subscription .features-list {
+    flex: 1 1 auto;
+    width: 100%;
+    gap: 0.7rem;
+}
+
+#form-subscription .feature-item {
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.8rem 0.9rem;
+    border-radius: 0.95rem;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    font-size: 0.94rem;
+    line-height: 1.2;
+    overflow: hidden;
+}
+
+#form-subscription .feature-item-inherited {
+    padding: 0;
+    background: transparent;
+    border: 0;
+    font-size: 0.83rem;
+    font-style: italic;
+    font-weight: 500;
+    line-height: 1.4;
+    opacity: 0.62;
+}
+
+#form-subscription .feature-item-inherited .feature-icon {
+    display: none;
+}
+
+#form-subscription .feature-item .feature-icon {
+    flex: 0 0 auto;
+    margin-top: 0;
+}
+
+#form-subscription .feature-text-viewport {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+}
+
+#form-subscription .feature-item .feature-text {
+    display: inline-block;
+    white-space: nowrap;
+    min-width: max-content;
+}
+
+#form-subscription .feature-item.feature-item-marquee .feature-text {
+    animation: subscription-feature-marquee var(--feature-marquee-duration, 7s) ease-in-out infinite;
+}
+
+@keyframes subscription-feature-marquee {
+    0%,
+    16% {
+        transform: translateX(0);
+    }
+
+    46%,
+    70% {
+        transform: translateX(calc(-1 * var(--feature-overflow-distance, 0px)));
+    }
+
+    100% {
+        transform: translateX(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #form-subscription .feature-item.feature-item-marquee .feature-text {
+        animation: none;
+    }
+}
+
+#form-subscription .feature-icon {
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-top: 0.18rem;
+    background: linear-gradient(135deg, #0f766e, #38bdf8);
+    box-shadow: none;
+    border: none;
+}
+
+#form-subscription .subscription-cta {
+    width: 100%;
+    margin-top: 1.15rem;
+    min-height: 3.25rem;
+    border-radius: 1rem;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+#form-subscription .subscription-cta-free {
+    background: rgba(148, 163, 184, 0.18);
+    color: inherit;
+    box-shadow: none;
+}
+
+#form-subscription .subscription-cta-free:hover {
+    background: rgba(148, 163, 184, 0.22);
+    transform: none;
+}
+
+#form-subscription .subscription-cta-pro {
+    background: linear-gradient(135deg, #0369a1, #0f766e);
+    box-shadow: 0 14px 32px rgba(3, 105, 161, 0.25);
+}
+
+#form-subscription .subscription-cta-pro:hover {
+    background: linear-gradient(135deg, #075985, #115e59);
+    box-shadow: 0 18px 36px rgba(3, 105, 161, 0.3);
+}
+
+#form-subscription .subscription-cta-pro-plus {
+    background: linear-gradient(135deg, #b45309, #f59e0b);
+    color: #fff8eb;
+    box-shadow: 0 14px 32px rgba(180, 83, 9, 0.24);
+}
+
+#form-subscription .subscription-cta-max {
+    background: linear-gradient(135deg, #111827, #334155);
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.28);
+}
+
+#form-subscription .subscription-cta-max:hover {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.34);
+}
+
+#form-subscription .subscription-footnote {
+    padding: 0.25rem 0.25rem 0;
+    text-align: center;
+}
+
+#form-subscription .subscription-footnote p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    opacity: 0.68;
+}
+
+@media (max-width: 1480px) {
+    #form-subscription .subscription-grid-showcase {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1032px) {
+    #form-subscription .subscription-shell {
+        padding: 1rem;
+        border-radius: 1.5rem;
+        max-height: calc(var(--vvh, 100dvh) - 1rem);
+    }
+
+    #form-subscription .subscription-toolbar {
+        padding: 0.9rem;
+    }
+
+    #form-subscription .subscription-grid-showcase {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    #form-subscription .subscription-plan {
+        padding: 1rem;
+    }
+
+    #form-subscription .subscription-card-header {
+        align-items: flex-start;
+        gap: 0.75rem;
+        text-align: left;
+    }
+
+    #form-subscription .subscription-plan-heading,
+    #form-subscription .subscription-plan-pill-row {
+        align-items: flex-start;
+        justify-content: flex-start;
+        text-align: left;
+    }
+
+    #form-subscription .subscription-card-body {
+        width: calc(100% + 2rem);
+        margin-inline: -1rem;
+    }
+}
+
+@media (max-width: 700px) {
+    #form-subscription .subscription-header h1 {
+        max-width: 10ch;
+    }
+
+    #form-subscription .subscription-stat-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #form-subscription .subscription-trust-row {
+        justify-content: flex-start;
+    }
+
+    #form-subscription .popular-badge {
+        position: static;
+        align-self: flex-start;
+        margin-bottom: 0.2rem;
+    }
 }
 
 
@@ -3636,6 +4302,54 @@ body.full-width-chat #message-box {
 
 .badge:hover {
     background-color: var(--badge-hover-bg);
+}
+
+.badge-tier-free {
+    background-color: var(--badge-tier-free-bg);
+    border-color: var(--badge-tier-free-border);
+    color: var(--badge-tier-free-fg);
+}
+
+.badge-tier-free:hover {
+    background-color: var(--badge-tier-free-hover-bg);
+}
+
+.badge-tier-pro {
+    background-color: var(--badge-tier-pro-bg);
+    border-color: var(--badge-tier-pro-border);
+    color: var(--badge-tier-pro-fg);
+}
+
+.badge-tier-pro:hover {
+    background-color: var(--badge-tier-pro-hover-bg);
+}
+
+.badge-tier-pro-plus,
+.badge-tier-pro_plus {
+    background-color: var(--badge-tier-pro-plus-bg);
+    border-color: var(--badge-tier-pro-plus-border);
+    color: var(--badge-tier-pro-plus-fg);
+}
+
+.badge-tier-pro-plus:hover,
+.badge-tier-pro_plus:hover {
+    background-color: var(--badge-tier-pro-plus-hover-bg);
+}
+
+.badge-tier-max {
+    background-color: var(--badge-tier-max-bg);
+    border-color: var(--badge-tier-max-border);
+    color: var(--badge-tier-max-fg);
+}
+
+.badge-tier-max:hover {
+    background-color: var(--badge-tier-max-hover-bg);
+}
+
+.badge-tier-canceled {
+    background-color: rgba(148, 163, 184, 0.18);
+    border-color: rgba(148, 163, 184, 0.28);
+    color: inherit;
 }
 
 .title-chat {

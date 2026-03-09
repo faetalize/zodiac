@@ -14,6 +14,15 @@ export const SUPABASE_URL = 'https://hglcltvwunzynnzduauy.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ';
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const subscriptionBadgeClasses = [
+    'badge-tier-free',
+    'badge-tier-pro',
+    'badge-tier-pro-plus',
+    'badge-tier-pro_plus',
+    'badge-tier-max',
+    'badge-tier-canceled'
+];
+
 export const PASSWORD_RECOVERY_HASH = '#password-recovery';
 
 function buildPasswordRecoveryRedirectUrl(): string {
@@ -90,7 +99,7 @@ supabase.auth.onAuthStateChange((event, session) => {
         const periodEndEl = document.querySelector<HTMLElement>('#subscription-period-end');
         if (badge) {
             badge.textContent = 'Free';
-            badge.classList.remove('badge-tier-pro', 'badge-tier-max');
+            badge.classList.remove(...subscriptionBadgeClasses);
             badge.classList.add('badge-tier-free');
         }
         if (manageBtn) {
@@ -412,7 +421,7 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
         }
         if (badge) {
             badge.textContent = tierLabel;
-            badge.classList.remove('badge-tier-free', 'badge-tier-pro', 'badge-tier-max');
+            badge.classList.remove(...subscriptionBadgeClasses);
             badge.classList.add(`badge-tier-${tier}`);
         }
         if (tierEl) {
