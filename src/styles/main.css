@@ -1659,17 +1659,73 @@ form {
 #form-subscription .subscription-plan {
     display: flex;
     flex-direction: column;
+    position: relative;
+    isolation: isolate;
     padding: 1.35rem;
     border-radius: 1.6rem;
     border: 1px solid rgba(148, 163, 184, 0.18);
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02));
     box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
     backdrop-filter: blur(14px);
+    transition:
+        transform 0.28s ease,
+        box-shadow 0.28s ease,
+        border-color 0.28s ease,
+        background-color 0.28s ease;
+    --subscription-plan-hover-border: rgba(148, 163, 184, 0.24);
+    --subscription-plan-hover-shadow: 0 24px 55px rgba(15, 23, 42, 0.2);
+    --subscription-plan-hover-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+    --subscription-plan-hover-overlay-opacity: 0;
+    --subscription-plan-facet-overlay: none;
+    --subscription-plan-facet-opacity: 0;
+    --subscription-plan-surface-hover: rgba(255, 255, 255, 0.09);
+    --subscription-plan-surface-border-hover: rgba(148, 163, 184, 0.18);
+    --subscription-plan-pill-hover: rgba(148, 163, 184, 0.2);
+}
+
+#form-subscription .subscription-plan::before,
+#form-subscription .subscription-plan::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    transition: opacity 0.32s ease, transform 0.42s ease;
+}
+
+#form-subscription .subscription-plan::before {
+    background: var(--subscription-plan-hover-overlay);
+    opacity: 0;
+    transform: scale(0.985);
+    z-index: 0;
+}
+
+#form-subscription .subscription-plan::after {
+    background: var(--subscription-plan-facet-overlay);
+    opacity: 0;
+    transform: scale(1.015);
+    z-index: 0;
+}
+
+#form-subscription .subscription-plan>:not(.popular-badge) {
+    position: relative;
+    z-index: 1;
 }
 
 #form-subscription .subscription-plan:hover {
     transform: translateY(-6px);
-    box-shadow: 0 24px 55px rgba(15, 23, 42, 0.2);
+    border-color: var(--subscription-plan-hover-border);
+    box-shadow: var(--subscription-plan-hover-shadow);
+}
+
+#form-subscription .subscription-plan:hover::before {
+    opacity: var(--subscription-plan-hover-overlay-opacity);
+    transform: scale(1);
+}
+
+#form-subscription .subscription-plan:hover::after {
+    opacity: var(--subscription-plan-facet-opacity);
+    transform: scale(1);
 }
 
 #form-subscription .subscription-card-popular {
@@ -1678,7 +1734,55 @@ form {
 }
 
 #form-subscription .subscription-card-popular:hover {
-    box-shadow: 0 28px 72px rgba(20, 184, 166, 0.24);
+    box-shadow: var(--subscription-plan-hover-shadow);
+}
+
+#form-subscription .subscription-card-pro {
+    --subscription-plan-hover-border: rgba(56, 189, 248, 0.3);
+    --subscription-plan-hover-shadow: 0 28px 60px rgba(8, 145, 178, 0.22);
+    --subscription-plan-hover-overlay:
+        radial-gradient(circle at 14% 16%, rgba(125, 211, 252, 0.24), transparent 30%),
+        radial-gradient(circle at 82% 18%, rgba(45, 212, 191, 0.18), transparent 34%),
+        linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(15, 118, 110, 0.09) 52%, rgba(255, 255, 255, 0.03));
+    --subscription-plan-hover-overlay-opacity: 1;
+    --subscription-plan-surface-hover: rgba(14, 165, 233, 0.12);
+    --subscription-plan-surface-border-hover: rgba(56, 189, 248, 0.22);
+    --subscription-plan-pill-hover: rgba(14, 165, 233, 0.18);
+}
+
+#form-subscription .subscription-plan-pro-plus {
+    --subscription-plan-hover-border: rgba(245, 158, 11, 0.34);
+    --subscription-plan-hover-shadow: 0 30px 66px rgba(180, 83, 9, 0.24);
+    --subscription-plan-hover-overlay:
+        radial-gradient(circle at 16% 14%, rgba(251, 191, 36, 0.22), transparent 28%),
+        radial-gradient(circle at 84% 18%, rgba(249, 115, 22, 0.18), transparent 34%),
+        linear-gradient(135deg, rgba(245, 158, 11, 0.17), rgba(180, 83, 9, 0.08) 58%, rgba(255, 255, 255, 0.03));
+    --subscription-plan-hover-overlay-opacity: 1;
+    --subscription-plan-surface-hover: rgba(245, 158, 11, 0.12);
+    --subscription-plan-surface-border-hover: rgba(245, 158, 11, 0.22);
+    --subscription-plan-pill-hover: rgba(245, 158, 11, 0.18);
+}
+
+#form-subscription .subscription-plan-max {
+    --subscription-plan-hover-border: rgba(148, 163, 184, 0.34);
+    --subscription-plan-hover-shadow: 0 34px 74px rgba(2, 6, 23, 0.44);
+    --subscription-plan-hover-overlay:
+        radial-gradient(circle at 26% 12%, rgba(226, 232, 240, 0.12), transparent 24%),
+        radial-gradient(circle at 62% 86%, rgba(148, 163, 184, 0.08), transparent 26%),
+        linear-gradient(148deg, rgba(255, 255, 255, 0.08) 0 14%, transparent 14% 42%, rgba(148, 163, 184, 0.08) 42% 56%, transparent 56% 72%, rgba(255, 255, 255, 0.04) 72% 82%, transparent 82% 100%),
+        linear-gradient(32deg, transparent 0 52%, rgba(255, 255, 255, 0.06) 52% 60%, transparent 60% 76%, rgba(148, 163, 184, 0.05) 76% 84%, transparent 84% 100%),
+        linear-gradient(180deg, rgba(51, 65, 85, 0.18), rgba(15, 23, 42, 0.52) 38%, rgba(15, 23, 42, 0.32) 72%, rgba(2, 6, 23, 0.24) 100%);
+    --subscription-plan-hover-overlay-opacity: 0.92;
+    --subscription-plan-facet-overlay:
+        radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.07), transparent 18%),
+        linear-gradient(156deg, transparent 0 20%, rgba(255, 255, 255, 0.05) 20% 32%, transparent 32% 100%),
+        linear-gradient(22deg, transparent 0 58%, rgba(148, 163, 184, 0.08) 58% 66%, transparent 66% 100%),
+        linear-gradient(162deg, transparent 0 68%, rgba(255, 255, 255, 0.045) 68% 76%, transparent 76% 100%),
+        linear-gradient(12deg, transparent 0 78%, rgba(148, 163, 184, 0.06) 78% 86%, transparent 86% 100%);
+    --subscription-plan-facet-opacity: 0.42;
+    --subscription-plan-surface-hover: linear-gradient(135deg, rgba(15, 23, 42, 0.82), rgba(51, 65, 85, 0.54));
+    --subscription-plan-surface-border-hover: rgba(148, 163, 184, 0.2);
+    --subscription-plan-pill-hover: rgba(15, 23, 42, 0.66);
 }
 
 #form-subscription .popular-badge {
@@ -1690,6 +1794,7 @@ form {
     border-radius: 999px;
     background: linear-gradient(135deg, #0f766e, #14b8a6);
     box-shadow: 0 10px 24px rgba(15, 118, 110, 0.24);
+    z-index: 2;
 }
 
 #form-subscription .subscription-card-header {
@@ -1753,6 +1858,7 @@ form {
     color: inherit;
     background: rgba(148, 163, 184, 0.14);
     border: 1px solid rgba(148, 163, 184, 0.2);
+    transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
 }
 
 #form-subscription .subscription-plan-pill-accent {
@@ -1791,6 +1897,7 @@ form {
     border-radius: 1.2rem;
     background: rgba(15, 23, 42, 0.12);
     border: 1px solid rgba(148, 163, 184, 0.12);
+    transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
 }
 
 #form-subscription .subscription-price-line {
@@ -1853,6 +1960,7 @@ form {
     border-radius: 1rem;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(148, 163, 184, 0.12);
+    transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
 }
 
 #form-subscription .subscription-stat-label {
@@ -1888,6 +1996,24 @@ form {
     font-size: 0.94rem;
     line-height: 1.2;
     overflow: hidden;
+    transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
+}
+
+#form-subscription .subscription-card-pro:hover .subscription-price-stack,
+#form-subscription .subscription-card-pro:hover .subscription-stat,
+#form-subscription .subscription-card-pro:hover .feature-item:not(.feature-item-inherited),
+#form-subscription .subscription-card-pro:hover .subscription-plan-pill,
+#form-subscription .subscription-plan-pro-plus:hover .subscription-price-stack,
+#form-subscription .subscription-plan-pro-plus:hover .subscription-stat,
+#form-subscription .subscription-plan-pro-plus:hover .feature-item:not(.feature-item-inherited),
+#form-subscription .subscription-plan-pro-plus:hover .subscription-plan-pill {
+    background: var(--subscription-plan-surface-hover);
+    border-color: var(--subscription-plan-surface-border-hover);
+}
+
+#form-subscription .subscription-card-pro:hover .subscription-plan-pill,
+#form-subscription .subscription-plan-pro-plus:hover .subscription-plan-pill {
+    background: var(--subscription-plan-pill-hover);
 }
 
 #form-subscription .feature-item-inherited {
@@ -2076,9 +2202,12 @@ form {
     }
 
     #form-subscription .popular-badge {
-        position: static;
-        align-self: flex-start;
-        margin-bottom: 0.2rem;
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        left: auto;
+        align-self: auto;
+        margin-bottom: 0;
     }
 }
 
