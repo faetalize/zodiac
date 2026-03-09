@@ -383,6 +383,20 @@ function hasLocalApiKeyForModel(model: string, settings: ReturnType<typeof setti
     return getLocalApiKeyForModel(model, settings).length > 0;
 }
 
+function openApiKeySettings(): void {
+    const sidebar = document.querySelector<HTMLDivElement>(".sidebar");
+    if (sidebar && window.innerWidth <= 1032) {
+        sidebar.style.display = "flex";
+        helpers.showElement(sidebar, false);
+    }
+
+    document.querySelector<HTMLDivElement>(".navbar-tab:nth-child(3)")?.click();
+
+    window.setTimeout(() => {
+        document.querySelector<HTMLButtonElement>('[data-settings-target="api"]')?.click();
+    }, 100);
+}
+
 async function finalizeResponseElement(responseElement: HTMLElement, scroll: boolean = true): Promise<void> {
     const updatedChat = await chatsService.getCurrentChat();
     if (updatedChat) {
@@ -1104,7 +1118,19 @@ async function performEarlyValidation(msg: string): Promise<EarlyValidationResul
 
     if (!isPremiumEndpointPreferred && !hasLocalApiKeyForModel(settings.model, settings)) {
         const providerName = isOpenRouterModel(settings.model) ? "OpenRouter" : "Gemini";
-        warn({ title: `${providerName} API Key Required`, text: `Please enter your ${providerName} API key in settings, switch to a model from a provider you already configured, or subscribe to Pro for unlimited access.` });
+        warn({
+            title: `${providerName} API Key Required`,
+            text: `Please enter your ${providerName} API key in settings, switch to a model from a provider you already configured, or subscribe to Pro for unlimited access.`,
+            actions: isOpenRouterModel(settings.model)
+                ? [{
+                    label: "Open API Settings",
+                    onClick(dismiss) {
+                        openApiKeySettings();
+                        dismiss();
+                    },
+                }]
+                : [],
+        });
         return { canProceed: false };
     }
 

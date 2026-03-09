@@ -105,17 +105,68 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
     {
         id: "openai/gpt-5.4",
-        label: "OpenRouter - GPT-5.4",
+        label: "GPT-5.4",
         provider: "openrouter",
         supportsThinking: true,
-        supportsTemperature: false,
+        supportsTemperature: true,
         supportsImageInput: true,
         supportsFileInput: true,
         supportsImageOutput: false,
     },
     {
+        id: "openai/gpt-oss-120b",
+        label: "GPT-OSS 120B",
+        provider: "openrouter",
+        supportsThinking: true,
+        requiresThinking: true,
+        supportsTemperature: true,
+        supportsImageInput: false,
+        supportsFileInput: false,
+        supportsImageOutput: false,
+    },
+    {
+        id: "openai/gpt-5.3-chat",
+        label: "GPT-5.3 Chat",
+        provider: "openrouter",
+        supportsThinking: true,
+        supportsTemperature: true,
+        supportsImageInput: true,
+        supportsFileInput: true,
+        supportsImageOutput: false,
+    },
+    {
+        id: "openai/gpt-4o",
+        label: "GPT-4o",
+        provider: "openrouter",
+        supportsThinking: false,
+        supportsTemperature: true,
+        supportsImageInput: true,
+        supportsFileInput: true,
+        supportsImageOutput: false,
+    },
+    {
+        id: "openai/gpt-4",
+        label: "GPT-4",
+        provider: "openrouter",
+        supportsThinking: false,
+        supportsTemperature: true,
+        supportsImageInput: false,
+        supportsFileInput: false,
+        supportsImageOutput: false,
+    },
+    {
         id: "anthropic/claude-sonnet-4.6",
-        label: "OpenRouter - Claude Sonnet 4.6",
+        label: "Claude Sonnet 4.6",
+        provider: "openrouter",
+        supportsThinking: true,
+        supportsTemperature: true,
+        supportsImageInput: true,
+        supportsFileInput: false,
+        supportsImageOutput: false,
+    },
+    {
+        id: "anthropic/claude-opus-4.6",
+        label: "Claude Opus 4.6",
         provider: "openrouter",
         supportsThinking: true,
         supportsTemperature: true,
@@ -125,7 +176,17 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
     },
     {
         id: "z-ai/glm-5",
-        label: "OpenRouter - GLM 5",
+        label: "GLM 5",
+        provider: "openrouter",
+        supportsThinking: true,
+        supportsTemperature: true,
+        supportsImageInput: false,
+        supportsFileInput: false,
+        supportsImageOutput: false,
+    },
+    {
+        id: "inception/mercury-2",
+        label: "Mercury 2",
         provider: "openrouter",
         supportsThinking: true,
         supportsTemperature: true,
@@ -135,7 +196,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
     },
     {
         id: "qwen/qwen3.5-397b-a17b",
-        label: "OpenRouter - Qwen3.5 397B",
+        label: "Qwen3.5 397B",
         provider: "openrouter",
         supportsThinking: true,
         supportsTemperature: true,
@@ -145,7 +206,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
     },
     {
         id: "qwen/qwen3.5-plus-02-15",
-        label: "OpenRouter - Qwen3.5 Plus",
+        label: "Qwen3.5 Plus",
         provider: "openrouter",
         supportsThinking: true,
         supportsTemperature: true,
@@ -185,7 +246,7 @@ export function modelRequiresThinking(model: string | null | undefined): boolean
 }
 
 export function modelSupportsTemperature(model: string | null | undefined): boolean {
-    return getChatModelDefinition(model)?.supportsTemperature !== false;
+    return true;
 }
 
 export function getAccessibleChatModels(access: ChatModelAccess): ChatModelDefinition[] {
