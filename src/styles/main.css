@@ -1917,6 +1917,14 @@ form {
     opacity: 0.8;
 }
 
+#form-subscription[data-billing="monthly"] .subscription-price-line-secondary {
+    display: none;
+}
+
+#form-subscription[data-billing="yearly"] .subscription-price-line-secondary {
+    display: flex;
+}
+
 #form-subscription .subscription-price-line-secondary .billing-only-monthly,
 #form-subscription .subscription-price-line-secondary .billing-only-yearly {
     display: inline-flex;

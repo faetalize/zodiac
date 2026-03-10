@@ -379,6 +379,9 @@ export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionT
         case SubscriptionPriceIDs.MAX_MONTHLY:
         case SubscriptionPriceIDs.MAX_YEARLY:
             return 'max';
+        case SubscriptionPriceIDs.PRO_PLUS_MONTHLY:
+        case SubscriptionPriceIDs.PRO_PLUS_YEARLY:
+            return 'pro_plus';
         case 'price_1S0hdiGiJrKwXclRByeNLSPu': //legacy 14.99 oldstripe
         case 'price_1SDdbKGiJrKwXclR7hn7fF4s': //legacy oldstripe
         case SubscriptionPriceIDsOld.PRO_MONTHLY:
@@ -409,7 +412,7 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
         const tierEl = document.querySelector<HTMLElement>('#subscription-tier-text');
         const periodEndEl = document.querySelector<HTMLElement>('#subscription-period-end');
         const remainingGenerationsEl = document.querySelector<HTMLElement>('#subscription-remaining-generations');
-        const tierLabel = tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : tier === 'max' ? 'Max' : 'Canceled';
+        const tierLabel = tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : tier === 'pro_plus' ? 'Pro Plus' : tier === 'max' ? 'Max' : 'Canceled';
         const subscriptionrenewalDateLabel = document.querySelector<HTMLElement>('#subscription-renewal-date-label');
         let periodEndLabel = '—';
         const rawEnd = sub?.current_period_end ?? null;
@@ -473,7 +476,7 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
         const upgradeBtn = document.querySelector<HTMLButtonElement>('#btn-show-subscription-options');
         const apiKeyError = document.querySelector<HTMLElement>('.api-key-error');
 
-        const isSubscribed = tier === 'pro' || tier === 'max';
+        const isSubscribed = tier === 'pro' || tier === 'pro_plus' || tier === 'max';
         // Leave API key input enable/disable and hint visibility to the API key component based on route
         if (apiKeyInput && isSubscribed) {
             apiKeyInput.classList.remove('api-key-invalid');

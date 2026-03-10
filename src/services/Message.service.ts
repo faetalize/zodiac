@@ -1112,7 +1112,7 @@ async function performEarlyValidation(msg: string): Promise<EarlyValidationResul
 
     const subscription = await supabaseService.getUserSubscription();
     const tier = await supabaseService.getSubscriptionTier(subscription);
-    const hasSubscription = tier === "pro" || tier === "max";
+    const hasSubscription = tier === "pro" || tier === "pro_plus" || tier === "max";
     const isPremiumEndpointPreferred = hasSubscription && shouldPreferPremiumEndpoint();
     const isImagePremiumEndpointPreferred = (await supabaseService.isImageGenerationAvailable()).type === "all";
 

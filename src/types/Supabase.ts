@@ -1,4 +1,4 @@
-export type SubscriptionTier = 'free' | 'pro' | 'max' | 'canceled';
+export type SubscriptionTier = 'free' | 'pro' | 'pro_plus' | 'max' | 'canceled';
 
 export interface UserSubscription {
     id: string;

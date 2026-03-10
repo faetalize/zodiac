@@ -86,7 +86,7 @@ onAppEvent("auth-state-changed", (event) => {
     }
 
     const tier: SubscriptionTier = getSubscriptionTier(sub);
-    if (tier === "pro" || tier === "max") {
+    if (tier === "pro" || tier === "pro_plus" || tier === "max") {
         ensuredPreferPremiumToggle.classList.remove("hidden");
         if (savedPreference === null) {
             ensuredPreferPremiumCheckbox.checked = true;

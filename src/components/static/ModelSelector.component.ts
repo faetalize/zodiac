@@ -2,6 +2,7 @@ import { createEvent, dispatchDocumentEvent, onAppEvent } from "../../events";
 import { getSubscriptionTier } from "../../services/Supabase.service";
 import {
     GEMINI_CHAT_MODELS,
+    formatChatModelLabel,
     OPENROUTER_CHAT_MODELS,
     getAccessibleChatModels,
     getDefaultChatModel,
@@ -39,7 +40,7 @@ function setOptGroup(label: string, options: { id: string; label: string }[]): H
     for (const option of options) {
         const element = document.createElement("option");
         element.value = option.id;
-        element.textContent = option.label;
+        element.textContent = formatChatModelLabel(option);
         optGroup.append(element);
     }
 
@@ -96,7 +97,7 @@ ensuredOpenRouterApiKeyInput.addEventListener("input", refreshModelSelectorOptio
 
 onAppEvent("auth-state-changed", (event) => {
     const tier = getSubscriptionTier(event.detail.subscription ?? null);
-    hasPremiumModelAccess = tier === "pro" || tier === "max";
+    hasPremiumModelAccess = tier === "pro" || tier === "pro_plus" || tier === "max";
     refreshModelSelectorOptions();
 });
 

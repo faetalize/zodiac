@@ -13,6 +13,7 @@ import * as toastService from "../../services/Toast.service";
 import { themeService } from "../../services/Theme.service";
 import {
     GEMINI_CHAT_MODELS,
+    formatChatModelLabel,
     OPENROUTER_CHAT_MODELS,
     getAccessibleChatModels,
     getDefaultChatModel,
@@ -240,7 +241,7 @@ async function getOnboardingModelAccess(): Promise<ChatModelAccess> {
     const currentUser = await supabaseService.getCurrentUser();
     const subscription = currentUser ? await supabaseService.getUserSubscription() : null;
     const tier = supabaseService.getSubscriptionTier(subscription);
-    const hasPremiumAccess = tier === "pro" || tier === "max" || onboardingService.getState().setupOption === "subscription";
+    const hasPremiumAccess = tier === "pro" || tier === "pro_plus" || tier === "max" || onboardingService.getState().setupOption === "subscription";
 
     return {
         hasGeminiAccess: hasPremiumAccess || (localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "").trim().length > 0,
@@ -255,7 +256,7 @@ function buildOptionGroup(label: string, options: { id: string; label: string }[
     for (const option of options) {
         const element = document.createElement("option");
         element.value = option.id;
-        element.textContent = option.label;
+        element.textContent = formatChatModelLabel(option);
         optGroup.append(element);
     }
 
@@ -379,8 +380,8 @@ function setupThemeSelection(): void {
             const subscription = await supabaseService.getUserSubscription();
             const tier = supabaseService.getSubscriptionTier(subscription);
             
-            // If user has Pro/Max subscription, show account selector
-            if (tier === 'pro' || tier === 'max') {
+            // If user has a paid subscription, show account selector
+            if (tier === 'pro' || tier === 'pro_plus' || tier === 'max') {
                 await prepareAccountSelector(user, subscription, tier);
                 onboardingService.goToStep(OnboardingStep.ACCOUNT_SELECTOR);
                 return;
@@ -460,9 +461,9 @@ async function prepareAccountSelector(
     accountSelectorEmail!.textContent = user.email || 'No email';
     
     // Set tier badge
-    const tierLabel = tier === 'pro' ? 'Pro' : tier === 'max' ? 'Max' : 'Free';
+    const tierLabel = tier === 'pro' ? 'Pro' : tier === 'pro_plus' ? 'Pro Plus' : tier === 'max' ? 'Max' : 'Free';
     accountSelectorTierBadge!.textContent = tierLabel;
-    accountSelectorTierBadge!.classList.remove('badge-tier-free', 'badge-tier-pro', 'badge-tier-max');
+    accountSelectorTierBadge!.classList.remove('badge-tier-free', 'badge-tier-pro', 'badge-tier-pro-plus', 'badge-tier-pro_plus', 'badge-tier-max');
     accountSelectorTierBadge!.classList.add(`badge-tier-${tier}`);
 }
 
@@ -695,12 +696,7 @@ function setupPlanSelection(): void {
     });
 
     selectMaxButton!.addEventListener("click", async () => {
-        // Max tier coming soon - button is disabled but add guard just in case
-        if (selectMaxButton!.disabled) {
-            return;
-        }
-        onboardingService.setSelectedPriceId(SubscriptionPriceIDs.MAX_MONTHLY);
-        await routeToCloudSyncOrSettings();
+        return;
     });
 }
 
@@ -870,6 +866,8 @@ function getPurchaseTypeFromPriceId(priceId: string): string | null {
     const mapping: Record<string, string> = {
         [SubscriptionPriceIDs.PRO_MONTHLY]: "pro_monthly",
         [SubscriptionPriceIDs.PRO_YEARLY]: "pro_yearly",
+        [SubscriptionPriceIDs.PRO_PLUS_MONTHLY]: "pro_plus_monthly",
+        [SubscriptionPriceIDs.PRO_PLUS_YEARLY]: "pro_plus_yearly",
         [SubscriptionPriceIDs.MAX_MONTHLY]: "max_monthly",
         [SubscriptionPriceIDs.MAX_YEARLY]: "max_yearly"
     };
@@ -1041,12 +1039,12 @@ function setupSubscriptionConfirmation(): void {
 
             showSubscriptionStatus("You're signed in! Redirecting...", "success");
             
-            // Check if user already has a Pro/Max subscription (edge case)
+            // Check if user already has a paid subscription (edge case)
             const user = await supabaseService.getCurrentUser();
             const subscription = await supabaseService.getUserSubscription();
             const tier = supabaseService.getSubscriptionTier(subscription);
             
-            if (tier === 'pro' || tier === 'max') {
+            if (tier === 'pro' || tier === 'pro_plus' || tier === 'max') {
                 // User already has subscription, show account selector
                 toastService.info({
                     title: "Signed in",

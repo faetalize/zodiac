@@ -573,7 +573,7 @@ onAppEvent('auth-state-changed', async (event) => {
     }
 
     const tier = getSubscriptionTier(subscription ?? null);
-    const isPaid = tier === 'pro' || tier === 'max';
+    const isPaid = tier === 'pro' || tier === 'pro_plus' || tier === 'max';
 
     if (isPaid && cloudSyncSection) {
         cloudSyncSection.classList.remove('hidden');
@@ -686,7 +686,7 @@ onAppEvent('sync-data-pulled', async () => {
 // Subscription updated: show/hide sync section
 onAppEvent('subscription-updated', async (event) => {
     const tier = event.detail.tier;
-    const isPaid = tier === 'pro' || tier === 'max';
+    const isPaid = tier === 'pro' || tier === 'pro_plus' || tier === 'max';
 
     if (cloudSyncSection) {
         cloudSyncSection.classList.remove('hidden');

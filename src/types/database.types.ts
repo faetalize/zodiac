@@ -7,7 +7,7 @@
  * Contributors: Treat this as READ-ONLY.
  * If you need schema changes, open an issue describing the required modifications.
  * 
- * Generated: 2026-03-06
+ * Generated: 2026-03-09
  */
 
 export type Json =
@@ -905,6 +905,11 @@ export type Database = {
         | "price_1SDf2rGiJrKwXclReGeg8fQo"
         | "price_1SOU2lKcI9PDo3JBhsT8URS9"
         | "price_1SOU3qKcI9PDo3JBk4rKTDaC"
+        | "price_1T9CqjKcI9PDo3JBP6613Pzh"
+        | "price_1T9CqqKcI9PDo3JBBGC59S8O"
+        | "price_1T9CqqKcI9PDo3JB7LXgL5MV"
+        | "price_1T9DCYKcI9PDo3JBsFc4nlZa"
+        | "price_1T9CqkKcI9PDo3JBEqHYJU68"
       user_role: "user" | "admin"
     }
     CompositeTypes: {
@@ -1044,6 +1049,11 @@ export const Constants = {
         "price_1SDf2rGiJrKwXclReGeg8fQo",
         "price_1SOU2lKcI9PDo3JBhsT8URS9",
         "price_1SOU3qKcI9PDo3JBk4rKTDaC",
+        "price_1T9CqjKcI9PDo3JBP6613Pzh",
+        "price_1T9CqqKcI9PDo3JBBGC59S8O",
+        "price_1T9CqqKcI9PDo3JB7LXgL5MV",
+        "price_1T9DCYKcI9PDo3JBsFc4nlZa",
+        "price_1T9CqkKcI9PDo3JBEqHYJU68",
       ],
       user_role: ["user", "admin"],
     },
