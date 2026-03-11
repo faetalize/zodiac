@@ -88,7 +88,14 @@ export function pruneTrailingPersonalityMarkers(chat: Chat): void {
 /**
  * Builds personality instruction messages for Gemini history.
  */
-export function buildPersonalityInstructionMessages(personality: DbPersonality): Content[] {
+export function buildPersonalityInstructionMessages(
+    personality: DbPersonality,
+    options?: { modelTextThoughtSignature?: string }
+): Content[] {
+    const makeModelPart = (text: string) => options?.modelTextThoughtSignature
+        ? { text, thoughtSignature: options.modelTextThoughtSignature }
+        : { text };
+
     const messages: Content[] = [
         {
             role: "user",
@@ -98,9 +105,7 @@ export function buildPersonalityInstructionMessages(personality: DbPersonality):
         },
         {
             role: "model",
-            parts: [{
-                text: `Very well, from now on, I will be acting as the personality you have chosen. I'm ${personality.name}, and will continue this chat as your desired personality.`
-            }]
+            parts: [makeModelPart(`Very well, from now on, I will be acting as the personality you have chosen. I'm ${personality.name}, and will continue this chat as your desired personality.`)]
         },
     ];
 
@@ -115,9 +120,7 @@ export function buildPersonalityInstructionMessages(personality: DbPersonality):
             },
             {
                 role: "model",
-                parts: [{
-                    text: `Understood. I am ready to respond as '${personality.name}'. Please proceed with your questions.`
-                }]
+                parts: [makeModelPart(`Understood. I am ready to respond as '${personality.name}'. Please proceed with your questions.`)]
             });
     }
 
@@ -133,7 +136,7 @@ export function buildPersonalityInstructionMessages(personality: DbPersonality):
                 },
                 {
                     role: "model",
-                    parts: [{ text: toneExample }]
+                    parts: [makeModelPart(toneExample)]
                 }
             );
         });
@@ -149,9 +152,7 @@ export function buildPersonalityInstructionMessages(personality: DbPersonality):
             },
             {
                 role: "model",
-                parts: [{
-                    text: "OK"
-                }]
+                parts: [makeModelPart("OK")]
             });
     }
 

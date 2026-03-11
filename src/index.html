@@ -886,6 +886,7 @@
                             <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>
@@ -1230,6 +1231,14 @@
                                 <span class="setting-label">Image generation credits</span>
                                 <span id="subscription-remaining-generations">—</span>
                             </div>
+                            <div class="subscription-row">
+                                <span class="setting-label">Mega credits</span>
+                                <span id="subscription-remaining-mega-credits">—</span>
+                            </div>
+                            <div class="subscription-row">
+                                <span class="setting-label">Nano Banana allowance</span>
+                                <span id="subscription-remaining-nano-banana">—</span>
+                            </div>
                         </div>
                         <div class="subscription-card-footer">
                             <button class="btn btn-primary" id="btn-top-up-credits">Get More Image Credits</button>
@@ -1442,7 +1451,7 @@
                                     <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Better memory recall in long chats</span></li>
                                 </ul>
                             </div>
-                            <button type="button" class="subscription-cta subscription-cta-pro-plus">
+                            <button type="button" id="btn-subscribe-pro-plus" class="subscription-cta subscription-cta-pro-plus">
                                 Start Pro Plus
                             </button>
                         </article>
@@ -1504,6 +1513,36 @@
                                 Start Max
                             </button>
                         </article>
+
+                        <section class="subscription-faq" aria-labelledby="subscription-faq-title">
+                        <div class="subscription-faq-header">
+                            <p class="subscription-faq-eyebrow">Need to know</p>
+                            <h2 id="subscription-faq-title">Frequently asked questions</h2>
+                            <p>Quick answers about premium models, Nano Banana, and standalone image usage.</p>
+                        </div>
+
+                        <div class="subscription-faq-grid">
+                            <details class="subscription-faq-item" open>
+                                <summary>What are Mega models?</summary>
+                                <p>Mega models are Zodiac's most expensive premium models. Right now, that means Claude Opus. Pro and Pro Plus include a monthly Mega Credit allowance, and each Mega request costs 1 credit. Max includes unlimited access.</p>
+                            </details>
+
+                            <details class="subscription-faq-item">
+                                <summary>What's the difference between Nano Banana and Image Credits?</summary>
+                                <p>Nano Banana is Gemini's chat-native image model inside the normal conversation flow. On Pro, it has a daily allowance. On Pro Plus and Max, it is unlimited. Image Credits are for the dedicated image generation and editing models, and those are consumed per request.</p>
+                            </details>
+
+                            <details class="subscription-faq-item">
+                                <summary>I want to use image models, but I don't want to subscribe.</summary>
+                                <p>You can buy Image Credits separately without subscribing. That gives you access to the dedicated image generation and image editing models on demand.</p>
+                            </details>
+
+                            <details class="subscription-faq-item">
+                                <summary>Can I buy Mega Credits separately?</summary>
+                                <p>No. Mega Credits are included only with eligible subscriptions, and they are not sold as a separate standalone purchase.</p>
+                            </details>
+                        </div>
+                        </section>
                     </div>
                 </div>
             </div>

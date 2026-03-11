@@ -336,7 +336,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
 
     if (!editButton || !saveButton || !messageText) return;
 
-    let originalAttachments: FileList | undefined;
+    let originalAttachments: FileList | File[] | undefined;
     let editingAttachments: File[] = [];
 
     // Handle edit button click

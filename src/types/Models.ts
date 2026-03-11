@@ -49,6 +49,10 @@ export const DEFAULT_GEMINI_CHAT_MODEL = ChatModel.FLASH;
 export const DEFAULT_OPENROUTER_CHAT_MODEL = "openai/gpt-5.4";
 export const DEFAULT_OPENROUTER_NARRATOR_MODEL = DEFAULT_OPENROUTER_CHAT_MODEL;
 
+export function requiresThoughtSignaturesInHistory(model: string): boolean {
+    return model === ChatModel.NANO_BANANA_PRO || model === ChatModel.NANO_BANANA_2;
+}
+
 export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
     {
         id: ChatModel.FLASH_LITE_LATEST,

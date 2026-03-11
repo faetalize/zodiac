@@ -2151,9 +2151,106 @@ form {
     opacity: 0.68;
 }
 
+#form-subscription .subscription-faq {
+    grid-column: 1 / -1;
+    margin-top: 1.65rem;
+    padding: 1.35rem;
+    border-radius: 1.7rem;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 28%),
+        linear-gradient(180deg, rgba(15, 23, 42, 0.34), rgba(15, 23, 42, 0.18));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 42px rgba(2, 6, 23, 0.18);
+    backdrop-filter: blur(16px);
+}
+
+#form-subscription .subscription-faq-header {
+    margin-bottom: 1rem;
+}
+
+#form-subscription .subscription-faq-eyebrow {
+    margin: 0 0 0.35rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(125, 211, 252, 0.9);
+}
+
+#form-subscription .subscription-faq-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+#form-subscription .subscription-faq-header p {
+    margin: 0.35rem 0 0;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    opacity: 0.72;
+}
+
+#form-subscription .subscription-faq-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+#form-subscription .subscription-faq-item {
+    min-width: 0;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 1.15rem;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+    transition: border-color 0.24s ease, background 0.24s ease, transform 0.24s ease;
+}
+
+#form-subscription .subscription-faq-item:hover {
+    border-color: rgba(125, 211, 252, 0.2);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.025));
+}
+
+#form-subscription .subscription-faq-item summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 1rem 2.75rem 1rem 1rem;
+    position: relative;
+    font-weight: 700;
+    line-height: 1.45;
+}
+
+#form-subscription .subscription-faq-item summary::-webkit-details-marker {
+    display: none;
+}
+
+#form-subscription .subscription-faq-item summary::after {
+    content: "+";
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2rem;
+    opacity: 0.72;
+    width: 2.5rem;
+    text-align: center;
+}
+
+#form-subscription .subscription-faq-item[open] summary::after {
+    content: "-";
+}
+
+#form-subscription .subscription-faq-item p {
+    margin: 0;
+    padding: 0 1rem 1rem;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    opacity: 0.8;
+}
+
 @media (max-width: 1480px) {
     #form-subscription .subscription-grid-showcase {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #form-subscription .subscription-faq-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -2171,6 +2268,10 @@ form {
     #form-subscription .subscription-grid-showcase {
         grid-template-columns: 1fr;
         gap: 1rem;
+    }
+
+    #form-subscription .subscription-faq {
+        padding: 1rem;
     }
 
     #form-subscription .subscription-plan {

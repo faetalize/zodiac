@@ -23,6 +23,7 @@ import type { Message, GeneratedImage } from '../types/Message';
 import type { DbPersonality } from '../types/Personality';
 import { isBlobReference, type BlobReference } from '../types/BlobReference';
 import { fileToBase64 } from '../utils/helpers';
+import { resolveAttachmentFile, resolveGeneratedImageSrc, resolveThoughtSignature } from '../utils/blobResolver';
 import { SETTINGS_STORAGE_KEYS, SYNCABLE_SETTINGS_KEYS } from '../constants/SettingsStorageKeys';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -450,11 +451,18 @@ export async function wipeRemoteData(options?: { keepLocalCopy?: boolean }): Pro
             await clearAllLocalSyncedData();
         }
 
-        const { error } = await supabase.rpc('wipe_my_synced_data');
-        if (error) {
-            console.error('Failed to wipe synced data:', error);
+        const { data, error } = await supabase.functions.invoke('purge-my-sync-data', {
+            method: 'POST',
+        });
+        if (error || data?.success !== true) {
+            console.error('Failed to wipe synced data:', error ?? data);
             return false;
         }
+
+        if (options?.keepLocalCopy) {
+            dispatchAppEvent('sync-data-pulled', {});
+        }
+
         crypto.clearCachedKey();
         blobStore.clearCache();
         syncPrefsCache = null;
@@ -476,6 +484,87 @@ export async function clearAllLocalSyncedData(): Promise<void> {
     remoteMessageCountByChatId.clear();
 }
 
+function dataUriToBase64(dataUri: string): string {
+    const commaIndex = dataUri.indexOf(',');
+    return commaIndex >= 0 ? dataUri.slice(commaIndex + 1) : dataUri;
+}
+
+async function materializeMessageBlobBackedMedia(message: Message): Promise<Message> {
+    if (Array.isArray(message.generatedImages)) {
+        for (const image of message.generatedImages) {
+            if (image._blobRef) {
+                const resolvedSrc = await resolveGeneratedImageSrc(image);
+                if (!resolvedSrc) {
+                    throw new Error(`Failed to materialize generated image blob ${image._blobRef.blobId}`);
+                }
+                image.base64 = dataUriToBase64(resolvedSrc);
+                delete (image as any)._blobRef;
+            }
+
+            if (image._thoughtSignatureRef) {
+                const resolvedThoughtSignature = await resolveThoughtSignature(image);
+                if (!resolvedThoughtSignature) {
+                    throw new Error(`Failed to materialize image thought signature blob ${image._thoughtSignatureRef.blobId}`);
+                }
+                delete (image as any)._thoughtSignatureRef;
+            }
+        }
+    }
+
+    if (Array.isArray(message.parts)) {
+        for (const part of message.parts) {
+            if (part._thoughtSignatureRef) {
+                const resolvedThoughtSignature = await resolveThoughtSignature(part);
+                if (!resolvedThoughtSignature) {
+                    throw new Error(`Failed to materialize part thought signature blob ${part._thoughtSignatureRef.blobId}`);
+                }
+                delete (part as any)._thoughtSignatureRef;
+            }
+
+            const sourceAttachments = Array.from(part.attachments || []);
+            if (sourceAttachments.length === 0) {
+                continue;
+            }
+
+            const resolvedAttachments: File[] = [];
+            for (const attachment of sourceAttachments) {
+                const originalBlobRef = (attachment as any)._blobRef as BlobReference | undefined;
+                const resolvedAttachment = await resolveAttachmentFile(attachment);
+                if (originalBlobRef && resolvedAttachment.size === 0) {
+                    throw new Error(`Failed to materialize attachment blob ${originalBlobRef.blobId}`);
+                }
+                delete (resolvedAttachment as any)._blobRef;
+                resolvedAttachments.push(resolvedAttachment);
+            }
+            part.attachments = resolvedAttachments;
+        }
+    }
+
+    return message;
+}
+
+async function materializeAllLocalBlobBackedMedia(): Promise<void> {
+    const chats = await db.chats.toArray();
+
+    await withSyncHooksSuppressed(async () => {
+        for (const chat of chats) {
+            if (!Array.isArray(chat.content) || chat.content.length === 0) {
+                continue;
+            }
+
+            const materializedContent: Message[] = [];
+            for (const message of chat.content) {
+                materializedContent.push(await materializeMessageBlobBackedMedia(message));
+            }
+
+            await db.chats.put({
+                ...chat,
+                content: materializedContent,
+            });
+        }
+    });
+}
+
 export async function restoreRemoteDataToLocalUnencrypted(): Promise<boolean> {
     const user = await getCurrentUser();
     const key = crypto.getCachedKey();
@@ -483,7 +572,7 @@ export async function restoreRemoteDataToLocalUnencrypted(): Promise<boolean> {
 
     try {
         await withSyncHooksSuppressed(async () => {
-            await pullChats(user.id, key, { hydrateMessages: true });
+            await pullChats(user.id, key, { hydrateMessages: true, materializeMedia: true });
             await pullPersonas(user.id, key);
             await pullSettings(user.id, key);
         });
@@ -2071,7 +2160,7 @@ export async function pullAll(): Promise<void> {
     }
 }
 
-async function pullChats(userId: string, key: CryptoKey, options?: { hydrateMessages?: boolean }): Promise<void> {
+async function pullChats(userId: string, key: CryptoKey, options?: { hydrateMessages?: boolean; materializeMedia?: boolean }): Promise<void> {
     const data = await fetchAllSyncedChatsPaged(userId);
 
     if (!data) {
@@ -2114,7 +2203,9 @@ async function pullChats(userId: string, key: CryptoKey, options?: { hydrateMess
 
                 if (remoteMessages !== null) {
                     if (remoteMessages.length > 0) {
-                        content = remoteMessages;
+                        content = options?.materializeMedia
+                            ? await Promise.all(remoteMessages.map((message) => materializeMessageBlobBackedMedia(message)))
+                            : remoteMessages;
                     } else if (Array.isArray(parsed?.content)) {
                         content = parsed.content as Message[];
                     } else {
@@ -2595,7 +2686,7 @@ export async function checkSyncOnLogin(): Promise<void> {
     // Check subscription tier
     const sub = await getUserSubscription();
     const tier = getSubscriptionTier(sub);
-    if (tier !== 'pro' && tier !== 'max') {
+    if (tier !== 'pro' && tier !== 'pro_plus' && tier !== 'max') {
         // Downgraded users get one final recovery flow:
         // unlock once, restore an unencrypted local copy, then disable/revoke sync.
         const prefs = await fetchSyncPreferences();
