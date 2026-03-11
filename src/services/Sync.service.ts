@@ -543,28 +543,6 @@ async function materializeMessageBlobBackedMedia(message: Message): Promise<Mess
     return message;
 }
 
-async function materializeAllLocalBlobBackedMedia(): Promise<void> {
-    const chats = await db.chats.toArray();
-
-    await withSyncHooksSuppressed(async () => {
-        for (const chat of chats) {
-            if (!Array.isArray(chat.content) || chat.content.length === 0) {
-                continue;
-            }
-
-            const materializedContent: Message[] = [];
-            for (const message of chat.content) {
-                materializedContent.push(await materializeMessageBlobBackedMedia(message));
-            }
-
-            await db.chats.put({
-                ...chat,
-                content: materializedContent,
-            });
-        }
-    });
-}
-
 export async function restoreRemoteDataToLocalUnencrypted(): Promise<boolean> {
     const user = await getCurrentUser();
     const key = crypto.getCachedKey();
