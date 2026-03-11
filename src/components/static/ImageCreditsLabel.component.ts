@@ -1,9 +1,9 @@
 import { isImageEditingActive } from "./ImageEditButton.component";
 import { isImageModeActive } from "./ImageButton.component";
 import { getLoraState } from "../../services/Lora.service";
-import { isImageGenerationAvailable, getCurrentUser } from "../../services/Supabase.service";
+import { getCurrentUser, getMegaCreditsRecord, getNanoBananaDailyUsageRecord, getSubscriptionTier, getUserSubscription, isImageGenerationAvailable } from "../../services/Supabase.service";
 import type { ImageGenerationPermitted } from "../../types/ImageGenerationTypes";
-import { ImageModel } from "../../types/Models";
+import { ChatModel, getChatModelDefinition, ImageModel } from "../../types/Models";
 import * as overlayService from "../../services/Overlay.service";
 import * as helpers from "../../utils/helpers";
 import { dispatchAppEvent } from "../../events";
@@ -11,6 +11,14 @@ import { dispatchAppEvent } from "../../events";
 const imageCreditsLabel = document.querySelector<HTMLDivElement>("#image-credits-label");
 const imageCreditsPopover = document.querySelector<HTMLDivElement>("#image-credits-popover");
 const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel");
+const modelSelector = document.querySelector<HTMLSelectElement>("#selectedModel");
+
+const PRO_NANO_BANANA_DAILY_LIMIT = 20;
+const NANO_BANANA_MODELS = new Set<string>([
+    ChatModel.NANO_BANANA,
+    ChatModel.NANO_BANANA_PRO,
+    ChatModel.NANO_BANANA_2,
+]);
 
 if (!imageCreditsLabel || !imageCreditsPopover) {
     console.error("Image credits label component initialization failed");
@@ -18,8 +26,14 @@ if (!imageCreditsLabel || !imageCreditsPopover) {
 }
 
 let imageCredits: number | null | undefined = undefined;
+let megaCredits: number | null | undefined = undefined;
+let nanoBananaUsageCount = 0;
+let nanoBananaUsageDate: string | null = null;
+let subscriptionTier: "free" | "pro" | "pro_plus" | "max" | "canceled" = "free";
 let imageGenStatus: ImageGenerationPermitted | null = null;
 let isPopoverVisible = false;
+
+type AllowanceMode = "image" | "mega" | "nano" | null;
 
 // Click handler for the label
 imageCreditsLabel.addEventListener("click", (e) => {
@@ -50,7 +64,7 @@ window.addEventListener('auth-state-changed', async (event: any) => {
         imageCredits = undefined;
     }
     imageGenStatus = await isImageGenerationAvailable();
-    renderLabel();
+    await refreshSupplementalAllowanceState();
 });
 
 // Listen for explicit image generation record refreshes
@@ -67,10 +81,12 @@ window.addEventListener('image-generation-record-refreshed', async (event: any) 
 
 // Listen for image mode toggles
 window.addEventListener('image-generation-toggled', () => {
+    updateImageCreditsLabelVisibility();
     renderLabel();
 });
 
 window.addEventListener('image-editing-toggled', () => {
+    updateImageCreditsLabelVisibility();
     renderLabel();
 });
 
@@ -79,11 +95,102 @@ window.addEventListener('lora-state-changed', () => {
     renderLabel();
 });
 
+window.addEventListener('chat-model-changed', () => {
+    updateImageCreditsLabelVisibility();
+    renderLabel();
+});
+
+window.addEventListener('subscription-updated', async () => {
+    imageGenStatus = await isImageGenerationAvailable();
+    await refreshSupplementalAllowanceState();
+});
+
+window.addEventListener('generation-state-changed', async (event: any) => {
+    if (event.detail?.isGenerating === false) {
+        imageGenStatus = await isImageGenerationAvailable();
+        await refreshSupplementalAllowanceState();
+    }
+});
+
 // Listen for image model changes
 if (imageModelSelector) {
     imageModelSelector.addEventListener('change', () => {
         renderLabel();
     });
+}
+
+function getSelectedChatModel(): string | null {
+    return modelSelector?.value || null;
+}
+
+function getAllowanceMode(): AllowanceMode {
+    if (isImageEditingActive() || isImageModeActive()) {
+        return "image";
+    }
+
+    const selectedModel = getSelectedChatModel();
+    const modelDefinition = getChatModelDefinition(selectedModel);
+
+    if (modelDefinition?.mega && (subscriptionTier === "pro" || subscriptionTier === "pro_plus")) {
+        return "mega";
+    }
+
+    if (subscriptionTier === "pro" && selectedModel && NANO_BANANA_MODELS.has(selectedModel)) {
+        return "nano";
+    }
+
+    return null;
+}
+
+function getTodayIsoDate(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getEffectiveNanoBananaUsageCount(): number {
+    return nanoBananaUsageDate === getTodayIsoDate() ? nanoBananaUsageCount : 0;
+}
+
+function getRemainingNanoBananaUses(): number {
+    return Math.max(PRO_NANO_BANANA_DAILY_LIMIT - getEffectiveNanoBananaUsageCount(), 0);
+}
+
+async function refreshSupplementalAllowanceState(): Promise<void> {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        megaCredits = undefined;
+        nanoBananaUsageCount = 0;
+        nanoBananaUsageDate = null;
+        subscriptionTier = "free";
+        updateImageCreditsLabelVisibility();
+        renderLabel();
+        return;
+    }
+
+    const subscription = await getUserSubscription();
+    subscriptionTier = getSubscriptionTier(subscription);
+
+    if (subscriptionTier === "pro" || subscriptionTier === "pro_plus") {
+        const megaCreditsRecord = await getMegaCreditsRecord();
+        megaCredits = megaCreditsRecord?.remaining_mega_credits ?? 0;
+    } else {
+        megaCredits = undefined;
+    }
+
+    if (subscriptionTier === "pro") {
+        const nanoUsageRecord = await getNanoBananaDailyUsageRecord();
+        nanoBananaUsageCount = Number(nanoUsageRecord?.usage_count ?? 0);
+        nanoBananaUsageDate = nanoUsageRecord?.usage_date ?? getTodayIsoDate();
+    } else {
+        nanoBananaUsageCount = 0;
+        nanoBananaUsageDate = null;
+    }
+
+    updateImageCreditsLabelVisibility();
+    renderLabel();
 }
 
 function getSelectedImageModel(): string | null {
@@ -144,7 +251,16 @@ function hasInsufficientCredits(): boolean {
     return creditsNeeded > 0 && totalCredits < creditsNeeded;
 }
 
+function hasInsufficientMegaCredits(): boolean {
+    return getAllowanceMode() === "mega" && Number(megaCredits ?? 0) < 1;
+}
+
+function hasInsufficientNanoAllowance(): boolean {
+    return getAllowanceMode() === "nano" && getRemainingNanoBananaUses() < 1;
+}
+
 function checkAndDispatchInsufficientCreditsState(): void {
+    const allowanceMode = getAllowanceMode();
     const isInsufficient = hasInsufficientCredits();
     const isEditing = isImageEditingActive();
     const isGenerating = isImageModeActive();
@@ -155,26 +271,65 @@ function checkAndDispatchInsufficientCreditsState(): void {
     const shouldBlock = isInsufficient && (isEditing || isGenerating) && !showingApiKeyPath;
     
     dispatchAppEvent('insufficient-image-credits', { insufficient: shouldBlock });
+
+    if (allowanceMode === "mega") {
+        dispatchAppEvent('composer-allowance-blocked', {
+            blocked: hasInsufficientMegaCredits(),
+            title: 'Insufficient Mega Credits',
+            text: 'This model costs 1 Mega Credit per request. Choose another model or upgrade to Max for unlimited Mega access.',
+        });
+        return;
+    }
+
+    if (allowanceMode === "nano") {
+        dispatchAppEvent('composer-allowance-blocked', {
+            blocked: hasInsufficientNanoAllowance(),
+            title: 'Nano Banana Daily Limit Reached',
+            text: `Pro includes ${PRO_NANO_BANANA_DAILY_LIMIT} Nano Banana requests per day. Try again tomorrow or switch models.`,
+        });
+        return;
+    }
+
+    dispatchAppEvent('composer-allowance-blocked', {
+        blocked: shouldBlock,
+        title: 'Insufficient Image Credits',
+        text: "You don't have enough credits for this image request. Please buy more credits or disable image mode.",
+    });
 }
 
 function renderLabel(): void {
     if (!imageCreditsLabel) return;
 
-    const creditsNeeded = calculateCreditsNeeded();
-    
+    const allowanceMode = getAllowanceMode();
+
+    if (allowanceMode === "mega") {
+        if (hasInsufficientMegaCredits()) {
+            imageCreditsLabel.textContent = 'No Mega Credits';
+        } else if (megaCredits === null || megaCredits === undefined) {
+            imageCreditsLabel.textContent = '— Mega Credits';
+        } else {
+            imageCreditsLabel.textContent = `${megaCredits} Mega Credits`;
+        }
+
+        checkAndDispatchInsufficientCreditsState();
+        if (isPopoverVisible) renderPopoverContent();
+        return;
+    }
+
+    if (allowanceMode === "nano") {
+        const remainingNanoUses = getRemainingNanoBananaUses();
+        imageCreditsLabel.textContent = remainingNanoUses > 0 ? `${remainingNanoUses} Nano Left` : 'Nano Limit Reached';
+
+        checkAndDispatchInsufficientCreditsState();
+        if (isPopoverVisible) renderPopoverContent();
+        return;
+    }
+
     if (shouldShowApiKeyPath()) {
         imageCreditsLabel.textContent = 'May Incur Charges';
     } else {
-        // For 'all' mode, check if insufficient credits
         const totalCredits = (imageCredits === null || imageCredits === undefined) ? '—' : String(imageCredits);
-        
-        if (hasInsufficientCredits()) {
-            imageCreditsLabel.textContent = 'Insufficient Credits';
-        } else if (creditsNeeded === 0) {
-            imageCreditsLabel.textContent = `${totalCredits} Image Credits`;
-        } else {
-            imageCreditsLabel.textContent = `${creditsNeeded} Img Cred(s)`;
-        }
+        imageCreditsLabel.textContent = `${totalCredits} Image Credits`;
     }
 
     // Check and dispatch insufficient credits state
@@ -188,6 +343,66 @@ function renderLabel(): void {
 
 function renderPopoverContent(): void {
     if (!imageCreditsPopover) return;
+
+    const allowanceMode = getAllowanceMode();
+    if (allowanceMode === "mega") {
+        const totalCredits = Number(megaCredits ?? 0);
+        imageCreditsPopover.innerHTML = `
+            <div class="image-credits-popover-header">
+                <h4>Mega Credits</h4>
+                <button class="image-credits-popover-close btn-textual material-symbols-outlined" aria-label="Close">close</button>
+            </div>
+            <div class="image-credits-popover-body">
+                <div class="credit-breakdown-item">
+                    <span class="material-symbols-outlined credit-icon">auto_awesome</span>
+                    <span class="credit-description">Mega model request</span>
+                    <span class="credit-amount">1 credit</span>
+                </div>
+                <div class="credit-breakdown-total">
+                    <span class="credit-total-label">Your balance</span>
+                    <span class="credit-total-amount">${totalCredits}</span>
+                </div>
+                <div class="credit-breakdown-remaining">
+                    <span class="credit-remaining-label">Remaining after request</span>
+                    <span class="credit-remaining-amount">${Math.max(totalCredits - 1, 0)}</span>
+                </div>
+            </div>
+        `;
+        bindPopoverButtons();
+        return;
+    }
+
+    if (allowanceMode === "nano") {
+        const usageCount = getEffectiveNanoBananaUsageCount();
+        const remaining = getRemainingNanoBananaUses();
+        imageCreditsPopover.innerHTML = `
+            <div class="image-credits-popover-header">
+                <h4>Nano Banana Daily Allowance</h4>
+                <button class="image-credits-popover-close btn-textual material-symbols-outlined" aria-label="Close">close</button>
+            </div>
+            <div class="image-credits-popover-body">
+                <div class="credit-breakdown-item">
+                    <span class="material-symbols-outlined credit-icon">image</span>
+                    <span class="credit-description">Nano Banana request</span>
+                    <span class="credit-amount">1 daily use</span>
+                </div>
+                <div class="credit-breakdown-simple-item">
+                    <span class="credit-simple-label">Daily limit</span>
+                    <span class="credit-simple-value">${PRO_NANO_BANANA_DAILY_LIMIT}</span>
+                </div>
+                <div class="credit-breakdown-simple-item">
+                    <span class="credit-simple-label">Used today</span>
+                    <span class="credit-simple-value">${usageCount}</span>
+                </div>
+                <div class="credit-breakdown-remaining">
+                    <span class="credit-remaining-label">Remaining after request</span>
+                    <span class="credit-remaining-amount">${Math.max(remaining - 1, 0)}</span>
+                </div>
+            </div>
+        `;
+        bindPopoverButtons();
+        return;
+    }
 
     const showApiKeyPath = shouldShowApiKeyPath();
     const isEditing = isImageEditingActive();
@@ -315,6 +530,11 @@ function renderPopoverContent(): void {
     `;
 
     imageCreditsPopover.innerHTML = contentHTML;
+    bindPopoverButtons();
+}
+
+function bindPopoverButtons(): void {
+    if (!imageCreditsPopover) return;
 
     // Add close button handler
     const closeButton = imageCreditsPopover.querySelector('.image-credits-popover-close');
@@ -447,7 +667,7 @@ function positionPopover(): void {
 // Initialize and render
 (async () => {
     imageGenStatus = await isImageGenerationAvailable();
-    renderLabel();
+    await refreshSupplementalAllowanceState();
 })();
 
 // Export visibility state getter
@@ -458,10 +678,8 @@ export function isImageCreditsLabelVisible(): boolean {
 // Export function to update visibility (called from ChatInput)
 export function updateImageCreditsLabelVisibility(): void {
     if (!imageCreditsLabel) return;
-    
-    const isEditing = isImageEditingActive();
-    const isGenerating = isImageModeActive();
-    const shouldShow = isEditing || isGenerating;
+
+    const shouldShow = getAllowanceMode() !== null;
 
     if (shouldShow) {
         imageCreditsLabel.classList.remove('hidden');

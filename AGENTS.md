@@ -173,3 +173,8 @@ User preferences use `localStorage` with service-level get/set wrappers. See [sr
 
 ### Supabase Types
 After schema changes, run `npm run sync-db-types` to regenerate [src/types/database.types.ts](src/types/database.types.ts).
+
+### Supabase Dashboard Edge Function Quirk
+- The current deployment flow uses the Supabase Dashboard for individual edge functions in `zozo-edge/functions/`.
+- Do not rely on shared sibling folders like `functions/_shared/` or cross-function relative imports for deployable code.
+- Keep any required helpers/constants inside each deployed function file unless the user explicitly confirms a bundling/deploy process that supports shared files.

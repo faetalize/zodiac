@@ -272,7 +272,7 @@ function showFinalDownloadModal() {
     resetModalFields();
     if (syncModalTitle) syncModalTitle.textContent = 'Final Cloud Sync Download';
     if (syncModalDescription) syncModalDescription.textContent =
-        'Your subscription is no longer active. You have 7 days from when it ended to download your synced data. Enter your encryption password to restore a local copy. Cloud sync access will then be revoked.';
+        'Your subscription is no longer active. You have 7 days from when it ended to download your synced data. Enter your encryption password to restore a local copy to this device and permanently remove the encrypted cloud copy.';
     syncPasswordConfirm?.classList.add('hidden');
     btnSyncForgotPassword?.classList.remove('hidden');
     if (btnSyncSkip) btnSyncSkip.textContent = 'Not now';
@@ -369,8 +369,8 @@ btnSyncConfirm?.addEventListener('click', async () => {
                 return;
             }
 
-            const disabled = await syncService.disableSync({ keepLocalCopy: true });
-            if (!disabled) {
+            const wiped = await syncService.wipeRemoteData({ keepLocalCopy: true });
+            if (!wiped) {
                 showError('Failed to restore your local copy. Please try again.');
                 return;
             }
@@ -379,7 +379,7 @@ btnSyncConfirm?.addEventListener('click', async () => {
             updateSettingsUI(false);
             info({
                 title: 'Local backup restored',
-                text: 'Your synced data was downloaded to this device. Cloud sync has been disabled.'
+                text: 'Your synced data was downloaded to this device and removed from the cloud.'
             });
         } finally {
             btnSyncConfirm!.disabled = false;
@@ -573,7 +573,7 @@ onAppEvent('auth-state-changed', async (event) => {
     }
 
     const tier = getSubscriptionTier(subscription ?? null);
-    const isPaid = tier === 'pro' || tier === 'max';
+    const isPaid = tier === 'pro' || tier === 'pro_plus' || tier === 'max';
 
     if (isPaid && cloudSyncSection) {
         cloudSyncSection.classList.remove('hidden');
@@ -686,7 +686,7 @@ onAppEvent('sync-data-pulled', async () => {
 // Subscription updated: show/hide sync section
 onAppEvent('subscription-updated', async (event) => {
     const tier = event.detail.tier;
-    const isPaid = tier === 'pro' || tier === 'max';
+    const isPaid = tier === 'pro' || tier === 'pro_plus' || tier === 'max';
 
     if (cloudSyncSection) {
         cloudSyncSection.classList.remove('hidden');

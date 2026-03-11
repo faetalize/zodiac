@@ -5,7 +5,8 @@ export type Request = {
     prompt?: string;
 
     reasoning?: {
-        effort?: 'high' | 'medium' | 'low';
+        enabled?: boolean;
+        effort?: 'xhigh' | 'high' | 'medium' | 'low' | 'minimal' | 'none';
         max_tokens?: number;
         exclude?: boolean;
     }
@@ -15,7 +16,7 @@ export type Request = {
 
     // Allows to force the model to produce specific output format.
     // See models page and note on this docs page for which models support it.
-    response_format?: { type: 'json_object' };
+    response_format?: ResponseFormat;
 
     stop?: string | string[];
     stream?: boolean; // Enable streaming
@@ -56,6 +57,7 @@ export type Request = {
     route?: 'fallback';
     // See "Provider Routing" section: openrouter.ai/docs/provider-routing
     provider?: ProviderPreferences;
+    plugins?: Plugin[];
     user?: string; // A stable identifier for your end-users. Used to help detect and prevent abuse.
 };
 
@@ -98,6 +100,17 @@ export type Message =
         content: string;
         tool_call_id: string;
         name?: string;
+      };
+
+export type ResponseFormat =
+    | { type: 'json_object' }
+    | {
+        type: 'json_schema';
+        json_schema: {
+            name: string;
+            strict?: boolean;
+            schema: object;
+        };
     };
 
 type FunctionDescription = {
@@ -180,6 +193,14 @@ interface ProviderPreferences {
     zdr?: boolean | null;
 }
 
+export type Plugin = {
+    id: 'web' | 'file-parser' | 'response-healing' | string;
+    enabled?: boolean;
+    max_results?: number;
+    search_prompt?: string;
+    engine?: 'native' | 'exa';
+};
+
 export enum DataCollection {
     Allow = "allow",
     Deny = "deny",
@@ -252,6 +273,8 @@ export type NonStreamingChoice = {
     message: {
         content: string | null;
         role: string;
+        reasoning?: string | null;
+        reasoning_details?: ReasoningDetail[];
         tool_calls?: ToolCall[];
     };
     error?: ErrorResponse;
@@ -294,3 +317,10 @@ type ResponseUsage = {
 };
 //alias to any for now
 type FunctionCall = any; // See "Tool Calling" section
+
+type ReasoningDetail = {
+    type?: string;
+    text?: string;
+    summary?: string;
+    data?: string;
+};

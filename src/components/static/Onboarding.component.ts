@@ -2,7 +2,6 @@
  * Onboarding component - handles user interaction and flow logic
  */
 
-import { GoogleGenAI } from "@google/genai";
 import { OnboardingPath, OnboardingStep } from "../../types/Onboarding";
 import { SubscriptionPriceIDs } from "../../types/Price";
 import type { ColorTheme, ThemeMode, ThemePreference } from "../../types/Theme";
@@ -12,9 +11,19 @@ import * as syncService from "../../services/Sync.service";
 import * as settingsService from "../../services/Settings.service";
 import * as toastService from "../../services/Toast.service";
 import { themeService } from "../../services/Theme.service";
-import { ChatModel } from "../../types/Models";
-import { getValidEnumValue } from "../../utils/helpers";
+import {
+    GEMINI_CHAT_MODELS,
+    formatChatModelLabel,
+    OPENROUTER_CHAT_MODELS,
+    getAccessibleChatModels,
+    getDefaultChatModel,
+    getValidChatModel,
+    modelRequiresThinking,
+    modelSupportsThinking,
+    type ChatModelAccess,
+} from "../../types/Models";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
+import { validateGeminiApiKey, validateOpenRouterApiKey } from "../../services/ApiKeyValidation.service";
 
 // Path selection buttons
 const easyPathButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-easy");
@@ -60,6 +69,9 @@ const chooseSubscriptionButton = document.querySelector<HTMLButtonElement>("#onb
 const apiKeyInput = document.querySelector<HTMLInputElement>("#onboarding-api-key");
 const validateApiKeyButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-validate-api");
 const apiKeyStatus = document.querySelector<HTMLDivElement>("#onboarding-api-key-status");
+const openRouterApiKeyInput = document.querySelector<HTMLInputElement>("#onboarding-openrouter-api-key");
+const validateOpenRouterApiKeyButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-validate-openrouter-api");
+const openRouterApiKeyStatus = document.querySelector<HTMLDivElement>("#onboarding-openrouter-api-key-status");
 const apiKeyNextButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-api-next");
 
 // Registration elements
@@ -82,8 +94,11 @@ const registerLoginButton = document.querySelector<HTMLButtonElement>("#onboardi
 const registerLoginError = document.querySelector<HTMLDivElement>("#onboarding-login-error");
 
 // Subscription confirmation elements
-const selectProButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-select-pro");
-const selectMaxButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-select-max");
+const onboardingOverlay = document.querySelector<HTMLDivElement>("#onboarding-overlay");
+const onboardingContainer = document.querySelector<HTMLDivElement>("#onboarding-overlay .onboarding-container");
+const onboardingPlanSelection = document.querySelector<HTMLDivElement>("#onboarding-plan-selection");
+const onboardingPricingHost = document.querySelector<HTMLDivElement>("#onboarding-pricing-host");
+const subscriptionForm = document.querySelector<HTMLDivElement>("#form-subscription");
 const subscriptionAutoLoginButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-subscription-auto-login");
 const subscriptionReturnButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-subscription-return");
 const subscriptionStatus = document.querySelector<HTMLDivElement>("#onboarding-subscription-status");
@@ -120,6 +135,8 @@ const advancedBehaviorContinueButton = document.querySelector<HTMLButtonElement>
 const summaryFinishButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-finish");
 const summaryApiKeyContent = document.querySelector<HTMLDivElement>("#summary-apikey-content");
 const summarySubscriptionContent = document.querySelector<HTMLDivElement>("#summary-subscription-content");
+const summarySubscriptionHeadline = document.querySelector<HTMLParagraphElement>("#summary-subscription-headline");
+const summarySubscriptionSelection = document.querySelector<HTMLParagraphElement>("#summary-subscription-selection");
 
 // Check all required elements exist
 const requiredElements = {
@@ -152,6 +169,9 @@ const requiredElements = {
     apiKeyInput,
     validateApiKeyButton,
     apiKeyStatus,
+    openRouterApiKeyInput,
+    validateOpenRouterApiKeyButton,
+    openRouterApiKeyStatus,
     apiKeyNextButton,
     registerEmailInput,
     registerPasswordInput,
@@ -170,8 +190,11 @@ const requiredElements = {
     registerLoginPasswordInput,
     registerLoginButton,
     registerLoginError,
-    selectProButton,
-    selectMaxButton,
+    onboardingOverlay,
+    onboardingContainer,
+    onboardingPlanSelection,
+    onboardingPricingHost,
+    subscriptionForm,
     subscriptionAutoLoginButton,
     subscriptionReturnButton,
     subscriptionStatus,
@@ -201,7 +224,9 @@ const requiredElements = {
     advancedBehaviorContinueButton,
     summaryFinishButton,
     summaryApiKeyContent,
-    summarySubscriptionContent
+    summarySubscriptionContent,
+    summarySubscriptionHeadline,
+    summarySubscriptionSelection
 };
 
 for (const [name, element] of Object.entries(requiredElements)) {
@@ -217,6 +242,69 @@ let refreshAdvancedSettingsFromStorage: (() => void) | null = null;
 let hasCloudSyncEnabledForCurrentUser = false;
 type OnboardingCloudSyncMode = "setup" | "unlock" | "enable";
 let onboardingCloudSyncMode: OnboardingCloudSyncMode = "setup";
+
+function hasAnyValidatedApiKey(): boolean {
+    return onboardingService.getState().apiKeyValidated;
+}
+
+async function getOnboardingModelAccess(): Promise<ChatModelAccess> {
+    const currentUser = await supabaseService.getCurrentUser();
+    const subscription = currentUser ? await supabaseService.getUserSubscription() : null;
+    const tier = supabaseService.getSubscriptionTier(subscription);
+    const hasPremiumAccess = tier === "pro" || tier === "pro_plus" || tier === "max" || onboardingService.getState().setupOption === "subscription";
+
+    return {
+        hasGeminiAccess: hasPremiumAccess || (localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "").trim().length > 0,
+        hasOpenRouterAccess: hasPremiumAccess || (localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "").trim().length > 0,
+    };
+}
+
+function buildOptionGroup(label: string, options: { id: string; label: string }[]): HTMLOptGroupElement {
+    const optGroup = document.createElement("optgroup");
+    optGroup.label = label;
+
+    for (const option of options) {
+        const element = document.createElement("option");
+        element.value = option.id;
+        element.textContent = formatChatModelLabel(option);
+        optGroup.append(element);
+    }
+
+    return optGroup;
+}
+
+async function refreshOnboardingModelOptions(preferredModel?: string): Promise<void> {
+    const access = await getOnboardingModelAccess();
+    const available = getAccessibleChatModels(access);
+    const currentValue = preferredModel || advancedModelSelect!.value || localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL) || "";
+
+    advancedModelSelect!.replaceChildren();
+
+    const geminiModels = available.filter((model) => GEMINI_CHAT_MODELS.some((candidate) => candidate.id === model.id));
+    const openRouterModels = available.filter((model) => OPENROUTER_CHAT_MODELS.some((candidate) => candidate.id === model.id));
+
+    if (geminiModels.length > 0) {
+        advancedModelSelect!.append(buildOptionGroup("Gemini", geminiModels));
+    }
+
+    if (openRouterModels.length > 0) {
+        advancedModelSelect!.append(buildOptionGroup("OpenRouter", openRouterModels));
+    }
+
+    if (available.length === 0) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "Add or validate a key to unlock models";
+        option.disabled = true;
+        option.selected = true;
+        advancedModelSelect!.append(option);
+        advancedModelSelect!.disabled = true;
+        return;
+    }
+
+    advancedModelSelect!.disabled = false;
+    advancedModelSelect!.value = getValidChatModel(currentValue, access) || getDefaultChatModel(access);
+}
 
 /**
  * Initialize onboarding component
@@ -302,8 +390,8 @@ function setupThemeSelection(): void {
             const subscription = await supabaseService.getUserSubscription();
             const tier = supabaseService.getSubscriptionTier(subscription);
             
-            // If user has Pro/Max subscription, show account selector
-            if (tier === 'pro' || tier === 'max') {
+            // If user has a paid subscription, show account selector
+            if (tier === 'pro' || tier === 'pro_plus' || tier === 'max') {
                 await prepareAccountSelector(user, subscription, tier);
                 onboardingService.goToStep(OnboardingStep.ACCOUNT_SELECTOR);
                 return;
@@ -383,9 +471,9 @@ async function prepareAccountSelector(
     accountSelectorEmail!.textContent = user.email || 'No email';
     
     // Set tier badge
-    const tierLabel = tier === 'pro' ? 'Pro' : tier === 'max' ? 'Max' : 'Free';
+    const tierLabel = tier === 'pro' ? 'Pro' : tier === 'pro_plus' ? 'Pro Plus' : tier === 'max' ? 'Max' : 'Free';
     accountSelectorTierBadge!.textContent = tierLabel;
-    accountSelectorTierBadge!.classList.remove('badge-tier-free', 'badge-tier-pro', 'badge-tier-max');
+    accountSelectorTierBadge!.classList.remove('badge-tier-free', 'badge-tier-pro', 'badge-tier-pro-plus', 'badge-tier-pro_plus', 'badge-tier-max');
     accountSelectorTierBadge!.classList.add(`badge-tier-${tier}`);
 }
 
@@ -424,9 +512,9 @@ async function prepareAccountConfirmation(options?: {
     // Get subscription tier for badge
     const subscription = await supabaseService.getUserSubscription();
     const tier = supabaseService.getSubscriptionTier(subscription);
-    const tierLabel = tier === 'pro' ? 'Pro' : tier === 'max' ? 'Max' : 'Free';
+    const tierLabel = tier === 'pro' ? 'Pro' : tier === 'pro_plus' ? 'Pro Plus' : tier === 'max' ? 'Max' : 'Free';
     confirmAccountTierBadge!.textContent = tierLabel;
-    confirmAccountTierBadge!.classList.remove('badge-tier-free', 'badge-tier-pro', 'badge-tier-max');
+    confirmAccountTierBadge!.classList.remove('badge-tier-free', 'badge-tier-pro', 'badge-tier-pro-plus', 'badge-tier-pro_plus', 'badge-tier-max');
     confirmAccountTierBadge!.classList.add(`badge-tier-${tier}`);
 }
 
@@ -438,11 +526,8 @@ function setupApiOrSubscriptionChoice(): void {
         onboardingService.setSetupOption("api-key");
         onboardingService.setPendingCredentials(null);
         
-        // Prefill API key if it exists in localStorage
-        const existingApiKey = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY);
-        if (existingApiKey) {
-            apiKeyInput!.value = existingApiKey;
-        }
+        apiKeyInput!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
+        openRouterApiKeyInput!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "";
         
         onboardingService.goToStep(OnboardingStep.API_KEY_SETUP);
     });
@@ -472,60 +557,102 @@ function setupApiOrSubscriptionChoice(): void {
  * API key setup step handlers
  */
 function setupApiKeySetup(): void {
-    validateApiKeyButton!.addEventListener("click", async () => {
-        const apiKey = apiKeyInput!.value.trim();
-        
+    const updateApiKeyNextState = () => {
+        const hasValidatedKey =
+            apiKeyStatus!.classList.contains("status-success") ||
+            openRouterApiKeyStatus!.classList.contains("status-success");
+
+        onboardingService.setApiKeyValidated(hasValidatedKey);
+        apiKeyNextButton!.disabled = !hasValidatedKey;
+    };
+
+    const revealContinueButton = () => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const onboardingOverlay = document.querySelector("#onboarding-overlay");
+                if (onboardingOverlay) {
+                    onboardingOverlay.scrollTo({ top: onboardingOverlay.scrollHeight, behavior: "smooth" });
+                }
+            });
+        });
+    };
+
+    const runValidation = async (args: {
+        input: HTMLInputElement;
+        button: HTMLButtonElement;
+        statusElement: HTMLDivElement;
+        storageKey: string;
+        validator: (apiKey: string) => Promise<boolean>;
+        loadingMessage: string;
+        successMessage: string;
+        errorMessage: string;
+        idleLabel: string;
+    }) => {
+        const apiKey = args.input.value.trim();
         if (!apiKey) {
-            showApiKeyStatus("Please enter an API key", "error");
+            showApiKeyStatus(args.statusElement, "Please enter an API key", "error");
+            updateApiKeyNextState();
             return;
         }
-        
-        // Disable button and show loading state
-        validateApiKeyButton!.disabled = true;
-        validateApiKeyButton!.textContent = "Validating...";
-        showApiKeyStatus("Testing your API key...", "loading");
-        
+
+        args.button.disabled = true;
+        args.button.textContent = "Validating...";
+        showApiKeyStatus(args.statusElement, args.loadingMessage, "loading");
+
         try {
-            // Test the API key with a simple call to Gemini 2.5 Flash Lite
-            const ai = new GoogleGenAI({ apiKey });
-            await ai.models.generateContent({
-                model: ChatModel.FLASH_LITE_LATEST,
-                contents: "Say 'Hello' in one word."
-            });
-            
-            // Success!
-            showApiKeyStatus("✓ API key is valid!", "success");
-            onboardingService.setApiKeyValidated(true);
-            
-            // Save to localStorage
-            localStorage.setItem(SETTINGS_STORAGE_KEYS.API_KEY, apiKey);
+            const isValid = await args.validator(apiKey);
+            if (!isValid) {
+                showApiKeyStatus(args.statusElement, args.errorMessage, "error");
+                updateApiKeyNextState();
+                return;
+            }
+
+            showApiKeyStatus(args.statusElement, args.successMessage, "success");
+            localStorage.setItem(args.storageKey, apiKey);
             settingsService.loadSettings();
-            
-            // Enable next button
-            apiKeyNextButton!.disabled = false;
-            
-            // Scroll to bottom to reveal the Continue button (wait for browser paint)
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    const onboardingOverlay = document.querySelector("#onboarding-overlay");
-                    if (onboardingOverlay) {
-                        onboardingOverlay.scrollTo({ top: onboardingOverlay.scrollHeight, behavior: 'smooth' });
-                    }
-                });
-            });
+            await refreshOnboardingModelOptions(localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL) || undefined);
+            updateApiKeyNextState();
+            revealContinueButton();
         } catch (error) {
             console.error("API key validation failed:", error);
-            showApiKeyStatus("✗ Invalid API key. Please check and try again.", "error");
-            onboardingService.setApiKeyValidated(false);
-            apiKeyNextButton!.disabled = true;
+            showApiKeyStatus(args.statusElement, args.errorMessage, "error");
+            updateApiKeyNextState();
         } finally {
-            validateApiKeyButton!.disabled = false;
-            validateApiKeyButton!.textContent = "Validate API Key";
+            args.button.disabled = false;
+            args.button.textContent = args.idleLabel;
         }
+    };
+
+    validateApiKeyButton!.addEventListener("click", async () => {
+        await runValidation({
+            input: apiKeyInput!,
+            button: validateApiKeyButton!,
+            statusElement: apiKeyStatus!,
+            storageKey: SETTINGS_STORAGE_KEYS.API_KEY,
+            validator: validateGeminiApiKey,
+            loadingMessage: "Testing your Gemini key...",
+            successMessage: "✓ Gemini key is valid!",
+            errorMessage: "✗ Invalid Gemini key. Please check and try again.",
+            idleLabel: "Validate Gemini Key",
+        });
+    });
+
+    validateOpenRouterApiKeyButton!.addEventListener("click", async () => {
+        await runValidation({
+            input: openRouterApiKeyInput!,
+            button: validateOpenRouterApiKeyButton!,
+            statusElement: openRouterApiKeyStatus!,
+            storageKey: SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY,
+            validator: validateOpenRouterApiKey,
+            loadingMessage: "Testing your OpenRouter key...",
+            successMessage: "✓ OpenRouter key is valid!",
+            errorMessage: "✗ Invalid OpenRouter key. Please check and try again.",
+            idleLabel: "Validate OpenRouter Key",
+        });
     });
     
     apiKeyNextButton!.addEventListener("click", async () => {
-        if (!onboardingService.getState().apiKeyValidated) {
+        if (!hasAnyValidatedApiKey()) {
             return;
         }
 
@@ -549,30 +676,169 @@ function setupApiKeySetup(): void {
     });
     
     // Reset next button state when input changes
+    const handleApiKeyInputChange = async (args: { statusElement: HTMLDivElement; storageKey: string }) => {
+        localStorage.removeItem(args.storageKey);
+        hideApiKeyStatus(args.statusElement);
+        const hasValidatedKey =
+            apiKeyStatus!.classList.contains("status-success") ||
+            openRouterApiKeyStatus!.classList.contains("status-success");
+        onboardingService.setApiKeyValidated(hasValidatedKey);
+        apiKeyNextButton!.disabled = !hasValidatedKey;
+        await refreshOnboardingModelOptions(localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL) || undefined);
+    };
+
     apiKeyInput!.addEventListener("input", () => {
-        apiKeyNextButton!.disabled = true;
-        onboardingService.setApiKeyValidated(false);
-        hideApiKeyStatus();
+        void handleApiKeyInputChange({ statusElement: apiKeyStatus!, storageKey: SETTINGS_STORAGE_KEYS.API_KEY });
+    });
+
+    openRouterApiKeyInput!.addEventListener("input", () => {
+        void handleApiKeyInputChange({ statusElement: openRouterApiKeyStatus!, storageKey: SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY });
     });
 }
 
 /**
  * Plan selection step handlers (for subscription flow)
  */
+type OnboardingPlanType = "pro" | "pro_plus" | "max";
+type OnboardingBillingMode = "monthly" | "yearly";
+type OnboardingSubscriptionSummary = {
+    planLabel: string;
+    billingLabel: string;
+};
+
+const subscriptionFormOriginalParent = subscriptionForm?.parentNode ?? null;
+const subscriptionFormOriginalNextSibling = subscriptionForm?.nextSibling ?? null;
+let hasInitializedOnboardingPricing = false;
+
 function setupPlanSelection(): void {
-    selectProButton!.addEventListener("click", async () => {
-        onboardingService.setSelectedPriceId(SubscriptionPriceIDs.PRO_MONTHLY);
-        await routeToCloudSyncOrSettings();
+    initializeOnboardingPricing();
+    syncOnboardingPricingMount();
+}
+
+function getOnboardingBillingMode(): OnboardingBillingMode {
+    return subscriptionForm?.dataset.billing === "monthly" ? "monthly" : "yearly";
+}
+
+function setOnboardingBillingMode(mode: OnboardingBillingMode): void {
+    if (subscriptionForm) {
+        subscriptionForm.dataset.billing = mode;
+    }
+
+    if (onboardingPlanSelection) {
+        onboardingPlanSelection.dataset.billing = mode;
+    }
+}
+
+function getSelectedPriceIdForPlan(plan: OnboardingPlanType, billingMode: OnboardingBillingMode): string {
+    switch (plan) {
+        case "pro":
+            return billingMode === "yearly" ? SubscriptionPriceIDs.PRO_YEARLY : SubscriptionPriceIDs.PRO_MONTHLY;
+        case "pro_plus":
+            return billingMode === "yearly" ? SubscriptionPriceIDs.PRO_PLUS_YEARLY : SubscriptionPriceIDs.PRO_PLUS_MONTHLY;
+        case "max":
+            return billingMode === "yearly" ? SubscriptionPriceIDs.MAX_YEARLY : SubscriptionPriceIDs.MAX_MONTHLY;
+    }
+}
+
+function getSubscriptionSummaryFromPriceId(priceId: string | null): OnboardingSubscriptionSummary | null {
+    switch (priceId) {
+        case SubscriptionPriceIDs.PRO_MONTHLY:
+            return { planLabel: "Pro", billingLabel: "Monthly" };
+        case SubscriptionPriceIDs.PRO_YEARLY:
+            return { planLabel: "Pro", billingLabel: "Yearly" };
+        case SubscriptionPriceIDs.PRO_PLUS_MONTHLY:
+            return { planLabel: "Pro Plus", billingLabel: "Monthly" };
+        case SubscriptionPriceIDs.PRO_PLUS_YEARLY:
+            return { planLabel: "Pro Plus", billingLabel: "Yearly" };
+        case SubscriptionPriceIDs.MAX_MONTHLY:
+            return { planLabel: "Max", billingLabel: "Monthly" };
+        case SubscriptionPriceIDs.MAX_YEARLY:
+            return { planLabel: "Max", billingLabel: "Yearly" };
+        default:
+            return null;
+    }
+}
+
+function isCloudSyncEligibleTier(tier: ReturnType<typeof supabaseService.getSubscriptionTier>): boolean {
+    return tier === "pro" || tier === "pro_plus" || tier === "max";
+}
+
+function initializeOnboardingPricing(): void {
+    if (hasInitializedOnboardingPricing) {
+        return;
+    }
+
+    if (!subscriptionForm || !onboardingPricingHost || !onboardingPlanSelection || !onboardingOverlay || !onboardingContainer) {
+        throw new Error("Missing onboarding pricing elements");
+    }
+
+    hasInitializedOnboardingPricing = true;
+
+    const billingButtons = Array.from(subscriptionForm.querySelectorAll<HTMLButtonElement>("[data-billing-option]"));
+    billingButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            const nextMode = button.dataset.billingOption === "monthly" ? "monthly" : "yearly";
+            setOnboardingBillingMode(nextMode);
+        }, { capture: true });
     });
 
-    selectMaxButton!.addEventListener("click", async () => {
-        // Max tier coming soon - button is disabled but add guard just in case
-        if (selectMaxButton!.disabled) {
-            return;
-        }
-        onboardingService.setSelectedPriceId(SubscriptionPriceIDs.MAX_MONTHLY);
-        await routeToCloudSyncOrSettings();
+    const planButtons: Array<{ plan: OnboardingPlanType; selector: string }> = [
+        { plan: "pro", selector: "#btn-subscribe-pro" },
+        { plan: "pro_plus", selector: "#btn-subscribe-pro-plus" },
+        { plan: "max", selector: "#btn-subscribe-max" },
+    ];
+
+    planButtons.forEach(({ plan, selector }) => {
+        const button = subscriptionForm.querySelector<HTMLButtonElement>(selector);
+        if (!button) return;
+
+        button.addEventListener("click", async (event) => {
+            if (onboardingPlanSelection.classList.contains("hidden")) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            onboardingService.setSelectedPriceId(getSelectedPriceIdForPlan(plan, getOnboardingBillingMode()));
+            await routeToCloudSyncOrSettings();
+        }, { capture: true });
     });
+
+    const observer = new MutationObserver(() => syncOnboardingPricingMount());
+    observer.observe(onboardingPlanSelection, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(onboardingOverlay, { attributes: true, attributeFilter: ["class"] });
+}
+
+function syncOnboardingPricingMount(): void {
+    if (!subscriptionForm || !onboardingPricingHost || !subscriptionFormOriginalParent) {
+        return;
+    }
+
+    const shouldMountInOnboarding = !onboardingOverlay?.classList.contains("hidden")
+        && !onboardingPlanSelection?.classList.contains("hidden");
+
+    onboardingOverlay?.classList.toggle("onboarding-overlay-pricing-mode", shouldMountInOnboarding);
+    onboardingContainer?.classList.toggle("onboarding-container-pricing-mode", shouldMountInOnboarding);
+
+    if (shouldMountInOnboarding) {
+        if (subscriptionForm.parentNode !== onboardingPricingHost) {
+            onboardingPricingHost.replaceChildren(subscriptionForm);
+        }
+        subscriptionForm.classList.remove("hidden");
+        subscriptionForm.style.opacity = "1";
+        setOnboardingBillingMode(getOnboardingBillingMode());
+        return;
+    }
+
+    if (subscriptionForm.parentNode !== subscriptionFormOriginalParent) {
+        if (subscriptionFormOriginalNextSibling && subscriptionFormOriginalNextSibling.parentNode === subscriptionFormOriginalParent) {
+            subscriptionFormOriginalParent.insertBefore(subscriptionForm, subscriptionFormOriginalNextSibling);
+        } else {
+            subscriptionFormOriginalParent.appendChild(subscriptionForm);
+        }
+    }
+
+    subscriptionForm.classList.add("hidden");
 }
 
 /**
@@ -711,7 +977,7 @@ function setupRegistration(): void {
                 const subscription = await supabaseService.getUserSubscription();
                 const tier = supabaseService.getSubscriptionTier(subscription);
                 
-                if (tier === 'pro' || tier === 'max') {
+                if (tier === 'pro' || tier === 'pro_plus' || tier === 'max') {
                     // User already has subscription, show account selector
                     await prepareAccountSelector(user, subscription, tier);
                     onboardingService.goToStep(OnboardingStep.ACCOUNT_SELECTOR);
@@ -741,6 +1007,8 @@ function getPurchaseTypeFromPriceId(priceId: string): string | null {
     const mapping: Record<string, string> = {
         [SubscriptionPriceIDs.PRO_MONTHLY]: "pro_monthly",
         [SubscriptionPriceIDs.PRO_YEARLY]: "pro_yearly",
+        [SubscriptionPriceIDs.PRO_PLUS_MONTHLY]: "pro_plus_monthly",
+        [SubscriptionPriceIDs.PRO_PLUS_YEARLY]: "pro_plus_yearly",
         [SubscriptionPriceIDs.MAX_MONTHLY]: "max_monthly",
         [SubscriptionPriceIDs.MAX_YEARLY]: "max_yearly"
     };
@@ -760,7 +1028,7 @@ function setupSummary(): void {
         // Apply Easy path settings for ALL outcomes
         const selectedPath = onboardingService.getState().selectedPath;
         if (selectedPath === OnboardingPath.EASY && !hasCloudSyncEnabledForCurrentUser) {
-            applyEasyPathSettings();
+            await applyEasyPathSettings();
         }
         
         // Subscription flow - redirect to Stripe checkout
@@ -791,12 +1059,14 @@ function setupSummary(): void {
                     throw new Error("No checkout URL returned");
                 }
 
+                onboardingService.markCompleted();
+
                 // Redirect to Stripe checkout
                 window.location.href = url;
             } catch (error) {
                 console.error("Checkout error:", error);
                 summaryFinishButton!.disabled = false;
-                summaryFinishButton!.textContent = "Complete Checkout";
+                summaryFinishButton!.textContent = "Continue to Checkout";
                 toastService.danger({
                     title: "Checkout Failed",
                     text: "Unable to start checkout. Please try again."
@@ -821,11 +1091,13 @@ function setupSummary(): void {
 /**
  * Apply default settings for Easy path onboarding
  */
-function applyEasyPathSettings(): void {
+async function applyEasyPathSettings(): Promise<void> {
+    const access = await getOnboardingModelAccess();
+
     // Set Easy path defaults in localStorage
     localStorage.setItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL, "true");
     localStorage.setItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES, "true");
-    localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, ChatModel.FLASH);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, getDefaultChatModel(access));
     localStorage.setItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS, "1000");
     localStorage.setItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING, "true");
     localStorage.setItem(SETTINGS_STORAGE_KEYS.THINKING_BUDGET, "500");
@@ -875,16 +1147,25 @@ function navigateToChatTab(): void {
  */
 function renderSummary(): void {
     const selectedPriceId = onboardingService.getSelectedPriceId();
+    const selectedSubscriptionSummary = getSubscriptionSummaryFromPriceId(selectedPriceId);
     
     if (selectedPriceId) {
         // Subscription flow
         summaryApiKeyContent!.classList.add("hidden");
         summarySubscriptionContent!.classList.remove("hidden");
-        summaryFinishButton!.textContent = "Complete Checkout";
+        summarySubscriptionHeadline!.textContent = selectedSubscriptionSummary
+            ? `You'll be redirected to checkout to start ${selectedSubscriptionSummary.planLabel}.`
+            : "You'll be redirected to checkout to complete your subscription.";
+        summarySubscriptionSelection!.textContent = selectedSubscriptionSummary
+            ? `${selectedSubscriptionSummary.planLabel} plan - ${selectedSubscriptionSummary.billingLabel} billing - encrypted cloud sync included`
+            : "Encrypted cloud sync is included with your subscription.";
+        summaryFinishButton!.textContent = "Continue to Checkout";
     } else {
         // API key flow
         summaryApiKeyContent!.classList.remove("hidden");
         summarySubscriptionContent!.classList.add("hidden");
+        summarySubscriptionHeadline!.textContent = "You'll be redirected to checkout to complete your subscription.";
+        summarySubscriptionSelection!.textContent = "Encrypted cloud sync is included with your subscription.";
         summaryFinishButton!.textContent = "Start Chatting";
     }
 }
@@ -910,12 +1191,12 @@ function setupSubscriptionConfirmation(): void {
 
             showSubscriptionStatus("You're signed in! Redirecting...", "success");
             
-            // Check if user already has a Pro/Max subscription (edge case)
+            // Check if user already has a paid subscription (edge case)
             const user = await supabaseService.getCurrentUser();
             const subscription = await supabaseService.getUserSubscription();
             const tier = supabaseService.getSubscriptionTier(subscription);
             
-            if (tier === 'pro' || tier === 'max') {
+            if (tier === 'pro' || tier === 'pro_plus' || tier === 'max') {
                 // User already has subscription, show account selector
                 toastService.info({
                     title: "Signed in",
@@ -1172,7 +1453,7 @@ function applyCloudSyncModeUi(mode: OnboardingCloudSyncMode): void {
     }
 
     cloudSyncTitle!.textContent = "Enable Cloud Sync";
-    cloudSyncSubtitle!.textContent = "Included with Pro — set it up now or keep data local";
+    cloudSyncSubtitle!.textContent = "Included with Pro, Pro Plus, and Max — set it up now or keep data local";
     cloudSyncEnableGroup!.classList.remove("hidden");
     cloudSyncPasswordConfirmGroup!.classList.remove("hidden");
     cloudSyncSkipButton!.textContent = "Keep Data Local";
@@ -1222,7 +1503,7 @@ async function hydrateRemoteSettingsForOnboarding(): Promise<boolean> {
 
     const subscription = await supabaseService.getUserSubscription();
     const tier = supabaseService.getSubscriptionTier(subscription);
-    if (tier !== "pro" && tier !== "max") {
+    if (!isCloudSyncEligibleTier(tier)) {
         hasCloudSyncEnabledForCurrentUser = false;
         return false;
     }
@@ -1289,12 +1570,13 @@ function setupAdvancedSettings(): void {
     };
 
     // Load current or default settings
-    const loadDefaultSettings = () => {
-        advancedModelSelect!.value = getValidEnumValue(
+    const loadDefaultSettings = async () => {
+        const access = await getOnboardingModelAccess();
+        await refreshOnboardingModelOptions(localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL) || undefined);
+        advancedModelSelect!.value = getValidChatModel(
             localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL),
-            ChatModel,
-            ChatModel.FLASH
-        )
+            access,
+        );
         advancedTemperature!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
         updateTemperatureDisplay();
         advancedMaxOutputTokens!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
@@ -1340,14 +1622,17 @@ function setupAdvancedSettings(): void {
     const updateThinkingRestrictions = () => {
         const selectedModel = advancedModelSelect!.value;
         
-        if (selectedModel === ChatModel.PRO) {
-            // Pro model: force thinking enabled
+        if (modelRequiresThinking(selectedModel)) {
             advancedThinkingEnabled!.checked = true;
             advancedThinkingEnabled!.disabled = true;
             advancedThinkingHint!.style.display = '';
             advancedThinkingHint!.textContent = "Thinking is required for this model.";
+        } else if (!modelSupportsThinking(selectedModel)) {
+            advancedThinkingEnabled!.checked = false;
+            advancedThinkingEnabled!.disabled = true;
+            advancedThinkingHint!.style.display = '';
+            advancedThinkingHint!.textContent = "Thinking is not available for this model.";
         } else {
-            // Other models: thinking is optional
             advancedThinkingEnabled!.disabled = false;
             advancedThinkingHint!.style.display = 'none';
         }
@@ -1468,8 +1753,8 @@ function setupAdvancedSettings(): void {
 
     // Load defaults when the advanced settings step is shown
     // This will be called from wherever the step transition happens
-    refreshAdvancedSettingsFromStorage = loadDefaultSettings;
-    loadDefaultSettings();
+    refreshAdvancedSettingsFromStorage = () => { void loadDefaultSettings(); };
+    void loadDefaultSettings();
 }
 
 /**
@@ -1492,17 +1777,19 @@ async function routeToSettingsOrSummary(): Promise<void> {
 /**
  * Helper: Show API key validation status
  */
-function showApiKeyStatus(message: string, type: "loading" | "success" | "error"): void {
-    apiKeyStatus!.textContent = message;
-    apiKeyStatus!.classList.remove("hidden", "status-loading", "status-success", "status-error");
-    apiKeyStatus!.classList.add(`status-${type}`);
+function showApiKeyStatus(element: HTMLDivElement, message: string, type: "loading" | "success" | "error"): void {
+    element.textContent = message;
+    element.classList.remove("hidden", "status-loading", "status-success", "status-error");
+    element.classList.add(`status-${type}`);
 }
 
 /**
  * Helper: Hide API key status
  */
-function hideApiKeyStatus(): void {
-    apiKeyStatus!.classList.add("hidden");
+function hideApiKeyStatus(element: HTMLDivElement): void {
+    element.classList.add("hidden");
+    element.classList.remove("status-loading", "status-success", "status-error");
+    element.textContent = "";
 }
 
 /**
@@ -1585,7 +1872,7 @@ async function getOnboardingCloudSyncMode(): Promise<OnboardingCloudSyncMode | n
 
     const subscription = await supabaseService.getUserSubscription();
     const tier = supabaseService.getSubscriptionTier(subscription);
-    if (tier !== "pro" && tier !== "max") {
+    if (!isCloudSyncEligibleTier(tier)) {
         return null;
     }
 

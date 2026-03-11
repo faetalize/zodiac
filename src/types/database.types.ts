@@ -7,7 +7,7 @@
  * Contributors: Treat this as READ-ONLY.
  * If you need schema changes, open an issue describing the required modifications.
  * 
- * Generated: 2026-03-06
+ * Generated: 2026-03-11
  */
 
 export type Json =
@@ -232,6 +232,108 @@ export type Database = {
           created_at?: string
           id?: number
           remaining_image_generations?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      image_sub_allowance: {
+        Row: {
+          allowance_period_end: string | null
+          allowance_period_start: string | null
+          created_at: string
+          granted_image_generations: number
+          remaining_image_generations: number
+          source_price_id:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allowance_period_end?: string | null
+          allowance_period_start?: string | null
+          created_at?: string
+          granted_image_generations?: number
+          remaining_image_generations?: number
+          source_price_id?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allowance_period_end?: string | null
+          allowance_period_start?: string | null
+          created_at?: string
+          granted_image_generations?: number
+          remaining_image_generations?: number
+          source_price_id?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mega_credits: {
+        Row: {
+          allowance_period_end: string | null
+          allowance_period_start: string | null
+          created_at: string
+          granted_mega_credits: number
+          remaining_mega_credits: number
+          source_price_id:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allowance_period_end?: string | null
+          allowance_period_start?: string | null
+          created_at?: string
+          granted_mega_credits?: number
+          remaining_mega_credits?: number
+          source_price_id?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allowance_period_end?: string | null
+          allowance_period_start?: string | null
+          created_at?: string
+          granted_mega_credits?: number
+          remaining_mega_credits?: number
+          source_price_id?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      nano_banana_daily_usage: {
+        Row: {
+          created_at: string
+          updated_at: string
+          usage_count: number
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          updated_at?: string
+          usage_count?: number
+          usage_date?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          updated_at?: string
+          usage_count?: number
+          usage_date?: string
           user_id?: string
         }
         Relationships: []
@@ -872,7 +974,29 @@ export type Database = {
         Args: { arr: string[]; max_len: number }
         Returns: boolean
       }
+      check_sync_blob_quota: {
+        Args: { additional_bytes: number }
+        Returns: {
+          allowed: boolean
+          projected_bytes: number
+          quota_bytes: number
+          used_bytes: number
+        }[]
+      }
       cleanup_sync_tombstones: { Args: never; Returns: undefined }
+      consume_nano_banana_daily_usage: {
+        Args: {
+          daily_limit: number
+          target_user_id: string
+          uses_to_consume?: number
+        }
+        Returns: {
+          allowed: boolean
+          remaining: number
+          usage_count: number
+          usage_date: string
+        }[]
+      }
       get_popular_tags: {
         Args: { tag_limit?: number }
         Returns: {
@@ -904,7 +1028,11 @@ export type Database = {
         | "price_1SDf2NGiJrKwXclRwDs7XOd0"
         | "price_1SDf2rGiJrKwXclReGeg8fQo"
         | "price_1SOU2lKcI9PDo3JBhsT8URS9"
-        | "price_1SOU3qKcI9PDo3JBk4rKTDaC"
+        | "price_1T9CqjKcI9PDo3JBP6613Pzh"
+        | "price_1T9CqqKcI9PDo3JBBGC59S8O"
+        | "price_1T9CqqKcI9PDo3JB7LXgL5MV"
+        | "price_1T9DCYKcI9PDo3JBsFc4nlZa"
+        | "price_1T9CqkKcI9PDo3JBEqHYJU68"
       user_role: "user" | "admin"
     }
     CompositeTypes: {
@@ -1043,7 +1171,11 @@ export const Constants = {
         "price_1SDf2NGiJrKwXclRwDs7XOd0",
         "price_1SDf2rGiJrKwXclReGeg8fQo",
         "price_1SOU2lKcI9PDo3JBhsT8URS9",
-        "price_1SOU3qKcI9PDo3JBk4rKTDaC",
+        "price_1T9CqjKcI9PDo3JBP6613Pzh",
+        "price_1T9CqqKcI9PDo3JBBGC59S8O",
+        "price_1T9CqqKcI9PDo3JB7LXgL5MV",
+        "price_1T9DCYKcI9PDo3JBsFc4nlZa",
+        "price_1T9CqkKcI9PDo3JBEqHYJU68",
       ],
       user_role: ["user", "admin"],
     },

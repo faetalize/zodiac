@@ -67,15 +67,17 @@ export async function shouldShowOnboarding(): Promise<boolean> {
    return localStorage.getItem("onboardingCompleted") !== "true";
 }
 
+export function markCompleted(): void {
+    localStorage.setItem("onboardingCompleted", "true");
+    currentState.pendingCredentials = null;
+}
+
 /**
  * Hide the onboarding overlay
  */
 export function hide(): void {
     getOverlay().classList.add("hidden");
-    // Mark onboarding as completed so it doesn't show again on future visits
-    localStorage.setItem("onboardingCompleted", "true");
-    // Clear any pending credentials for security
-    currentState.pendingCredentials = null;
+    markCompleted();
 }
 
 /**
