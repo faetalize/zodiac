@@ -7,7 +7,7 @@
  * Contributors: Treat this as READ-ONLY.
  * If you need schema changes, open an issue describing the required modifications.
  * 
- * Generated: 2026-03-10
+ * Generated: 2026-03-11
  */
 
 export type Json =
@@ -667,6 +667,7 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           price_id: Database["public"]["Enums"]["subscription_tier"] | null
+          remaining_image_generations: number
           status: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -678,6 +679,7 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           price_id?: Database["public"]["Enums"]["subscription_tier"] | null
+          remaining_image_generations?: number
           status: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -689,6 +691,7 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           price_id?: Database["public"]["Enums"]["subscription_tier"] | null
+          remaining_image_generations?: number
           status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -1025,7 +1028,6 @@ export type Database = {
         | "price_1SDf2NGiJrKwXclRwDs7XOd0"
         | "price_1SDf2rGiJrKwXclReGeg8fQo"
         | "price_1SOU2lKcI9PDo3JBhsT8URS9"
-        | "price_1SOU3qKcI9PDo3JBk4rKTDaC"
         | "price_1T9CqjKcI9PDo3JBP6613Pzh"
         | "price_1T9CqqKcI9PDo3JBBGC59S8O"
         | "price_1T9CqqKcI9PDo3JB7LXgL5MV"
@@ -1169,7 +1171,6 @@ export const Constants = {
         "price_1SDf2NGiJrKwXclRwDs7XOd0",
         "price_1SDf2rGiJrKwXclReGeg8fQo",
         "price_1SOU2lKcI9PDo3JBhsT8URS9",
-        "price_1SOU3qKcI9PDo3JBk4rKTDaC",
         "price_1T9CqjKcI9PDo3JBP6613Pzh",
         "price_1T9CqqKcI9PDo3JBBGC59S8O",
         "price_1T9CqqKcI9PDo3JB7LXgL5MV",

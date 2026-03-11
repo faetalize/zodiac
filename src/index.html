@@ -1358,14 +1358,8 @@
                                         <span class="price-period billing-only-yearly">/month</span>
                                     </div>
                                     <div class="subscription-price-line subscription-price-line-secondary">
-                                        <span class="billing-only-monthly">
-                                            <span class="subscription-price-caption">bills</span>
-                                            <strong>$30 monthly</strong>
-                                        </span>
-                                        <span class="billing-only-yearly">
-                                            <span class="subscription-price-caption">bills</span>
-                                            <strong>$310 yearly</strong>
-                                        </span>
+                                        <span class="billing-only-monthly"><span class="subscription-price-note">billed monthly</span></span>
+                                        <span class="billing-only-yearly"><span class="subscription-price-note">billed as $310 yearly</span></span>
                                     </div>
                                 </div>
 
@@ -1392,9 +1386,7 @@
                                     <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Uncensored</span></li>
                                 </ul>
                             </div>
-                            <button type="button" id="btn-subscribe-pro" class="subscription-cta subscription-cta-pro">
-                                Start Pro
-                            </button>
+                            <button type="button" id="btn-subscribe-pro" class="subscription-cta subscription-cta-pro">Subscribe</button>
                         </article>
 
                         <article id="profile-pro-plus-card" class="subscription-card subscription-plan subscription-card-popular subscription-plan-pro-plus">
@@ -1418,14 +1410,8 @@
                                         <span class="price-period billing-only-yearly">/month</span>
                                     </div>
                                     <div class="subscription-price-line subscription-price-line-secondary">
-                                        <span class="billing-only-monthly">
-                                            <span class="subscription-price-caption">bills</span>
-                                            <strong>$100 monthly</strong>
-                                        </span>
-                                        <span class="billing-only-yearly">
-                                            <span class="subscription-price-caption">bills</span>
-                                            <strong>$1100 yearly</strong>
-                                        </span>
+                                        <span class="billing-only-monthly"><span class="subscription-price-note">billed monthly</span></span>
+                                        <span class="billing-only-yearly"><span class="subscription-price-note">billed as $1100 yearly</span></span>
                                     </div>
                                 </div>
 
@@ -1451,9 +1437,7 @@
                                     <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Better memory recall in long chats</span></li>
                                 </ul>
                             </div>
-                            <button type="button" id="btn-subscribe-pro-plus" class="subscription-cta subscription-cta-pro-plus">
-                                Start Pro Plus
-                            </button>
+                            <button type="button" id="btn-subscribe-pro-plus" class="subscription-cta subscription-cta-pro-plus">Subscribe</button>
                         </article>
 
                         <article id="profile-max-card" class="subscription-card subscription-card-max subscription-plan subscription-plan-max">
@@ -1476,14 +1460,8 @@
                                         <span class="price-period billing-only-yearly">/month</span>
                                     </div>
                                     <div class="subscription-price-line subscription-price-line-secondary">
-                                        <span class="billing-only-monthly">
-                                            <span class="subscription-price-caption">bills</span>
-                                            <strong>$200 monthly</strong>
-                                        </span>
-                                        <span class="billing-only-yearly">
-                                            <span class="subscription-price-caption">bills</span>
-                                            <strong>$2200 yearly</strong>
-                                        </span>
+                                        <span class="billing-only-monthly"><span class="subscription-price-note">billed monthly</span></span>
+                                        <span class="billing-only-yearly"><span class="subscription-price-note">billed as $2200 yearly</span></span>
                                     </div>
                                 </div>
 
@@ -1509,9 +1487,7 @@
                                     <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Unlimited access to GPT Pro and Opus Models (yes, seriously)</span></li>
                                 </ul>
                             </div>
-                            <button type="button" id="btn-subscribe-max" class="subscription-cta subscription-cta-max">
-                                Start Max
-                            </button>
+                            <button type="button" id="btn-subscribe-max" class="subscription-cta subscription-cta-max">Subscribe</button>
                         </article>
 
                         <section class="subscription-faq" aria-labelledby="subscription-faq-title">
@@ -1980,94 +1956,8 @@
             </div>
 
             <!-- Step 5a: Plan Selection (for subscription flow) -->
-            <div id="onboarding-plan-selection" class="onboarding-step hidden">
-                <div class="onboarding-content">
-                    <h1 class="onboarding-title">Choose Your Plan</h1>
-
-                    <div class="onboarding-subscription-grid">
-                        <div id="onboarding-pro-card"
-                            class="subscription-card subscription-card-pro subscription-card-popular"
-                            data-price-type="pro">
-                            <div class="popular-badge">Most Popular</div>
-                            <div class="subscription-card-header">
-                                <div class="tier-badge tier-badge-pro">Pro</div>
-                                <div class="tier-price">
-                                    <span class="price-amount">$29.99</span>
-                                    <span class="price-period">/month</span>
-                                </div>
-                            </div>
-                            <div class="subscription-card-body">
-                                <ul class="features-list">
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">No API key required</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Unlimited Flash & Pro models</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Nano-banana model access</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Full token context limits</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">No rate limiting</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Image generation credits sold separately</span>
-                                    </li>
-                                </ul>
-                            </div>
-                            <button type="button" id="onboarding-btn-select-pro"
-                                class="subscription-cta subscription-cta-pro">
-                                Select Pro
-                            </button>
-                        </div>
-
-                        <div id="onboarding-max-card"
-                            class="subscription-card subscription-card-max subscription-card-disabled"
-                            data-price-type="max">
-                            <div class="coming-soon-badge">Coming Soon</div>
-                            <div class="subscription-card-header">
-                                <div class="tier-badge tier-badge-max">Max</div>
-                                <div class="tier-price">
-                                    <span class="price-amount">$59.99</span>
-                                    <span class="price-period">/month</span>
-                                </div>
-                            </div>
-                            <div class="subscription-card-body">
-                                <ul class="features-list">
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Everything in Pro</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Imagen 4 Ultra</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Uncensored image models</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">300 monthly image generation credits</span>
-                                    </li>
-                                </ul>
-                            </div>
-                            <button type="button" id="onboarding-btn-select-max"
-                                class="subscription-cta subscription-cta-max">
-                                Coming Soon
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            <div id="onboarding-plan-selection" class="onboarding-step hidden" data-billing="yearly">
+                <div id="onboarding-pricing-host" class="overlay-content"></div>
             </div>
 
             <!-- Step 5b: Subscription confirmation -->

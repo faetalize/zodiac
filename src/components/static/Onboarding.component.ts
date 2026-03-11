@@ -94,8 +94,11 @@ const registerLoginButton = document.querySelector<HTMLButtonElement>("#onboardi
 const registerLoginError = document.querySelector<HTMLDivElement>("#onboarding-login-error");
 
 // Subscription confirmation elements
-const selectProButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-select-pro");
-const selectMaxButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-select-max");
+const onboardingOverlay = document.querySelector<HTMLDivElement>("#onboarding-overlay");
+const onboardingContainer = document.querySelector<HTMLDivElement>("#onboarding-overlay .onboarding-container");
+const onboardingPlanSelection = document.querySelector<HTMLDivElement>("#onboarding-plan-selection");
+const onboardingPricingHost = document.querySelector<HTMLDivElement>("#onboarding-pricing-host");
+const subscriptionForm = document.querySelector<HTMLDivElement>("#form-subscription");
 const subscriptionAutoLoginButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-subscription-auto-login");
 const subscriptionReturnButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-subscription-return");
 const subscriptionStatus = document.querySelector<HTMLDivElement>("#onboarding-subscription-status");
@@ -185,8 +188,11 @@ const requiredElements = {
     registerLoginPasswordInput,
     registerLoginButton,
     registerLoginError,
-    selectProButton,
-    selectMaxButton,
+    onboardingOverlay,
+    onboardingContainer,
+    onboardingPlanSelection,
+    onboardingPricingHost,
+    subscriptionForm,
     subscriptionAutoLoginButton,
     subscriptionReturnButton,
     subscriptionStatus,
@@ -502,9 +508,9 @@ async function prepareAccountConfirmation(options?: {
     // Get subscription tier for badge
     const subscription = await supabaseService.getUserSubscription();
     const tier = supabaseService.getSubscriptionTier(subscription);
-    const tierLabel = tier === 'pro' ? 'Pro' : tier === 'max' ? 'Max' : 'Free';
+    const tierLabel = tier === 'pro' ? 'Pro' : tier === 'pro_plus' ? 'Pro Plus' : tier === 'max' ? 'Max' : 'Free';
     confirmAccountTierBadge!.textContent = tierLabel;
-    confirmAccountTierBadge!.classList.remove('badge-tier-free', 'badge-tier-pro', 'badge-tier-max');
+    confirmAccountTierBadge!.classList.remove('badge-tier-free', 'badge-tier-pro', 'badge-tier-pro-plus', 'badge-tier-pro_plus', 'badge-tier-max');
     confirmAccountTierBadge!.classList.add(`badge-tier-${tier}`);
 }
 
@@ -689,15 +695,119 @@ function setupApiKeySetup(): void {
 /**
  * Plan selection step handlers (for subscription flow)
  */
+type OnboardingPlanType = "pro" | "pro_plus" | "max";
+type OnboardingBillingMode = "monthly" | "yearly";
+
+const subscriptionFormOriginalParent = subscriptionForm?.parentNode ?? null;
+const subscriptionFormOriginalNextSibling = subscriptionForm?.nextSibling ?? null;
+let hasInitializedOnboardingPricing = false;
+
 function setupPlanSelection(): void {
-    selectProButton!.addEventListener("click", async () => {
-        onboardingService.setSelectedPriceId(SubscriptionPriceIDs.PRO_MONTHLY);
-        await routeToCloudSyncOrSettings();
+    initializeOnboardingPricing();
+    syncOnboardingPricingMount();
+}
+
+function getOnboardingBillingMode(): OnboardingBillingMode {
+    return subscriptionForm?.dataset.billing === "monthly" ? "monthly" : "yearly";
+}
+
+function setOnboardingBillingMode(mode: OnboardingBillingMode): void {
+    if (subscriptionForm) {
+        subscriptionForm.dataset.billing = mode;
+    }
+
+    if (onboardingPlanSelection) {
+        onboardingPlanSelection.dataset.billing = mode;
+    }
+}
+
+function getSelectedPriceIdForPlan(plan: OnboardingPlanType, billingMode: OnboardingBillingMode): string {
+    switch (plan) {
+        case "pro":
+            return billingMode === "yearly" ? SubscriptionPriceIDs.PRO_YEARLY : SubscriptionPriceIDs.PRO_MONTHLY;
+        case "pro_plus":
+            return billingMode === "yearly" ? SubscriptionPriceIDs.PRO_PLUS_YEARLY : SubscriptionPriceIDs.PRO_PLUS_MONTHLY;
+        case "max":
+            return billingMode === "yearly" ? SubscriptionPriceIDs.MAX_YEARLY : SubscriptionPriceIDs.MAX_MONTHLY;
+    }
+}
+
+function initializeOnboardingPricing(): void {
+    if (hasInitializedOnboardingPricing) {
+        return;
+    }
+
+    if (!subscriptionForm || !onboardingPricingHost || !onboardingPlanSelection || !onboardingOverlay || !onboardingContainer) {
+        throw new Error("Missing onboarding pricing elements");
+    }
+
+    hasInitializedOnboardingPricing = true;
+
+    const billingButtons = Array.from(subscriptionForm.querySelectorAll<HTMLButtonElement>("[data-billing-option]"));
+    billingButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            const nextMode = button.dataset.billingOption === "monthly" ? "monthly" : "yearly";
+            setOnboardingBillingMode(nextMode);
+        }, { capture: true });
     });
 
-    selectMaxButton!.addEventListener("click", async () => {
-        return;
+    const planButtons: Array<{ plan: OnboardingPlanType; selector: string }> = [
+        { plan: "pro", selector: "#btn-subscribe-pro" },
+        { plan: "pro_plus", selector: "#btn-subscribe-pro-plus" },
+        { plan: "max", selector: "#btn-subscribe-max" },
+    ];
+
+    planButtons.forEach(({ plan, selector }) => {
+        const button = subscriptionForm.querySelector<HTMLButtonElement>(selector);
+        if (!button) return;
+
+        button.addEventListener("click", async (event) => {
+            if (onboardingPlanSelection.classList.contains("hidden")) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            onboardingService.setSelectedPriceId(getSelectedPriceIdForPlan(plan, getOnboardingBillingMode()));
+            await routeToCloudSyncOrSettings();
+        }, { capture: true });
     });
+
+    const observer = new MutationObserver(() => syncOnboardingPricingMount());
+    observer.observe(onboardingPlanSelection, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(onboardingOverlay, { attributes: true, attributeFilter: ["class"] });
+}
+
+function syncOnboardingPricingMount(): void {
+    if (!subscriptionForm || !onboardingPricingHost || !subscriptionFormOriginalParent) {
+        return;
+    }
+
+    const shouldMountInOnboarding = !onboardingOverlay?.classList.contains("hidden")
+        && !onboardingPlanSelection?.classList.contains("hidden");
+
+    onboardingOverlay?.classList.toggle("onboarding-overlay-pricing-mode", shouldMountInOnboarding);
+    onboardingContainer?.classList.toggle("onboarding-container-pricing-mode", shouldMountInOnboarding);
+
+    if (shouldMountInOnboarding) {
+        if (subscriptionForm.parentNode !== onboardingPricingHost) {
+            onboardingPricingHost.replaceChildren(subscriptionForm);
+        }
+        subscriptionForm.classList.remove("hidden");
+        subscriptionForm.style.opacity = "1";
+        setOnboardingBillingMode(getOnboardingBillingMode());
+        return;
+    }
+
+    if (subscriptionForm.parentNode !== subscriptionFormOriginalParent) {
+        if (subscriptionFormOriginalNextSibling && subscriptionFormOriginalNextSibling.parentNode === subscriptionFormOriginalParent) {
+            subscriptionFormOriginalParent.insertBefore(subscriptionForm, subscriptionFormOriginalNextSibling);
+        } else {
+            subscriptionFormOriginalParent.appendChild(subscriptionForm);
+        }
+    }
+
+    subscriptionForm.classList.add("hidden");
 }
 
 /**
@@ -836,7 +946,7 @@ function setupRegistration(): void {
                 const subscription = await supabaseService.getUserSubscription();
                 const tier = supabaseService.getSubscriptionTier(subscription);
                 
-                if (tier === 'pro' || tier === 'max') {
+                if (tier === 'pro' || tier === 'pro_plus' || tier === 'max') {
                     // User already has subscription, show account selector
                     await prepareAccountSelector(user, subscription, tier);
                     onboardingService.goToStep(OnboardingStep.ACCOUNT_SELECTOR);

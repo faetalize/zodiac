@@ -2,6 +2,7 @@ import { supabase, getCurrentUser, getSubscriptionTier, getUserSubscription, ope
 import * as overlayService from "../../services/Overlay.service";
 import * as toastService from "../../services/Toast.service";
 import { confirmDialog } from "../../utils/helpers";
+import { onAppEvent } from "../../events";
 
 type PlanType = "pro" | "pro_plus" | "max";
 type BillingMode = "monthly" | "yearly";
@@ -25,10 +26,10 @@ if (!subscriptionForm || !proButton || !proPlusButton || !maxButton) {
 
 const ensuredSubscriptionForm = subscriptionForm;
 
-const subscriptionButtons: Array<{ plan: PlanType; button: HTMLButtonElement; defaultText: string }> = [
-    { plan: "pro", button: proButton, defaultText: proButton.textContent?.trim() || "Start Pro" },
-    { plan: "pro_plus", button: proPlusButton, defaultText: proPlusButton.textContent?.trim() || "Start Pro Plus" },
-    { plan: "max", button: maxButton, defaultText: maxButton.textContent?.trim() || "Start Max" },
+const subscriptionButtons: Array<{ plan: PlanType; button: HTMLButtonElement }> = [
+    { plan: "pro", button: proButton },
+    { plan: "pro_plus", button: proPlusButton },
+    { plan: "max", button: maxButton },
 ];
 
 function getBillingMode(): BillingMode {
@@ -48,9 +49,25 @@ function getPurchaseType(plan: PlanType, billingMode: BillingMode): PurchaseType
 }
 
 function setButtonsLoadingState(isLoading: boolean, activeButton?: HTMLButtonElement): void {
-    subscriptionButtons.forEach(({ button, defaultText }) => {
+    subscriptionButtons.forEach(({ button }) => {
         button.disabled = isLoading;
-        button.textContent = isLoading && button === activeButton ? "Redirecting..." : defaultText;
+        button.textContent = isLoading && button === activeButton ? "Redirecting..." : button.dataset.label ?? "Subscribe";
+    });
+}
+
+function getButtonLabel(plan: PlanType, currentTier: ReturnType<typeof getSubscriptionTier>): string {
+    return plan === currentTier ? "Current Plan" : "Subscribe";
+}
+
+async function refreshSubscriptionButtonLabels(): Promise<void> {
+    const user = await getCurrentUser();
+    const currentSubscription = user ? await getUserSubscription() : null;
+    const currentTier = getSubscriptionTier(currentSubscription);
+
+    subscriptionButtons.forEach(({ plan, button }) => {
+        const label = getButtonLabel(plan, currentTier);
+        button.dataset.label = label;
+        button.textContent = label;
     });
 }
 
@@ -128,4 +145,12 @@ subscriptionButtons.forEach(({ plan, button }) => {
     button.addEventListener("click", async () => {
         await startCheckout(plan, button);
     });
+});
+
+void refreshSubscriptionButtonLabels();
+onAppEvent("auth-state-changed", () => {
+    void refreshSubscriptionButtonLabels();
+});
+onAppEvent("subscription-updated", () => {
+    void refreshSubscriptionButtonLabels();
 });

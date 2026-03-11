@@ -1536,15 +1536,15 @@ form {
     backdrop-filter: blur(12px);
 }
 
-#form-subscription .subscription-billing-toggle {
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-toggle {
     display: inline-flex;
     align-items: center;
     gap: 0.55rem;
     flex-wrap: wrap;
 }
 
-#form-subscription .subscription-billing-option,
-#form-subscription .subscription-plan-pill {
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-option,
+:is(#form-subscription, #onboarding-plan-selection) .subscription-plan-pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1556,7 +1556,7 @@ form {
     letter-spacing: 0.04em;
 }
 
-#form-subscription .subscription-billing-option {
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-option {
     appearance: none;
     cursor: pointer;
     display: inline-flex;
@@ -1571,53 +1571,53 @@ form {
     background: rgba(255, 255, 255, 0.08);
 }
 
-#form-subscription .subscription-billing-label {
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-label {
     line-height: 1.1;
 }
 
-#form-subscription .subscription-billing-note {
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-note {
     font-size: 0.7rem;
     line-height: 1;
     letter-spacing: 0.02em;
     opacity: 0.82;
 }
 
-#form-subscription .subscription-billing-separator {
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-separator {
     font-size: 0.8rem;
     opacity: 0.6;
 }
 
-#form-subscription .subscription-billing-option:hover {
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-option:hover {
     background: rgba(255, 255, 255, 0.14);
 }
 
-#form-subscription .subscription-billing-option-active:hover,
-#form-subscription .subscription-billing-option[aria-pressed="true"]:hover {
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-option-active:hover,
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-option[aria-pressed="true"]:hover {
     background: linear-gradient(135deg, #0f766e, #0369a1);
 }
 
-#form-subscription .subscription-billing-option:focus-visible {
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-option:focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
 }
 
-#form-subscription .subscription-billing-option[aria-pressed="true"] {
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-option[aria-pressed="true"] {
     color: inherit;
 }
 
-#form-subscription .billing-only-yearly {
+:is(#form-subscription, #onboarding-plan-selection) .billing-only-yearly {
     display: none;
 }
 
-#form-subscription[data-billing="yearly"] .billing-only-monthly {
+:is(#form-subscription, #onboarding-plan-selection)[data-billing="yearly"] .billing-only-monthly {
     display: none;
 }
 
-#form-subscription[data-billing="yearly"] .billing-only-yearly {
+:is(#form-subscription, #onboarding-plan-selection)[data-billing="yearly"] .billing-only-yearly {
     display: inline;
 }
 
-#form-subscription .subscription-billing-option-active {
+:is(#form-subscription, #onboarding-plan-selection) .subscription-billing-option-active {
     background: linear-gradient(135deg, #0f766e, #0369a1);
     color: #f8fafc;
     border-color: rgba(14, 116, 144, 0.55);
@@ -6301,8 +6301,29 @@ input[name="currentChat"][value="none"] {
     justify-content: center;
 }
 
+.onboarding-container.onboarding-container-pricing-mode {
+    max-width: none;
+}
+
 .onboarding-container>* {
     width: 100%;
+}
+
+#onboarding-overlay.onboarding-overlay-pricing-mode {
+    padding: 1rem;
+}
+
+#onboarding-plan-selection {
+    width: 100%;
+}
+
+#onboarding-pricing-host {
+    max-height: 100%;
+}
+
+#onboarding-pricing-host > #form-subscription {
+    max-width: 95%;
+    max-height: 100%;
 }
 
 .onboarding-step {
