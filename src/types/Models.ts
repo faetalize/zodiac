@@ -48,6 +48,7 @@ export interface ChatModelAccess {
 export const DEFAULT_GEMINI_CHAT_MODEL = ChatModel.FLASH;
 export const DEFAULT_OPENROUTER_CHAT_MODEL = "openai/gpt-5.4";
 export const DEFAULT_OPENROUTER_NARRATOR_MODEL = DEFAULT_OPENROUTER_CHAT_MODEL;
+const UI_DISABLED_CHAT_MODELS = new Set(["openai/gpt-5.4-pro"]);
 
 export function requiresThoughtSignaturesInHistory(model: string): boolean {
     return model === ChatModel.NANO_BANANA_PRO || model === ChatModel.NANO_BANANA_2;
@@ -273,6 +274,10 @@ export function modelSupportsTemperature(model: string | null | undefined): bool
 
 export function getAccessibleChatModels(access: ChatModelAccess): ChatModelDefinition[] {
     return CHAT_MODELS.filter((model) => {
+        if (UI_DISABLED_CHAT_MODELS.has(model.id)) {
+            return false;
+        }
+
         if (model.provider === "gemini") return access.hasGeminiAccess;
         return access.hasOpenRouterAccess;
     });
