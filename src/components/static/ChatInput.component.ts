@@ -57,7 +57,9 @@ let dragDepth = 0;
 let currentHistoryImagePreview: HTMLElement | null = null;
 let isImageEditingActive = false;
 let isImageModeActive = false;
-let hasInsufficientImageCredits = false;
+let isComposerAllowanceBlocked = false;
+let composerAllowanceBlockTitle = 'Request unavailable';
+let composerAllowanceBlockText = 'This request is currently unavailable.';
 
 let isUserTurnInRpg = true;
 let isGroupChatContext = false;
@@ -407,10 +409,10 @@ messageInput.addEventListener("keydown", (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey && !isMobile) {
         e.preventDefault();
         // Don't send if insufficient credits
-        if (hasInsufficientImageCredits) {
+        if (isComposerAllowanceBlocked) {
             toastService.warn({
-                title: "Insufficient Image Credits",
-                text: "You don't have enough credits for this image request. Please buy more credits or disable image mode."
+                title: composerAllowanceBlockTitle,
+                text: composerAllowanceBlockText,
             });
             return;
         }
@@ -534,10 +536,10 @@ sendMessageButton.addEventListener("click", async () => {
     }
 
     // Check for insufficient credits before sending
-    if (hasInsufficientImageCredits) {
+    if (isComposerAllowanceBlocked) {
         toastService.warn({
-            title: "Insufficient Image Credits",
-            text: "You don't have enough credits for this image request. Please buy more credits or disable image mode."
+            title: composerAllowanceBlockTitle,
+            text: composerAllowanceBlockText,
         });
         return;
     }
@@ -939,16 +941,18 @@ window.addEventListener('edit-model-changed', (event: any) => {
     }
 });
 
-// Listen for insufficient image credits state changes
-window.addEventListener('insufficient-image-credits', (event: any) => {
-    hasInsufficientImageCredits = event.detail.insufficient;
+// Listen for composer allowance state changes
+window.addEventListener('composer-allowance-blocked', (event: any) => {
+    isComposerAllowanceBlocked = !!event.detail.blocked;
+    composerAllowanceBlockTitle = event.detail.title || 'Request unavailable';
+    composerAllowanceBlockText = event.detail.text || 'This request is currently unavailable.';
 
     // Update send button disabled state
-    if (hasInsufficientImageCredits) {
+    if (isComposerAllowanceBlocked) {
         sendMessageButton.disabled = true;
         sendMessageButton.classList.add('disabled');
         sendMessageButton.setAttribute('aria-disabled', 'true');
-        sendMessageButton.title = 'Insufficient image credits';
+        sendMessageButton.title = composerAllowanceBlockTitle;
     } else {
         sendMessageButton.disabled = false;
         sendMessageButton.classList.remove('disabled');

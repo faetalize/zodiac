@@ -19,24 +19,19 @@ const collapsibleCards: CollapsibleCard[] = [];
  * Initialize collapsible subscription cards
  */
 function init(): void {
-    // Onboarding cards
-    const onboardingProCard = document.getElementById("onboarding-pro-card");
-    const onboardingMaxCard = document.getElementById("onboarding-max-card");
-
-    // Profile panel cards
     const profileFreeCard = document.getElementById("profile-free-card");
     const profileProCard = document.getElementById("profile-pro-card");
+    const profileProPlusCard = document.getElementById("profile-pro-plus-card");
     const profileMaxCard = document.getElementById("profile-max-card");
 
     const cards = [
-        onboardingProCard,
-        onboardingMaxCard,
         profileFreeCard,
         profileProCard,
-        profileMaxCard
+        profileProPlusCard,
+        profileMaxCard,
     ].filter((card): card is HTMLElement => card !== null);
 
-    cards.forEach(card => {
+    cards.forEach((card) => {
         const header = card.querySelector(".subscription-card-header") as HTMLElement;
         const body = card.querySelector(".subscription-card-body") as HTMLElement;
         const button = card.querySelector(".subscription-cta") as HTMLElement;
@@ -56,21 +51,16 @@ function init(): void {
 
         collapsibleCards.push(collapsibleCard);
 
-        // Add click handler to header
         header.style.cursor = "pointer";
         header.addEventListener("click", () => toggleCard(collapsibleCard));
 
-        // Add expand indicator to header
         const expandIndicator = document.createElement("span");
         expandIndicator.className = "material-symbols-outlined subscription-expand-indicator";
-        expandIndicator.textContent = "chevron_left";
+        expandIndicator.textContent = "expand_more";
         header.appendChild(expandIndicator);
     });
 
-    // Check initial state
     handleResize();
-
-    // Add resize listener
     window.addEventListener("resize", handleResize);
 }
 
@@ -98,11 +88,11 @@ function updateCardState(collapsibleCard: CollapsibleCard): void {
         if (isExpanded) {
             card.classList.add("subscription-card-expanded");
             card.classList.remove("subscription-card-collapsed");
-            if (indicator) indicator.textContent = "expand_more";
+            if (indicator) indicator.textContent = "expand_less";
         } else {
             card.classList.add("subscription-card-collapsed");
             card.classList.remove("subscription-card-expanded");
-            if (indicator) indicator.textContent = "chevron_left";
+            if (indicator) indicator.textContent = "expand_more";
         }
     } else {
         // Desktop: always expanded

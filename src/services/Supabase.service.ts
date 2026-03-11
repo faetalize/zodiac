@@ -3,16 +3,25 @@ import { User } from "../types/User";
 import { SubscriptionPriceIDs, SubscriptionPriceIDsOld } from '../types/Price';
 import { ImageGenerationPermitted } from '../types/ImageGenerationTypes';
 import { danger, warn } from './Toast.service';
-import type { SubscriptionTier, UserSubscription, ImageGenerationRecord, MarketplacePersonaInfo } from '../types/Supabase';
+import type { SubscriptionTier, UserSubscription, ImageGenerationRecord, MarketplacePersonaInfo, MegaCreditsRecord, NanoBananaDailyUsageRecord } from '../types/Supabase';
 import { dispatchAppEvent } from '../events';
 
-export type { SubscriptionTier, UserSubscription, ImageGenerationRecord, MarketplacePersonaInfo };
+export type { SubscriptionTier, UserSubscription, ImageGenerationRecord, MarketplacePersonaInfo, MegaCreditsRecord, NanoBananaDailyUsageRecord };
 
 let userCache: SupabaseUser | null = null;
 
 export const SUPABASE_URL = 'https://hglcltvwunzynnzduauy.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ';
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const subscriptionBadgeClasses = [
+    'badge-tier-free',
+    'badge-tier-pro',
+    'badge-tier-pro-plus',
+    'badge-tier-pro_plus',
+    'badge-tier-max',
+    'badge-tier-canceled'
+];
 
 export const PASSWORD_RECOVERY_HASH = '#password-recovery';
 
@@ -90,7 +99,7 @@ supabase.auth.onAuthStateChange((event, session) => {
         const periodEndEl = document.querySelector<HTMLElement>('#subscription-period-end');
         if (badge) {
             badge.textContent = 'Free';
-            badge.classList.remove('badge-tier-pro', 'badge-tier-max');
+            badge.classList.remove(...subscriptionBadgeClasses);
             badge.classList.add('badge-tier-free');
         }
         if (manageBtn) {
@@ -306,7 +315,7 @@ export async function getUserSubscription(session?: Session): Promise<UserSubscr
     if (!currentUser) return null;
     const { data, error } = await supabase
         .from('user_subscriptions')
-        .select('user_id,status,price_id,current_period_end,remaining_image_generations, cancel_at_period_end, stripe_customer_id')
+        .select('user_id,status,price_id,current_period_end,cancel_at_period_end,stripe_customer_id')
         .eq('user_id', currentUser.id)
         .order('current_period_end', { ascending: false })
         .limit(1)
@@ -318,17 +327,81 @@ export async function getUserSubscription(session?: Session): Promise<UserSubscr
     return (data as UserSubscription) ?? null;
 }
 
+export async function refreshSubscriptionAllowances(): Promise<void> {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return;
+
+    const { error } = await supabase.functions.invoke('refresh-subscription-allowances', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: currentUser.id })
+    });
+
+    if (error) {
+        console.error('Refresh subscription allowances error:', error.message);
+    }
+}
+
 export async function getImageGenerationRecord(): Promise<ImageGenerationRecord | null> {
     const currentUser = await getCurrentUser();
     if (!currentUser) return null;
-    const { data, error } = await supabase
+    await refreshSubscriptionAllowances();
+
+    const { data: purchasedData, error: purchasedError } = await supabase
         .from('image_generations')
         .select('user_id, remaining_image_generations')
         .eq('user_id', currentUser.id)
         .limit(1)
         .maybeSingle();
+    if (purchasedError) {
+        console.error('Get image generation record error:', purchasedError.message);
+        return null;
+    }
+
+    const { data: subAllowanceData, error: subAllowanceError } = await supabase
+        .from('image_sub_allowance')
+        .select('remaining_image_generations')
+        .eq('user_id', currentUser.id)
+        .limit(1)
+        .maybeSingle();
+    if (subAllowanceError) {
+        console.error('Get image sub allowance error:', subAllowanceError.message);
+        return purchasedData;
+    }
+
+    return {
+        user_id: currentUser.id,
+        remaining_image_generations: Number(purchasedData?.remaining_image_generations ?? 0) + Number(subAllowanceData?.remaining_image_generations ?? 0),
+    };
+}
+
+export async function getMegaCreditsRecord(): Promise<MegaCreditsRecord | null> {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return null;
+    await refreshSubscriptionAllowances();
+    const { data, error } = await supabase
+        .from('mega_credits')
+        .select('user_id, remaining_mega_credits')
+        .eq('user_id', currentUser.id)
+        .limit(1)
+        .maybeSingle();
     if (error) {
-        console.error('Get image generation record error:', error.message);
+        console.error('Get mega credits record error:', error.message);
+        return null;
+    }
+    return data;
+}
+
+export async function getNanoBananaDailyUsageRecord(): Promise<NanoBananaDailyUsageRecord | null> {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return null;
+    const { data, error } = await supabase
+        .from('nano_banana_daily_usage')
+        .select('user_id, usage_date, usage_count')
+        .eq('user_id', currentUser.id)
+        .limit(1)
+        .maybeSingle();
+    if (error) {
+        console.error('Get nano banana daily usage record error:', error.message);
         return null;
     }
     return data;
@@ -360,7 +433,7 @@ export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionT
         return 'free';
     }
     if (['canceled', 'incomplete_expired', 'unpaid'].includes(String(sub.status))) {
-        return 'canceled';
+        return 'free';
     }
     switch (sub.price_id) {
         case 'price_1S0heGGiJrKwXclR69Ku7XEc': //legacy 29.99 oldstripe
@@ -370,6 +443,9 @@ export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionT
         case SubscriptionPriceIDs.MAX_MONTHLY:
         case SubscriptionPriceIDs.MAX_YEARLY:
             return 'max';
+        case SubscriptionPriceIDs.PRO_PLUS_MONTHLY:
+        case SubscriptionPriceIDs.PRO_PLUS_YEARLY:
+            return 'pro_plus';
         case 'price_1S0hdiGiJrKwXclRByeNLSPu': //legacy 14.99 oldstripe
         case 'price_1SDdbKGiJrKwXclR7hn7fF4s': //legacy oldstripe
         case SubscriptionPriceIDsOld.PRO_MONTHLY:
@@ -389,6 +465,26 @@ export function getBillingPortalUrlWithEmail(email: string | null): string {
     return `${base}?prefilled_email=${param}`;
 }
 
+export async function openCustomerPortal(): Promise<void> {
+    const newWindow = window.open('about:blank', '_blank');
+    const { data, error } = await supabase.functions.invoke("return-stripe-customer-portal", {
+        method: 'POST',
+    });
+
+    if (error) {
+        newWindow?.close();
+        throw error;
+    }
+
+    if (data?.url && newWindow) {
+        newWindow.location.href = data.url;
+        return;
+    }
+
+    newWindow?.close();
+    throw new Error('Failed to retrieve billing portal URL');
+}
+
 export async function updateSubscriptionUI(session: Session | null, sub: UserSubscription | null, imageGenerationRecord: ImageGenerationRecord | null): Promise<void> {
     try {
         const email = session?.user.email ?? await getCurrentUserEmail();
@@ -400,7 +496,7 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
         const tierEl = document.querySelector<HTMLElement>('#subscription-tier-text');
         const periodEndEl = document.querySelector<HTMLElement>('#subscription-period-end');
         const remainingGenerationsEl = document.querySelector<HTMLElement>('#subscription-remaining-generations');
-        const tierLabel = tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : tier === 'max' ? 'Max' : 'Canceled';
+        const tierLabel = tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : tier === 'pro_plus' ? 'Pro Plus' : 'Max';
         const subscriptionrenewalDateLabel = document.querySelector<HTMLElement>('#subscription-renewal-date-label');
         let periodEndLabel = '—';
         const rawEnd = sub?.current_period_end ?? null;
@@ -412,7 +508,7 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
         }
         if (badge) {
             badge.textContent = tierLabel;
-            badge.classList.remove('badge-tier-free', 'badge-tier-pro', 'badge-tier-max');
+            badge.classList.remove(...subscriptionBadgeClasses);
             badge.classList.add(`badge-tier-${tier}`);
         }
         if (tierEl) {
@@ -432,24 +528,19 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
                 manageBtn.classList.remove('hidden');
                 manageBtn.onclick = async (e) => {
                     e.preventDefault();
-                    const newWindow = window.open('about:blank', '_blank'); // Sync call to preserve gesture trust on iOS Safari
-                    console.log('Opening billing portal for user:', email, "with stripe customer ID:", sub?.stripe_customer_id);
-                    console.log(sub)
-                    const { data } = await supabase.functions.invoke("return-stripe-customer-portal", {
-                        method: 'POST',
-                        body: JSON.stringify({ stripeCustomerId: sub?.stripe_customer_id, email, user_id: session?.user.id })
-                    });
-                    if (data?.url && newWindow) {
-                        newWindow.location.href = data.url;
-                    } else {
-                        newWindow?.close();
+                    try {
+                        console.log('Opening billing portal for user:', email, "with stripe customer ID:", sub?.stripe_customer_id);
+                        console.log(sub);
+                        await openCustomerPortal();
+                    } catch (error) {
                         console.error('Failed to retrieve billing portal URL');
+                        console.error(error);
                     }
                 };
             }
         }
         if (subscriptionrenewalDateLabel) {
-            if (tier === 'canceled' || cancelAtPeriodEnd) {
+            if (cancelAtPeriodEnd) {
                 subscriptionrenewalDateLabel.textContent = 'Will end on';
             }
             else {
@@ -464,7 +555,7 @@ export async function updateSubscriptionUI(session: Session | null, sub: UserSub
         const upgradeBtn = document.querySelector<HTMLButtonElement>('#btn-show-subscription-options');
         const apiKeyError = document.querySelector<HTMLElement>('.api-key-error');
 
-        const isSubscribed = tier === 'pro' || tier === 'max';
+        const isSubscribed = tier === 'pro' || tier === 'pro_plus' || tier === 'max';
         // Leave API key input enable/disable and hint visibility to the API key component based on route
         if (apiKeyInput && isSubscribed) {
             apiKeyInput.classList.remove('api-key-invalid');

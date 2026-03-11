@@ -14,7 +14,6 @@
 import { supabase, getCurrentUser } from './Supabase.service';
 import * as crypto from './Crypto.service';
 import type { BlobReference } from '../types/BlobReference';
-import { fetchSyncQuota } from './Sync.service';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -156,6 +155,11 @@ export async function uploadEncryptedBlob(
     const path = storagePath(user.id, blobId);
     const blob = new Blob([ciphertext], { type: 'application/octet-stream' });
 
+    const quotaCheck = await getServerQuotaHeadroom(blob.size);
+    if (quotaCheck && !quotaCheck.allowed) {
+        throw new Error('Cloud sync storage quota exceeded');
+    }
+
     let lastError: unknown;
     for (let attempt = 0; attempt < UPLOAD_MAX_RETRIES; attempt++) {
         const { error } = await supabase.storage
@@ -179,6 +183,9 @@ export async function uploadEncryptedBlob(
         }
 
         lastError = error;
+        if (isStorageQuotaExceededError(error)) {
+            throw new Error('Cloud sync storage quota exceeded');
+        }
         console.warn(`BlobStore: upload attempt ${attempt + 1} failed for ${blobId}:`, error);
         if (attempt < UPLOAD_MAX_RETRIES - 1) {
             await sleep(RETRY_BASE_DELAY * Math.pow(2, attempt));
@@ -295,20 +302,94 @@ export async function deleteBlobsBatch(blobIds: string[]): Promise<void> {
     }
 }
 
+export async function deleteAllCurrentUserBlobs(): Promise<void> {
+    const user = await getCurrentUser();
+    if (!user) return;
+
+    const folder = user.id;
+    let offset = 0;
+
+    while (true) {
+        const { data, error } = await supabase.storage
+            .from(BUCKET_NAME)
+            .list(folder, {
+                limit: 1000,
+                offset,
+                sortBy: { column: 'name', order: 'asc' },
+            });
+
+        if (error) {
+            throw new Error(`BlobStore: list failed for ${folder}: ${error.message}`);
+        }
+
+        const files = (data || []).filter((entry) => entry.id || entry.metadata);
+        if (files.length === 0) {
+            break;
+        }
+
+        const paths = files.map((entry) => `${folder}/${entry.name}`);
+        const { error: removeError } = await supabase.storage
+            .from(BUCKET_NAME)
+            .remove(paths);
+
+        if (removeError) {
+            throw new Error(`BlobStore: bulk delete failed for ${folder}: ${removeError.message}`);
+        }
+
+        for (const entry of files) {
+            blobCache.delete(entry.name);
+        }
+
+        if (files.length < 1000) {
+            break;
+        }
+
+        offset += files.length;
+    }
+}
+
 // ── Quota pre-flight ───────────────────────────────────────────────────────
 
 /**
  * Check whether the user has enough quota headroom for additional bytes.
- * This is a client-side soft check — the server enforces the real limit
- * via `recalculate_user_storage` after writes.
+ * This is a server-backed soft check. The database still enforces the hard
+ * limit with `enforce_storage_quota_blobs()` during storage writes.
  *
  * @param additionalBytes The number of additional bytes to check for.
  * @returns `true` if there is enough headroom.
  */
 export async function checkQuotaHeadroom(additionalBytes: number): Promise<boolean> {
-    const quota = await fetchSyncQuota();
-    if (!quota) return false;
-    return (quota.usedBytes + additionalBytes) <= quota.quotaBytes;
+    const quotaCheck = await getServerQuotaHeadroom(additionalBytes);
+    return quotaCheck?.allowed ?? false;
+}
+
+type BlobQuotaCheckResult = {
+    allowed: boolean;
+    projected_bytes: number;
+    quota_bytes: number;
+    used_bytes: number;
+};
+
+function isStorageQuotaExceededError(error: unknown): boolean {
+    return String(error).includes('Storage quota exceeded');
+}
+
+async function getServerQuotaHeadroom(additionalBytes: number): Promise<BlobQuotaCheckResult | null> {
+    const { data, error } = await supabase.rpc('check_sync_blob_quota', {
+        additional_bytes: additionalBytes,
+    });
+
+    if (error) {
+        console.warn('BlobStore: server quota check failed:', error);
+        return null;
+    }
+
+    const quotaCheck = Array.isArray(data) ? data[0] : data;
+    if (!quotaCheck) {
+        return null;
+    }
+
+    return quotaCheck as BlobQuotaCheckResult;
 }
 
 // ── Utility: base64 ↔ Uint8Array ───────────────────────────────────────────

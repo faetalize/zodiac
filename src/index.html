@@ -741,7 +741,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <p id="sync-upgrade-hint" class="sync-upgrade-hint hidden">Cloud sync is available with a Pro or Max subscription.</p>
+                                    <p id="sync-upgrade-hint" class="sync-upgrade-hint hidden">Cloud sync is available with a Pro, Pro Plus, or Max subscription.</p>
                                 </div>
 
                                 <div class="btn-array-vertical">
@@ -886,6 +886,7 @@
                             <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>
@@ -1232,6 +1233,14 @@
                                 <span class="setting-label">Image generation credits</span>
                                 <span id="subscription-remaining-generations">—</span>
                             </div>
+                            <div class="subscription-row">
+                                <span class="setting-label">Mega credits</span>
+                                <span id="subscription-remaining-mega-credits">—</span>
+                            </div>
+                            <div class="subscription-row">
+                                <span class="setting-label">Nano Banana allowance</span>
+                                <span id="subscription-remaining-nano-banana">—</span>
+                            </div>
                         </div>
                         <div class="subscription-card-footer">
                             <button class="btn btn-primary" id="btn-top-up-credits">Get More Image Credits</button>
@@ -1273,107 +1282,245 @@
                 <button id="btn-profile-logout" class="btn btn-danger">Log Out</button>
             </div>
 
-            <div id="form-subscription" class="hidden">
-                <div class="subscription-header">
-                    <h1>Choose Your Plan</h1>
-                </div>
-                <div class="subscription-grid">
-                    <div id="profile-free-card" class="subscription-card subscription-card-free">
-                        <div class="subscription-card-header">
-                            <div class="tier-badge tier-badge-free">Free</div>
-                            <div class="tier-price">
-                                <span class="price-amount">$0</span>
-                                <span class="price-period">/month</span>
-                            </div>
+            <div id="form-subscription" class="hidden" data-billing="yearly">
+                <div class="subscription-shell">
+                    <div class="subscription-header">
+                        <p class="subscription-eyebrow">Premium Plans</p>
+                        <h1>Zodiac, tailored to you.</h1>
+                    </div>
+
+                    <div class="subscription-toolbar" aria-label="Billing preview">
+                        <div class="subscription-billing-toggle" role="tablist" aria-label="Billing interval">
+                            <button type="button" class="subscription-billing-option" data-billing-option="monthly" aria-pressed="false">
+                                <span class="subscription-billing-label">Monthly</span>
+                            </button>
+                            <button type="button" class="subscription-billing-option subscription-billing-option-active" data-billing-option="yearly" aria-pressed="true">
+                                <span class="subscription-billing-label">Yearly</span>
+                                <span class="subscription-billing-separator" aria-hidden="true">•</span>
+                                <span class="subscription-billing-note">Up to 2 months off</span>
+                            </button>
                         </div>
-                        <div class="subscription-card-body">
-                            <ul class="features-list">
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">Bring your own API key</span>
-                                </li>
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">Personality marketplace access</span>
-                                </li>
-                            </ul>
+                        <div class="subscription-trust-row" aria-hidden="true">
+                            <span>Hosted access tiers</span>
+                            <span>Image credits included</span>
+                            <span>Clear premium model limits</span>
                         </div>
                     </div>
 
-                    <div id="profile-pro-card"
-                        class="subscription-card subscription-card-pro subscription-card-popular">
-                        <div class="popular-badge">Most Popular</div>
-                        <div class="subscription-card-header">
-                            <div class="tier-badge tier-badge-pro">Pro</div>
-                            <div class="tier-price">
-                                <span class="price-amount">$29.99</span>
-                                <span class="price-period">/month</span>
+                    <div class="subscription-grid subscription-grid-showcase">
+                        <article id="profile-free-card" class="subscription-card subscription-card-free subscription-plan">
+                            <div class="subscription-card-header">
+                                <div class="subscription-plan-heading">
+                                    <div class="tier-badge tier-badge-free">Free</div>
+                                    <p class="subscription-plan-subtitle">Local-first</p>
+                                </div>
+                                <div class="subscription-plan-pill-row">
+                                    <span class="subscription-plan-pill">BYOK</span>
+                                    <span class="subscription-plan-pill">Local-first</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="subscription-card-body">
-                            <ul class="features-list">
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">No API key required</span>
-                                </li>
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">Unlimited Flash & Pro models</span>
-                                </li>
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">Nano-banana model access</span>
-                                </li>
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">Full token context limits</span>
-                                </li>
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">No rate limiting</span>
-                                </li>
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">Image generation credits to be bought separately</span>
-                                </li>
-                            </ul>
-                        </div>
-                        <button type="button" id="btn-subscribe-pro" class="subscription-cta subscription-cta-pro">
-                            Upgrade to Pro
-                        </button>
-                    </div>
+                            <div class="subscription-card-body">
+                                <div class="subscription-price-stack">
+                                    <div class="subscription-price-line subscription-price-line-primary">
+                                        <span class="price-amount">$0</span>
+                                        <span class="price-period">/month</span>
+                                    </div>
+                                </div>
 
-                    <div id="profile-max-card" class="subscription-card subscription-card-max">
-                        <div class="subscription-card-header">
-                            <div class="tier-badge tier-badge-max">Max</div>
-                            <div class="tier-price">
-                                <span class="price-amount">$59.99</span>
-                                <span class="price-period">/month</span>
+                                <ul class="features-list">
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Bring your own Gemini and OpenRouter API keys</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">All your data is securely and privately stored locally on your device</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Support for the Zodiac Marketplace</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">You can buy image credits separately and use all our image models</span></li>
+                                </ul>
                             </div>
+                            <button type="button" class="subscription-cta subscription-cta-free">
+                                Current baseline
+                            </button>
+                        </article>
+
+                        <article id="profile-pro-card" class="subscription-card subscription-card-pro subscription-plan">
+                            <div class="subscription-card-header">
+                                <div class="subscription-plan-heading">
+                                    <div class="tier-badge tier-badge-pro">Pro</div>
+                                    <p class="subscription-plan-subtitle">Unleash your creativity</p>
+                                </div>
+                                <div class="subscription-plan-pill-row">
+                                    <span class="subscription-plan-pill subscription-plan-pill-accent">5GB</span>
+                                    <span class="subscription-plan-pill subscription-plan-pill-accent">Zero Setup</span>
+                                    <span class="subscription-plan-pill subscription-plan-pill-accent">E2E Encryption</span>
+                                </div>
+                            </div>
+                            <div class="subscription-card-body">
+                                <div class="subscription-price-stack">
+                                    <div class="subscription-price-line subscription-price-line-primary">
+                                        <span class="price-amount billing-only-monthly">$30</span>
+                                        <span class="price-amount billing-only-yearly">$25.83</span>
+                                        <span class="price-period billing-only-monthly">/month</span>
+                                        <span class="price-period billing-only-yearly">/month</span>
+                                    </div>
+                                    <div class="subscription-price-line subscription-price-line-secondary">
+                                        <span class="billing-only-monthly"><span class="subscription-price-note">billed monthly</span></span>
+                                        <span class="billing-only-yearly"><span class="subscription-price-note">billed as $310 yearly</span></span>
+                                    </div>
+                                </div>
+
+                                <div class="subscription-stat-grid">
+                                    <div class="subscription-stat">
+                                        <span class="subscription-stat-label">Mega Credits</span>
+                                        <strong>50 / month</strong>
+                                    </div>
+                                    <div class="subscription-stat">
+                                        <span class="subscription-stat-label">Image Credits</span>
+                                        <strong>50 / month</strong>
+                                    </div>
+                                    <div class="subscription-stat">
+                                        <span class="subscription-stat-label">Nano-Banana</span>
+                                        <strong>20 / day</strong>
+                                    </div>
+                                </div>
+
+                                <ul class="features-list">
+                                    <li class="feature-item feature-item-inherited"><span class="feature-icon">+</span><span class="feature-text">Everything in Free, and...</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Unlimited access to Gemini and curated OpenRouter models</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">No API key setup required</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Cloud Sync</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Uncensored</span></li>
+                                </ul>
+                            </div>
+                            <button type="button" id="btn-subscribe-pro" class="subscription-cta subscription-cta-pro">Subscribe</button>
+                        </article>
+
+                        <article id="profile-pro-plus-card" class="subscription-card subscription-plan subscription-card-popular subscription-plan-pro-plus">
+                            <div class="popular-badge">Best value</div>
+                            <div class="subscription-card-header">
+                                <div class="subscription-plan-heading">
+                                    <div class="tier-badge tier-badge-pro-plus">Pro Plus</div>
+                                    <p class="subscription-plan-subtitle">For media heavy sessions</p>
+                                </div>
+                                <div class="subscription-plan-pill-row">
+                                    <span class="subscription-plan-pill subscription-plan-pill-highlight">256GB</span>
+                                    <span class="subscription-plan-pill subscription-plan-pill-highlight">Power Users</span>
+                                </div>
+                            </div>
+                            <div class="subscription-card-body">
+                                <div class="subscription-price-stack">
+                                    <div class="subscription-price-line subscription-price-line-primary">
+                                        <span class="price-amount billing-only-monthly">$100</span>
+                                        <span class="price-amount billing-only-yearly">$91.67</span>
+                                        <span class="price-period billing-only-monthly">/month</span>
+                                        <span class="price-period billing-only-yearly">/month</span>
+                                    </div>
+                                    <div class="subscription-price-line subscription-price-line-secondary">
+                                        <span class="billing-only-monthly"><span class="subscription-price-note">billed monthly</span></span>
+                                        <span class="billing-only-yearly"><span class="subscription-price-note">billed as $1100 yearly</span></span>
+                                    </div>
+                                </div>
+
+                                <div class="subscription-stat-grid">
+                                    <div class="subscription-stat">
+                                        <span class="subscription-stat-label">Mega Credits</span>
+                                        <strong>300 / month</strong>
+                                    </div>
+                                    <div class="subscription-stat">
+                                        <span class="subscription-stat-label">Image Credits</span>
+                                        <strong>600 / month</strong>
+                                    </div>
+                                    <div class="subscription-stat">
+                                        <span class="subscription-stat-label">Nano-Banana</span>
+                                        <strong>Unlimited</strong>
+                                    </div>
+                                </div>
+
+                                <ul class="features-list">
+                                    <li class="feature-item feature-item-inherited"><span class="feature-icon">+</span><span class="feature-text">Everything in Pro, and...</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Unlimited Nano-Banana usage</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">More generous Cloud Sync</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Better memory recall in long chats</span></li>
+                                </ul>
+                            </div>
+                            <button type="button" id="btn-subscribe-pro-plus" class="subscription-cta subscription-cta-pro-plus">Subscribe</button>
+                        </article>
+
+                        <article id="profile-max-card" class="subscription-card subscription-card-max subscription-plan subscription-plan-max">
+                            <div class="subscription-card-header">
+                                <div class="subscription-plan-heading">
+                                    <div class="tier-badge tier-badge-max">Max</div>
+                                    <p class="subscription-plan-subtitle">Our flagship offering</p>
+                                </div>
+                                <div class="subscription-plan-pill-row">
+                                    <span class="subscription-plan-pill subscription-plan-pill-max">1 TB</span>
+                                    <span class="subscription-plan-pill subscription-plan-pill-max">Peerless</span>
+                                </div>
+                            </div>
+                            <div class="subscription-card-body">
+                                <div class="subscription-price-stack">
+                                    <div class="subscription-price-line subscription-price-line-primary">
+                                        <span class="price-amount billing-only-monthly">$200</span>
+                                        <span class="price-amount billing-only-yearly">$183.33</span>
+                                        <span class="price-period billing-only-monthly">/month</span>
+                                        <span class="price-period billing-only-yearly">/month</span>
+                                    </div>
+                                    <div class="subscription-price-line subscription-price-line-secondary">
+                                        <span class="billing-only-monthly"><span class="subscription-price-note">billed monthly</span></span>
+                                        <span class="billing-only-yearly"><span class="subscription-price-note">billed as $2200 yearly</span></span>
+                                    </div>
+                                </div>
+
+                                <div class="subscription-stat-grid">
+                                    <div class="subscription-stat">
+                                        <span class="subscription-stat-label">Mega Credits</span>
+                                        <strong>Unlimited</strong>
+                                    </div>
+                                    <div class="subscription-stat">
+                                        <span class="subscription-stat-label">Image Credits</span>
+                                        <strong>1500 / month</strong>
+                                    </div>
+                                    <div class="subscription-stat">
+                                        <span class="subscription-stat-label">Nano-Banana</span>
+                                        <strong>Unlimited</strong>
+                                    </div>
+                                </div>
+
+                                <ul class="features-list">
+                                    <li class="feature-item feature-item-inherited"><span class="feature-icon">+</span><span class="feature-text">Everything in Pro Plus, and...</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Flawless memory recall throughout the entire token range</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Largest Cloud Sync Quotas</span></li>
+                                    <li class="feature-item"><span class="feature-icon">✓</span><span class="feature-text">Unlimited access to GPT-5.4 Pro and Claude Opus 4.6</span></li>
+                                </ul>
+                            </div>
+                            <button type="button" id="btn-subscribe-max" class="subscription-cta subscription-cta-max">Subscribe</button>
+                        </article>
+
+                        <section class="subscription-faq" aria-labelledby="subscription-faq-title">
+                        <div class="subscription-faq-header">
+                            <p class="subscription-faq-eyebrow">Need to know</p>
+                            <h2 id="subscription-faq-title">Frequently asked questions</h2>
+                            <p>Quick answers about premium models, Nano Banana, and standalone image usage.</p>
                         </div>
-                        <div class="subscription-card-body">
-                            <ul class="features-list">
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">Everything in Pro</span>
-                                </li>
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">Imagen 4 Ultra</span>
-                                </li>
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">Uncensored image models</span>
-                                </li>
-                                <li class="feature-item">
-                                    <span class="feature-icon">✓</span>
-                                    <span class="feature-text">300 monthly image generation credits</span>
-                                </li>
-                            </ul>
+
+                        <div class="subscription-faq-grid">
+                            <details class="subscription-faq-item" open>
+                                <summary>What are Mega models?</summary>
+                                <p>Mega models are Zodiac's most expensive premium models. Right now, that means Claude Opus. Pro and Pro Plus include a monthly Mega Credit allowance, and each Mega request costs 1 credit. Max includes unlimited access.</p>
+                            </details>
+
+                            <details class="subscription-faq-item">
+                                <summary>What's the difference between Nano Banana and Image Credits?</summary>
+                                <p>Nano Banana is Gemini's chat-native image model inside the normal conversation flow. On Pro, it has a daily allowance. On Pro Plus and Max, it is unlimited. Image Credits are for the dedicated image generation and editing models, and those are consumed per request.</p>
+                            </details>
+
+                            <details class="subscription-faq-item">
+                                <summary>I want to use image models, but I don't want to subscribe.</summary>
+                                <p>You can buy Image Credits separately without subscribing. That gives you access to the dedicated image generation and image editing models on demand.</p>
+                            </details>
+
+                            <details class="subscription-faq-item">
+                                <summary>Can I buy Mega Credits separately?</summary>
+                                <p>No. Mega Credits are included only with eligible subscriptions, and they are not sold as a separate standalone purchase.</p>
+                            </details>
                         </div>
-                        <button type="button" id="btn-subscribe-max" class="subscription-cta subscription-cta-max">
-                            Get Max Plan
-                        </button>
+                        </section>
                     </div>
                 </div>
             </div>
@@ -1811,94 +1958,8 @@
             </div>
 
             <!-- Step 5a: Plan Selection (for subscription flow) -->
-            <div id="onboarding-plan-selection" class="onboarding-step hidden">
-                <div class="onboarding-content">
-                    <h1 class="onboarding-title">Choose Your Plan</h1>
-
-                    <div class="onboarding-subscription-grid">
-                        <div id="onboarding-pro-card"
-                            class="subscription-card subscription-card-pro subscription-card-popular"
-                            data-price-type="pro">
-                            <div class="popular-badge">Most Popular</div>
-                            <div class="subscription-card-header">
-                                <div class="tier-badge tier-badge-pro">Pro</div>
-                                <div class="tier-price">
-                                    <span class="price-amount">$29.99</span>
-                                    <span class="price-period">/month</span>
-                                </div>
-                            </div>
-                            <div class="subscription-card-body">
-                                <ul class="features-list">
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">No API key required</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Unlimited Flash & Pro models</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Nano-banana model access</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Full token context limits</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">No rate limiting</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Image generation credits sold separately</span>
-                                    </li>
-                                </ul>
-                            </div>
-                            <button type="button" id="onboarding-btn-select-pro"
-                                class="subscription-cta subscription-cta-pro">
-                                Select Pro
-                            </button>
-                        </div>
-
-                        <div id="onboarding-max-card"
-                            class="subscription-card subscription-card-max subscription-card-disabled"
-                            data-price-type="max">
-                            <div class="coming-soon-badge">Coming Soon</div>
-                            <div class="subscription-card-header">
-                                <div class="tier-badge tier-badge-max">Max</div>
-                                <div class="tier-price">
-                                    <span class="price-amount">$59.99</span>
-                                    <span class="price-period">/month</span>
-                                </div>
-                            </div>
-                            <div class="subscription-card-body">
-                                <ul class="features-list">
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Everything in Pro</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Imagen 4 Ultra</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">Uncensored image models</span>
-                                    </li>
-                                    <li class="feature-item">
-                                        <span class="feature-icon">✓</span>
-                                        <span class="feature-text">300 monthly image generation credits</span>
-                                    </li>
-                                </ul>
-                            </div>
-                            <button type="button" id="onboarding-btn-select-max"
-                                class="subscription-cta subscription-cta-max" disabled>
-                                Coming Soon
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            <div id="onboarding-plan-selection" class="onboarding-step hidden" data-billing="yearly">
+                <div id="onboarding-pricing-host" class="overlay-content"></div>
             </div>
 
             <!-- Step 5b: Subscription confirmation -->
@@ -1933,7 +1994,7 @@
             <div id="onboarding-cloud-sync-setup" class="onboarding-step hidden">
                 <div class="onboarding-content">
                     <h1 id="onboarding-cloud-sync-title" class="onboarding-title">Enable Cloud Sync</h1>
-                    <p id="onboarding-cloud-sync-subtitle" class="onboarding-subtitle">Included with Pro — set it up now or keep data local</p>
+                    <p id="onboarding-cloud-sync-subtitle" class="onboarding-subtitle">Included with Pro, Pro Plus, and Max — set it up now or keep data local</p>
 
                     <div class="onboarding-form onboarding-settings-form">
                         <div id="onboarding-cloud-sync-enable-group" class="onboarding-setting-group">
@@ -2170,8 +2231,9 @@
 
                     <!-- Subscription Flow Content -->
                     <div id="summary-subscription-content" class="hidden">
-                        <p class="onboarding-subtitle-large">You'll be redirected to checkout to complete your
+                        <p id="summary-subscription-headline" class="onboarding-subtitle-large">You'll be redirected to checkout to complete your
                             subscription.</p>
+                        <p id="summary-subscription-selection" class="onboarding-summary-selection">Encrypted cloud sync is included with your subscription.</p>
 
                         <div class="onboarding-summary-features">
                             <div class="summary-feature">

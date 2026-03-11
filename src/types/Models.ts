@@ -31,6 +31,7 @@ export interface ChatModelDefinition {
     id: string;
     label: string;
     provider: ModelProvider;
+    mega?: boolean;
     supportsThinking: boolean;
     requiresThinking?: boolean;
     supportsTemperature: boolean;
@@ -47,12 +48,18 @@ export interface ChatModelAccess {
 export const DEFAULT_GEMINI_CHAT_MODEL = ChatModel.FLASH;
 export const DEFAULT_OPENROUTER_CHAT_MODEL = "openai/gpt-5.4";
 export const DEFAULT_OPENROUTER_NARRATOR_MODEL = DEFAULT_OPENROUTER_CHAT_MODEL;
+const UI_DISABLED_CHAT_MODELS = new Set(["openai/gpt-5.4-pro"]);
+
+export function requiresThoughtSignaturesInHistory(model: string): boolean {
+    return model === ChatModel.NANO_BANANA_PRO || model === ChatModel.NANO_BANANA_2;
+}
 
 export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
     {
         id: ChatModel.FLASH_LITE_LATEST,
         label: "Gemini Flash Lite",
         provider: "gemini",
+        mega: false,
         supportsThinking: true,
         supportsTemperature: true,
         supportsImageInput: false,
@@ -63,6 +70,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
         id: ChatModel.FLASH,
         label: "Gemini Flash",
         provider: "gemini",
+        mega: false,
         supportsThinking: true,
         supportsTemperature: true,
         supportsImageInput: true,
@@ -73,6 +81,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
         id: ChatModel.PRO,
         label: "Gemini Pro",
         provider: "gemini",
+        mega: false,
         supportsThinking: true,
         requiresThinking: true,
         supportsTemperature: true,
@@ -84,6 +93,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
         id: ChatModel.NANO_BANANA_PRO,
         label: "Gemini Pro Image (Nano Banana Pro)",
         provider: "gemini",
+        mega: false,
         supportsThinking: true,
         supportsTemperature: true,
         supportsImageInput: true,
@@ -94,6 +104,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
         id: ChatModel.NANO_BANANA_2,
         label: "Gemini Flash Image (Nano Banana 2)",
         provider: "gemini",
+        mega: false,
         supportsThinking: true,
         supportsTemperature: true,
         supportsImageInput: true,
@@ -107,7 +118,20 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         id: "openai/gpt-5.4",
         label: "GPT-5.4",
         provider: "openrouter",
+        mega: false,
         supportsThinking: true,
+        supportsTemperature: true,
+        supportsImageInput: true,
+        supportsFileInput: true,
+        supportsImageOutput: false,
+    },
+    {
+        id: "openai/gpt-5.4-pro",
+        label: "GPT-5.4 Pro",
+        provider: "openrouter",
+        mega: true,
+        supportsThinking: true,
+        requiresThinking: true,
         supportsTemperature: true,
         supportsImageInput: true,
         supportsFileInput: true,
@@ -117,6 +141,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         id: "openai/gpt-oss-120b",
         label: "GPT-OSS 120B",
         provider: "openrouter",
+        mega: false,
         supportsThinking: true,
         requiresThinking: true,
         supportsTemperature: true,
@@ -128,6 +153,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         id: "openai/gpt-5.3-chat",
         label: "GPT-5.3 Chat",
         provider: "openrouter",
+        mega: false,
         supportsThinking: true,
         supportsTemperature: true,
         supportsImageInput: true,
@@ -138,6 +164,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         id: "openai/gpt-4o",
         label: "GPT-4o",
         provider: "openrouter",
+        mega: false,
         supportsThinking: false,
         supportsTemperature: true,
         supportsImageInput: true,
@@ -148,6 +175,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         id: "anthropic/claude-sonnet-4.6",
         label: "Claude Sonnet 4.6",
         provider: "openrouter",
+        mega: false,
         supportsThinking: true,
         supportsTemperature: true,
         supportsImageInput: true,
@@ -158,6 +186,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         id: "anthropic/claude-opus-4.6",
         label: "Claude Opus 4.6",
         provider: "openrouter",
+        mega: true,
         supportsThinking: true,
         supportsTemperature: true,
         supportsImageInput: true,
@@ -168,6 +197,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         id: "z-ai/glm-5",
         label: "GLM 5",
         provider: "openrouter",
+        mega: false,
         supportsThinking: true,
         supportsTemperature: true,
         supportsImageInput: false,
@@ -178,6 +208,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         id: "inception/mercury-2",
         label: "Mercury 2",
         provider: "openrouter",
+        mega: false,
         supportsThinking: true,
         supportsTemperature: true,
         supportsImageInput: false,
@@ -188,6 +219,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         id: "qwen/qwen3.5-397b-a17b",
         label: "Qwen3.5 397B",
         provider: "openrouter",
+        mega: false,
         supportsThinking: true,
         supportsTemperature: true,
         supportsImageInput: true,
@@ -198,6 +230,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         id: "qwen/qwen3.5-plus-02-15",
         label: "Qwen3.5 Plus",
         provider: "openrouter",
+        mega: false,
         supportsThinking: true,
         supportsTemperature: true,
         supportsImageInput: true,
@@ -241,9 +274,17 @@ export function modelSupportsTemperature(model: string | null | undefined): bool
 
 export function getAccessibleChatModels(access: ChatModelAccess): ChatModelDefinition[] {
     return CHAT_MODELS.filter((model) => {
+        if (UI_DISABLED_CHAT_MODELS.has(model.id)) {
+            return false;
+        }
+
         if (model.provider === "gemini") return access.hasGeminiAccess;
         return access.hasOpenRouterAccess;
     });
+}
+
+export function formatChatModelLabel(model: Pick<ChatModelDefinition, "label" | "mega">): string {
+    return model.mega ? `${model.label} [MEGA]` : model.label;
 }
 
 export function getDefaultChatModel(access: ChatModelAccess): string {

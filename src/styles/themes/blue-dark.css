@@ -112,18 +112,22 @@
     --badge-fg: #b6ebfb;
     --badge-active-bg: #203453;
     /* Subscription badge tiers */
-    --badge-tier-free-bg: #253a5c;
-    --badge-tier-free-border: rgba(35, 108, 119, 0.508);
-    --badge-tier-free-fg: #b6ebfb;
-    --badge-tier-free-hover-bg: #253a5c;
-    --badge-tier-pro-bg: #164321;
-    --badge-tier-pro-border: #1f6b31;
-    --badge-tier-pro-fg: #b7f5c8;
-    --badge-tier-pro-hover-bg: #164321;
-    --badge-tier-max-bg: #3a255c;
-    --badge-tier-max-border: #6c4fb0;
-    --badge-tier-max-fg: #e3d3ff;
-    --badge-tier-max-hover-bg: #3a255c;
+    --badge-tier-free-bg: #1e293b;
+    --badge-tier-free-border: #334155;
+    --badge-tier-free-fg: #cbd5e1;
+    --badge-tier-free-hover-bg: #273449;
+    --badge-tier-pro-bg: #0b2d4a;
+    --badge-tier-pro-border: #0ea5e9;
+    --badge-tier-pro-fg: #bae6fd;
+    --badge-tier-pro-hover-bg: #0f3a5f;
+    --badge-tier-pro-plus-bg: #4a2c0b;
+    --badge-tier-pro-plus-border: #d97706;
+    --badge-tier-pro-plus-fg: #fde68a;
+    --badge-tier-pro-plus-hover-bg: #5b3710;
+    --badge-tier-max-bg: #111827;
+    --badge-tier-max-border: #475569;
+    --badge-tier-max-fg: #e2e8f0;
+    --badge-tier-max-hover-bg: #1f2937;
 
     /* Current chat radio */
     --input-radio-checked-bg: #0f4c84b2;

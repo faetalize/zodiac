@@ -62,6 +62,12 @@ export interface InsufficientImageCreditsDetail {
     insufficient: boolean;
 }
 
+export interface ComposerAllowanceBlockedDetail {
+    blocked: boolean;
+    title?: string;
+    text?: string;
+}
+
 // --- Generation State Events ---
 
 export interface GenerationStateChangedDetail {
@@ -219,6 +225,7 @@ export const EventNames = {
     SUBSCRIPTION_REFRESHED: 'subscription-refreshed',
     IMAGE_GENERATION_RECORD_REFRESHED: 'image-generation-record-refreshed',
     INSUFFICIENT_IMAGE_CREDITS: 'insufficient-image-credits',
+    COMPOSER_ALLOWANCE_BLOCKED: 'composer-allowance-blocked',
     
     // Generation State
     GENERATION_STATE_CHANGED: 'generation-state-changed',
@@ -290,6 +297,7 @@ export interface AppEventMap {
     [EventNames.SUBSCRIPTION_REFRESHED]: SubscriptionRefreshedDetail;
     [EventNames.IMAGE_GENERATION_RECORD_REFRESHED]: ImageGenerationRecordRefreshedDetail;
     [EventNames.INSUFFICIENT_IMAGE_CREDITS]: InsufficientImageCreditsDetail;
+    [EventNames.COMPOSER_ALLOWANCE_BLOCKED]: ComposerAllowanceBlockedDetail;
     
     // Generation State
     [EventNames.GENERATION_STATE_CHANGED]: GenerationStateChangedDetail;

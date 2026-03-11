@@ -31,7 +31,7 @@ export interface Message {
     role: "user" | "model";
     parts: Array<{
         text: string;
-        attachments?: FileList;
+        attachments?: FileList | File[];
         thoughtSignature?: string;
         _thoughtSignatureRef?: BlobReference;
     }>;

@@ -14,6 +14,8 @@ const subscriptionHeader = document.querySelector<HTMLElement>("#subscription-st
 const infoCard = document.querySelector<HTMLElement>("#profile-info-card");
 const infoHeader = document.querySelector<HTMLElement>("#profile-info-card .collapsible-card-header");
 const remainingImageGenerations = document.querySelector<HTMLSpanElement>("#subscription-remaining-generations");
+const remainingMegaCredits = document.querySelector<HTMLSpanElement>("#subscription-remaining-mega-credits");
+const remainingNanoBanana = document.querySelector<HTMLSpanElement>("#subscription-remaining-nano-banana");
 const accountCard = document.querySelector<HTMLElement>("#account-info-card");
 const accountHeader = document.querySelector<HTMLElement>("#account-info-card .collapsible-card-header");
 const accountEmailEl = document.querySelector<HTMLSpanElement>("#account-email");
@@ -21,10 +23,56 @@ const resetPasswordButton = document.querySelector<HTMLButtonElement>("#btn-rese
 const changeEmailButton = document.querySelector<HTMLButtonElement>("#btn-change-email");
 let image: File;
 
-if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader || !infoCard || !infoHeader || !remainingImageGenerations || !accountCard || !accountHeader || !accountEmailEl || !resetPasswordButton || !changeEmailButton) {
+if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader || !infoCard || !infoHeader || !remainingImageGenerations || !remainingMegaCredits || !remainingNanoBanana || !accountCard || !accountHeader || !accountEmailEl || !resetPasswordButton || !changeEmailButton) {
     console.error("One or more profile panel elements are missing.");
-    console.log({ pfpChangeButton, preferredNameInput, systemPromptAddition, saveButton, subscriptionBadge, manageSubscriptionBtn, subscriptionCard, subscriptionHeader, infoCard, infoHeader, remainingImageGenerations, accountCard, accountHeader, accountEmailEl, resetPasswordButton, changeEmailButton });
+    console.log({ pfpChangeButton, preferredNameInput, systemPromptAddition, saveButton, subscriptionBadge, manageSubscriptionBtn, subscriptionCard, subscriptionHeader, infoCard, infoHeader, remainingImageGenerations, remainingMegaCredits, remainingNanoBanana, accountCard, accountHeader, accountEmailEl, resetPasswordButton, changeEmailButton });
     throw new Error("Profile panel initialization failed.");
+}
+
+const ensuredRemainingImageGenerations = remainingImageGenerations;
+const ensuredRemainingMegaCredits = remainingMegaCredits;
+const ensuredRemainingNanoBanana = remainingNanoBanana;
+
+const PRO_NANO_BANANA_DAILY_LIMIT = 20;
+
+function getTodayIsoDate() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getEffectiveNanoUsageCount(record: supabaseService.NanoBananaDailyUsageRecord | null): number {
+    if (!record) return 0;
+    return record.usage_date === getTodayIsoDate() ? Number(record.usage_count ?? 0) : 0;
+}
+
+async function refreshSubscriptionAllowances(): Promise<void> {
+    const subscription = await supabaseService.getUserSubscription();
+    const tier = supabaseService.getSubscriptionTier(subscription);
+    const imageGenerationRecord = await supabaseService.getImageGenerationRecord();
+
+    ensuredRemainingImageGenerations.textContent = (imageGenerationRecord?.remaining_image_generations ?? 0).toString();
+
+    if (tier === 'pro' || tier === 'pro_plus') {
+        const megaCreditsRecord = await supabaseService.getMegaCreditsRecord();
+        ensuredRemainingMegaCredits.textContent = (megaCreditsRecord?.remaining_mega_credits ?? 0).toString();
+    } else if (tier === 'max') {
+        ensuredRemainingMegaCredits.textContent = 'Unlimited';
+    } else {
+        ensuredRemainingMegaCredits.textContent = '—';
+    }
+
+    if (tier === 'pro') {
+        const nanoUsageRecord = await supabaseService.getNanoBananaDailyUsageRecord();
+        const remaining = Math.max(PRO_NANO_BANANA_DAILY_LIMIT - getEffectiveNanoUsageCount(nanoUsageRecord), 0);
+        ensuredRemainingNanoBanana.textContent = `${remaining} left today`;
+    } else if (tier === 'pro_plus' || tier === 'max') {
+        ensuredRemainingNanoBanana.textContent = 'Unlimited';
+    } else {
+        ensuredRemainingNanoBanana.textContent = '—';
+    }
 }
 
 onAppEvent('profile-updated', (event) => {
@@ -38,7 +86,17 @@ onAppEvent('profile-updated', (event) => {
 onAppEvent('image-generation-record-refreshed', (event) => {
     const { imageGenerationRecord } = event.detail;
     if (imageGenerationRecord) {
-        remainingImageGenerations.textContent = (imageGenerationRecord.remaining_image_generations ?? 0).toString();
+        ensuredRemainingImageGenerations.textContent = (imageGenerationRecord.remaining_image_generations ?? 0).toString();
+    }
+});
+
+onAppEvent('subscription-updated', () => {
+    refreshSubscriptionAllowances().catch((error) => console.error('Failed to refresh subscription allowances:', error));
+});
+
+onAppEvent('generation-state-changed', (event) => {
+    if (!event.detail.isGenerating) {
+        refreshSubscriptionAllowances().catch((error) => console.error('Failed to refresh subscription allowances:', error));
     }
 });
 
@@ -169,6 +227,7 @@ changeEmailButton.addEventListener('click', () => {
 });
 
 hydrateAccountEmail();
+refreshSubscriptionAllowances().catch((error) => console.error('Failed to hydrate subscription allowances:', error));
 
 pfpChangeButton.addEventListener("click", async () => {
     const tempInput: HTMLInputElement = document.createElement("input");

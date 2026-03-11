@@ -11,7 +11,7 @@ import hljs from "highlight.js";
 import type { Message } from "../types/Message";
 import type { DbChat } from "../types/Chat";
 import type { DbPersonality } from "../types/Personality";
-import { ChatModel, getPreferredNarratorLocalModel, isOpenRouterModel, modelSupportsTemperature } from "../types/Models";
+import { ChatModel, getPreferredNarratorLocalModel, isOpenRouterModel, modelSupportsTemperature, requiresThoughtSignaturesInHistory } from "../types/Models";
 import { PremiumEndpoint } from "../types/PremiumEndpoint";
 import type {
     GroupChatParticipantPersona,
@@ -194,7 +194,7 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
 
 async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
     const settings = settingsService.getSettings();
-    const shouldEnforceThoughtSignaturesInHistory = settings.model === ChatModel.NANO_BANANA_PRO;
+    const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 
     let workingChat = await chatsService.getCurrentChat();
     if (!workingChat) {

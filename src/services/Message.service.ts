@@ -19,7 +19,7 @@ import hljs from "highlight.js";
 import type { Message, GeneratedImage } from "../types/Message";
 import type { Chat, DbChat } from "../types/Chat";
 import type { DbPersonality } from "../types/Personality";
-import { ChatModel, getPreferredNarratorLocalModel, isGeminiModel, isOpenRouterModel, modelSupportsThinking, modelSupportsTemperature } from "../types/Models";
+import { ChatModel, getPreferredNarratorLocalModel, isGeminiModel, isOpenRouterModel, modelSupportsThinking, modelSupportsTemperature, requiresThoughtSignaturesInHistory } from "../types/Models";
 import { PremiumEndpoint } from "../types/PremiumEndpoint";
 
 import * as settingsService from "./Settings.service";
@@ -610,7 +610,9 @@ export async function constructGeminiChatHistoryFromLocalChat(
                 }
             }
             if (persona) {
-                const instructions = buildPersonalityInstructionMessages(persona);
+                const instructions = buildPersonalityInstructionMessages(persona, {
+                    modelTextThoughtSignature: shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined,
+                });
                 const startIndex = history.length;
                 history.push(...instructions);
                 if (markerInfo.personalityId === selectedPersonality.id) {
@@ -1081,7 +1083,7 @@ async function performEarlyValidation(msg: string): Promise<EarlyValidationResul
     await ensureCurrentChatFullyHydratedForWrite();
     const settings = settingsService.getSettings();
     const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
-    const shouldEnforceThoughtSignaturesInHistory = settings.model === ChatModel.NANO_BANANA_PRO;
+    const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
     const selectedPersonality = await personalityService.getSelected();
     const selectedPersonalityId = getSelectedPersonalityId();
     const isInternetSearchEnabled = document.querySelector<HTMLButtonElement>("#btn-internet")?.classList.contains("btn-toggled") ?? false;
@@ -1112,7 +1114,7 @@ async function performEarlyValidation(msg: string): Promise<EarlyValidationResul
 
     const subscription = await supabaseService.getUserSubscription();
     const tier = await supabaseService.getSubscriptionTier(subscription);
-    const hasSubscription = tier === "pro" || tier === "max";
+    const hasSubscription = tier === "pro" || tier === "pro_plus" || tier === "max";
     const isPremiumEndpointPreferred = hasSubscription && shouldPreferPremiumEndpoint();
     const isImagePremiumEndpointPreferred = (await supabaseService.isImageGenerationAvailable()).type === "all";
 
