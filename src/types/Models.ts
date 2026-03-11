@@ -130,6 +130,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         provider: "openrouter",
         mega: true,
         supportsThinking: true,
+        requiresThinking: true,
         supportsTemperature: true,
         supportsImageInput: true,
         supportsFileInput: true,
