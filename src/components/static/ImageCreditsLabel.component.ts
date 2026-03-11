@@ -276,7 +276,7 @@ function checkAndDispatchInsufficientCreditsState(): void {
         dispatchAppEvent('composer-allowance-blocked', {
             blocked: hasInsufficientMegaCredits(),
             title: 'Insufficient Mega Credits',
-            text: 'This model costs 1 Mega Credit per request. Choose another model or get more Mega Credits.',
+            text: 'This model costs 1 Mega Credit per request. Choose another model or upgrade to Max for unlimited Mega access.',
         });
         return;
     }

@@ -125,6 +125,17 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
         supportsImageOutput: false,
     },
     {
+        id: "openai/gpt-5.4-pro",
+        label: "GPT-5.4 Pro",
+        provider: "openrouter",
+        mega: true,
+        supportsThinking: true,
+        supportsTemperature: true,
+        supportsImageInput: true,
+        supportsFileInput: true,
+        supportsImageOutput: false,
+    },
+    {
         id: "openai/gpt-oss-120b",
         label: "GPT-OSS 120B",
         provider: "openrouter",

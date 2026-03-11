@@ -135,6 +135,8 @@ const advancedBehaviorContinueButton = document.querySelector<HTMLButtonElement>
 const summaryFinishButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-finish");
 const summaryApiKeyContent = document.querySelector<HTMLDivElement>("#summary-apikey-content");
 const summarySubscriptionContent = document.querySelector<HTMLDivElement>("#summary-subscription-content");
+const summarySubscriptionHeadline = document.querySelector<HTMLParagraphElement>("#summary-subscription-headline");
+const summarySubscriptionSelection = document.querySelector<HTMLParagraphElement>("#summary-subscription-selection");
 
 // Check all required elements exist
 const requiredElements = {
@@ -222,7 +224,9 @@ const requiredElements = {
     advancedBehaviorContinueButton,
     summaryFinishButton,
     summaryApiKeyContent,
-    summarySubscriptionContent
+    summarySubscriptionContent,
+    summarySubscriptionHeadline,
+    summarySubscriptionSelection
 };
 
 for (const [name, element] of Object.entries(requiredElements)) {
@@ -697,6 +701,10 @@ function setupApiKeySetup(): void {
  */
 type OnboardingPlanType = "pro" | "pro_plus" | "max";
 type OnboardingBillingMode = "monthly" | "yearly";
+type OnboardingSubscriptionSummary = {
+    planLabel: string;
+    billingLabel: string;
+};
 
 const subscriptionFormOriginalParent = subscriptionForm?.parentNode ?? null;
 const subscriptionFormOriginalNextSibling = subscriptionForm?.nextSibling ?? null;
@@ -730,6 +738,29 @@ function getSelectedPriceIdForPlan(plan: OnboardingPlanType, billingMode: Onboar
         case "max":
             return billingMode === "yearly" ? SubscriptionPriceIDs.MAX_YEARLY : SubscriptionPriceIDs.MAX_MONTHLY;
     }
+}
+
+function getSubscriptionSummaryFromPriceId(priceId: string | null): OnboardingSubscriptionSummary | null {
+    switch (priceId) {
+        case SubscriptionPriceIDs.PRO_MONTHLY:
+            return { planLabel: "Pro", billingLabel: "Monthly" };
+        case SubscriptionPriceIDs.PRO_YEARLY:
+            return { planLabel: "Pro", billingLabel: "Yearly" };
+        case SubscriptionPriceIDs.PRO_PLUS_MONTHLY:
+            return { planLabel: "Pro Plus", billingLabel: "Monthly" };
+        case SubscriptionPriceIDs.PRO_PLUS_YEARLY:
+            return { planLabel: "Pro Plus", billingLabel: "Yearly" };
+        case SubscriptionPriceIDs.MAX_MONTHLY:
+            return { planLabel: "Max", billingLabel: "Monthly" };
+        case SubscriptionPriceIDs.MAX_YEARLY:
+            return { planLabel: "Max", billingLabel: "Yearly" };
+        default:
+            return null;
+    }
+}
+
+function isCloudSyncEligibleTier(tier: ReturnType<typeof supabaseService.getSubscriptionTier>): boolean {
+    return tier === "pro" || tier === "pro_plus" || tier === "max";
 }
 
 function initializeOnboardingPricing(): void {
@@ -1028,12 +1059,14 @@ function setupSummary(): void {
                     throw new Error("No checkout URL returned");
                 }
 
+                onboardingService.markCompleted();
+
                 // Redirect to Stripe checkout
                 window.location.href = url;
             } catch (error) {
                 console.error("Checkout error:", error);
                 summaryFinishButton!.disabled = false;
-                summaryFinishButton!.textContent = "Complete Checkout";
+                summaryFinishButton!.textContent = "Continue to Checkout";
                 toastService.danger({
                     title: "Checkout Failed",
                     text: "Unable to start checkout. Please try again."
@@ -1114,16 +1147,25 @@ function navigateToChatTab(): void {
  */
 function renderSummary(): void {
     const selectedPriceId = onboardingService.getSelectedPriceId();
+    const selectedSubscriptionSummary = getSubscriptionSummaryFromPriceId(selectedPriceId);
     
     if (selectedPriceId) {
         // Subscription flow
         summaryApiKeyContent!.classList.add("hidden");
         summarySubscriptionContent!.classList.remove("hidden");
-        summaryFinishButton!.textContent = "Complete Checkout";
+        summarySubscriptionHeadline!.textContent = selectedSubscriptionSummary
+            ? `You'll be redirected to checkout to start ${selectedSubscriptionSummary.planLabel}.`
+            : "You'll be redirected to checkout to complete your subscription.";
+        summarySubscriptionSelection!.textContent = selectedSubscriptionSummary
+            ? `${selectedSubscriptionSummary.planLabel} plan - ${selectedSubscriptionSummary.billingLabel} billing - encrypted cloud sync included`
+            : "Encrypted cloud sync is included with your subscription.";
+        summaryFinishButton!.textContent = "Continue to Checkout";
     } else {
         // API key flow
         summaryApiKeyContent!.classList.remove("hidden");
         summarySubscriptionContent!.classList.add("hidden");
+        summarySubscriptionHeadline!.textContent = "You'll be redirected to checkout to complete your subscription.";
+        summarySubscriptionSelection!.textContent = "Encrypted cloud sync is included with your subscription.";
         summaryFinishButton!.textContent = "Start Chatting";
     }
 }
@@ -1411,7 +1453,7 @@ function applyCloudSyncModeUi(mode: OnboardingCloudSyncMode): void {
     }
 
     cloudSyncTitle!.textContent = "Enable Cloud Sync";
-    cloudSyncSubtitle!.textContent = "Included with Pro — set it up now or keep data local";
+    cloudSyncSubtitle!.textContent = "Included with Pro, Pro Plus, and Max — set it up now or keep data local";
     cloudSyncEnableGroup!.classList.remove("hidden");
     cloudSyncPasswordConfirmGroup!.classList.remove("hidden");
     cloudSyncSkipButton!.textContent = "Keep Data Local";
@@ -1461,7 +1503,7 @@ async function hydrateRemoteSettingsForOnboarding(): Promise<boolean> {
 
     const subscription = await supabaseService.getUserSubscription();
     const tier = supabaseService.getSubscriptionTier(subscription);
-    if (tier !== "pro" && tier !== "max") {
+    if (!isCloudSyncEligibleTier(tier)) {
         hasCloudSyncEnabledForCurrentUser = false;
         return false;
     }
@@ -1830,7 +1872,7 @@ async function getOnboardingCloudSyncMode(): Promise<OnboardingCloudSyncMode | n
 
     const subscription = await supabaseService.getUserSubscription();
     const tier = supabaseService.getSubscriptionTier(subscription);
-    if (tier !== "pro" && tier !== "max") {
+    if (!isCloudSyncEligibleTier(tier)) {
         return null;
     }
 

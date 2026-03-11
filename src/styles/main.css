@@ -7061,6 +7061,14 @@ input[name="currentChat"][value="none"] {
     text-align: center;
 }
 
+.onboarding-summary-selection {
+    margin: -1.5rem auto 0;
+    max-width: 34rem;
+    color: var(--onboarding-text);
+    opacity: 0.82;
+    text-align: center;
+}
+
 .summary-feature {
     display: flex;
     flex-direction: column;
