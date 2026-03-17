@@ -86,8 +86,8 @@ const registerTabsContainer = document.querySelector<HTMLDivElement>("#onboardin
 const registerToggleRegisterButton = document.querySelector<HTMLDivElement>("#onboarding-toggle-register");
 const registerToggleLoginButton = document.querySelector<HTMLDivElement>("#onboarding-toggle-login");
 const registerTabsHighlight = document.querySelector<HTMLDivElement>("#onboarding-auth-highlight");
-const registerPanel = document.querySelector<HTMLDivElement>("#onboarding-register-panel");
-const loginPanel = document.querySelector<HTMLDivElement>("#onboarding-login-panel");
+const registerPanel = document.querySelector<HTMLFormElement>("#onboarding-register-panel");
+const loginPanel = document.querySelector<HTMLFormElement>("#onboarding-login-panel");
 const registerLoginEmailInput = document.querySelector<HTMLInputElement>("#onboarding-login-email");
 const registerLoginPasswordInput = document.querySelector<HTMLInputElement>("#onboarding-login-password");
 const registerLoginButton = document.querySelector<HTMLButtonElement>("#onboarding-btn-login-existing");
@@ -880,7 +880,7 @@ function setupRegistration(): void {
         }
     });
 
-    registerSubmitButton!.addEventListener("click", async (e) => {
+    registerPanel!.addEventListener("submit", async (e) => {
         e.preventDefault();
         
         const email = registerEmailInput!.value.trim();
@@ -944,7 +944,7 @@ function setupRegistration(): void {
         await routeToCloudSyncOrSettings();
     });
 
-    registerLoginButton!.addEventListener("click", async (event) => {
+    loginPanel!.addEventListener("submit", async (event) => {
         event.preventDefault();
 
         const email = registerLoginEmailInput!.value.trim();

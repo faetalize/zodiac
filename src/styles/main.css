@@ -194,6 +194,13 @@ select {
     font-size: 1rem;
 }
 
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+    width: 100%;
+    box-sizing: border-box;
+}
+
 /* focus-visible */
 input:focus-visible,
 textarea:focus-visible,
@@ -255,6 +262,35 @@ button:focus {
 
 .btn-primary:active {
     background-color: var(--primary-active);
+}
+
+.login-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+}
+
+#login-register-container {
+    margin-top: 1rem;
+}
+.login-actions .btn-link {
+    align-self: flex-end;
+}
+
+.btn-link {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--primary);
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.btn-link:hover {
+    color: var(--primary-hover);
 }
 
 .btn-secondary {
@@ -833,8 +869,14 @@ form {
     display: flex;
     flex-direction: column;
     transition: height 0.2s ease-in-out;
-    height: 32rem;
     width: 32rem;
+    max-width: 95%;
+    background: var(--modal-bg, var(--body-bg));
+    padding: 2.5rem;
+    border-radius: 1.5rem;
+    box-shadow: var(--elevated-ui-shadow);
+    border: var(--elevated-ui-outline);
+    box-sizing: border-box;
 }
 
 #login {
@@ -847,18 +889,12 @@ form {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    font-size: 0.85rem;
 }
 
 /* Align register terms toggle with its label */
 .register-terms-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.register-terms-row label {
-    padding: 0;
-    line-height: 1.2rem;
+    margin-bottom: 0.5rem;
 }
 
 
@@ -870,16 +906,38 @@ form {
     color: #df0707;
 }
 
-#form-add-personality {
-    display: flex;
+#form-add-personality,
+#form-create-group-chat,
+#form-password-reset,
+#form-password-reset-request,
+#form-email-update {
     width: 32rem;
-    height: 32rem;
+    max-width: 95%;
 }
 
-/* Match persona creation stepper sizing for group chat creation */
-#form-create-group-chat {
+#form-password-reset,
+#form-password-reset-request,
+#form-email-update {
+    background: var(--modal-bg, var(--body-bg));
+    padding: 2.5rem;
+    border-radius: 1.5rem;
+    box-shadow: var(--elevated-ui-shadow);
+    border: var(--elevated-ui-outline);
     display: flex;
-    width: 32rem;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+#form-password-reset h1,
+#form-password-reset-request h1,
+#form-email-update h1 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 2.25rem;
+}
+
+#form-add-personality,
+#form-create-group-chat {
     height: 32rem;
 }
 
@@ -2407,7 +2465,7 @@ form {
 }
 
 .overlay-description {
-    margin: 0.5rem 0 1rem;
+    margin: 0.5rem 0 0.5rem;
     font-size: 0.9rem;
     opacity: 0.75;
 }
@@ -6852,14 +6910,10 @@ input[name="currentChat"][value="none"] {
 }
 
 .onboarding-terms {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
     padding: 0.5rem 0;
 }
 
 .onboarding-terms input[type="checkbox"] {
-    margin-top: 0.25rem;
     flex-shrink: 0;
 }
 

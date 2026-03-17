@@ -2,13 +2,13 @@ import * as supabaseService from "../../services/Supabase.service";
 import * as overlayService from "../../services/Overlay.service";
 import * as toastService from "../../services/Toast.service";
 
-const registerSubmit = document.querySelector("#btn-register-submit");
-if (!registerSubmit) {
-    console.error("Register submit button not found in the document");
-    throw new Error("Register submit button not found in the document");
+const registerForm = document.querySelector<HTMLFormElement>("#register");
+if (!registerForm) {
+    console.error("Register form not found in the document");
+    throw new Error("Register form not found in the document");
 }
 
-registerSubmit.addEventListener("click", async (e) => {
+registerForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const emailInput = document.querySelector("#register-email") as HTMLInputElement;
     const passwordInput = document.querySelector("#register-password") as HTMLInputElement;
