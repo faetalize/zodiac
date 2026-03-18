@@ -1060,7 +1060,7 @@ async function handleNarratorBeforeFirst(ctx: RpgContext): Promise<void> {
                 personalityid: NARRATOR_PERSONALITY_ID,
                 parts: [{ text: before.text }],
                 roundIndex: ctx.currentRoundIndex,
-                originModel: getNarratorOriginModel(ctx),
+                originModel: before.originModel,
             };
 
             const narratorIndex = ctx.workingChat.content.length;
@@ -1099,7 +1099,7 @@ async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
             personalityid: NARRATOR_PERSONALITY_ID,
             parts: [{ text: interjection.text }],
             roundIndex: ctx.currentRoundIndex,
-            originModel: getNarratorOriginModel(ctx),
+            originModel: interjection.originModel,
         };
 
         const interjectionIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
@@ -1142,14 +1142,18 @@ async function handleNarratorAfterRound(ctx: RpgContext): Promise<void> {
             signal: ctx.abortController?.signal,
         });
 
-        const afterText = after?.text?.trim() || "";
-        if (!ctx.abortController?.signal.aborted && afterText) {
+        if (!after || ctx.abortController?.signal.aborted) {
+            return;
+        }
+
+        const afterText = after.text.trim();
+        if (afterText) {
             const afterMessage: Message = {
                 role: "model",
                 personalityid: NARRATOR_PERSONALITY_ID,
                 parts: [{ text: afterText }],
                 roundIndex: ctx.currentRoundIndex,
-                originModel: getNarratorOriginModel(ctx),
+                originModel: after.originModel,
             };
 
             const afterIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
@@ -1175,17 +1179,21 @@ interface NarratorGenerationArgs {
     signal?: AbortSignal;
 }
 
-async function generateNarratorMessageResilient(args: NarratorGenerationArgs): Promise<TextAndThinking | null> {
+interface NarratorGenerationResult extends TextAndThinking {
+    originModel: string;
+}
+
+async function generateNarratorMessageResilient(args: NarratorGenerationArgs): Promise<NarratorGenerationResult | null> {
     const primary = await generateNarratorMessage(args);
     if (primary?.text?.trim()) {
-        return { text: primary.text.trim(), thinking: "" };
+        return { ...primary, text: primary.text.trim(), thinking: "" };
     }
     if (args.signal?.aborted) return null;
 
     try {
         const retry = await generateNarratorMessage({ ...args, history: [] });
         if (retry?.text?.trim()) {
-            return { text: retry.text.trim(), thinking: "" };
+            return { ...retry, text: retry.text.trim(), thinking: "" };
         }
     } catch {
         // Ignore
@@ -1194,7 +1202,7 @@ async function generateNarratorMessageResilient(args: NarratorGenerationArgs): P
     return null;
 }
 
-async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<TextAndThinking | null> {
+async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<NarratorGenerationResult | null> {
     const { mode, history, scenarioPrompt, participantNames, userName, rosterSystemPrompt, settings, isPremiumEndpointPreferred, signal } = args;
 
     const narratorSystemInstructionText = (
@@ -1227,7 +1235,7 @@ async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<Te
         const trimmed = raw.trim();
         if (!trimmed) return null;
 
-        return { text: trimmed, thinking: "" };
+        return { text: trimmed, thinking: "", originModel: narratorModel };
 
     } catch (err: any) {
         if (err?.name === "AbortError") return null;
@@ -1365,17 +1373,6 @@ function shouldTriggerIndependentAction(independence: number): boolean {
     const clampedIndependence = Math.max(0, Math.min(3, Math.trunc(independence)));
     const threshold = thresholds[clampedIndependence] ?? 0;
     return Math.random() < threshold;
-}
-
-function getNarratorOriginModel(ctx: Pick<RpgContext, "settings" | "isPremiumEndpointPreferred">): string {
-    if (ctx.isPremiumEndpointPreferred) {
-        return ChatModel.FLASH;
-    }
-
-    return getPreferredNarratorLocalModel({
-        geminiApiKey: ctx.settings.geminiApiKey || ctx.settings.apiKey,
-        openRouterApiKey: ctx.settings.openRouterApiKey,
-    });
 }
 
 function buildTurnInstruction(args: { participantsLine: string; speakerName: string; useIndependentAction: boolean }): string {

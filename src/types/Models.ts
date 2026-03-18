@@ -25,6 +25,12 @@ export enum ImageEditModel {
     PRUNA = "pruna",
 }
 
+export enum ImageEditModelLabel {
+    SEEDREAM = "Seedream 4.0 Edit",
+    QWEN = "Qwen Image Edit",
+    PRUNA = "P-Image Edit",
+}
+
 export type ModelProvider = "gemini" | "openrouter";
 
 export interface ChatModelDefinition {
@@ -285,6 +291,26 @@ export function getAccessibleChatModels(access: ChatModelAccess): ChatModelDefin
 
 export function formatChatModelLabel(model: Pick<ChatModelDefinition, "label" | "mega">): string {
     return model.mega ? `${model.label} [MEGA]` : model.label;
+}
+
+const imageModelLabelMap = new Map<string, string>([
+    [ImageModel.ULTRA, ImageModelLabel.ULTRA],
+    [ImageModel.ILLUSTRIOUS, ImageModelLabel.ILLUSTRIOUS],
+    [ImageModel.BLXL, ImageModelLabel.BLXL],
+    [ImageEditModel.SEEDREAM, ImageEditModelLabel.SEEDREAM],
+    [ImageEditModel.QWEN, ImageEditModelLabel.QWEN],
+    [ImageEditModel.PRUNA, ImageEditModelLabel.PRUNA],
+]);
+
+export function formatOriginModelLabel(originModel: string | null | undefined): string {
+    if (!originModel) return "";
+
+    const chatDefinition = getChatModelDefinition(originModel);
+    if (chatDefinition) {
+        return formatChatModelLabel(chatDefinition);
+    }
+
+    return imageModelLabelMap.get(originModel) ?? originModel;
 }
 
 export function getDefaultChatModel(access: ChatModelAccess): string {

@@ -1711,8 +1711,9 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 // ================================================================================
 
 async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | undefined> {
+    const imageGenerationModel = ctx.settings.imageModel || "imagen-4.0-ultra-generate-001";
     const payload = {
-        model: ctx.settings.imageModel || "imagen-4.0-ultra-generate-001",
+        model: imageGenerationModel,
         prompt: ctx.msg,
         config: {
             numberOfImages: 1,
@@ -1739,7 +1740,7 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
         if (!response.ok) {
             const responseError = (await response.json()).error;
             danger({ text: responseError, title: "Image generation failed" });
-            await persistUserAndModel(ctx.userMessage, createImageGenerationErrorMessage(ctx.selectedPersonalityId, isGeminiModel(ctx.settings.model) ? ctx.settings.model : (ctx.settings.imageModel || "imagen-4.0-ultra-generate-001")));
+            await persistUserAndModel(ctx.userMessage, createImageGenerationErrorMessage(ctx.selectedPersonalityId, imageGenerationModel));
             await finalizeResponseElement(ctx.responseElement);
             endGeneration();
             return ctx.userMessageElement;
@@ -1758,7 +1759,7 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
         if (!response || !response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
             const extraMessage = response?.generatedImages?.[0]?.raiFilteredReason;
             danger({ text: `${extraMessage ? "Reason: " + extraMessage : ""}`, title: "Image generation failed" });
-            await persistUserAndModel(ctx.userMessage, createImageGenerationErrorMessage(ctx.selectedPersonalityId, isGeminiModel(ctx.settings.model) ? ctx.settings.model : (ctx.settings.imageModel || "imagen-4.0-ultra-generate-001")));
+            await persistUserAndModel(ctx.userMessage, createImageGenerationErrorMessage(ctx.selectedPersonalityId, imageGenerationModel));
             await finalizeResponseElement(ctx.responseElement);
             endGeneration();
             return ctx.userMessageElement;
@@ -1772,7 +1773,7 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
         parts: [{ text: "Here's the image you requested~", thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
         personalityid: ctx.selectedPersonalityId,
         generatedImages: [{ mimeType: returnedMimeType, base64: b64, thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
-        originModel: isGeminiModel(ctx.settings.model) ? ctx.settings.model : (ctx.settings.imageModel || "imagen-4.0-ultra-generate-001"),
+        originModel: imageGenerationModel,
     };
 
     await persistUserAndModel(ctx.userMessage, modelMessage);

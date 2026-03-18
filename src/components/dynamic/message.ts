@@ -12,7 +12,7 @@ import { MENTION_RE, MENTION_RE_GLOBAL } from "../../utils/mentions";
 import * as toastService from "../../services/Toast.service";
 import { dispatchAppEvent } from "../../events";
 import { resolveAttachmentFile, resolveGeneratedImageSrc, resolveThoughtSignature } from "../../utils/blobResolver";
-import { formatChatModelLabel, getChatModelDefinition } from "../../types/Models";
+import { formatOriginModelLabel } from "../../types/Models";
 
 function resolveChatIndex(element: HTMLElement): number {
     const attr = element.dataset.chatIndex;
@@ -38,32 +38,6 @@ function escapeHtml(value: string): string {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
-}
-
-function getOriginModelLabel(originModel?: string): string {
-    if (!originModel) return "";
-
-    const definition = getChatModelDefinition(originModel);
-    if (definition) {
-        return formatChatModelLabel(definition);
-    }
-
-    switch (originModel) {
-        case "imagen-4.0-ultra-generate-001":
-            return "Imagen 4.0 Ultra";
-        case "illustrious":
-            return "Illustrious (Anime)";
-        case "biglust":
-            return "BLXL (Realism)";
-        case "seedream":
-            return "Seedream";
-        case "qwen":
-            return "Qwen Image Edit";
-        case "pruna":
-            return "Pruna";
-        default:
-            return originModel;
-    }
 }
 
 async function decorateMentions(html: string): Promise<string> {
@@ -238,7 +212,7 @@ export const messageElement = async (
         const hasThinking = !!message.thinking && message.thinking.trim().length > 0;
 
         if (isNarrator) {
-            const originModelLabel = getOriginModelLabel(message.originModel);
+            const originModelLabel = formatOriginModelLabel(message.originModel);
             // Simplified narrator header - no pfp, no persona switching
             messageDiv.innerHTML =
                 `<div class="message-header narrator-header">
@@ -272,7 +246,7 @@ export const messageElement = async (
                 });
             }
         } else {
-            const originModelLabel = getOriginModelLabel(message.originModel);
+            const originModelLabel = formatOriginModelLabel(message.originModel);
             messageDiv.innerHTML =
                 `<div class="message-header">
                 <img class="pfp" src="${personality.image}" loading="lazy"></img>
