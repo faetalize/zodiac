@@ -1,4 +1,4 @@
-import { execFileSync } from "child_process";
+import { execFileSync, spawn } from "child_process";
 import path from "path";
 import readline from "readline/promises";
 import { stdin as input, stdout as output } from "process";
@@ -126,11 +126,15 @@ try {
     console.log("");
   }
 
-  const remote = (
-    await rl.question(
-      "Remote name to publish/track (optional; e.g. origin; empty for none): ",
-    )
-  ).trim();
+  const defaultRemote = remotes.includes("origin") ? "origin" : "";
+  const remotePrompt = defaultRemote
+    ? `Remote name to publish/track (optional; default: ${defaultRemote}): `
+    : "Remote name to publish/track (optional; e.g. origin; empty for none): ";
+
+  let remote = (await rl.question(remotePrompt)).trim();
+  if (!remote && defaultRemote) {
+    remote = defaultRemote;
+  }
 
   let remoteBranch = "";
   let remoteBranchExists = false;
@@ -170,6 +174,7 @@ try {
   }
 
   console.log(`Creating worktree for branch '${branchName}' at '${worktreePathInput}'...`);
+  const resolvedWorktreePath = path.resolve(process.cwd(), worktreePathInput);
 
   if (branchExists) {
     run("git", ["worktree", "add", worktreePathInput, branchName]);
@@ -186,7 +191,11 @@ try {
     run("git", ["worktree", "add", "-b", branchName, worktreePathInput]);
   }
   console.log("Running npm install on worktree...");
-  run("npm", ["install"], { cwd: path.resolve(process.cwd(), worktreePathInput) });
+  try {
+    run("npm", ["install"], { cwd: resolvedWorktreePath });
+  } catch (err) {
+    console.warn("Warning: npm install failed. Continuing with git setup...");
+  }
 
   if (remote) {
     console.log(`Publishing '${branchName}' to '${remote}/${remoteBranch}'...`);
@@ -196,6 +205,19 @@ try {
     console.log("Worktree created successfully and remote tracking configured.");
   } else {
     console.log("Worktree created successfully (no remote tracking configured). ");
+  }
+
+  const openOpencode = (
+    await rl.question("Open opencode in a new Alacritty window? (Y/n): ")
+  ).trim().toLowerCase();
+  
+  if (openOpencode !== "n" && openOpencode !== "no") {
+    console.log(`Opening opencode in ${resolvedWorktreePath}...`);
+    const child = spawn("alacritty", ["--working-directory", resolvedWorktreePath, "-e", "opencode"], {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
   }
 } finally {
   rl.close();
