@@ -666,7 +666,7 @@ async function executeParticipantTurn(args: {
 
     const placeholderIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
     const placeholderElm = placeholderIndex >= 0
-        ? await insertMessage(createModelPlaceholderMessage(meta.id, "", currentRoundIndex), placeholderIndex)
+        ? await insertMessage(createModelPlaceholderMessage(meta.id, "", currentRoundIndex, settings.model), placeholderIndex)
         : undefined;
     helpers.messageContainerScrollToBottom(true);
 
@@ -706,6 +706,7 @@ async function executeParticipantTurn(args: {
             ...createModelErrorMessage(meta.id),
             thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
             roundIndex: currentRoundIndex,
+            originModel: ctx.settings.model,
         };
         await persistMessages([modelMessage]);
         await replacePlaceholderWithPersistedMessage(placeholderElm);
@@ -739,6 +740,7 @@ async function executeParticipantTurn(args: {
         parts: [{ text: finalText }],
         thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
         roundIndex: currentRoundIndex,
+        originModel: ctx.settings.model,
     };
     await persistMessages([modelMessage]);
     await replacePlaceholderWithPersistedMessage(placeholderElm);
@@ -1058,6 +1060,7 @@ async function handleNarratorBeforeFirst(ctx: RpgContext): Promise<void> {
                 personalityid: NARRATOR_PERSONALITY_ID,
                 parts: [{ text: before.text }],
                 roundIndex: ctx.currentRoundIndex,
+                originModel: before.originModel,
             };
 
             const narratorIndex = ctx.workingChat.content.length;
@@ -1096,6 +1099,7 @@ async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
             personalityid: NARRATOR_PERSONALITY_ID,
             parts: [{ text: interjection.text }],
             roundIndex: ctx.currentRoundIndex,
+            originModel: interjection.originModel,
         };
 
         const interjectionIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
@@ -1138,13 +1142,18 @@ async function handleNarratorAfterRound(ctx: RpgContext): Promise<void> {
             signal: ctx.abortController?.signal,
         });
 
-        const afterText = after?.text?.trim() || "";
-        if (!ctx.abortController?.signal.aborted && afterText) {
+        if (!after || ctx.abortController?.signal.aborted) {
+            return;
+        }
+
+        const afterText = after.text.trim();
+        if (afterText) {
             const afterMessage: Message = {
                 role: "model",
                 personalityid: NARRATOR_PERSONALITY_ID,
                 parts: [{ text: afterText }],
                 roundIndex: ctx.currentRoundIndex,
+                originModel: after.originModel,
             };
 
             const afterIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
@@ -1170,17 +1179,21 @@ interface NarratorGenerationArgs {
     signal?: AbortSignal;
 }
 
-async function generateNarratorMessageResilient(args: NarratorGenerationArgs): Promise<TextAndThinking | null> {
+interface NarratorGenerationResult extends TextAndThinking {
+    originModel: string;
+}
+
+async function generateNarratorMessageResilient(args: NarratorGenerationArgs): Promise<NarratorGenerationResult | null> {
     const primary = await generateNarratorMessage(args);
     if (primary?.text?.trim()) {
-        return { text: primary.text.trim(), thinking: "" };
+        return { ...primary, text: primary.text.trim(), thinking: "" };
     }
     if (args.signal?.aborted) return null;
 
     try {
         const retry = await generateNarratorMessage({ ...args, history: [] });
         if (retry?.text?.trim()) {
-            return { text: retry.text.trim(), thinking: "" };
+            return { ...retry, text: retry.text.trim(), thinking: "" };
         }
     } catch {
         // Ignore
@@ -1189,7 +1202,7 @@ async function generateNarratorMessageResilient(args: NarratorGenerationArgs): P
     return null;
 }
 
-async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<TextAndThinking | null> {
+async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<NarratorGenerationResult | null> {
     const { mode, history, scenarioPrompt, participantNames, userName, rosterSystemPrompt, settings, isPremiumEndpointPreferred, signal } = args;
 
     const narratorSystemInstructionText = (
@@ -1222,7 +1235,7 @@ async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<Te
         const trimmed = raw.trim();
         if (!trimmed) return null;
 
-        return { text: trimmed, thinking: "" };
+        return { text: trimmed, thinking: "", originModel: narratorModel };
 
     } catch (err: any) {
         if (err?.name === "AbortError") return null;

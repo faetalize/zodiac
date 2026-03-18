@@ -5232,6 +5232,25 @@ body.full-width-chat #message-box {
     }
 }
 
+.message-title {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 0.15rem;
+}
+
+.message-originator {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    opacity: 0.72;
+    word-break: break-word;
+}
+
+.narrator-originator {
+    margin-top: 0.4rem;
+}
+
 .persona-switch-trigger {
     cursor: pointer;
 }

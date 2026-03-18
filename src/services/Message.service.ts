@@ -305,11 +305,23 @@ function getSelectedPersonalityId(): string {
     return parentId.startsWith("personality-") ? parentId.slice("personality-".length) : "-1";
 }
 
-function createModelPlaceholderMessage(personalityid: string, groundingContent?: string, roundIndex?: number): Message {
-    const m: Message = { role: "model", parts: [{ text: "" }], personalityid };
+function createModelPlaceholderMessage(personalityid: string, groundingContent?: string, roundIndex?: number, originModel?: string): Message {
+    const m: Message = { role: "model", parts: [{ text: "" }], personalityid, originModel };
     if (groundingContent !== undefined) (m as any).groundingContent = groundingContent;
     if (roundIndex !== undefined) m.roundIndex = roundIndex;
     return m;
+}
+
+function getPendingOriginModel(settings: ReturnType<typeof settingsService.getSettings>): string {
+    if (isImageEditingActive()) {
+        return getSelectedEditingModel();
+    }
+
+    if (isImageModeActive()) {
+        return settings.imageModel || "imagen-4.0-ultra-generate-001";
+    }
+
+    return settings.model;
 }
 
 async function persistUserAndModel(user: Message, model: Message): Promise<void> {
@@ -324,16 +336,16 @@ async function persistMessages(messages: Message[]): Promise<void> {
     await chatsService.saveChat(chat);
 }
 
-function createModelErrorMessage(selectedPersonalityId: string): Message {
-    return createErrorMessage("generation", selectedPersonalityId);
+function createModelErrorMessage(selectedPersonalityId: string, originModel?: string): Message {
+    return { ...createErrorMessage("generation", selectedPersonalityId), originModel };
 }
 
-function createImageGenerationErrorMessage(selectedPersonalityId: string): Message {
-    return createErrorMessage("image_generation", selectedPersonalityId);
+function createImageGenerationErrorMessage(selectedPersonalityId: string, originModel?: string): Message {
+    return { ...createErrorMessage("image_generation", selectedPersonalityId), originModel };
 }
 
-function createImageEditingErrorMessage(selectedPersonalityId: string): Message {
-    return createErrorMessage("image_editing", selectedPersonalityId);
+function createImageEditingErrorMessage(selectedPersonalityId: string, originModel?: string): Message {
+    return { ...createErrorMessage("image_editing", selectedPersonalityId), originModel };
 }
 
 function showGeminiProhibitedContentToast(args: { finishReason?: unknown; detail?: unknown }): void {
@@ -416,6 +428,7 @@ function createInterruptedModelMessage(args: {
     thinking?: string;
     groundingContent?: string;
     generatedImages?: GeneratedImage[];
+    originModel?: string;
 }): Message {
     const hasImages = (args.generatedImages?.length ?? 0) > 0;
     const parts: Array<{ text: string; thoughtSignature?: string }> = [];
@@ -434,6 +447,7 @@ function createInterruptedModelMessage(args: {
         thinking: args.thinking || undefined,
         generatedImages: args.generatedImages?.length ? args.generatedImages : undefined,
         interrupted: true,
+        originModel: args.originModel,
     };
 }
 
@@ -1242,7 +1256,8 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
     hljs.highlightAll();
     helpers.messageContainerScrollToBottom(true);
 
-    const responseElement = await insertMessage(createModelPlaceholderMessage(selectedPersonalityId, ""), userIndex + 1);
+    const pendingOriginModel = getPendingOriginModel(settings);
+    const responseElement = await insertMessage(createModelPlaceholderMessage(selectedPersonalityId, "", undefined, pendingOriginModel), userIndex + 1);
     helpers.messageContainerScrollToBottom(true);
 
     const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
@@ -1366,6 +1381,7 @@ async function handleAbort(ctx: SendContext, state: TextChatResponseState, ensur
         thinking: state.thinking,
         groundingContent: state.groundingContent,
         generatedImages: state.generatedImages,
+        originModel: ctx.settings.model,
     });
     await persistUserAndModel(ctx.userMessage, modelMessage);
     await finalizeResponseElement(ctx.responseElement);
@@ -1376,7 +1392,7 @@ async function handleAbort(ctx: SendContext, state: TextChatResponseState, ensur
 
 async function handleError(ctx: SendContext, error: unknown): Promise<never> {
     console.error(error);
-    await persistUserAndModel(ctx.userMessage, createModelErrorMessage(ctx.selectedPersonalityId));
+    await persistUserAndModel(ctx.userMessage, createModelErrorMessage(ctx.selectedPersonalityId, ctx.settings.model));
     await finalizeResponseElement(ctx.responseElement);
     endGeneration();
     throw error;
@@ -1394,6 +1410,7 @@ async function finalizeTextChatSuccess(ctx: SendContext, state: TextChatResponse
         groundingContent: state.groundingContent || "",
         thinking: state.thinking || undefined,
         generatedImages: state.generatedImages.length > 0 ? state.generatedImages : undefined,
+        originModel: ctx.settings.model,
     };
 
     await persistUserAndModel(ctx.userMessage, modelMessage);
@@ -1707,8 +1724,9 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 // ================================================================================
 
 async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | undefined> {
+    const imageGenerationModel = ctx.settings.imageModel || "imagen-4.0-ultra-generate-001";
     const payload = {
-        model: ctx.settings.imageModel || "imagen-4.0-ultra-generate-001",
+        model: imageGenerationModel,
         prompt: ctx.msg,
         config: {
             numberOfImages: 1,
@@ -1735,7 +1753,7 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
         if (!response.ok) {
             const responseError = (await response.json()).error;
             danger({ text: responseError, title: "Image generation failed" });
-            await persistUserAndModel(ctx.userMessage, createImageGenerationErrorMessage(ctx.selectedPersonalityId));
+            await persistUserAndModel(ctx.userMessage, createImageGenerationErrorMessage(ctx.selectedPersonalityId, imageGenerationModel));
             await finalizeResponseElement(ctx.responseElement);
             endGeneration();
             return ctx.userMessageElement;
@@ -1754,7 +1772,7 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
         if (!response || !response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
             const extraMessage = response?.generatedImages?.[0]?.raiFilteredReason;
             danger({ text: `${extraMessage ? "Reason: " + extraMessage : ""}`, title: "Image generation failed" });
-            await persistUserAndModel(ctx.userMessage, createImageGenerationErrorMessage(ctx.selectedPersonalityId));
+            await persistUserAndModel(ctx.userMessage, createImageGenerationErrorMessage(ctx.selectedPersonalityId, imageGenerationModel));
             await finalizeResponseElement(ctx.responseElement);
             endGeneration();
             return ctx.userMessageElement;
@@ -1768,6 +1786,7 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
         parts: [{ text: "Here's the image you requested~", thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
         personalityid: ctx.selectedPersonalityId,
         generatedImages: [{ mimeType: returnedMimeType, base64: b64, thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
+        originModel: imageGenerationModel,
     };
 
     await persistUserAndModel(ctx.userMessage, modelMessage);
@@ -1826,7 +1845,7 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
         if (!response.ok) {
             const errorData = await response.json();
             danger({ text: errorData.error || "Unknown error", title: "Image editing failed" });
-            await persistUserAndModel(ctx.userMessage, createImageEditingErrorMessage(ctx.selectedPersonalityId));
+            await persistUserAndModel(ctx.userMessage, createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel));
             await finalizeResponseElement(ctx.responseElement);
             endGeneration();
             return ctx.userMessageElement;
@@ -1838,7 +1857,7 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
 
         if (!editedImageBase64) {
             danger({ title: "Image editing failed", text: "No image data returned from server." });
-            await persistUserAndModel(ctx.userMessage, createImageEditingErrorMessage(ctx.selectedPersonalityId));
+            await persistUserAndModel(ctx.userMessage, createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel));
             await finalizeResponseElement(ctx.responseElement);
             endGeneration();
             return ctx.userMessageElement;
@@ -1849,6 +1868,7 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
             parts: [{ text: "Here's your edited image~", thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
             personalityid: ctx.selectedPersonalityId,
             generatedImages: [{ mimeType, base64: editedImageBase64, thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
+            originModel: editingModel,
         };
 
         await persistUserAndModel(ctx.userMessage, modelMessage);
@@ -1860,7 +1880,7 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
     } catch (error: any) {
         console.error("Image editing error:", error);
         danger({ title: "Image editing failed", text: error.message || "An unexpected error occurred" });
-        await persistUserAndModel(ctx.userMessage, createImageEditingErrorMessage(ctx.selectedPersonalityId));
+        await persistUserAndModel(ctx.userMessage, createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel));
         await finalizeResponseElement(ctx.responseElement);
         endGeneration();
         return ctx.userMessageElement;
