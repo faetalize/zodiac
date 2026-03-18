@@ -312,6 +312,18 @@ function createModelPlaceholderMessage(personalityid: string, groundingContent?:
     return m;
 }
 
+function getPendingOriginModel(settings: ReturnType<typeof settingsService.getSettings>): string {
+    if (isImageEditingActive()) {
+        return getSelectedEditingModel();
+    }
+
+    if (isImageModeActive()) {
+        return settings.imageModel || "imagen-4.0-ultra-generate-001";
+    }
+
+    return settings.model;
+}
+
 async function persistUserAndModel(user: Message, model: Message): Promise<void> {
     await persistMessages([user, model]);
 }
@@ -1244,7 +1256,8 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
     hljs.highlightAll();
     helpers.messageContainerScrollToBottom(true);
 
-    const responseElement = await insertMessage(createModelPlaceholderMessage(selectedPersonalityId, "", undefined, settings.model), userIndex + 1);
+    const pendingOriginModel = getPendingOriginModel(settings);
+    const responseElement = await insertMessage(createModelPlaceholderMessage(selectedPersonalityId, "", undefined, pendingOriginModel), userIndex + 1);
     helpers.messageContainerScrollToBottom(true);
 
     const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
