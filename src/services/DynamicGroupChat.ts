@@ -445,6 +445,7 @@ async function respondAsPersona(args: {
             personalityid: personaId,
             parts: [{ text: trimmed, thoughtSignature }],
             thinking: resultThinking?.trim() ? resultThinking : undefined,
+            originModel: settings.model,
         };
 
         // Persist + insert

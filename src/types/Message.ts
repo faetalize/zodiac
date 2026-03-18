@@ -47,4 +47,6 @@ export interface Message {
     interrupted?: boolean;
     // Round index for group chat RPG mode (groups messages into rounds)
     roundIndex?: number;
+    // Model identifier for the LLM or image model that generated this response
+    originModel?: string;
 }

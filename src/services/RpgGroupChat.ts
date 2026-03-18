@@ -666,7 +666,7 @@ async function executeParticipantTurn(args: {
 
     const placeholderIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
     const placeholderElm = placeholderIndex >= 0
-        ? await insertMessage(createModelPlaceholderMessage(meta.id, "", currentRoundIndex), placeholderIndex)
+        ? await insertMessage(createModelPlaceholderMessage(meta.id, "", currentRoundIndex, settings.model), placeholderIndex)
         : undefined;
     helpers.messageContainerScrollToBottom(true);
 
@@ -706,6 +706,7 @@ async function executeParticipantTurn(args: {
             ...createModelErrorMessage(meta.id),
             thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
             roundIndex: currentRoundIndex,
+            originModel: ctx.settings.model,
         };
         await persistMessages([modelMessage]);
         await replacePlaceholderWithPersistedMessage(placeholderElm);
@@ -739,6 +740,7 @@ async function executeParticipantTurn(args: {
         parts: [{ text: finalText }],
         thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
         roundIndex: currentRoundIndex,
+        originModel: ctx.settings.model,
     };
     await persistMessages([modelMessage]);
     await replacePlaceholderWithPersistedMessage(placeholderElm);
@@ -1058,6 +1060,7 @@ async function handleNarratorBeforeFirst(ctx: RpgContext): Promise<void> {
                 personalityid: NARRATOR_PERSONALITY_ID,
                 parts: [{ text: before.text }],
                 roundIndex: ctx.currentRoundIndex,
+                originModel: getNarratorOriginModel(ctx),
             };
 
             const narratorIndex = ctx.workingChat.content.length;
@@ -1096,6 +1099,7 @@ async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
             personalityid: NARRATOR_PERSONALITY_ID,
             parts: [{ text: interjection.text }],
             roundIndex: ctx.currentRoundIndex,
+            originModel: getNarratorOriginModel(ctx),
         };
 
         const interjectionIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
@@ -1145,6 +1149,7 @@ async function handleNarratorAfterRound(ctx: RpgContext): Promise<void> {
                 personalityid: NARRATOR_PERSONALITY_ID,
                 parts: [{ text: afterText }],
                 roundIndex: ctx.currentRoundIndex,
+                originModel: getNarratorOriginModel(ctx),
             };
 
             const afterIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
@@ -1360,6 +1365,17 @@ function shouldTriggerIndependentAction(independence: number): boolean {
     const clampedIndependence = Math.max(0, Math.min(3, Math.trunc(independence)));
     const threshold = thresholds[clampedIndependence] ?? 0;
     return Math.random() < threshold;
+}
+
+function getNarratorOriginModel(ctx: Pick<RpgContext, "settings" | "isPremiumEndpointPreferred">): string {
+    if (ctx.isPremiumEndpointPreferred) {
+        return ChatModel.FLASH;
+    }
+
+    return getPreferredNarratorLocalModel({
+        geminiApiKey: ctx.settings.geminiApiKey || ctx.settings.apiKey,
+        openRouterApiKey: ctx.settings.openRouterApiKey,
+    });
 }
 
 function buildTurnInstruction(args: { participantsLine: string; speakerName: string; useIndependentAction: boolean }): string {
