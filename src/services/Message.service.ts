@@ -696,7 +696,7 @@ async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat>
     if (currentChat) return currentChat;
 
     const response = await ai.models.generateContent({
-        model: ChatModel.FLASH_LITE_31,
+        model: ChatModel.FLASH_LITE,
         config: {
             systemInstruction: CHAT_TITLE_SYSTEM_INSTRUCTION,
             maxOutputTokens: 100,
@@ -764,7 +764,7 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
     if (currentChat) return currentChat;
 
     const payloadSettings: PremiumEndpoint.RequestSettings = {
-        model: ChatModel.FLASH_LITE_31,
+        model: ChatModel.FLASH_LITE,
         streamResponses: false,
         generate: true,
         systemInstruction: CHAT_TITLE_SYSTEM_INSTRUCTION,
