@@ -545,6 +545,14 @@ sendMessageButton.addEventListener("click", async () => {
     }
 
     try {
+        if (roleplayActionsMenu.classList.contains("btn-toggled")) {
+            const roleplaySendRequested = new CustomEvent("roleplay-send-requested", { cancelable: true });
+            const wasHandled = !window.dispatchEvent(roleplaySendRequested);
+            if (wasHandled) {
+                return;
+            }
+        }
+
         const message = serializeMessageInput();
         messageInput.innerHTML = "";
         closeMentionMenu();
