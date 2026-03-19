@@ -12,7 +12,7 @@ export async function validateGeminiApiKey(apiKey: string): Promise<boolean> {
     try {
         const ai = new GoogleGenAI({ apiKey: trimmed });
         await ai.models.generateContent({
-            model: ChatModel.FLASH_LITE_LATEST,
+            model: ChatModel.FLASH_LITE,
             contents: "Say hello.",
         });
         return true;

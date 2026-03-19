@@ -1,7 +1,7 @@
 export enum ChatModel {
     PRO = "gemini-3.1-pro-preview",
     FLASH = "gemini-3-flash-preview",
-    FLASH_LITE_LATEST = "gemini-flash-lite-latest",
+    FLASH_LITE = "gemini-3.1-flash-lite-preview",
     NANO_BANANA = "gemini-2.5-flash-image",
     NANO_BANANA_PRO = "gemini-3-pro-image-preview",
     NANO_BANANA_2 = "gemini-3.1-flash-image-preview",
@@ -62,8 +62,8 @@ export function requiresThoughtSignaturesInHistory(model: string): boolean {
 
 export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
     {
-        id: ChatModel.FLASH_LITE_LATEST,
-        label: "Gemini Flash Lite",
+        id: ChatModel.FLASH_LITE,
+        label: "Gemini 3.1 Flash Lite Preview",
         provider: "gemini",
         mega: false,
         supportsThinking: true,
@@ -74,7 +74,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
     },
     {
         id: ChatModel.FLASH,
-        label: "Gemini Flash",
+        label: "Gemini 3.0 Flash",
         provider: "gemini",
         mega: false,
         supportsThinking: true,
@@ -85,7 +85,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
     },
     {
         id: ChatModel.PRO,
-        label: "Gemini Pro",
+        label: "Gemini 3.1 Pro Preview",
         provider: "gemini",
         mega: false,
         supportsThinking: true,
@@ -97,7 +97,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
     },
     {
         id: ChatModel.NANO_BANANA_PRO,
-        label: "Gemini Pro Image (Nano Banana Pro)",
+        label: "Gemini 3.0 Pro Image (Nano Banana Pro)",
         provider: "gemini",
         mega: false,
         supportsThinking: true,
@@ -108,7 +108,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
     },
     {
         id: ChatModel.NANO_BANANA_2,
-        label: "Gemini Flash Image (Nano Banana 2)",
+        label: "Gemini 3.1 Flash Image (Nano Banana 2)",
         provider: "gemini",
         mega: false,
         supportsThinking: true,
