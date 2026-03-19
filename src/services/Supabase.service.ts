@@ -23,16 +23,15 @@ const subscriptionBadgeClasses = [
     'badge-tier-canceled'
 ];
 
-export const PASSWORD_RECOVERY_HASH = '#password-recovery';
+export const PASSWORD_RECOVERY_QUERY_PARAM = 'recovery=true';
 
 function buildPasswordRecoveryRedirectUrl(): string {
     if (typeof window === 'undefined') {
         return `${SUPABASE_URL}/auth/password-recovery`;
     }
-    const { origin, pathname, search } = window.location;
-    console.log({ origin, pathname, search });
-    return `${origin}${pathname}${search}${PASSWORD_RECOVERY_HASH}`;
-    
+    const { origin, pathname } = window.location;
+    // Use a query parameter instead of a hash to avoid interfering with Supabase's auth tokens
+    return `${origin}${pathname}?${PASSWORD_RECOVERY_QUERY_PARAM}`;
 }
 
 export async function getAuthHeaders(): Promise<Record<string, string>> {

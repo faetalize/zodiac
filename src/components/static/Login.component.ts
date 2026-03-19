@@ -1,13 +1,16 @@
 import * as supabaseService from "../../services/Supabase.service";
 import * as overlayService from "../../services/Overlay.service";
+import { openPasswordResetRequestForm } from "./PasswordReset.component";
 
-const loginSubmit = document.querySelector("#btn-login-submit");
-if (!loginSubmit) {
-    console.error("Login submit button not found in the document");
-    throw new Error("Login submit button not found in the document");
+const loginForm = document.querySelector<HTMLFormElement>("#login");
+const forgotPasswordBtn = document.querySelector("#btn-forgot-password");
+
+if (!loginForm) {
+    console.error("Login form not found in the document");
+    throw new Error("Login form not found in the document");
 }
 
-loginSubmit.addEventListener("click", async (e) => {
+loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const emailInput = document.querySelector("#email") as HTMLInputElement;
     const passwordInput = document.querySelector("#password") as HTMLInputElement;
@@ -38,3 +41,9 @@ loginSubmit.addEventListener("click", async (e) => {
         loginError.classList.remove("hidden");
     }
 });
+
+if (forgotPasswordBtn) {
+    forgotPasswordBtn.addEventListener("click", () => {
+        openPasswordResetRequestForm();
+    });
+}

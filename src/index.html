@@ -1086,7 +1086,21 @@
                 <div class="overlay-actions">
                     <button class="btn btn-primary" type="submit" id="btn-password-reset-submit">Update
                         Password</button>
-                    <button type="button" id="btn-password-reset-cancel" class="btn-textual">Cancel</button>
+                    <button type="button" id="btn-password-reset-cancel" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+
+            <form id="form-password-reset-request" class="hidden">
+                <h1>Reset Password</h1>
+                <p class="overlay-description">Enter your email address and we'll send you a link to reset your password.</p>
+                <input type="email" id="password-reset-request-email" class="input-field" placeholder="Email" autocomplete="email">
+                <div id="password-reset-request-error" class="error-message hidden">
+                    <span class="material-symbols-outlined">error</span>
+                    <span id="password-reset-request-error-message">Error sending reset email.</span>
+                </div>
+                <div class="overlay-actions">
+                    <button class="btn btn-primary" type="submit" id="btn-password-reset-request-submit">Send Reset Link</button>
+                    <button type="button" id="btn-password-reset-request-cancel" class="btn btn-secondary">Cancel</button>
                 </div>
             </form>
 
@@ -1170,34 +1184,41 @@
                     <div class="navbar-tab-highlight"></div>
                 </div>
                 <div id="login-register-container">
-                    <div id="login">
-                        <input type="text" id="email" placeholder="Email" class="input-field" autocomplete="off">
-                        <input type="password" id="password" placeholder="Password" class="input-field">
+                    <form id="login">
+                        <input type="email" id="email" placeholder="Email" class="input-field" autocomplete="off" required>
+                        <input type="password" id="password" placeholder="Password" class="input-field" required>
                         <div id="login-error" class="error-message hidden">
                             <span class="material-symbols-outlined">error</span>
                             <span id="login-error-message">Invalid email or password</span>
                         </div>
-                        <button class="btn btn-primary" id="btn-login-submit">Login</button>
-
-                    </div>
-                    <div id="register" class="hidden">
-                        <input type="text" id="register-email" placeholder="Email" class="input-field">
-                        <input type="password" id="register-password" placeholder="Password" class="input-field">
+                        <div class="login-actions">
+                            <button class="btn btn-primary" type="submit" id="btn-login-submit">Login</button>
+                            <button type="button" class="btn-link" id="btn-forgot-password">Forgot Password?</button>
+                        </div>
+                    </form>
+                    <form id="register" class="hidden">
+                        <input type="email" id="register-email" placeholder="Email" class="input-field" required>
+                        <input type="password" id="register-password" placeholder="Password" class="input-field" required>
                         <input type="password" id="register-password-confirm" placeholder="Confirm Password"
-                            class="input-field">
+                            class="input-field" required>
 
                         <div class="register-terms-row">
-                            <input type="checkbox" name="terms" id="register-terms">
-                            <label for="register-terms" class="input-field">By registering, you agree to the <a
-                                    href="terms-of-service.html">terms</a> and <a href="privacy-policy.html">privacy
-                                    policy</a></label>
+                            <label class="onboarding-checkbox-label">
+                                <input type="checkbox" name="terms" id="register-terms">
+                                <span class="onboarding-checkbox-custom"></span>
+                                <div class="onboarding-checkbox-text">
+                                    <span>By registering, you agree to the</span> <a href="terms-of-service.html">terms</a> and <a
+                                        href="privacy-policy.html">privacy
+                                        policy</a>
+                                </div>
+                            </label>
                         </div>
                         <div id="register-error" class="error-message hidden">
                             <span class="material-symbols-outlined">error</span> <span
                                 id="register-error-message">Registration failed, please try again</span>
                         </div>
-                        <button class="btn btn-primary" id="btn-register-submit">Register</button>
-                    </div>
+                        <button class="btn btn-primary" type="submit" id="btn-register-submit">Register</button>
+                    </form>
 
 
                 </div>
@@ -1893,7 +1914,7 @@
                         </div>
 
                         <div id="onboarding-auth-panels">
-                            <div id="onboarding-register-panel" class="onboarding-panel" role="tabpanel"
+                            <form id="onboarding-register-panel" class="onboarding-panel" role="tabpanel"
                                 aria-labelledby="onboarding-toggle-register" aria-hidden="false">
                                 <h2 class="onboarding-login-title">Create your account</h2>
                                 <p class="onboarding-login-description">Sign up to continue your onboarding.</p>
@@ -1907,11 +1928,14 @@
                                 </div>
 
                                 <div class="onboarding-terms">
-                                    <input type="checkbox" id="onboarding-register-terms">
-                                    <label for="onboarding-register-terms">
-                                        I agree to the <a href="terms-of-service.html" target="_blank">Terms of
-                                            Service</a> and
-                                        <a href="privacy-policy.html" target="_blank">Privacy Policy</a>
+                                    <label class="onboarding-checkbox-label">
+                                        <input type="checkbox" id="onboarding-register-terms">
+                                        <span class="onboarding-checkbox-custom"></span>
+                                        <div class="onboarding-checkbox-text">
+                                            I agree to the <a href="terms-of-service.html" target="_blank">Terms of
+                                                Service</a> and
+                                            <a href="privacy-policy.html" target="_blank">Privacy Policy</a>
+                                        </div>
                                     </label>
                                 </div>
 
@@ -1921,15 +1945,15 @@
                                 </div>
 
                                 <div class="onboarding-actions">
-                                    <button id="onboarding-btn-register"
+                                    <button id="onboarding-btn-register" type="submit"
                                         class="onboarding-btn-primary">Register</button>
-                                    <button id="onboarding-btn-skip-register" class="onboarding-btn-text">No thanks, I'd
+                                    <button id="onboarding-btn-skip-register" type="button" class="onboarding-btn-text">No thanks, I'd
                                         rather
                                         not register</button>
                                 </div>
-                            </div>
+                            </form>
 
-                            <div id="onboarding-login-panel" class="onboarding-panel onboarding-login-section hidden"
+                            <form id="onboarding-login-panel" class="onboarding-panel onboarding-login-section hidden"
                                 role="tabpanel" aria-labelledby="onboarding-toggle-login" aria-hidden="true">
                                 <h2 class="onboarding-login-title">Already have an account?</h2>
                                 <p class="onboarding-login-description">Sign in to continue your onboarding without
@@ -1941,14 +1965,14 @@
                                         placeholder="Password">
                                 </div>
                                 <div class="onboarding-actions onboarding-login-actions">
-                                    <button id="onboarding-btn-login-existing" class="onboarding-btn-primary">Log
+                                    <button id="onboarding-btn-login-existing" type="submit" class="onboarding-btn-primary">Log
                                         In</button>
                                 </div>
                                 <div id="onboarding-login-error" class="onboarding-error hidden">
                                     <span class="material-symbols-outlined">error</span>
                                     <span id="onboarding-login-error-message">Login failed</span>
                                 </div>
-                            </div>
+                            </form>
                         </div>
                     </div>
                 </div>
