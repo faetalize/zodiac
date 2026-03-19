@@ -764,7 +764,7 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
     if (currentChat) return currentChat;
 
     const payloadSettings: PremiumEndpoint.RequestSettings = {
-        model: ChatModel.FLASH_LITE_LATEST,
+        model: ChatModel.FLASH_LITE_31,
         streamResponses: false,
         generate: true,
         systemInstruction: CHAT_TITLE_SYSTEM_INSTRUCTION,
