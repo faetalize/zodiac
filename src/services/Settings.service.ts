@@ -1,7 +1,7 @@
 import { Content, HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
 import { User } from "../types/User";
-import { getDefaultChatModel, getValidChatModel } from "../types/Models";
+import { formatChatModelLabel, getAccessibleChatModels, getDefaultChatModel, getValidChatModel } from "../types/Models";
 import * as syncService from "./Sync.service";
 import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
 
@@ -10,6 +10,7 @@ const openRouterApiKeyInput = document.querySelector("#openRouterApiKeyInput") a
 const maxTokensInput = document.querySelector("#maxTokens") as HTMLInputElement;
 const temperatureInput = document.querySelector("#temperature") as HTMLInputElement;
 const modelSelect = document.querySelector("#selectedModel") as HTMLSelectElement;
+const roleplaySuggestionModelSelect = document.querySelector("#roleplaySuggestionModel") as HTMLSelectElement;
 const imageModelSelect = document.querySelector("#selectedImageModel") as HTMLSelectElement;
 const autoscrollToggle = document.querySelector("#autoscroll") as HTMLInputElement;
 const streamResponsesToggle = document.querySelector("#streamResponses") as HTMLInputElement;
@@ -30,7 +31,7 @@ const customThoughtInstructionInput = document.querySelector("#customThoughtInst
 const delimiterPreviewDialogue = document.querySelector("#delimiterPreviewDialogue") as HTMLParagraphElement;
 const delimiterPreviewAction = document.querySelector("#delimiterPreviewAction") as HTMLParagraphElement;
 const delimiterPreviewThought = document.querySelector("#delimiterPreviewThought") as HTMLParagraphElement;
-if (!geminiApiKeyInput || !openRouterApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector || !rpgGroupChatsProgressAutomaticallyToggle || !disallowPersonaPingingToggle || !dynamicGroupChatPingOnlyToggle || !fullWidthChatToggle || !uiScaleInput || !delimiterPresetSelect || !customDelimiterInstructionsContainer || !delimiterPreviewContainer || !customDialogueInstructionInput || !customActionInstructionInput || !customThoughtInstructionInput || !delimiterPreviewDialogue || !delimiterPreviewAction || !delimiterPreviewThought) {
+if (!geminiApiKeyInput || !openRouterApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !roleplaySuggestionModelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector || !rpgGroupChatsProgressAutomaticallyToggle || !disallowPersonaPingingToggle || !dynamicGroupChatPingOnlyToggle || !fullWidthChatToggle || !uiScaleInput || !delimiterPresetSelect || !customDelimiterInstructionsContainer || !delimiterPreviewContainer || !customDialogueInstructionInput || !customActionInstructionInput || !customThoughtInstructionInput || !delimiterPreviewDialogue || !delimiterPreviewAction || !delimiterPreviewThought) {
     throw new Error("One or more settings elements are missing in the DOM.");
 }
 
@@ -58,6 +59,28 @@ function getSelectedOrFallbackModel(): string {
     }
 
     return optionValues[0] || getDefaultChatModel(access);
+}
+
+function refreshRoleplaySuggestionModelOptions(): void {
+    const access = getCurrentModelAccess();
+    const available = getAccessibleChatModels(access);
+    const stored = localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) || "";
+
+    roleplaySuggestionModelSelect.replaceChildren();
+
+    const currentOption = document.createElement("option");
+    currentOption.value = "";
+    currentOption.textContent = "Use current chat model";
+    roleplaySuggestionModelSelect.append(currentOption);
+
+    available.forEach((model) => {
+        const option = document.createElement("option");
+        option.value = model.id;
+        option.textContent = formatChatModelLabel(model);
+        roleplaySuggestionModelSelect.append(option);
+    });
+
+    roleplaySuggestionModelSelect.value = available.some((model) => model.id === stored) ? stored : "";
 }
 
 function getStoredUiScale(): number {
@@ -215,6 +238,7 @@ export function initialize() {
     maxTokensInput.addEventListener("input", saveSettings);
     temperatureInput.addEventListener("input", saveSettings);
     modelSelect.addEventListener("change", saveSettings);
+    roleplaySuggestionModelSelect.addEventListener("change", saveSettings);
     imageModelSelect.addEventListener("change", saveSettings);
     autoscrollToggle.addEventListener("change", saveSettings);
     streamResponsesToggle.addEventListener("change", saveSettings);
@@ -233,6 +257,9 @@ export function initialize() {
     customDialogueInstructionInput.addEventListener("input", saveSettings);
     customActionInstructionInput.addEventListener("input", saveSettings);
     customThoughtInstructionInput.addEventListener("input", saveSettings);
+    geminiApiKeyInput.addEventListener("input", refreshRoleplaySuggestionModelOptions);
+    openRouterApiKeyInput.addEventListener("input", refreshRoleplaySuggestionModelOptions);
+    refreshRoleplaySuggestionModelOptions();
 }
 
 export function loadSettings() {
@@ -242,6 +269,8 @@ export function loadSettings() {
     maxTokensInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
     temperatureInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
     modelSelect.value = getSelectedOrFallbackModel();
+    refreshRoleplaySuggestionModelOptions();
+    roleplaySuggestionModelSelect.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) || "";
     imageModelSelect.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || "imagen-4.0-ultra-generate-001";
     imageEditModelSelector.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) || "qwen";
     autoscrollToggle.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) ? localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) === "true" : true;
@@ -280,6 +309,7 @@ export function saveSettings() {
     localStorage.setItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS, maxTokensInput.value);
     localStorage.setItem(SETTINGS_STORAGE_KEYS.TEMPERATURE, temperatureInput.value);
     localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, modelSelect.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL, roleplaySuggestionModelSelect.value);
     localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL, imageModelSelect.value);
     localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL, imageEditModelSelector.value);
     localStorage.setItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL, autoscrollToggle.checked.toString());
@@ -330,6 +360,7 @@ export function getSettings() {
             { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.OFF },
         ],
         model: modelSelect.value,
+        roleplaySuggestionModel: roleplaySuggestionModelSelect.value,
         imageModel: imageModelSelect.value,
         imageEditModel: imageEditModelSelector.value,
         autoscroll: autoscrollToggle.checked,

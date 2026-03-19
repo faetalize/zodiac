@@ -412,6 +412,20 @@
                                             <label id="label-temperature" for="temperature">0</label>
                                         </div>
                                     </div>
+                                    <div>
+                                        <label class="setting-label" for="roleplaySuggestionModel">
+                                            <span class="material-symbols-outlined">auto_awesome</span>
+                                            <span>Roleplay suggestion model</span>
+                                            <span class="material-symbols-outlined tooltip"
+                                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                                info="Chooses which model generates the four quick-reply roleplay options. Leave it on current chat model to mirror the active conversation model.">
+                                                info
+                                            </span>
+                                        </label>
+                                        <select id="roleplaySuggestionModel" class="input-field">
+                                            <option value="">Use current chat model</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                             </div>
@@ -865,6 +879,38 @@
                     <div contenteditable placeholder="Send a message to" id="messageInput" class="input-field"></div>
                     <div id="attachment-preview" class="attachment-preview-container">
                         <input type="file" name="attachments" id="attachments">
+                    </div>
+                    <div id="roleplay-panel" class="roleplay-panel hidden">
+                        <div class="roleplay-panel-header">
+                            <div class="roleplay-tab-row" role="tablist" aria-label="Roleplay mode sections">
+                                <button type="button" class="roleplay-tab active" data-roleplay-tab="dialogue">Dialogue</button>
+                                <button type="button" class="roleplay-tab" data-roleplay-tab="actions">Actions</button>
+                                <button type="button" class="roleplay-tab" data-roleplay-tab="custom">Custom</button>
+                            </div>
+                            <button type="button" class="btn btn-textual material-symbols-outlined" id="btn-roleplay-refresh" aria-label="Refresh roleplay suggestions">refresh</button>
+                        </div>
+                        <p id="roleplay-suggestion-status" class="roleplay-suggestion-status">Send a message to get four AI-generated reply options.</p>
+                        <div id="roleplay-dialogue-panel" class="roleplay-panel-body">
+                            <div id="roleplay-suggestion-grid" class="roleplay-suggestion-grid"></div>
+                        </div>
+                        <div id="roleplay-actions-panel" class="roleplay-panel-body hidden">
+                            <div id="roleplay-action-catalog" class="roleplay-action-catalog"></div>
+                        </div>
+                        <div id="roleplay-custom-panel" class="roleplay-panel-body hidden">
+                            <label class="sr-only" for="roleplay-custom-input">Custom roleplay turn</label>
+                            <textarea id="roleplay-custom-input" class="input-field roleplay-custom-input" rows="4" placeholder="Write a custom turn, then optionally mix it with selected actions."></textarea>
+                        </div>
+                        <div class="roleplay-composer-footer">
+                            <div>
+                                <div class="roleplay-footer-label">Selected actions</div>
+                                <div id="roleplay-selected-actions" class="roleplay-selected-actions"></div>
+                            </div>
+                            <div>
+                                <div class="roleplay-footer-label">Preview</div>
+                                <p id="roleplay-preview" class="roleplay-preview">Pick one of the dialogue suggestions, combine it with actions, or write a custom turn.</p>
+                            </div>
+                            <button type="button" class="btn btn-primary" id="btn-roleplay-send">Send Roleplay Turn</button>
+                        </div>
                     </div>
                     <div id="message-box-buttons">
                         <button type="button" class="btn-textual material-symbols-outlined btn"
