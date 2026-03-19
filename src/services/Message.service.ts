@@ -696,7 +696,7 @@ async function createChatIfAbsent(ai: GoogleGenAI, msg: string): Promise<DbChat>
     if (currentChat) return currentChat;
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-lite',
+        model: ChatModel.FLASH_LITE_31,
         config: {
             systemInstruction: CHAT_TITLE_SYSTEM_INSTRUCTION,
             maxOutputTokens: 100,
