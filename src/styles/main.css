@@ -7687,3 +7687,133 @@ input.onboarding-select {
     opacity: 0.6;
     margin-top: 0.25rem;
 }
+
+.roleplay-composer {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.75rem 0.75rem 0;
+}
+
+#message-box.roleplay-composer-active #messageInput {
+    display: none;
+}
+
+.roleplay-composer__header,
+.roleplay-composer__selection-bar,
+.roleplay-custom-action-form,
+.roleplay-custom-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.roleplay-composer__tabs {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.roleplay-tab {
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+}
+
+.roleplay-tab.active {
+    background: var(--button-toggled-bg);
+    color: var(--button-toggled-fg, inherit);
+}
+
+.roleplay-composer__status,
+.roleplay-selected-actions {
+    font-size: 0.9rem;
+    opacity: 0.85;
+}
+
+.roleplay-suggestions {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.roleplay-suggestion {
+    width: 100%;
+    text-align: left;
+    justify-content: flex-start;
+    white-space: normal;
+    line-height: 1.4;
+}
+
+.roleplay-actions-root {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.roleplay-action-category {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.roleplay-action-category-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.65;
+}
+
+.roleplay-action-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.roleplay-action-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--input-bg);
+}
+
+.roleplay-action-chip__select,
+.roleplay-action-chip__favorite {
+    border: 0;
+    background: transparent;
+    color: inherit;
+}
+
+.roleplay-action-chip__select {
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+}
+
+.roleplay-action-chip__favorite {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    opacity: 0.7;
+}
+
+.roleplay-action-chip.selected {
+    border-color: var(--button-toggled-bg);
+    background: color-mix(in srgb, var(--button-toggled-bg) 16%, var(--input-bg));
+}
+
+.roleplay-action-chip.favorite .roleplay-action-chip__favorite {
+    opacity: 1;
+    color: #f5b301;
+}
+
+.roleplay-custom-payload {
+    resize: vertical;
+    min-height: 6rem;
+}
+
+.roleplay-empty-state {
+    font-size: 0.9rem;
+    opacity: 0.7;
+}
