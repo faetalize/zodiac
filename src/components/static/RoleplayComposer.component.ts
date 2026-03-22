@@ -98,6 +98,8 @@ let lastLoadedChatId: string | null = null;
 let isGenerating = false;
 let hasPremiumModelAccess = false;
 
+type StoredCustomAction = string | { id?: string; text?: string };
+
 function parseStoredArray(key: string): string[] {
     try {
         const raw = localStorage.getItem(key);
@@ -113,20 +115,78 @@ function saveStoredArray(key: string, values: string[]): void {
     localStorage.setItem(key, JSON.stringify(values));
 }
 
+function buildCustomActionId(text: string): string {
+    return `custom-${encodeURIComponent(text.trim().toLowerCase())}`;
+}
+
+function createCustomAction(text: string, id = buildCustomActionId(text)): RoleplayAction {
+    return {
+        id,
+        label: text.length > 22 ? `${text.slice(0, 22)}...` : text,
+        text,
+        category: "custom",
+        custom: true,
+    };
+}
+
+function parseStoredCustomActions(): RoleplayAction[] {
+    try {
+        const raw = localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_CUSTOM_ACTIONS);
+        if (!raw) return [];
+
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+
+        return parsed.flatMap((value) => {
+            if (typeof value === "string") {
+                const text = value.trim();
+                return text ? [createCustomAction(text)] : [];
+            }
+
+            if (!value || typeof value !== "object") {
+                return [];
+            }
+
+            const stored = value as Exclude<StoredCustomAction, string>;
+            const text = typeof stored.text === "string" ? stored.text.trim() : "";
+            if (!text) return [];
+
+            const id = typeof stored.id === "string" && stored.id.trim()
+                ? stored.id.trim()
+                : buildCustomActionId(text);
+
+            return [createCustomAction(text, id)];
+        });
+    } catch {
+        return [];
+    }
+}
+
+function hasSuggestionModelAccess(): boolean {
+    return getAccessibleChatModels(buildAccess()).length > 0;
+}
+
+function syncSuggestionControls(): void {
+    const hasAccess = hasSuggestionModelAccess();
+    ensuredRoleplaySuggestionModelSelect.disabled = !hasAccess;
+    ensuredRoleplayRefreshButton.disabled = isGenerating || !hasAccess;
+}
+
 function loadActionState(): void {
-    favoriteActionIds = new Set(parseStoredArray(SETTINGS_STORAGE_KEYS.ROLEPLAY_FAVORITE_ACTIONS));
-    customActions = parseStoredArray(SETTINGS_STORAGE_KEYS.ROLEPLAY_CUSTOM_ACTIONS)
-        .map((text, index) => ({
-            id: `custom-${index}-${text.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-            label: text.length > 22 ? `${text.slice(0, 22)}…` : text,
-            text,
-            category: "custom" as const,
-            custom: true,
-        }));
+    customActions = parseStoredCustomActions();
+
+    const allActionIds = new Set(getAllActions().map((action) => action.id));
+    favoriteActionIds = new Set(
+        parseStoredArray(SETTINGS_STORAGE_KEYS.ROLEPLAY_FAVORITE_ACTIONS)
+            .filter((actionId) => allActionIds.has(actionId))
+    );
 }
 
 function persistCustomActions(): void {
-    saveStoredArray(SETTINGS_STORAGE_KEYS.ROLEPLAY_CUSTOM_ACTIONS, customActions.map((action) => action.text));
+    localStorage.setItem(
+        SETTINGS_STORAGE_KEYS.ROLEPLAY_CUSTOM_ACTIONS,
+        JSON.stringify(customActions.map((action) => ({ id: action.id, text: action.text })))
+    );
 }
 
 function getAllActions(): RoleplayAction[] {
@@ -393,6 +453,7 @@ function populateRoleplayModelOptions(): void {
         option.selected = true;
         option.textContent = "Add access to enable roleplay suggestions";
         ensuredRoleplaySuggestionModelSelect.append(option);
+        syncSuggestionControls();
         return;
     }
 
@@ -404,6 +465,7 @@ function populateRoleplayModelOptions(): void {
     }
 
     ensuredRoleplaySuggestionModelSelect.value = getValidChatModel(currentValue, access);
+    syncSuggestionControls();
 }
 
 async function requestWithPremiumEndpoint(model: string, systemInstruction: string, userPrompt: string): Promise<string> {
@@ -484,12 +546,20 @@ async function refreshSuggestions(force = false): Promise<void> {
     const signature = buildSuggestionSignature(chat?.id || null, personality.name, transcript);
     if (!force && signature === lastSuggestionSignature) return;
 
+    if (!hasSuggestionModelAccess()) {
+        suggestionOptions = [];
+        renderSuggestions();
+        setStatus("Add a Gemini or OpenRouter key, or upgrade, to enable roleplay suggestions.");
+        syncSuggestionControls();
+        return;
+    }
+
     setStatus("Generating roleplay suggestions…");
     ensuredRoleplayRefreshButton.disabled = true;
 
     try {
         const settings = settingsService.getSettings();
-        const model = settings.roleplaySuggestionModel || settings.model;
+        const model = getValidChatModel(settings.roleplaySuggestionModel || settings.model, buildAccess());
         const { systemInstruction, userPrompt } = buildSuggestionPrompts({
             transcript,
             personaName: personality.name,
@@ -519,7 +589,7 @@ async function refreshSuggestions(force = false): Promise<void> {
         console.error(error);
         toastService.warn({ title: "Roleplay suggestions unavailable", text: error?.message || String(error) });
     } finally {
-        ensuredRoleplayRefreshButton.disabled = false;
+        syncSuggestionControls();
     }
 }
 
@@ -580,13 +650,7 @@ ensuredRoleplayAddActionButton.addEventListener("click", () => {
         toastService.warn({ title: "Action already exists", text: "That custom action is already in your list." });
         return;
     }
-    customActions.unshift({
-        id: `custom-${Date.now()}`,
-        label: text.length > 22 ? `${text.slice(0, 22)}…` : text,
-        text,
-        category: "custom",
-        custom: true,
-    });
+    customActions.unshift(createCustomAction(text));
     ensuredRoleplayCustomActionInput.value = "";
     persistCustomActions();
     renderActions();
@@ -621,7 +685,7 @@ window.addEventListener("generation-state-changed", async (event: Event) => {
     isGenerating = !!detail?.isGenerating;
 
     if (composerEnabled) {
-        ensuredRoleplayRefreshButton.disabled = isGenerating;
+        syncSuggestionControls();
         ensuredRoleplaySendCustomButton.disabled = isGenerating;
     }
 
