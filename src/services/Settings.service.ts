@@ -16,6 +16,7 @@ const streamResponsesToggle = document.querySelector("#streamResponses") as HTML
 const enableThinkingSelect = document.querySelector("#enableThinkingSelect") as HTMLSelectElement;
 const thinkingBudgetInput = document.querySelector("#thinkingBudget") as HTMLInputElement;
 const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel") as HTMLSelectElement;
+const roleplaySuggestionModelSelect = document.querySelector<HTMLSelectElement>("#roleplaySuggestionModel") as HTMLSelectElement;
 const rpgGroupChatsProgressAutomaticallyToggle = document.querySelector("#rpgGroupChatsProgressAutomatically") as HTMLInputElement;
 const disallowPersonaPingingToggle = document.querySelector("#disallowPersonaPinging") as HTMLInputElement;
 const dynamicGroupChatPingOnlyToggle = document.querySelector("#dynamicGroupChatPingOnly") as HTMLInputElement;
@@ -30,7 +31,7 @@ const customThoughtInstructionInput = document.querySelector("#customThoughtInst
 const delimiterPreviewDialogue = document.querySelector("#delimiterPreviewDialogue") as HTMLParagraphElement;
 const delimiterPreviewAction = document.querySelector("#delimiterPreviewAction") as HTMLParagraphElement;
 const delimiterPreviewThought = document.querySelector("#delimiterPreviewThought") as HTMLParagraphElement;
-if (!geminiApiKeyInput || !openRouterApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector || !rpgGroupChatsProgressAutomaticallyToggle || !disallowPersonaPingingToggle || !dynamicGroupChatPingOnlyToggle || !fullWidthChatToggle || !uiScaleInput || !delimiterPresetSelect || !customDelimiterInstructionsContainer || !delimiterPreviewContainer || !customDialogueInstructionInput || !customActionInstructionInput || !customThoughtInstructionInput || !delimiterPreviewDialogue || !delimiterPreviewAction || !delimiterPreviewThought) {
+if (!geminiApiKeyInput || !openRouterApiKeyInput || !maxTokensInput || !temperatureInput || !modelSelect || !imageModelSelect || !autoscrollToggle || !streamResponsesToggle || !enableThinkingSelect || !thinkingBudgetInput || !imageEditModelSelector || !roleplaySuggestionModelSelect || !rpgGroupChatsProgressAutomaticallyToggle || !disallowPersonaPingingToggle || !dynamicGroupChatPingOnlyToggle || !fullWidthChatToggle || !uiScaleInput || !delimiterPresetSelect || !customDelimiterInstructionsContainer || !delimiterPreviewContainer || !customDialogueInstructionInput || !customActionInstructionInput || !customThoughtInstructionInput || !delimiterPreviewDialogue || !delimiterPreviewAction || !delimiterPreviewThought) {
     throw new Error("One or more settings elements are missing in the DOM.");
 }
 
@@ -192,6 +193,51 @@ function updateDelimiterPreview(): void {
     delimiterPreviewThought.textContent = `Thought: ${preview.thought}`;
 }
 
+export function getStoredRoleplaySuggestionModel(): string {
+    return localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) || modelSelect.value || getSelectedOrFallbackModel();
+}
+
+function formatRoleplayTextWithInstruction(text: string, instruction: string, fallbackWrapper: [string, string]): string {
+    const trimmed = text.trim();
+    if (!trimmed) return "";
+
+    const lower = instruction.toLowerCase();
+    if (lower.includes("plain text") || lower.includes("without wrapping") || lower.includes("plain prose") || lower.includes("without any markers")) {
+        return trimmed;
+    }
+    if (lower.includes("double quotes") || lower.includes("between quotes")) {
+        return `"${trimmed}"`;
+    }
+    if (lower.includes("single quotes") || lower.includes("apostrophe")) {
+        return `'${trimmed}'`;
+    }
+    if (lower.includes("curly quotes")) {
+        return `“${trimmed}”`;
+    }
+    if (lower.includes("asterisk")) {
+        return `*${trimmed}*`;
+    }
+    if (lower.includes("double bracket")) {
+        return `[[${trimmed}]]`;
+    }
+    if (lower.includes("bracket")) {
+        return `[${trimmed}]`;
+    }
+    if (lower.includes("parentheses")) {
+        return `(${trimmed})`;
+    }
+
+    return `${fallbackWrapper[0]}${trimmed}${fallbackWrapper[1]}`;
+}
+
+export function formatRoleplayDialogue(text: string): string {
+    return formatRoleplayTextWithInstruction(text, getEffectiveDelimiterInstructions().dialogue, ["", ""]);
+}
+
+export function formatRoleplayAction(text: string): string {
+    return formatRoleplayTextWithInstruction(text, getEffectiveDelimiterInstructions().action, ["(", ")"]);
+}
+
 function buildRoleplayGuidelinesPrompt(): string {
     const preset = getStoredDelimiterPreset();
     const instructions = getEffectiveDelimiterInstructions();
@@ -226,6 +272,7 @@ export function initialize() {
     uiScaleInput.addEventListener("input", saveSettings);
     thinkingBudgetInput.addEventListener("input", saveSettings);
     imageEditModelSelector.addEventListener("change", saveSettings);
+    roleplaySuggestionModelSelect.addEventListener("change", saveSettings);
     delimiterPresetSelect.addEventListener("change", () => {
         updateDelimiterCustomizationVisibility();
         saveSettings();
@@ -244,6 +291,7 @@ export function loadSettings() {
     modelSelect.value = getSelectedOrFallbackModel();
     imageModelSelect.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || "imagen-4.0-ultra-generate-001";
     imageEditModelSelector.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) || "qwen";
+    roleplaySuggestionModelSelect.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) || modelSelect.value;
     autoscrollToggle.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) ? localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) === "true" : true;
     // Default ON when not set
     streamResponsesToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES) ?? "true") === "true";
@@ -282,6 +330,7 @@ export function saveSettings() {
     localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, modelSelect.value);
     localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL, imageModelSelect.value);
     localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL, imageEditModelSelector.value);
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL, roleplaySuggestionModelSelect.value || modelSelect.value);
     localStorage.setItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL, autoscrollToggle.checked.toString());
     localStorage.setItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES, streamResponsesToggle.checked.toString());
     localStorage.setItem(SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY, rpgGroupChatsProgressAutomaticallyToggle.checked.toString());
@@ -332,6 +381,7 @@ export function getSettings() {
         model: modelSelect.value,
         imageModel: imageModelSelect.value,
         imageEditModel: imageEditModelSelector.value,
+        roleplaySuggestionModel: roleplaySuggestionModelSelect.value || modelSelect.value,
         autoscroll: autoscrollToggle.checked,
         streamResponses: streamResponsesToggle.checked,
         rpgGroupChatsProgressAutomatically: rpgGroupChatsProgressAutomaticallyToggle.checked,
