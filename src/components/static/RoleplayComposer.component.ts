@@ -9,15 +9,15 @@ import * as supabaseService from "../../services/Supabase.service";
 import * as toastService from "../../services/Toast.service";
 import { shouldPreferPremiumEndpoint } from "./ApiKeyInput.component";
 import { buildOpenRouterRequest, requestOpenRouterCompletion } from "../../services/OpenRouter.service";
-import { formatChatModelLabel, getAccessibleChatModels, getValidChatModel, isOpenRouterModel, modelSupportsTemperature } from "../../types/Models";
+import { formatChatModelLabel, getAccessibleChatModels, getValidChatModel, isOpenRouterModel, modelRequiresThinking, modelSupportsTemperature } from "../../types/Models";
 import { SUPABASE_URL } from "../../services/Supabase.service";
 import type { PremiumEndpoint } from "../../types/PremiumEndpoint";
+import { UNRESTRICTED_SAFETY_SETTINGS } from "../../utils/chatHistoryBuilder";
 
 const roleplayButton = document.querySelector<HTMLButtonElement>("#btn-roleplay");
 const messageBox = document.querySelector<HTMLDivElement>("#message-box");
 const sendButton = document.querySelector<HTMLButtonElement>("#btn-send");
 const roleplayComposer = document.querySelector<HTMLDivElement>("#roleplay-composer");
-const roleplayStatus = document.querySelector<HTMLDivElement>("#roleplay-composer-status");
 const roleplaySuggestions = document.querySelector<HTMLDivElement>("#roleplay-suggestions");
 const roleplayActionsRoot = document.querySelector<HTMLDivElement>("#roleplay-actions-root");
 const roleplaySelectedActions = document.querySelector<HTMLDivElement>("#roleplay-selected-actions");
@@ -31,7 +31,7 @@ const roleplayTabButtons = Array.from(document.querySelectorAll<HTMLButtonElemen
 const roleplayPanels = Array.from(document.querySelectorAll<HTMLDivElement>("[data-roleplay-panel]"));
 const roleplaySuggestionModelSelect = document.querySelector<HTMLSelectElement>("#roleplaySuggestionModel");
 
-if (!roleplayButton || !messageBox || !sendButton || !roleplayComposer || !roleplayStatus || !roleplaySuggestions || !roleplayActionsRoot || !roleplaySelectedActions || !roleplayClearActionsButton || !roleplayRefreshButton || !roleplayCustomPayload || !roleplaySendCustomButton || !roleplayCustomActionInput || !roleplayAddActionButton || !roleplaySuggestionModelSelect || roleplayTabButtons.length === 0 || roleplayPanels.length === 0) {
+if (!roleplayButton || !messageBox || !sendButton || !roleplayComposer || !roleplaySuggestions || !roleplayActionsRoot || !roleplaySelectedActions || !roleplayClearActionsButton || !roleplayRefreshButton || !roleplayCustomPayload || !roleplaySendCustomButton || !roleplayCustomActionInput || !roleplayAddActionButton || !roleplaySuggestionModelSelect || roleplayTabButtons.length === 0 || roleplayPanels.length === 0) {
     console.error("Roleplay composer component initialization failed.");
     throw new Error("Missing roleplay composer DOM elements.");
 }
@@ -40,7 +40,6 @@ const ensuredRoleplayButton = roleplayButton;
 const ensuredMessageBox = messageBox;
 const ensuredSendButton = sendButton;
 const ensuredRoleplayComposer = roleplayComposer;
-const ensuredRoleplayStatus = roleplayStatus;
 const ensuredRoleplaySuggestions = roleplaySuggestions;
 const ensuredRoleplayActionsRoot = roleplayActionsRoot;
 const ensuredRoleplaySelectedActions = roleplaySelectedActions;
@@ -62,6 +61,25 @@ type RoleplayAction = {
     category: ActionCategory;
     custom?: boolean;
 };
+
+const ROLEPLAY_SUGGESTIONS_SCHEMA: any = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+        options: {
+            type: "array",
+            minItems: 4,
+            maxItems: 4,
+            items: {
+                type: "string",
+                minLength: 1,
+            },
+        },
+    },
+    required: ["options"],
+};
+
+const ROLEPLAY_SUGGESTIONS_MAX_OUTPUT_TOKENS = 5000;
 
 const PRESET_ACTIONS: RoleplayAction[] = [
     { id: "mood-tease", label: "Tease", text: "teases them with a sly smile", category: "mood" },
@@ -191,10 +209,6 @@ function persistCustomActions(): void {
 
 function getAllActions(): RoleplayAction[] {
     return [...PRESET_ACTIONS, ...customActions];
-}
-
-function setStatus(text: string): void {
-    ensuredRoleplayStatus.textContent = text;
 }
 
 function isRoleplayPersonaAvailable(personality: Awaited<ReturnType<typeof personalityService.getSelected>> | null, chat: Awaited<ReturnType<typeof chatsService.getCurrentChat>> | null): boolean {
@@ -394,22 +408,50 @@ function sanitizeOptions(options: string[]): string[] {
     return Array.from(unique).slice(0, 4);
 }
 
-function extractOptionsFromResponse(text: string): string[] {
+function parseRoleplaySuggestionsJson(text: string): string[] {
+    const parseOptions = (raw: unknown): string[] => {
+        const parsed = raw as { options?: unknown } | null;
+        if (!Array.isArray(parsed?.options)) return [];
+        return sanitizeOptions(parsed.options.map((value: unknown) => String(value ?? "")));
+    };
+
     try {
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed?.options)) {
-            return sanitizeOptions(parsed.options.map((value: unknown) => String(value ?? "")));
-        }
+        return parseOptions(JSON.parse(text));
     } catch {
-        // ignore and try fallbacks below
+        // continue
     }
 
-    const matches = [...text.matchAll(/"([^"]{2,120})"/g)].map((match) => match[1]);
-    if (matches.length >= 2) {
-        return sanitizeOptions(matches);
+    const lastJsonStart = text.lastIndexOf('{"options"');
+    if (lastJsonStart >= 0) {
+        const lastPart = text.slice(lastJsonStart);
+        let braceCount = 0;
+        let endIndex = -1;
+
+        for (let i = 0; i < lastPart.length; i++) {
+            if (lastPart[i] === '{') braceCount++;
+            else if (lastPart[i] === '}') {
+                braceCount--;
+                if (braceCount === 0) {
+                    endIndex = i + 1;
+                    break;
+                }
+            }
+        }
+
+        if (endIndex > 0) {
+            try {
+                return parseOptions(JSON.parse(lastPart.slice(0, endIndex)));
+            } catch {
+                // continue
+            }
+        }
     }
 
-    return sanitizeOptions(text.split(/\n+/));
+    return [];
+}
+
+function extractOptionsFromResponse(text: string): string[] {
+    return parseRoleplaySuggestionsJson(text);
 }
 
 function buildSuggestionPrompts(args: { transcript: string; personaName: string; personaPrompt: string; }): { systemInstruction: string; userPrompt: string } {
@@ -436,6 +478,34 @@ function buildAccess() {
     return {
         hasGeminiAccess: hasPremiumModelAccess || (localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "").trim().length > 0,
         hasOpenRouterAccess: hasPremiumModelAccess || (localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "").trim().length > 0,
+    };
+}
+
+function buildRoleplaySuggestionThinkingConfig(model: string): { includeThoughts: false; thinkingBudget: 0; } | undefined {
+    return modelRequiresThinking(model)
+        ? undefined
+        : { includeThoughts: false, thinkingBudget: 0 };
+}
+
+function buildRoleplaySuggestionOpenRouterResponseFormat() {
+    return {
+        type: "json_schema" as const,
+        json_schema: {
+            name: "roleplay_suggestions",
+            strict: true,
+            schema: ROLEPLAY_SUGGESTIONS_SCHEMA,
+        },
+    };
+}
+
+function buildRoleplaySuggestionBaseConfig(model: string) {
+    return {
+        maxOutputTokens: ROLEPLAY_SUGGESTIONS_MAX_OUTPUT_TOKENS,
+        temperature: modelSupportsTemperature(model) ? 0.9 : 0,
+        responseMimeType: "application/json" as const,
+        responseJsonSchema: ROLEPLAY_SUGGESTIONS_SCHEMA,
+        safetySettings: [...UNRESTRICTED_SAFETY_SETTINGS],
+        thinkingConfig: buildRoleplaySuggestionThinkingConfig(model),
     };
 }
 
@@ -469,14 +539,14 @@ function populateRoleplayModelOptions(): void {
 }
 
 async function requestWithPremiumEndpoint(model: string, systemInstruction: string, userPrompt: string): Promise<string> {
+    const baseConfig = buildRoleplaySuggestionBaseConfig(model);
+
     const payloadSettings: PremiumEndpoint.RequestSettings = {
         model,
         streamResponses: false,
         generate: true,
         systemInstruction,
-        maxOutputTokens: 250,
-        temperature: 0.9,
-        responseMimeType: "application/json",
+        ...baseConfig,
     };
 
     const response = await fetch(`${SUPABASE_URL}/functions/v1/handle-pro-request`, {
@@ -495,6 +565,7 @@ async function requestWithPremiumEndpoint(model: string, systemInstruction: stri
 
 async function requestWithLocalModel(model: string, systemInstruction: string, userPrompt: string): Promise<string> {
     const settings = settingsService.getSettings();
+    const baseConfig = buildRoleplaySuggestionBaseConfig(model);
 
     if (isOpenRouterModel(model)) {
         const apiKey = settings.openRouterApiKey.trim();
@@ -506,11 +577,12 @@ async function requestWithLocalModel(model: string, systemInstruction: string, u
                 { role: "user", content: userPrompt },
             ],
             stream: false,
-            maxTokens: 250,
-            temperature: modelSupportsTemperature(model) ? 0.9 : 0,
+            maxTokens: baseConfig.maxOutputTokens,
+            temperature: baseConfig.temperature,
             enableThinking: false,
             thinkingBudget: 0,
             isInternetSearchEnabled: false,
+            responseFormat: buildRoleplaySuggestionOpenRouterResponseFormat(),
         });
         const result = await requestOpenRouterCompletion({
             apiKey,
@@ -526,9 +598,7 @@ async function requestWithLocalModel(model: string, systemInstruction: string, u
         model,
         config: {
             systemInstruction,
-            maxOutputTokens: 250,
-            responseMimeType: "application/json",
-            ...(modelSupportsTemperature(model) ? { temperature: 0.9 } : {}),
+            ...baseConfig,
         },
         contents: userPrompt,
     });
@@ -549,12 +619,10 @@ async function refreshSuggestions(force = false): Promise<void> {
     if (!hasSuggestionModelAccess()) {
         suggestionOptions = [];
         renderSuggestions();
-        setStatus("Add a Gemini or OpenRouter key, or upgrade, to enable roleplay suggestions.");
         syncSuggestionControls();
         return;
     }
 
-    setStatus("Generating roleplay suggestions…");
     ensuredRoleplayRefreshButton.disabled = true;
 
     try {
@@ -581,11 +649,9 @@ async function refreshSuggestions(force = false): Promise<void> {
         suggestionOptions = options;
         lastSuggestionSignature = signature;
         renderSuggestions();
-        setStatus(options.length > 0 ? "Pick one of the generated replies, or queue actions before sending." : "Could not generate fresh suggestions yet.");
     } catch (error: any) {
         suggestionOptions = [];
         renderSuggestions();
-        setStatus("Refresh to try generating suggestions again.");
         console.error(error);
         toastService.warn({ title: "Roleplay suggestions unavailable", text: error?.message || String(error) });
     } finally {
