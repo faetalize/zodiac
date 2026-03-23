@@ -1174,6 +1174,32 @@
                 </p>
             </div>
 
+            <div id="modal-message-debug" class="hidden message-debug-modal">
+                <span class="material-symbols-outlined sync-modal-icon">bug_report</span>
+                <h1>Request Debug Info</h1>
+                <p class="overlay-description">
+                    Copy this payload and share it with the Zodiac dev team when they ask for reproduction details.
+                </p>
+                <div class="message-debug-summary">
+                    <div class="message-debug-row">
+                        <span class="message-debug-label">Mode</span>
+                        <span id="message-debug-mode-value" class="message-debug-value">Unavailable</span>
+                    </div>
+                    <div class="message-debug-row">
+                        <span class="message-debug-label">Premium endpoint</span>
+                        <span id="message-debug-premium-value" class="message-debug-value">Unavailable</span>
+                    </div>
+                    <div class="message-debug-row">
+                        <span class="message-debug-label">Request slug</span>
+                        <span id="message-debug-slug-value" class="message-debug-value">Unavailable</span>
+                    </div>
+                </div>
+                <pre id="message-debug-payload" class="message-debug-payload"></pre>
+                <div class="overlay-actions">
+                    <button id="btn-copy-message-debug" class="btn btn-primary" type="button">Copy debug info</button>
+                </div>
+            </div>
+
             <div id="login-register-tabs" class="hidden">
                 <div class="navbar" data-target-id="login-register-container">
                     <div class="navbar-tab active">Login</div>

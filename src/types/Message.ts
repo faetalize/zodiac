@@ -27,6 +27,27 @@ export interface GeneratedImage {
     _thoughtSignatureRef?: BlobReference;
 }
 
+export type MessageDebugMode = "normal" | "image_generation" | "image_editing";
+
+export interface MessageDebugInfo {
+    mode: MessageDebugMode;
+    premiumEndpointEnabled: boolean;
+    requestSlug?: string;
+    chatSettings: {
+        model: string;
+        maxOutputTokens: number;
+        temperature: number;
+        streamResponses: boolean;
+        thinkingEnabled: boolean;
+        thinkingBudget: number;
+    };
+    modeSettings?: {
+        requestModel?: string;
+        imageModel?: string;
+        imageEditingModel?: string;
+    };
+}
+
 export interface Message {
     role: "user" | "model";
     parts: Array<{
@@ -49,4 +70,5 @@ export interface Message {
     roundIndex?: number;
     // Model identifier for the LLM or image model that generated this response
     originModel?: string;
+    debugInfo?: MessageDebugInfo;
 }

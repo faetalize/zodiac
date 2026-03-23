@@ -1,11 +1,35 @@
 import { DbPersonality, Personality } from '../types/Personality';
+import type { MessageDebugInfo } from '../types/Message';
 import { showElement, hideElement } from '../utils/helpers';
 import * as stepperService from './Stepper.service';
+import * as toastService from './Toast.service';
 import { dispatchElementEvent, createEmptyEvent, createEvent } from '../events';
 
 const overlay = document.querySelector<HTMLElement>(".overlay")!;
 const overlayItems = overlay.querySelector<HTMLElement>(".overlay-content")!.children;
 const personalityForm = document.querySelector<HTMLElement>("#form-add-personality")!;
+
+function formatMessageDebugInfo(debugInfo?: MessageDebugInfo): string {
+    if (!debugInfo) {
+        return JSON.stringify({
+            status: "unavailable",
+            note: "This message does not have stored request debug info.",
+        }, null, 2);
+    }
+
+    return JSON.stringify({
+        mode: debugInfo.mode,
+        premiumEndpointEnabled: debugInfo.premiumEndpointEnabled,
+        requestSlug: debugInfo.requestSlug || null,
+        chatSettings: debugInfo.chatSettings,
+        modeSettings: debugInfo.modeSettings || null,
+    }, null, 2);
+}
+
+function setCopyButtonState(button: HTMLButtonElement, copied: boolean): void {
+    button.disabled = copied;
+    button.textContent = copied ? "Copied" : "Copy debug info";
+}
 
 export function showEditChatTitleForm() {
     const editChatTitleForm = document.querySelector<HTMLElement>("#form-edit-chat-title");
@@ -69,6 +93,42 @@ export function showChangelog() {
     const whatsNew = document.querySelector<HTMLElement>("#whats-new")!;
     showElement(overlay, false);
     showElement(whatsNew, false);
+}
+
+export function showMessageDebugModal(debugInfo?: MessageDebugInfo) {
+    const modal = document.querySelector<HTMLElement>("#modal-message-debug");
+    const modeValue = document.querySelector<HTMLElement>("#message-debug-mode-value");
+    const premiumValue = document.querySelector<HTMLElement>("#message-debug-premium-value");
+    const slugValue = document.querySelector<HTMLElement>("#message-debug-slug-value");
+    const payloadValue = document.querySelector<HTMLElement>("#message-debug-payload");
+    const copyButton = document.querySelector<HTMLButtonElement>("#btn-copy-message-debug");
+
+    if (!modal || !modeValue || !premiumValue || !slugValue || !payloadValue || !copyButton) {
+        console.warn("Message debug modal elements are missing in the DOM");
+        return;
+    }
+
+    const formatted = formatMessageDebugInfo(debugInfo);
+    modeValue.textContent = debugInfo?.mode ?? "Unavailable";
+    premiumValue.textContent = debugInfo ? (debugInfo.premiumEndpointEnabled ? "Enabled" : "Disabled") : "Unavailable";
+    slugValue.textContent = debugInfo?.requestSlug || (debugInfo?.premiumEndpointEnabled ? "Pending or unavailable" : "Not used");
+    payloadValue.textContent = formatted;
+    setCopyButtonState(copyButton, false);
+    copyButton.onclick = async () => {
+        try {
+            await navigator.clipboard.writeText(formatted);
+            setCopyButtonState(copyButton, true);
+            window.setTimeout(() => setCopyButtonState(copyButton, false), 1200);
+        } catch (error) {
+            console.error("Failed to copy message debug info", error);
+            toastService.danger({
+                title: "Copy failed",
+                text: "Unable to copy the request debug info to your clipboard.",
+            });
+        }
+    };
+
+    show("modal-message-debug");
 }
 
 export function resetOverlayItems() {

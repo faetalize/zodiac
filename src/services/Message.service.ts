@@ -16,7 +16,7 @@
 import { Content, GenerateContentConfig, GoogleGenAI, createPartFromUri, BlockedReason, FinishReason } from "@google/genai";
 import hljs from "highlight.js";
 
-import type { Message, GeneratedImage } from "../types/Message";
+import type { Message, GeneratedImage, MessageDebugInfo, MessageDebugMode } from "../types/Message";
 import type { Chat, DbChat } from "../types/Chat";
 import type { DbPersonality } from "../types/Personality";
 import { ChatModel, getPreferredNarratorLocalModel, isGeminiModel, isOpenRouterModel, modelSupportsThinking, modelSupportsTemperature, requiresThoughtSignaturesInHistory } from "../types/Models";
@@ -322,6 +322,63 @@ function getPendingOriginModel(settings: ReturnType<typeof settingsService.getSe
     }
 
     return settings.model;
+}
+
+function getCurrentMessageDebugMode(): MessageDebugMode {
+    if (isImageEditingActive()) {
+        return "image_editing";
+    }
+
+    if (isImageModeActive()) {
+        return "image_generation";
+    }
+
+    return "normal";
+}
+
+function buildUserMessageDebugInfo(args: {
+    settings: ReturnType<typeof settingsService.getSettings>;
+    isPremiumEndpointPreferred: boolean;
+    isImagePremiumEndpointPreferred: boolean;
+}): MessageDebugInfo {
+    const mode = getCurrentMessageDebugMode();
+    const modeSettings = mode === "image_generation"
+        ? {
+            requestModel: args.settings.imageModel || "imagen-4.0-ultra-generate-001",
+            imageModel: args.settings.imageModel || "imagen-4.0-ultra-generate-001",
+        }
+        : mode === "image_editing"
+            ? {
+                requestModel: getSelectedEditingModel(),
+                imageEditingModel: getSelectedEditingModel(),
+            }
+            : {
+                requestModel: args.settings.model,
+            };
+
+    return {
+        mode,
+        premiumEndpointEnabled: mode === "normal"
+            ? args.isPremiumEndpointPreferred
+            : mode === "image_editing"
+                ? true
+                : args.isImagePremiumEndpointPreferred,
+        chatSettings: {
+            model: args.settings.model,
+            maxOutputTokens: parseInt(args.settings.maxTokens, 10),
+            temperature: parseInt(args.settings.temperature, 10) / 100,
+            streamResponses: args.settings.streamResponses,
+            thinkingEnabled: args.settings.enableThinking,
+            thinkingBudget: args.settings.thinkingBudget,
+        },
+        modeSettings,
+    };
+}
+
+function setUserMessageRequestSlug(userMessage: Message, requestSlug?: string): void {
+    if (!requestSlug) return;
+    if (!userMessage.debugInfo) return;
+    userMessage.debugInfo.requestSlug = requestSlug;
 }
 
 async function persistUserAndModel(user: Message, model: Message): Promise<void> {
@@ -1250,7 +1307,15 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
         { enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory }
     );
 
-    const userMessage: Message = { role: "user", parts: [{ text: msg, attachments: attachmentFiles }] };
+    const userMessage: Message = {
+        role: "user",
+        parts: [{ text: msg, attachments: attachmentFiles }],
+        debugInfo: buildUserMessageDebugInfo({
+            settings,
+            isPremiumEndpointPreferred,
+            isImagePremiumEndpointPreferred,
+        }),
+    };
     const userIndex = currentChat.content.length;
     const userMessageElement = await insertMessage(userMessage, userIndex);
     hljs.highlightAll();
@@ -1462,7 +1527,19 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
         });
     }
 
-    if (!res.ok) throw new Error(`Edge function error: ${res.status}`);
+        if (!res.ok) {
+            let responseError = `Edge function error: ${res.status}`;
+            try {
+                const errorJson = await res.json();
+                setUserMessageRequestSlug(ctx.userMessage, errorJson?.requestId);
+                if (errorJson?.error) {
+                    responseError = `Edge function error: ${res.status} - ${String(errorJson.error)}`;
+                }
+            } catch {
+                // noop
+            }
+            throw new Error(responseError);
+        }
 
     if (ctx.config.thinkingConfig?.includeThoughts) {
         ctx.ensureThinkingElements();
@@ -1480,6 +1557,9 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
                 throwOnBlocked: () => false,
                 onBlocked: () => { throw new Error("Blocked"); },
                 callbacks: {
+                    onRequestId: (requestId) => {
+                        setUserMessageRequestSlug(ctx.userMessage, requestId);
+                    },
                     onFallbackStart: () => {
                         state.finishReason = undefined;
                         state.groundingContent = "";
@@ -1512,6 +1592,7 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
         });
 
         state.finishReason = result.finishReason as any;
+        setUserMessageRequestSlug(ctx.userMessage, result.requestId);
         state.thinking = result.thinking;
         state.rawText = result.text;
         state.textSignature = result.textSignature;
@@ -1523,6 +1604,7 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
         }
     } else {
         const json = await res.json();
+        setUserMessageRequestSlug(ctx.userMessage, json?.requestId);
         if (json) {
             if (json.decensored) {
                 state.thinking += json.reasoning ?? "";
@@ -1751,7 +1833,9 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
         });
 
         if (!response.ok) {
-            const responseError = (await response.json()).error;
+            const errorData = await response.json();
+            setUserMessageRequestSlug(ctx.userMessage, errorData?.requestId);
+            const responseError = errorData.error;
             danger({ text: responseError, title: "Image generation failed" });
             await persistUserAndModel(ctx.userMessage, createImageGenerationErrorMessage(ctx.selectedPersonalityId, imageGenerationModel));
             await finalizeResponseElement(ctx.responseElement);
@@ -1759,6 +1843,7 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
             return ctx.userMessageElement;
         }
 
+        setUserMessageRequestSlug(ctx.userMessage, response.headers.get("X-Request-Id") ?? undefined);
         const arrayBuf = await response.arrayBuffer();
         b64 = await helpers.arrayBufferToBase64(arrayBuf);
         returnedMimeType = response.headers.get("Content-Type") || "image/png";
@@ -1844,6 +1929,7 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
 
         if (!response.ok) {
             const errorData = await response.json();
+            setUserMessageRequestSlug(ctx.userMessage, errorData?.requestId);
             danger({ text: errorData.error || "Unknown error", title: "Image editing failed" });
             await persistUserAndModel(ctx.userMessage, createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel));
             await finalizeResponseElement(ctx.responseElement);
@@ -1852,6 +1938,7 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
         }
 
         const result = await response.json();
+        setUserMessageRequestSlug(ctx.userMessage, result?.requestId);
         const editedImageBase64 = result.image;
         const mimeType = result.mimeType || "image/png";
 
@@ -1897,6 +1984,7 @@ export {
     persistMessages,
     createModelPlaceholderMessage,
     createModelErrorMessage,
+    buildUserMessageDebugInfo,
     showGeminiProhibitedContentToast,
     generateThinkingConfig,
     finalizeResponseElement,

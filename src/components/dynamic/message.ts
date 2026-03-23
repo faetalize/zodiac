@@ -8,6 +8,7 @@ import * as parserService from "../../services/Parser.service";
 import * as chatsService from "../../services/Chats.service";
 import { enhanceCodeBlocks, stripCodeBlockEnhancements } from "../../utils/codeBlocks";
 import * as settingsService from "../../services/Settings.service";
+import * as overlayService from "../../services/Overlay.service";
 import { MENTION_RE, MENTION_RE_GLOBAL } from "../../utils/mentions";
 import * as toastService from "../../services/Toast.service";
 import { dispatchAppEvent } from "../../events";
@@ -165,6 +166,7 @@ export const messageElement = async (
             `<div class="message-header">
             <h3 class="message-role">You:</h3>
             <div class="message-actions">
+                <button class="btn-message-debug btn-textual material-symbols-outlined" title="Show request debug info">bug_report</button>
                 <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                 <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
                 <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
@@ -316,6 +318,7 @@ export const messageElement = async (
     setupPersonaSwitching(messageDiv, message);
 
     setupMessageRegeneration(messageDiv, index);
+    setupMessageDebug(messageDiv, message);
     setupMessageClipboard(messageDiv);
     setupMessageEditing(messageDiv);
     setupGeneratedImageInteractions(messageDiv);
@@ -334,6 +337,17 @@ export const messageElement = async (
 
     return messageDiv;
 
+}
+
+function setupMessageDebug(messageElement: HTMLElement, message: Message) {
+    const debugButton = messageElement.querySelector<HTMLButtonElement>(".btn-message-debug");
+    if (!debugButton) return;
+
+    debugButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        overlayService.showMessageDebugModal(message.debugInfo);
+    });
 }
 
 function setupMessageEditing(messageElement: HTMLElement) {

@@ -27,6 +27,7 @@ import { warn } from "./Toast.service";
 
 import {
     insertMessage,
+    buildUserMessageDebugInfo,
     generateThinkingConfig,
     showGeminiProhibitedContentToast,
     SKIP_THOUGHT_SIGNATURE,
@@ -497,7 +498,15 @@ export async function sendGroupChatDynamic(args: DynamicInputArgs): Promise<HTML
     // Reset per-persona counters on user interaction.
     resetCountsForChat(chatId);
 
-    const userMessage: Message = { role: "user", parts: [{ text: trimmed, attachments: args.attachmentFiles }] };
+    const userMessage: Message = {
+        role: "user",
+        parts: [{ text: trimmed, attachments: args.attachmentFiles }],
+        debugInfo: buildUserMessageDebugInfo({
+            settings: settingsService.getSettings(),
+            isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
+            isImagePremiumEndpointPreferred: false,
+        }),
+    };
     const appended = await appendMessageToChat({ chatId, message: userMessage });
     if (!appended) {
         warn({ title: "Error", text: "Unable to append user message." });

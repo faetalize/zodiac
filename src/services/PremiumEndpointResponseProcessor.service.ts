@@ -129,6 +129,7 @@ export async function processPremiumEndpointSse(args: {
 
     if (!res.body) {
         return {
+            requestId: undefined,
             text: "",
             thinking: "",
             groundingContent: "",
@@ -144,6 +145,7 @@ export async function processPremiumEndpointSse(args: {
     const state: {
         text: string;
         thinking: string;
+        requestId?: string;
         textSignature?: string;
         finishReason?: unknown;
         groundingContent: string;
@@ -187,7 +189,15 @@ export async function processPremiumEndpointSse(args: {
             const eventBlock = buffer.slice(0, delimiterIndex);
             buffer = buffer.slice(delimiterIndex + 2);
             if (!eventBlock) continue;
-            if (eventBlock.startsWith(":")) continue;
+            if (eventBlock.startsWith(":")) {
+                const connectedMatch = eventBlock.match(/^:\s*connected\s+(\S+)/);
+                const requestId = connectedMatch?.[1]?.trim();
+                if (requestId) {
+                    state.requestId = requestId;
+                    process.callbacks?.onRequestId?.(requestId);
+                }
+                continue;
+            }
 
             const lines = eventBlock.split("\n");
             let eventName = "message";
@@ -202,6 +212,7 @@ export async function processPremiumEndpointSse(args: {
             }
             if (eventName === "done") {
                 return {
+                    requestId: state.requestId,
                     text: state.text,
                     thinking: state.thinking,
                     textSignature: state.textSignature,
@@ -224,6 +235,10 @@ export async function processPremiumEndpointSse(args: {
                 }
 
                 const mode = fallbackMeta?.mode;
+                if (fallbackMeta?.requestId && !state.requestId) {
+                    state.requestId = fallbackMeta.requestId;
+                    process.callbacks?.onRequestId?.(fallbackMeta.requestId);
+                }
                 if (mode === "restart") {
                     // Backend is restarting the response from scratch (e.g. no prefill available
                     // or the continuation attempt produced no tokens). Clear any partial Gemini output.
@@ -255,6 +270,7 @@ export async function processPremiumEndpointSse(args: {
     }
 
     return {
+        requestId: state.requestId,
         text: state.text,
         thinking: state.thinking,
         textSignature: state.textSignature,

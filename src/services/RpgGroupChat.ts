@@ -67,6 +67,7 @@ import {
     persistMessages,
     createModelPlaceholderMessage,
     createModelErrorMessage,
+    buildUserMessageDebugInfo,
     showGeminiProhibitedContentToast,
     generateThinkingConfig,
     ensureThinkingUiOnMessageElement,
@@ -607,6 +608,11 @@ async function insertUserMessage(ctx: RpgContext): Promise<HTMLElement | undefin
         role: "user",
         parts: [{ text: ctx.msg, attachments: ctx.attachmentFiles }],
         roundIndex: ctx.currentRoundIndex,
+        debugInfo: buildUserMessageDebugInfo({
+            settings: ctx.settings,
+            isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+            isImagePremiumEndpointPreferred: false,
+        }),
     };
 
     const userIndex = ctx.workingChat.content.length;

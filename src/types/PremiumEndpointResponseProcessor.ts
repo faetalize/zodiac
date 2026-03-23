@@ -4,6 +4,7 @@ export type PremiumEndpointAbortMode = "throw" | "return";
 
 export type PremiumEndpointCallbacks = {
     onFallbackStart?: (args?: { mode?: "continue" | "restart"; requestId?: string; reason?: string; hasJsonSchema?: boolean }) => void;
+    onRequestId?: (requestId: string) => void;
     onText?: (args: { delta: string; text: string }) => void | Promise<void>;
     onThinking?: (args: { delta: string; thinking: string }) => void | Promise<void>;
     onGrounding?: (args: { renderedContent: string }) => void;
@@ -22,6 +23,7 @@ export type PremiumEndpointProcessArgs = {
 };
 
 export type PremiumEndpointProcessResult = {
+    requestId?: string;
     text: string;
     thinking: string;
     textSignature?: string;

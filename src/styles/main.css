@@ -2477,6 +2477,69 @@ form {
     margin-top: 1rem;
 }
 
+.message-debug-modal {
+    width: min(42rem, 100%);
+    display: flex;
+    flex-direction: column;
+}
+
+.message-debug-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.message-debug-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--input-text-border);
+    border-radius: 0.75rem;
+    background: var(--input-bg);
+}
+
+.message-debug-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    opacity: 0.72;
+}
+
+.message-debug-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+    text-align: right;
+    word-break: break-word;
+}
+
+.message-debug-payload {
+    margin: 1rem 0 0;
+    padding: 0.95rem;
+    border-radius: 0.85rem;
+    border: 1px solid var(--input-text-border);
+    background: var(--input-bg);
+    color: var(--body-fg);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: min(24rem, 45vh);
+    overflow: auto;
+}
+
+@media (max-width: 640px) {
+    .message-debug-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .message-debug-value {
+        text-align: left;
+    }
+}
+
 /* Group chat creation overlay */
 .group-chat-participant-search {
     display: flex;
@@ -5317,6 +5380,10 @@ body.full-width-chat #message-box {
     display: flex;
     gap: 0.5rem;
     align-items: center;
+}
+
+.btn-message-debug {
+    color: var(--primary);
 }
 
 .message-text[contenteditable="true"] {
