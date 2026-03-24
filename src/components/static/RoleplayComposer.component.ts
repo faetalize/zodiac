@@ -106,6 +106,7 @@ const ACTION_CATEGORY_LABELS: Record<ActionCategory, string> = {
 };
 
 let activeTab: RoleplayTab = "dialogue";
+let activeActionCategory: ActionCategory = "favorites";
 let composerEnabled = false;
 let selectedActionIds = new Set<string>();
 let favoriteActionIds = new Set<string>();
@@ -211,6 +212,23 @@ function getAllActions(): RoleplayAction[] {
     return [...PRESET_ACTIONS, ...customActions];
 }
 
+function getAvailableActionCategories(actions = getAllActions()): ActionCategory[] {
+    const ordered: ActionCategory[] = ["favorites", "mood", "body-language", "scene", "intimacy", "custom"];
+    return ordered.filter((category) => {
+        if (category === "favorites") return actions.some((action) => favoriteActionIds.has(action.id));
+        return actions.some((action) => action.category === category);
+    });
+}
+
+function ensureActiveActionCategory(actions = getAllActions()): ActionCategory | null {
+    const available = getAvailableActionCategories(actions);
+    if (available.length === 0) return null;
+    if (!available.includes(activeActionCategory)) {
+        activeActionCategory = available[0];
+    }
+    return activeActionCategory;
+}
+
 function isRoleplayPersonaAvailable(personality: Awaited<ReturnType<typeof personalityService.getSelected>> | null, chat: Awaited<ReturnType<typeof chatsService.getCurrentChat>> | null): boolean {
     return !!personality?.roleplayEnabled && !chat?.groupChat;
 }
@@ -268,61 +286,93 @@ function toggleActionSelection(actionId: string): void {
 
 function renderActions(): void {
     const actions = getAllActions();
-    const categories: ActionCategory[] = ["favorites", "mood", "body-language", "scene", "intimacy", "custom"];
+    const activeCategory = ensureActiveActionCategory(actions);
     ensuredRoleplayActionsRoot.replaceChildren();
 
-    for (const category of categories) {
-        const relevant = category === "favorites"
-            ? actions.filter((action) => favoriteActionIds.has(action.id))
-            : actions.filter((action) => action.category === category);
-
-        if (relevant.length === 0) continue;
-
-        const section = document.createElement("section");
-        section.className = "roleplay-action-category";
-
-        const title = document.createElement("div");
-        title.className = "roleplay-action-category-title";
-        title.textContent = ACTION_CATEGORY_LABELS[category];
-        section.append(title);
-
-        const grid = document.createElement("div");
-        grid.className = "roleplay-action-grid";
-
-        for (const action of relevant) {
-            const chip = document.createElement("div");
-            chip.className = "roleplay-action-chip";
-            chip.classList.toggle("selected", selectedActionIds.has(action.id));
-            chip.classList.toggle("favorite", favoriteActionIds.has(action.id));
-
-            const selectButton = document.createElement("button");
-            selectButton.type = "button";
-            selectButton.className = "roleplay-action-chip__select";
-            selectButton.textContent = action.label;
-            selectButton.title = action.text;
-            selectButton.addEventListener("click", () => toggleActionSelection(action.id));
-
-            const favoriteButton = document.createElement("button");
-            favoriteButton.type = "button";
-            favoriteButton.className = "roleplay-action-chip__favorite material-symbols-outlined";
-            favoriteButton.textContent = favoriteActionIds.has(action.id) ? "star" : "star_outline";
-            favoriteButton.title = favoriteActionIds.has(action.id) ? "Remove favorite" : "Favorite action";
-            favoriteButton.addEventListener("click", () => toggleFavorite(action.id));
-
-            chip.append(selectButton, favoriteButton);
-            grid.append(chip);
-        }
-
-        section.append(grid);
-        ensuredRoleplayActionsRoot.append(section);
-    }
-
-    if (!ensuredRoleplayActionsRoot.childElementCount) {
+    if (!activeCategory) {
         const emptyState = document.createElement("div");
         emptyState.className = "roleplay-empty-state";
         emptyState.textContent = "Add a custom action to start building your quick menu.";
         ensuredRoleplayActionsRoot.append(emptyState);
+        return;
     }
+
+    const availableCategories = getAvailableActionCategories(actions);
+    const nav = document.createElement("div");
+    nav.className = "roleplay-action-category-nav";
+    nav.setAttribute("role", "tablist");
+    nav.setAttribute("aria-label", "Roleplay action categories");
+
+    for (const category of availableCategories) {
+        const count = category === "favorites"
+            ? actions.filter((action) => favoriteActionIds.has(action.id)).length
+            : actions.filter((action) => action.category === category).length;
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "btn roleplay-action-category-pill";
+        button.classList.toggle("active", category === activeCategory);
+        button.setAttribute("role", "tab");
+        button.setAttribute("aria-selected", String(category === activeCategory));
+        button.textContent = `${ACTION_CATEGORY_LABELS[category]} (${count})`;
+        button.addEventListener("click", () => {
+            activeActionCategory = category;
+            renderActions();
+        });
+        nav.append(button);
+    }
+
+    const section = document.createElement("section");
+    section.className = "roleplay-action-category";
+
+    const header = document.createElement("div");
+    header.className = "roleplay-action-category-header";
+
+    const title = document.createElement("div");
+    title.className = "roleplay-action-category-title";
+    title.textContent = ACTION_CATEGORY_LABELS[activeCategory];
+
+    const hint = document.createElement("div");
+    hint.className = "roleplay-action-category-hint";
+    hint.textContent = activeCategory === "favorites"
+        ? "Your starred beats stay one tap away."
+        : "Scroll sideways and tap any beat to queue it.";
+
+    header.append(title, hint);
+
+    const strip = document.createElement("div");
+    strip.className = "roleplay-action-strip";
+
+    const relevant = activeCategory === "favorites"
+        ? actions.filter((action) => favoriteActionIds.has(action.id))
+        : actions.filter((action) => action.category === activeCategory);
+
+    for (const action of relevant) {
+        const chip = document.createElement("div");
+        chip.className = "roleplay-action-chip";
+        chip.classList.toggle("selected", selectedActionIds.has(action.id));
+        chip.classList.toggle("favorite", favoriteActionIds.has(action.id));
+
+        const selectButton = document.createElement("button");
+        selectButton.type = "button";
+        selectButton.className = "roleplay-action-chip__select";
+        selectButton.textContent = action.label;
+        selectButton.title = action.text;
+        selectButton.addEventListener("click", () => toggleActionSelection(action.id));
+
+        const favoriteButton = document.createElement("button");
+        favoriteButton.type = "button";
+        favoriteButton.className = "roleplay-action-chip__favorite material-symbols-outlined";
+        favoriteButton.textContent = favoriteActionIds.has(action.id) ? "star" : "star_outline";
+        favoriteButton.title = favoriteActionIds.has(action.id) ? "Remove favorite" : "Favorite action";
+        favoriteButton.addEventListener("click", () => toggleFavorite(action.id));
+
+        chip.append(selectButton, favoriteButton);
+        strip.append(chip);
+    }
+
+    section.append(header, strip);
+    ensuredRoleplayActionsRoot.append(nav, section);
 }
 
 function getSelectedActionPayload(): string[] {
@@ -718,6 +768,7 @@ ensuredRoleplayAddActionButton.addEventListener("click", () => {
     }
     customActions.unshift(createCustomAction(text));
     ensuredRoleplayCustomActionInput.value = "";
+    activeActionCategory = "custom";
     persistCustomActions();
     renderActions();
 });

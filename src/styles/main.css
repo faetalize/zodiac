@@ -7811,12 +7811,52 @@ input.onboarding-select {
 
 .roleplay-actions-root {
     display: grid;
-    gap: 0.75rem;
+    gap: 0.6rem;
+}
+
+.roleplay-action-category-nav {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
+    scrollbar-width: thin;
+}
+
+.roleplay-action-category-pill {
+    flex: 0 0 auto;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    background: color-mix(in srgb, var(--input-bg) 88%, var(--button-bg) 12%);
+    color: inherit;
+    font-size: 0.82rem;
+    line-height: 1.1;
+}
+
+.roleplay-action-category-pill:hover:not(.active):not(:disabled) {
+    background: color-mix(in srgb, var(--input-bg) 68%, var(--button-bg) 32%);
+    border-color: color-mix(in srgb, var(--button-bg) 36%, var(--border-color));
+    transform: translateY(-1px);
+}
+
+.roleplay-action-category-pill.active {
+    background: var(--button-toggled-bg);
+    color: var(--button-toggled-fg, inherit);
+    border-color: color-mix(in srgb, var(--button-toggled-bg) 65%, var(--border-color));
 }
 
 .roleplay-action-category {
     display: grid;
-    gap: 0.5rem;
+    gap: 0.55rem;
+    padding: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--input-bg) 84%, var(--button-bg) 16%);
+}
+
+.roleplay-action-category-header {
+    display: grid;
+    gap: 0.2rem;
 }
 
 .roleplay-action-category-title {
@@ -7826,16 +7866,24 @@ input.onboarding-select {
     opacity: 0.65;
 }
 
-.roleplay-action-grid {
+.roleplay-action-category-hint {
+    font-size: 0.82rem;
+    opacity: 0.75;
+}
+
+.roleplay-action-strip {
     display: flex;
-    flex-wrap: wrap;
+    overflow-x: auto;
     gap: 0.5rem;
+    padding-bottom: 0.15rem;
+    scrollbar-width: thin;
 }
 
 .roleplay-action-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
+    flex: 0 0 auto;
     padding: 0.2rem;
     border: 1px solid var(--border-color);
     border-radius: 999px;
@@ -7859,6 +7907,7 @@ input.onboarding-select {
 .roleplay-action-chip__select {
     padding: 0.35rem 0.7rem;
     border-radius: 999px;
+    white-space: nowrap;
 }
 
 .roleplay-action-chip__select:hover {
@@ -7919,6 +7968,39 @@ input.onboarding-select {
     color: var(--button-fg);
 }
 
+.roleplay-custom-action-form {
+    justify-content: stretch;
+    align-items: stretch;
+    padding: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--input-bg) 90%, var(--button-bg) 10%);
+}
+
+.roleplay-custom-action-copy {
+    display: grid;
+    gap: 0.15rem;
+    flex: 1 1 100%;
+}
+
+.roleplay-custom-action-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.roleplay-custom-action-hint {
+    font-size: 0.8rem;
+    opacity: 0.75;
+}
+
+.roleplay-custom-action-form .input-field {
+    flex: 1 1 14rem;
+}
+
+.roleplay-custom-action-form .btn {
+    flex: 0 0 auto;
+}
+
 .roleplay-custom-action-form .btn:hover:not(:disabled),
 .roleplay-custom-actions .btn:hover:not(:disabled) {
     background: var(--button-hover-bg);
@@ -7930,9 +8012,15 @@ input.onboarding-select {
     background: var(--button-active-bg);
 }
 
-.roleplay-composer :is(.roleplay-tab, .roleplay-refresh, .roleplay-clear-actions, .roleplay-suggestion, .roleplay-action-chip__select, .roleplay-action-chip__favorite, .roleplay-custom-action-form .btn, .roleplay-custom-actions .btn):focus-visible {
+.roleplay-composer :is(.roleplay-tab, .roleplay-refresh, .roleplay-clear-actions, .roleplay-suggestion, .roleplay-action-category-pill, .roleplay-action-chip__select, .roleplay-action-chip__favorite, .roleplay-custom-action-form .btn, .roleplay-custom-actions .btn):focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--button-bg) 40%, transparent);
+}
+
+@media (max-width: 640px) {
+    .roleplay-custom-action-form .btn {
+        width: 100%;
+    }
 }
 
 .roleplay-custom-payload {
