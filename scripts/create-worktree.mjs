@@ -87,6 +87,28 @@ async function askNonEmpty(rl, prompt) {
   }
 }
 
+async function askYesNo(rl, prompt, defaultValue = true) {
+  while (true) {
+    const answer = (await rl.question(prompt)).trim().toLowerCase();
+    if (!answer) return defaultValue;
+    if (answer === "y" || answer === "yes") return true;
+    if (answer === "n" || answer === "no") return false;
+    console.log("Please answer yes or no.");
+  }
+}
+
+function defaultWorktreePathFromBranch(branchName) {
+  return path.join("..", branchName.replaceAll("/", "-"));
+}
+
+function remoteTrackingPrompt(defaultRemote) {
+  if (defaultRemote) {
+    return `Configure remote tracking/publish? (Y/n, default remote: ${defaultRemote}): `;
+  }
+
+  return "Configure remote tracking/publish? (y/N): ";
+}
+
 const rl = readline.createInterface({ input, output });
 
 try {
@@ -114,7 +136,7 @@ try {
     }
   }
 
-  const defaultWorktreePath = path.join("..", branchName);
+  const defaultWorktreePath = defaultWorktreePathFromBranch(branchName);
   const worktreePathInput =
     (await rl.question(`Worktree path (default: ${defaultWorktreePath}): `)).trim() ||
     defaultWorktreePath;
@@ -127,13 +149,18 @@ try {
   }
 
   const defaultRemote = remotes.includes("origin") ? "origin" : "";
-  const remotePrompt = defaultRemote
-    ? `Remote name to publish/track (optional; default: ${defaultRemote}): `
-    : "Remote name to publish/track (optional; e.g. origin; empty for none): ";
+  const shouldUseRemote = remotes.length > 0
+    ? await askYesNo(rl, remoteTrackingPrompt(defaultRemote), defaultRemote === "origin")
+    : false;
 
-  let remote = (await rl.question(remotePrompt)).trim();
-  if (!remote && defaultRemote) {
-    remote = defaultRemote;
+  let remote = "";
+  if (shouldUseRemote) {
+    remote = defaultRemote
+      ? (
+          (await rl.question(`Remote name to publish/track (default: ${defaultRemote}): `)).trim() ||
+          defaultRemote
+        )
+      : await askNonEmpty(rl, "Remote name to publish/track: ");
   }
 
   let remoteBranch = "";
@@ -207,16 +234,21 @@ try {
     console.log("Worktree created successfully (no remote tracking configured). ");
   }
 
-  const openOpencode = (
-    await rl.question("Open opencode in a new Alacritty window? (Y/n): ")
-  ).trim().toLowerCase();
-  
-  if (openOpencode !== "n" && openOpencode !== "no") {
+  const shouldOpenOpencode = await askYesNo(
+    rl,
+    "Open opencode in a new Alacritty window? (Y/n): ",
+  );
+
+  if (shouldOpenOpencode) {
     console.log(`Opening opencode in ${resolvedWorktreePath}...`);
-    const child = spawn("alacritty", ["--working-directory", resolvedWorktreePath, "-e", "opencode"], {
-      detached: true,
-      stdio: "ignore",
-    });
+    const child = spawn(
+      "alacritty",
+      ["--working-directory", resolvedWorktreePath, "-e", "opencode"],
+      {
+        detached: true,
+        stdio: "ignore",
+      },
+    );
     child.unref();
   }
 } finally {
