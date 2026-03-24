@@ -336,18 +336,20 @@ function getCurrentMessageDebugMode(): MessageDebugMode {
     return "normal";
 }
 
-function buildUserMessageDebugInfo(args: {
+function buildMessageDebugInfo(args: {
     settings: ReturnType<typeof settingsService.getSettings>;
+    mode: MessageDebugMode;
     isPremiumEndpointPreferred: boolean;
     isImagePremiumEndpointPreferred: boolean;
+    requestSlug?: string;
+    requestSlugs?: string[];
 }): MessageDebugInfo {
-    const mode = getCurrentMessageDebugMode();
-    const modeSettings = mode === "image_generation"
+    const modeSettings = args.mode === "image_generation"
         ? {
             requestModel: args.settings.imageModel || "imagen-4.0-ultra-generate-001",
             imageModel: args.settings.imageModel || "imagen-4.0-ultra-generate-001",
         }
-        : mode === "image_editing"
+        : args.mode === "image_editing"
             ? {
                 requestModel: getSelectedEditingModel(),
                 imageEditingModel: getSelectedEditingModel(),
@@ -357,12 +359,14 @@ function buildUserMessageDebugInfo(args: {
             };
 
     return {
-        mode,
-        premiumEndpointEnabled: mode === "normal"
+        mode: args.mode,
+        premiumEndpointEnabled: args.mode === "normal"
             ? args.isPremiumEndpointPreferred
-            : mode === "image_editing"
+            : args.mode === "image_editing"
                 ? true
                 : args.isImagePremiumEndpointPreferred,
+        requestSlug: args.requestSlug,
+        requestSlugs: args.requestSlugs,
         chatSettings: {
             model: args.settings.model,
             maxOutputTokens: parseInt(args.settings.maxTokens, 10),
@@ -375,10 +379,22 @@ function buildUserMessageDebugInfo(args: {
     };
 }
 
+function buildUserMessageDebugInfo(args: {
+    settings: ReturnType<typeof settingsService.getSettings>;
+    isPremiumEndpointPreferred: boolean;
+    isImagePremiumEndpointPreferred: boolean;
+}): MessageDebugInfo {
+    return buildMessageDebugInfo({
+        ...args,
+        mode: getCurrentMessageDebugMode(),
+    });
+}
+
 function setUserMessageRequestSlug(userMessage: Message, requestSlug?: string): void {
     if (!requestSlug) return;
     if (!userMessage.debugInfo) return;
     userMessage.debugInfo.requestSlug = requestSlug;
+    userMessage.debugInfo.requestSlugs = Array.from(new Set([...(userMessage.debugInfo.requestSlugs ?? []), requestSlug]));
 }
 
 async function persistUserAndModel(user: Message, model: Message): Promise<void> {
@@ -1984,6 +2000,7 @@ export {
     persistMessages,
     createModelPlaceholderMessage,
     createModelErrorMessage,
+    buildMessageDebugInfo,
     buildUserMessageDebugInfo,
     showGeminiProhibitedContentToast,
     generateThinkingConfig,

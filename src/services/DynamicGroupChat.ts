@@ -26,6 +26,7 @@ import { SUPABASE_URL, getAuthHeaders, getUserProfile } from "./Supabase.service
 import { warn } from "./Toast.service";
 
 import {
+    buildMessageDebugInfo,
     insertMessage,
     buildUserMessageDebugInfo,
     generateThinkingConfig,
@@ -135,6 +136,33 @@ async function refreshAfterActivity(chatId: ChatId): Promise<void> {
     }
 }
 
+async function appendRequestSlugToMessage(args: { chatId: ChatId; messageIndex: number; requestSlug?: string }): Promise<void> {
+    if (!args.requestSlug) return;
+
+    const chat = await chatsService.getChatById(args.chatId);
+    if (!chat) return;
+
+    const target = chat.content[args.messageIndex];
+    if (!target) return;
+
+    target.debugInfo ??= buildMessageDebugInfo({
+        settings: settingsService.getSettings(),
+        mode: "normal",
+        isPremiumEndpointPreferred: true,
+        isImagePremiumEndpointPreferred: false,
+    });
+    target.debugInfo.requestSlug = target.debugInfo.requestSlug || args.requestSlug;
+    target.debugInfo.requestSlugs = Array.from(new Set([...(target.debugInfo.requestSlugs ?? []), args.requestSlug]));
+    chat.lastModified = new Date();
+    await chatsService.saveChat(chat);
+}
+
+function appendRequestSlugToMessageRef(message: Message | undefined, requestSlug?: string): void {
+    if (!message?.debugInfo || !requestSlug) return;
+    message.debugInfo.requestSlug = message.debugInfo.requestSlug || requestSlug;
+    message.debugInfo.requestSlugs = Array.from(new Set([...(message.debugInfo.requestSlugs ?? []), requestSlug]));
+}
+
 async function insertIfCurrent(chatId: ChatId, message: Message, index: number): Promise<HTMLElement | null> {
     const current = chatsService.getCurrentChatId();
     if (current !== chatId) {
@@ -209,6 +237,8 @@ async function loadDynamicContext(args: {
 async function triggerResponses(args: {
     chatId: ChatId;
     senderId: "user" | string;
+    rootUserMessageIndex?: number;
+    rootUserMessageRef?: Message;
     triggeringText: string;
     isPremiumEndpointPreferred: boolean;
     isInternetSearchEnabled: boolean;
@@ -275,6 +305,8 @@ async function triggerResponses(args: {
             speakerNameById,
             userName,
             rosterSystemPrompt,
+            rootUserMessageIndex: args.rootUserMessageIndex,
+            rootUserMessageRef: args.rootUserMessageRef,
             isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
             isInternetSearchEnabled: args.isInternetSearchEnabled,
             shouldEnforceThoughtSignaturesInHistory: args.shouldEnforceThoughtSignaturesInHistory,
@@ -292,6 +324,8 @@ async function respondAsPersona(args: {
     speakerNameById: Map<string, string>;
     userName: string;
     rosterSystemPrompt: string;
+    rootUserMessageIndex?: number;
+    rootUserMessageRef?: Message;
     isPremiumEndpointPreferred: boolean;
     isInternetSearchEnabled: boolean;
     shouldEnforceThoughtSignaturesInHistory: boolean;
@@ -338,6 +372,7 @@ async function respondAsPersona(args: {
 
         let resultText = "";
         let resultThinking = "";
+        let requestSlug: string | undefined;
         let thoughtSignature: string | undefined;
 
         if (args.isPremiumEndpointPreferred) {
@@ -370,6 +405,7 @@ async function respondAsPersona(args: {
             }
 
             const json = await res.json();
+            requestSlug = json?.requestId;
             const extracted = extractTextAndThinkingFromResponse(json as GenerateContentResponse);
             resultText = extracted.text;
             resultThinking = extracted.thinking;
@@ -447,12 +483,24 @@ async function respondAsPersona(args: {
             parts: [{ text: trimmed, thoughtSignature }],
             thinking: resultThinking?.trim() ? resultThinking : undefined,
             originModel: settings.model,
+            debugInfo: buildMessageDebugInfo({
+                settings,
+                mode: "normal",
+                isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
+                isImagePremiumEndpointPreferred: false,
+                requestSlug,
+            }),
         };
 
         // Persist + insert
         const appended = await appendMessageToChat({ chatId: args.chatId, message: modelMessage });
         if (!appended) return;
         await insertIfCurrent(args.chatId, modelMessage, appended.index);
+        await appendRequestSlugToMessage({ chatId: args.chatId, messageIndex: appended.index, requestSlug });
+        if (typeof args.rootUserMessageIndex === "number") {
+            await appendRequestSlugToMessage({ chatId: args.chatId, messageIndex: args.rootUserMessageIndex, requestSlug });
+        }
+        appendRequestSlugToMessageRef(args.rootUserMessageRef, requestSlug);
         await refreshAfterActivity(args.chatId);
 
         incrementPersonaCount(args.chatId, personaId);
@@ -469,6 +517,8 @@ async function respondAsPersona(args: {
         void triggerResponses({
             chatId: args.chatId,
             senderId: personaId,
+            rootUserMessageIndex: args.rootUserMessageIndex,
+            rootUserMessageRef: args.rootUserMessageRef,
             triggeringText: cascadeText,
             isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
             isInternetSearchEnabled: args.isInternetSearchEnabled,
@@ -520,6 +570,8 @@ export async function sendGroupChatDynamic(args: DynamicInputArgs): Promise<HTML
     void triggerResponses({
         chatId,
         senderId: "user",
+        rootUserMessageIndex: appended.index,
+        rootUserMessageRef: userMessage,
         triggeringText: trimmed,
         isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
         isInternetSearchEnabled: args.isInternetSearchEnabled,

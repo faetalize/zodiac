@@ -33,6 +33,7 @@ export interface MessageDebugInfo {
     mode: MessageDebugMode;
     premiumEndpointEnabled: boolean;
     requestSlug?: string;
+    requestSlugs?: string[];
     chatSettings: {
         model: string;
         maxOutputTokens: number;

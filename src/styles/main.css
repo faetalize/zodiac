@@ -5372,6 +5372,29 @@ body.full-width-chat #message-box {
     margin-top: 0.4rem;
 }
 
+.narrator-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.4rem;
+}
+
+.narrator-footer .narrator-originator {
+    margin-top: 0;
+}
+
+.narrator-debug-actions {
+    display: inline-flex;
+    align-items: center;
+}
+
+.narrator-debug-actions .btn-message-debug {
+    font-size: 1rem;
+    padding: 0;
+    min-width: auto;
+    line-height: 1;
+}
+
 .persona-switch-trigger {
     cursor: pointer;
 }

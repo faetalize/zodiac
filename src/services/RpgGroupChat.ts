@@ -67,6 +67,7 @@ import {
     persistMessages,
     createModelPlaceholderMessage,
     createModelErrorMessage,
+    buildMessageDebugInfo,
     buildUserMessageDebugInfo,
     showGeminiProhibitedContentToast,
     generateThinkingConfig,
@@ -242,6 +243,8 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
         shouldEnforceThoughtSignaturesInHistory,
         workingChat,
         currentRoundIndex,
+        rootUserMessageIndex: undefined,
+        rootUserMessageRef: undefined,
         turnOrder,
         scenarioPrompt,
         narratorEnabled,
@@ -253,6 +256,32 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
         rosterSystemPrompt,
         abortController,
     };
+}
+
+async function appendRequestSlugToCurrentChatMessage(args: { messageIndex?: number; requestSlug?: string }): Promise<void> {
+    if (typeof args.messageIndex !== "number" || !args.requestSlug) return;
+
+    const chat = await chatsService.getCurrentChat();
+    if (!chat) return;
+
+    const target = chat.content[args.messageIndex];
+    if (!target) return;
+
+    target.debugInfo ??= buildMessageDebugInfo({
+        settings: settingsService.getSettings(),
+        mode: "normal",
+        isPremiumEndpointPreferred: true,
+        isImagePremiumEndpointPreferred: false,
+    });
+    target.debugInfo.requestSlug = target.debugInfo.requestSlug || args.requestSlug;
+    target.debugInfo.requestSlugs = Array.from(new Set([...(target.debugInfo.requestSlugs ?? []), args.requestSlug]));
+    await chatsService.saveChat(chat);
+}
+
+function appendRequestSlugToMessageRef(message: Message | undefined, requestSlug?: string): void {
+    if (!message?.debugInfo || !requestSlug) return;
+    message.debugInfo.requestSlug = message.debugInfo.requestSlug || requestSlug;
+    message.debugInfo.requestSlugs = Array.from(new Set([...(message.debugInfo.requestSlugs ?? []), requestSlug]));
 }
 
 function calculateCurrentRoundIndex(chat: DbChat, effectiveOrder: string[]): number {
@@ -616,6 +645,8 @@ async function insertUserMessage(ctx: RpgContext): Promise<HTMLElement | undefin
     };
 
     const userIndex = ctx.workingChat.content.length;
+    ctx.rootUserMessageIndex = userIndex;
+    ctx.rootUserMessageRef = userMessage;
     const userElm = await insertMessage(userMessage, userIndex);
     await persistMessages([userMessage]);
 
@@ -678,6 +709,7 @@ async function executeParticipantTurn(args: {
 
     let raw = "";
     let turnThinking = "";
+    let requestSlug: string | undefined;
 
     try {
         if (ctx.isPremiumEndpointPreferred) {
@@ -688,6 +720,7 @@ async function executeParticipantTurn(args: {
             });
             raw = result.text;
             turnThinking = result.thinking;
+            requestSlug = result.requestSlug;
         } else {
             const result = await executeTurnLocalSdk({
                 ctx, meta, history, turnInstruction, speakerToneSystemPrompt, placeholderElm,
@@ -713,8 +746,17 @@ async function executeParticipantTurn(args: {
             thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
             roundIndex: currentRoundIndex,
             originModel: ctx.settings.model,
+            debugInfo: buildMessageDebugInfo({
+                settings: ctx.settings,
+                mode: "normal",
+                isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+                isImagePremiumEndpointPreferred: false,
+                requestSlug,
+            }),
         };
         await persistMessages([modelMessage]);
+        await appendRequestSlugToCurrentChatMessage({ messageIndex: ctx.rootUserMessageIndex, requestSlug });
+        appendRequestSlugToMessageRef(ctx.rootUserMessageRef, requestSlug);
         await replacePlaceholderWithPersistedMessage(placeholderElm);
         return { continueLoop: true };
     }
@@ -747,8 +789,17 @@ async function executeParticipantTurn(args: {
         thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
         roundIndex: currentRoundIndex,
         originModel: ctx.settings.model,
+        debugInfo: buildMessageDebugInfo({
+            settings: ctx.settings,
+            mode: "normal",
+            isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+            isImagePremiumEndpointPreferred: false,
+            requestSlug,
+        }),
     };
     await persistMessages([modelMessage]);
+    await appendRequestSlugToCurrentChatMessage({ messageIndex: ctx.rootUserMessageIndex, requestSlug });
+    appendRequestSlugToMessageRef(ctx.rootUserMessageRef, requestSlug);
     await replacePlaceholderWithPersistedMessage(placeholderElm);
     return { continueLoop: true };
 }
@@ -781,7 +832,7 @@ async function executeTurnPremium(args: {
     placeholderElm: HTMLElement | undefined;
     onRawUpdate: (text: string) => void;
     onThinkingUpdate: (thinking: string) => void;
-}): Promise<{ text: string; thinking: string }> {
+}): Promise<{ text: string; thinking: string; requestSlug?: string }> {
     const { ctx, meta, history, turnInstruction, speakerToneSystemPrompt, placeholderElm, onRawUpdate, onThinkingUpdate } = args;
     const { settings, rosterSystemPrompt, isInternetSearchEnabled, abortController } = ctx;
 
@@ -813,6 +864,7 @@ async function executeTurnPremium(args: {
 
     let raw = "";
     let turnThinking = "";
+    let requestSlug: string | undefined;
 
     if (settings.streamResponses) {
         let thinkingContentElm: HTMLDivElement | null = null;
@@ -830,6 +882,9 @@ async function executeTurnPremium(args: {
                 throwOnBlocked: (finishReason) => isGeminiBlockedFinishReason(finishReason),
                 onBlocked: ({ finishReason, finishMessage }) => { throwGeminiBlocked({ finishReason, finishMessage }); },
                 callbacks: {
+                    onRequestId: (nextRequestSlug) => {
+                        requestSlug = nextRequestSlug;
+                    },
                     onFallbackStart: (args) => {
                         isJsonSchemaFallback = !!args?.hasJsonSchema;
                         raw = "";
@@ -872,8 +927,10 @@ async function executeTurnPremium(args: {
 
         raw = result.text;
         turnThinking = result.thinking;
+        requestSlug = result.requestId;
     } else {
         const json = await resp.json();
+        requestSlug = json?.requestId;
         const finishReason = json?.candidates?.[0]?.finishReason || json?.promptFeedback?.blockReason;
         if (isGeminiBlockedFinishReason(finishReason)) {
             const finishMessage = (json?.candidates?.[0] as any)?.finishMessage;
@@ -884,7 +941,7 @@ async function executeTurnPremium(args: {
         turnThinking = extracted.thinking;
     }
 
-    return { text: raw, thinking: turnThinking };
+    return { text: raw, thinking: turnThinking, requestSlug };
 }
 
 // ================================================================================
@@ -1067,11 +1124,20 @@ async function handleNarratorBeforeFirst(ctx: RpgContext): Promise<void> {
                 parts: [{ text: before.text }],
                 roundIndex: ctx.currentRoundIndex,
                 originModel: before.originModel,
+                debugInfo: buildMessageDebugInfo({
+                    settings: ctx.settings,
+                    mode: "normal",
+                    isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+                    isImagePremiumEndpointPreferred: false,
+                    requestSlug: before.requestSlug,
+                }),
             };
 
             const narratorIndex = ctx.workingChat.content.length;
             await insertMessage(narratorMessage, narratorIndex);
             await persistMessages([narratorMessage]);
+            await appendRequestSlugToCurrentChatMessage({ messageIndex: ctx.rootUserMessageIndex, requestSlug: before.requestSlug });
+            appendRequestSlugToMessageRef(ctx.rootUserMessageRef, before.requestSlug);
             hljs.highlightAll();
             helpers.messageContainerScrollToBottom(true);
         }
@@ -1106,12 +1172,21 @@ async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
             parts: [{ text: interjection.text }],
             roundIndex: ctx.currentRoundIndex,
             originModel: interjection.originModel,
+            debugInfo: buildMessageDebugInfo({
+                settings: ctx.settings,
+                mode: "normal",
+                isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+                isImagePremiumEndpointPreferred: false,
+                requestSlug: interjection.requestSlug,
+            }),
         };
 
         const interjectionIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
         if (interjectionIndex >= 0) {
             await insertMessage(interjectionMessage, interjectionIndex);
             await persistMessages([interjectionMessage]);
+            await appendRequestSlugToCurrentChatMessage({ messageIndex: ctx.rootUserMessageIndex, requestSlug: interjection.requestSlug });
+            appendRequestSlugToMessageRef(ctx.rootUserMessageRef, interjection.requestSlug);
             hljs.highlightAll();
             helpers.messageContainerScrollToBottom(true);
         }
@@ -1160,12 +1235,21 @@ async function handleNarratorAfterRound(ctx: RpgContext): Promise<void> {
                 parts: [{ text: afterText }],
                 roundIndex: ctx.currentRoundIndex,
                 originModel: after.originModel,
+                debugInfo: buildMessageDebugInfo({
+                    settings: ctx.settings,
+                    mode: "normal",
+                    isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+                    isImagePremiumEndpointPreferred: false,
+                    requestSlug: after.requestSlug,
+                }),
             };
 
             const afterIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
             if (afterIndex >= 0) {
                 await insertMessage(afterMessage, afterIndex);
                 await persistMessages([afterMessage]);
+                await appendRequestSlugToCurrentChatMessage({ messageIndex: ctx.rootUserMessageIndex, requestSlug: after.requestSlug });
+                appendRequestSlugToMessageRef(ctx.rootUserMessageRef, after.requestSlug);
                 hljs.highlightAll();
                 helpers.messageContainerScrollToBottom(true);
             }
@@ -1187,6 +1271,7 @@ interface NarratorGenerationArgs {
 
 interface NarratorGenerationResult extends TextAndThinking {
     originModel: string;
+    requestSlug?: string;
 }
 
 async function generateNarratorMessageResilient(args: NarratorGenerationArgs): Promise<NarratorGenerationResult | null> {
@@ -1227,11 +1312,13 @@ async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<Na
     try {
         let raw = "";
         let thinking = "";
+        let requestSlug: string | undefined;
 
         if (isPremiumEndpointPreferred) {
             const result = await generateNarratorPremium({ narratorModel, narratorSystemInstructionText, narratorPrompt, history, settings, signal });
             raw = result.text;
             thinking = result.thinking;
+            requestSlug = result.requestSlug;
         } else {
             const result = await generateNarratorLocalSdk({ narratorModel, narratorSystemInstructionText, narratorPrompt, history, settings, signal });
             raw = result.text;
@@ -1241,7 +1328,7 @@ async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<Na
         const trimmed = raw.trim();
         if (!trimmed) return null;
 
-        return { text: trimmed, thinking: "", originModel: narratorModel };
+        return { text: trimmed, thinking: "", originModel: narratorModel, requestSlug };
 
     } catch (err: any) {
         if (err?.name === "AbortError") return null;
@@ -1275,7 +1362,7 @@ async function generateNarratorPremium(args: {
     history: Content[];
     settings: ReturnType<typeof settingsService.getSettings>;
     signal?: AbortSignal;
-}): Promise<TextAndThinking> {
+}): Promise<TextAndThinking & { requestSlug?: string }> {
     const { narratorModel, narratorSystemInstructionText, narratorPrompt, history, settings, signal } = args;
 
     const payloadSettings: PremiumEndpoint.RequestSettings = {
@@ -1301,12 +1388,12 @@ async function generateNarratorPremium(args: {
 
     if (settings.streamResponses) {
         const streamed = await readPremiumEndpointTextAndThinkingFromSse({ res: resp, signal });
-        return { text: streamed.text, thinking: "" };
+        return { text: streamed.text, thinking: "", requestSlug: streamed.requestId };
     }
 
     const json = await resp.json();
     const extracted = extractTextAndThinkingFromResponse(json);
-    return { text: extracted.text, thinking: "" };
+    return { text: extracted.text, thinking: "", requestSlug: json?.requestId };
 }
 
 async function generateNarratorLocalSdk(args: {
@@ -1540,7 +1627,7 @@ function extractGroupTurnDecisionTextPreview(raw: string): string | null {
     return extractPartialJsonStringProperty(raw, "text");
 }
 
-async function readPremiumEndpointTextAndThinkingFromSse(args: { res: Response; signal?: AbortSignal }): Promise<TextAndThinking> {
+async function readPremiumEndpointTextAndThinkingFromSse(args: { res: Response; signal?: AbortSignal }): Promise<TextAndThinking & { requestId?: string }> {
     const { res, signal } = args;
     if (!res.body) return { text: "", thinking: "" };
 
@@ -1550,6 +1637,7 @@ async function readPremiumEndpointTextAndThinkingFromSse(args: { res: Response; 
     let isFallbackMode = false;
     let text = "";
     let thinking = "";
+    let requestId: string | undefined;
 
     while (true) {
         if (signal?.aborted) {
@@ -1566,7 +1654,12 @@ async function readPremiumEndpointTextAndThinkingFromSse(args: { res: Response; 
             const eventBlock = buffer.slice(0, delimiterIndex);
             buffer = buffer.slice(delimiterIndex + 2);
             if (!eventBlock) continue;
-            if (eventBlock.startsWith(":")) continue;
+            if (eventBlock.startsWith(":")) {
+                const connectedMatch = eventBlock.match(/^:\s*connected\s+(\S+)/);
+                const nextRequestId = connectedMatch?.[1]?.trim();
+                if (nextRequestId) requestId = nextRequestId;
+                continue;
+            }
 
             const lines = eventBlock.split("\n");
             let eventName = "message";
@@ -1577,8 +1670,16 @@ async function readPremiumEndpointTextAndThinkingFromSse(args: { res: Response; 
             }
 
             if (eventName === "error") throw new Error(data);
-            if (eventName === "done") return { text, thinking };
+            if (eventName === "done") return { text, thinking, requestId };
             if (eventName === "fallback") {
+                try {
+                    const fallbackMeta = JSON.parse(data);
+                    if (fallbackMeta?.requestId && !requestId) {
+                        requestId = fallbackMeta.requestId;
+                    }
+                } catch {
+                    // noop
+                }
                 isFallbackMode = true;
                 text = "";
                 thinking = "";
@@ -1587,7 +1688,7 @@ async function readPremiumEndpointTextAndThinkingFromSse(args: { res: Response; 
             if (!data) continue;
 
             if (isFallbackMode) {
-                if (data === "[DONE]") return { text, thinking };
+                if (data === "[DONE]") return { text, thinking, requestId };
                 if (data === "{}") continue;
                 const glmPayload = JSON.parse(data);
                 const choice = glmPayload.choices?.[0];
@@ -1605,7 +1706,7 @@ async function readPremiumEndpointTextAndThinkingFromSse(args: { res: Response; 
         }
     }
 
-    return { text, thinking };
+    return { text, thinking, requestId };
 }
 
 // ================================================================================

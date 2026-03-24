@@ -21,6 +21,7 @@ function formatMessageDebugInfo(debugInfo?: MessageDebugInfo): string {
         mode: debugInfo.mode,
         premiumEndpointEnabled: debugInfo.premiumEndpointEnabled,
         requestSlug: debugInfo.requestSlug || null,
+        requestSlugs: debugInfo.requestSlugs?.length ? debugInfo.requestSlugs : null,
         chatSettings: debugInfo.chatSettings,
         modeSettings: debugInfo.modeSettings || null,
     }, null, 2);
@@ -109,9 +110,13 @@ export function showMessageDebugModal(debugInfo?: MessageDebugInfo) {
     }
 
     const formatted = formatMessageDebugInfo(debugInfo);
+    const requestSlugSummary = debugInfo?.requestSlug
+        || (debugInfo?.requestSlugs?.length
+            ? `Multiple (${debugInfo.requestSlugs.length})`
+            : undefined);
     modeValue.textContent = debugInfo?.mode ?? "Unavailable";
     premiumValue.textContent = debugInfo ? (debugInfo.premiumEndpointEnabled ? "Enabled" : "Disabled") : "Unavailable";
-    slugValue.textContent = debugInfo?.requestSlug || (debugInfo?.premiumEndpointEnabled ? "Pending or unavailable" : "Not used");
+    slugValue.textContent = requestSlugSummary || (debugInfo?.premiumEndpointEnabled ? "Pending or unavailable" : "Not used");
     payloadValue.textContent = formatted;
     setCopyButtonState(copyButton, false);
     copyButton.onclick = async () => {
