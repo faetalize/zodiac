@@ -4,6 +4,7 @@
 
 import type { Content } from "@google/genai";
 import type { DbChat } from "./Chat";
+import type { Message } from "./Message";
 
 /**
  * Participant persona data used in group chats.
@@ -64,6 +65,8 @@ export interface RpgContext {
     // Chat state
     workingChat: DbChat;
     currentRoundIndex: number;
+    rootUserMessageIndex?: number;
+    rootUserMessageRef?: Message;
 
     // Group chat config
     turnOrder: string[];
