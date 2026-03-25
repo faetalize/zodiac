@@ -41,6 +41,12 @@ function escapeHtml(value: string): string {
         .replace(/'/g, "&#39;");
 }
 
+function isUserSkipTurnMarker(message: Message): boolean {
+    if (!message || message.role !== "user" || !message.hidden) return false;
+    const parts = Array.isArray(message.parts) ? message.parts : [];
+    return parts.some((part: any) => (part?.text ?? "").toString() === messageService.USER_SKIP_TURN_MARKER_TEXT);
+}
+
 function getRequestSlugs(debugInfo?: MessageDebugInfo): string[] {
     const slugs = [
         debugInfo?.requestSlug,
@@ -205,6 +211,11 @@ export const messageElement = async (
     //add round index for visual grouping in RPG mode
     if (typeof message.roundIndex === "number") {
         messageDiv.dataset.roundIndex = String(message.roundIndex);
+    }
+    if (isUserSkipTurnMarker(message)) {
+        messageDiv.classList.add("skip-notice");
+        messageDiv.innerHTML = '<span class="material-symbols-outlined">skip_next</span> You skipped your turn';
+        return messageDiv;
     }
     if (message.hidden) {
         messageDiv.style.display = "none"; //hide system messages from normal view
