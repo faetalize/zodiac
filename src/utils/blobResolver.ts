@@ -6,7 +6,7 @@
 
 import type { GeneratedImage } from '../types/Message';
 import type { BlobReference } from '../types/BlobReference';
-import { downloadDecryptedBlob, uint8ArrayToBase64 } from '../services/BlobStore.service';
+import { downloadDecryptedBlob, uint8ArrayToBase64, uint8ArrayToBlob } from '../services/BlobStore.service';
 
 // Track in-flight resolutions to avoid duplicate fetches for the same blob
 const inflightResolutions = new Map<string, Promise<string>>();
@@ -70,7 +70,7 @@ export async function resolveAttachmentFile(file: File): Promise<File> {
 
     try {
         const { data, mimeType } = await downloadDecryptedBlob(ref);
-        const blob = new Blob([data], { type: mimeType || file.type });
+        const blob = uint8ArrayToBlob(data, mimeType || file.type);
         const resolved = new File([blob], file.name, {
             type: mimeType || file.type,
             lastModified: file.lastModified,
