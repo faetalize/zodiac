@@ -107,6 +107,35 @@ npm run build        # Type-check + production build
 npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 ```
 
+## Release Cycle
+
+### Branching and deployment flow
+- Production deploys are published from a dedicated release branch because Cloudflare Pages is configured to deploy a specific branch for releases.
+- `main` is the ongoing development branch.
+- A release branch is created from `main` after the intended features/fixes have already been merged there.
+- Release-only preparation happens on that release branch first.
+- After the release is deployed, the release branch must be backmerged into `main` so `main` also contains the final version string and in-app changelog for that release.
+
+### Preparing a new release
+- Identify the last release backmerge commit on `main`, then inspect all mainline commits after that point up to `HEAD`.
+- Use those commits to determine what actually shipped in the new release.
+- Update the user-facing changelog in [src/index.html](src/index.html) under the `#whats-new` section.
+- Update the version string in [src/utils/helpers.ts](src/utils/helpers.ts) so the badge and changelog header display the new version.
+- Keep the release branch and deployed artifact aligned before any tag is created.
+
+### How to build the changelog well
+- The in-app changelog is user-facing marketing/product copy, not a technical document.
+- Summarize released value, not implementation details. Prefer feature outcomes and user benefits over commit-level mechanics.
+- Do not mention developer-only infrastructure or internal workflow changes unless they directly affect Zodiac users.
+- Favor broad, human phrasing such as `RPG group chat stability improvements` over overly granular engineering detail.
+- When a shipped feature is genuinely user-visible, name it clearly (for example, `Message debug tools`) instead of hiding it behind vague wording.
+- Good entries should feel like release notes written for users: concise, readable, and slightly polished rather than deeply technical.
+
+### Tagging guidance
+- If tags are meant to represent what is on `main`, create the tag after the release branch has been backmerged into `main`.
+- If tags are meant to represent the exact commit deployed by Cloudflare Pages, tag the release branch commit that was actually deployed.
+- Do not tag `main` before the backmerge if `main` does not yet contain the final release changelog/version bump.
+
 ## Conventions
 
 ### Component Pattern
