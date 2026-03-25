@@ -153,7 +153,7 @@ export async function uploadEncryptedBlob(
     const blobId = globalThis.crypto.randomUUID();
     const { ciphertext, iv } = await encryptBlob(key, data);
     const path = storagePath(user.id, blobId);
-    const blob = new Blob([ciphertext], { type: 'application/octet-stream' });
+    const blob = uint8ArrayToBlob(ciphertext, 'application/octet-stream');
 
     const quotaCheck = await getServerQuotaHeadroom(blob.size);
     if (quotaCheck && !quotaCheck.allowed) {
@@ -415,4 +415,10 @@ export function uint8ArrayToBase64(bytes: Uint8Array): string {
         binary += String.fromCharCode(bytes[i]);
     }
     return btoa(binary);
+}
+
+export function uint8ArrayToBlob(bytes: Uint8Array, mimeType = 'application/octet-stream'): Blob {
+    const copy = new Uint8Array(bytes.byteLength);
+    copy.set(bytes);
+    return new Blob([copy.buffer], { type: mimeType });
 }
