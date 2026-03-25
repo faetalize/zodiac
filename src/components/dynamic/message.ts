@@ -41,10 +41,33 @@ function escapeHtml(value: string): string {
         .replace(/'/g, "&#39;");
 }
 
+const USER_SKIP_TURN_MARKER_TEXT = "__user_skip_turn__";
+const AI_SKIP_TURN_MARKER_TEXT = "__ai_skip_turn__";
+
 function isUserSkipTurnMarker(message: Message): boolean {
-    if (!message || message.role !== "user" || !message.hidden) return false;
-    const parts = Array.isArray(message.parts) ? message.parts : [];
-    return parts.some((part: any) => (part?.text ?? "").toString() === messageService.USER_SKIP_TURN_MARKER_TEXT);
+    if (!message.hidden || message.role !== "user") return false;
+    return message.parts.some(part => (part?.text ?? "").toString() === USER_SKIP_TURN_MARKER_TEXT);
+}
+
+function isAiSkipTurnMarker(message: Message): boolean {
+    if (!message.hidden || message.role !== "model") return false;
+    return message.parts.some(part => (part?.text ?? "").toString() === AI_SKIP_TURN_MARKER_TEXT);
+}
+
+async function buildSkipNoticeElement(message: Message): Promise<HTMLElement | null> {
+    if (!isUserSkipTurnMarker(message) && !isAiSkipTurnMarker(message)) return null;
+
+    const notice = document.createElement("div");
+    notice.className = "skip-notice";
+
+    let label = "You skipped your turn";
+    if (isAiSkipTurnMarker(message)) {
+        const persona = message.personalityid ? await personalityService.get(message.personalityid) : null;
+        label = `${persona?.name || "Someone"} skipped their turn`;
+    }
+
+    notice.innerHTML = `<span class="material-symbols-outlined">skip_next</span> ${escapeHtml(label)}`;
+    return notice;
 }
 
 function getRequestSlugs(debugInfo?: MessageDebugInfo): string[] {
@@ -212,12 +235,15 @@ export const messageElement = async (
     if (typeof message.roundIndex === "number") {
         messageDiv.dataset.roundIndex = String(message.roundIndex);
     }
-    if (isUserSkipTurnMarker(message)) {
-        messageDiv.classList.add("skip-notice");
-        messageDiv.innerHTML = '<span class="material-symbols-outlined">skip_next</span> You skipped your turn';
-        return messageDiv;
-    }
     if (message.hidden) {
+        const skipNotice = await buildSkipNoticeElement(message);
+        if (skipNotice) {
+            skipNotice.dataset.chatIndex = String(index);
+            if (typeof message.roundIndex === "number") {
+                skipNotice.dataset.roundIndex = String(message.roundIndex);
+            }
+            return skipNotice;
+        }
         messageDiv.style.display = "none"; //hide system messages from normal view
         return messageDiv;
     }
