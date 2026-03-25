@@ -434,10 +434,6 @@ function calculateNextParticipants(ctx: RpgContext): {
     const startIndex = calculateLastSpeakerIndex(ctx, effectiveOrder);
     const shouldAutoProgress = !!ctx.settings?.rpgGroupChatsProgressAutomatically;
 
-    // Treat an AI skip as a completed turn when deciding who speaks next.
-    // Otherwise we keep scheduling the same participant again.
-    const lastTurnWasAiSkip = didLastTurnSkip(ctx, effectiveOrder);
-
     const nextParticipants: string[] = [];
     let stoppedForUser = false;
     let startsNewRound = false;
@@ -457,9 +453,7 @@ function calculateNextParticipants(ctx: RpgContext): {
 
     // Auto-progress: run forward through the CURRENT round only.
     if (shouldAutoProgress) {
-        // If the last executed turn was a skip marker, start from that speaker,
-        // so we can correctly advance to the next participant.
-        const firstIndex = startIndex < 0 ? 0 : startIndex + (lastTurnWasAiSkip ? 2 : 1);
+        const firstIndex = startIndex < 0 ? 0 : startIndex + 1;
         for (let idx = firstIndex; idx < effectiveOrder.length; idx++) {
             const id = effectiveOrder[idx];
             if (id === "user") {
@@ -481,8 +475,7 @@ function calculateNextParticipants(ctx: RpgContext): {
     }
 
     // Manual mode (continue pressed): execute exactly one AI turn, then pause.
-    const startOffset = lastTurnWasAiSkip ? 2 : 1;
-    const nextIndex = (startIndex + startOffset + effectiveOrder.length) % effectiveOrder.length;
+    const nextIndex = (startIndex + 1 + effectiveOrder.length) % effectiveOrder.length;
     const nextId = effectiveOrder[nextIndex];
     const afterNextIndex = (nextIndex + 1) % effectiveOrder.length;
     const afterNextId = effectiveOrder[afterNextIndex];
@@ -497,28 +490,6 @@ function calculateNextParticipants(ctx: RpgContext): {
         startsNewRound = afterNextId === effectiveOrder[0];
         return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: afterNextId };
     }
-}
-
-function didLastTurnSkip(ctx: RpgContext, effectiveOrder: string[]): boolean {
-    const content = ctx.workingChat?.content ?? [];
-
-    for (let i = content.length - 1; i >= 0; i--) {
-        const candidate = content[i];
-        if (!candidate || candidate.roundIndex !== ctx.currentRoundIndex) continue;
-        if (isPersonalityMarker(candidate)) continue;
-        if (isLegacyPersonalityIntro(candidate)) continue;
-
-        // We only care about the AI skip marker here.
-        if (isAiSkipTurnMarker(candidate as Message)) return true;
-
-        // If we hit a normal (non-hidden) turn message first, then it's not a skip.
-        if (!candidate.hidden) return false;
-
-        // Ignore other hidden messages.
-        continue;
-    }
-
-    return false;
 }
 
 function calculateLastSpeakerIndex(ctx: RpgContext, effectiveOrder: string[]): number {

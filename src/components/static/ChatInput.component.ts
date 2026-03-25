@@ -761,11 +761,17 @@ window.addEventListener("chat-loaded", async (e: any) => {
         const userIndex = effectiveOrder.indexOf("user");
 
         const allMessages = (chat.content || []) as any[];
-        const isSkipTurnMarker = (m: any): boolean => {
+        const isUserSkipTurnMarker = (m: any): boolean => {
             if (!m || m.role !== "user" || !m.hidden) return false;
             const parts = Array.isArray(m.parts) ? m.parts : [];
             return parts.some((p: any) => (p?.text ?? "").toString() === messageService.USER_SKIP_TURN_MARKER_TEXT);
         };
+        const isAiSkipTurnMarker = (m: any): boolean => {
+            if (!m || m.role !== "model" || !m.hidden) return false;
+            const parts = Array.isArray(m.parts) ? m.parts : [];
+            return parts.some((p: any) => (p?.text ?? "").toString() === "__ai_skip_turn__");
+        };
+        const isSkipTurnMarker = (m: any): boolean => isUserSkipTurnMarker(m) || isAiSkipTurnMarker(m);
 
         //use "turn relevant" messages to determine current state
         //this includes the hidden skip-turn marker (counts as user completing their turn)
@@ -790,7 +796,11 @@ window.addEventListener("chat-loaded", async (e: any) => {
             isUserTurn = nextSpeaker === "user" || userIndex === 0 || userIndex === -1;
         } else {
             // Determine whose turn is next based on last speaker
-            const lastSpeakerId = lastMessage.role === "user" ? "user" : lastMessage.personalityid;
+            const lastSpeakerId = isUserSkipTurnMarker(lastMessage)
+                ? "user"
+                : lastMessage.role === "user"
+                    ? "user"
+                    : lastMessage.personalityid;
 
             // Skip narrator messages when determining turn
             let effectiveLastSpeaker = lastSpeakerId;
