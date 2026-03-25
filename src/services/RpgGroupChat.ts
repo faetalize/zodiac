@@ -378,7 +378,10 @@ async function persistSkipTurnMarkerIfNeeded(chat: DbChat, currentRoundIndex: nu
             roundIndex: currentRoundIndex,
             parts: [{ text: USER_SKIP_TURN_MARKER_TEXT }],
         };
+        const skipMarkerIndex = chatContent.length;
         await persistMessages([skipMarker]);
+        await insertMessage(skipMarker, skipMarkerIndex);
+        helpers.messageContainerScrollToBottom(true);
         return (await chatsService.getCurrentChat()) ?? null;
     }
 

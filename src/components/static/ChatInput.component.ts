@@ -628,42 +628,12 @@ window.addEventListener('round-state-changed', (event: any) => {
     }
 });
 
-//helper to insert skip feedback message into current round block
-function insertSkipFeedback() {
-    const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
-    if (!messageContainer) return;
-
-    const skipNotice = document.createElement("div");
-    skipNotice.className = "skip-notice";
-    skipNotice.innerHTML = `<span class="material-symbols-outlined">skip_next</span> You skipped your turn`;
-
-    //find the last round block and append there, or fallback to message container
-    const roundBlocks = messageContainer.querySelectorAll<HTMLDivElement>(".round-block");
-    const lastRoundBlock = roundBlocks[roundBlocks.length - 1];
-    if (lastRoundBlock) {
-        lastRoundBlock.append(skipNotice);
-    } else {
-        messageContainer.append(skipNotice);
-    }
-
-    //scroll to bottom
-    const scrollContainer = document.querySelector<HTMLDivElement>("#scrollable-chat-container");
-    if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-    }
-}
-
 //skip turn button - skips user's turn and triggers next round
 skipTurnBtn?.addEventListener("click", async () => {
     if (isCurrentlyGenerating) return;
 
     try {
-        //insert visual feedback into current round
-        insertSkipFeedback();
-
-        //send with skipTurn to signal round completion
         await messageService.skipRpgTurn();
-        //UI update is handled by round-state-changed event
     } catch (error: any) {
         toastService.danger({
             title: "Error skipping turn",
