@@ -833,8 +833,6 @@ export function newChat() {
     messageContainer.innerHTML = "";
     document.querySelector("#chat-title")!.textContent = "";
 
-    const previousChatId = currentChatIdState;
-
     // Reset pagination state
     currentChatIdState = null;
     currentChatMessages = [];
