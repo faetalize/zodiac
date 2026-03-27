@@ -73,7 +73,7 @@ function syncComposerInteractivity(): void {
     messageInput!.classList.toggle("disabled", !canEdit);
 
     const isSendActionBlocked = isComposerAllowanceBlocked && !isCurrentlyGenerating;
-    const isSendUiDisabled = isSendActionBlocked || (isRpgGroupChatContext && (!isUserTurnInRpg || isCurrentlyGenerating));
+    const isSendUiDisabled = isSendActionBlocked || (isRpgGroupChatContext && (!isUserTurnInRpg && !isCurrentlyGenerating));
 
     sendMessageButton!.disabled = isSendActionBlocked;
     sendMessageButton!.classList.toggle("disabled", isSendUiDisabled);
@@ -835,6 +835,7 @@ window.addEventListener("chat-loaded", async (e: any) => {
     } else if (chat?.groupChat) {
         // Dynamic group chat
         turnControlPanel?.classList.add("hidden");
+        syncComposerInteractivity();
     } else {
         //Normal chat or empty
         turnControlPanel?.classList.add("hidden");

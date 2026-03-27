@@ -852,9 +852,7 @@ export function newChat() {
         checkedInput.checked = false;
     }
 
-    if (previousChatId !== null) {
-        dispatchComposerStateReset('chat-cleared', null);
-    }
+    dispatchComposerStateReset('chat-cleared', null);
 
     //dispatch event with null chat to reset UI (e.g., hide Turn Control panel)
     dispatchAppEvent('chat-loaded', { chat: null });
