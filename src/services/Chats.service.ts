@@ -1201,6 +1201,10 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         remoteOldestLoadedIndex = 0;
         remoteWindowStartIndex = 0;
 
+        if (shouldResetComposerState) {
+            dispatchComposerStateReset('chat-switch', chatID);
+        }
+
         messageContainer.innerHTML = ''; // Clear existing messages
         const chat = syncService.isOnlineSyncEnabled()
             ? (remoteChatsById.get(chatID) ?? await syncService.fetchSyncedChatMetadata(chatID))
@@ -1312,9 +1316,6 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
                     ...chat,
                     content: currentChatMessages,
                 };
-                if (shouldResetComposerState) {
-                    dispatchComposerStateReset('chat-switch', chatID);
-                }
                 dispatchAppEvent('chat-loaded', { chat: loadedChat });
                 return chat;
             }
@@ -1329,9 +1330,6 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         const total = currentChatMessages.length;
         if (total === 0) {
             //dispatch event even for empty chats so UI can update
-            if (shouldResetComposerState) {
-                dispatchComposerStateReset('chat-switch', chatID);
-            }
             dispatchAppEvent('chat-loaded', { chat });
             return chat;
         }
@@ -1346,10 +1344,6 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         }
         settleChatScrollToBottom(chatLoadRequest.isCurrent);
         attachScrollListener();
-
-        if (shouldResetComposerState) {
-            dispatchComposerStateReset('chat-switch', chatID);
-        }
         dispatchAppEvent('chat-loaded', { chat });
 
         return chat;
