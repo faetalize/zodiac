@@ -82,6 +82,14 @@ function beginChatLoadingFeedback() {
     }, 150);
 }
 
+function dispatchComposerStateReset(reason: 'chat-switch' | 'chat-cleared', nextChatId: string | null): void {
+    dispatchAppEvent('composer-state-reset', {
+        reason,
+        nextChatId,
+        preserveMessageText: true,
+    });
+}
+
 function endChatLoadingFeedback() {
     chatLoadInFlight = Math.max(0, chatLoadInFlight - 1);
     if (chatLoadInFlight > 0) {
@@ -842,6 +850,8 @@ export function newChat() {
         checkedInput.checked = false;
     }
 
+    dispatchComposerStateReset('chat-cleared', null);
+
     //dispatch event with null chat to reset UI (e.g., hide Turn Control panel)
     dispatchAppEvent('chat-loaded', { chat: null });
 }
@@ -1163,6 +1173,8 @@ async function loadOlderMessages() {
 export async function loadChat(chatID: string, dbArg: Db = db) {
     const chatLoadRequest = beginChatLoadRequest();
     beginChatLoadingFeedback();
+    const previousChatId = currentChatIdState;
+    const shouldResetComposerState = previousChatId !== chatID;
 
     try {
         if (!chatID || !messageContainer) {
@@ -1184,6 +1196,10 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         isRemotePagedMode = false;
         remoteOldestLoadedIndex = 0;
         remoteWindowStartIndex = 0;
+
+        if (shouldResetComposerState) {
+            dispatchComposerStateReset('chat-switch', chatID);
+        }
 
         messageContainer.innerHTML = ''; // Clear existing messages
         const chat = syncService.isOnlineSyncEnabled()
@@ -1292,12 +1308,11 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
                 }
 
                 attachScrollListener();
-                dispatchAppEvent('chat-loaded', {
-                    chat: {
-                        ...chat,
-                        content: currentChatMessages,
-                    },
-                });
+                const loadedChat = {
+                    ...chat,
+                    content: currentChatMessages,
+                };
+                dispatchAppEvent('chat-loaded', { chat: loadedChat });
                 return chat;
             }
         }
@@ -1325,7 +1340,6 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         }
         settleChatScrollToBottom(chatLoadRequest.isCurrent);
         attachScrollListener();
-
         dispatchAppEvent('chat-loaded', { chat });
 
         return chat;

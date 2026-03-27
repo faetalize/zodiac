@@ -67,6 +67,39 @@ let isRpgGroupChatContext = false;
 let isDynamicGroupChatContext = false;
 let allowDynamicPings = false;
 
+function syncComposerInteractivity(): void {
+    const canEdit = !isRpgGroupChatContext || (!isCurrentlyGenerating && isUserTurnInRpg);
+    messageInput!.contentEditable = String(canEdit);
+    messageInput!.classList.toggle("disabled", !canEdit);
+
+    const isSendActionBlocked = isComposerAllowanceBlocked && !isCurrentlyGenerating;
+    const isSendUiDisabled = isSendActionBlocked || (isRpgGroupChatContext && (!isUserTurnInRpg && !isCurrentlyGenerating));
+
+    sendMessageButton!.disabled = isSendActionBlocked;
+    sendMessageButton!.classList.toggle("disabled", isSendUiDisabled);
+    sendMessageButton!.setAttribute('aria-disabled', isSendActionBlocked ? 'true' : 'false');
+
+    if (isSendActionBlocked) {
+        sendMessageButton!.title = composerAllowanceBlockTitle;
+    } else if (!isCurrentlyGenerating) {
+        sendMessageButton!.title = '';
+    }
+}
+
+function resetComposerContextState(): void {
+    isUserTurnInRpg = true;
+    isGroupChatContext = false;
+    isRpgGroupChatContext = false;
+    isDynamicGroupChatContext = false;
+    allowDynamicPings = false;
+    mentionOptions = [];
+
+    closeMentionMenu();
+    clearHistoryPreview();
+    turnControlPanel?.classList.add("hidden");
+    syncComposerInteractivity();
+}
+
 type MentionOption = {
     id: string;
     name: string;
@@ -102,12 +135,7 @@ async function updateRpgTurnControlUi(args: {
     const { isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId } = args;
 
     isUserTurnInRpg = !!isUserTurn;
-    if (messageInput) {
-        const canEdit = !isCurrentlyGenerating && isUserTurnInRpg;
-        messageInput.contentEditable = String(canEdit);
-        messageInput.classList.toggle("disabled", !canEdit);
-    }
-    sendMessageButton?.classList.toggle("disabled", isRpgGroupChatContext && (!isUserTurnInRpg || isCurrentlyGenerating));
+    syncComposerInteractivity();
 
     if (isUserTurn) {
         if (turnControlLabel) turnControlLabel.textContent = "Your turn";
@@ -562,14 +590,7 @@ sendMessageButton.addEventListener("click", async () => {
 //listen for generation state changes to toggle send/stop button
 window.addEventListener('generation-state-changed', (event: any) => {
     isCurrentlyGenerating = event.detail.isGenerating;
-
-    // In RPG mode we lock input while generating, regardless of whose turn.
-    if (isRpgGroupChatContext && messageInput) {
-        const canEdit = !isCurrentlyGenerating && isUserTurnInRpg;
-        messageInput.contentEditable = String(canEdit);
-        messageInput.classList.toggle("disabled", !canEdit);
-        sendMessageButton?.classList.toggle("disabled", !canEdit);
-    }
+    syncComposerInteractivity();
 
     if (isCurrentlyGenerating) {
         sendMessageButton.textContent = 'stop';
@@ -706,14 +727,13 @@ window.addEventListener("chat-loaded", async (e: any) => {
         closeMentionMenu();
     }
 
-    // In any group chat context, the selected personality is not "the" recipient.
     if (isGroupChatContext) {
         messageInput?.setAttribute("placeholder", "Send a message");
+        internetSearchToggle?.classList.add("hidden");
+        roleplayActionsMenu?.classList.add("hidden");
+    } else {
+        await setupBottomBar();
     }
-
-    // In group chats, disable single-chat-only controls.
-    internetSearchToggle?.classList.toggle("hidden", isGroupChatContext);
-    roleplayActionsMenu?.classList.toggle("hidden", isGroupChatContext);
 
     const imageBtn = document.querySelector<HTMLButtonElement>("#btn-image");
     const editBtn = document.querySelector<HTMLButtonElement>("#btn-edit");
@@ -815,10 +835,16 @@ window.addEventListener("chat-loaded", async (e: any) => {
     } else if (chat?.groupChat) {
         // Dynamic group chat
         turnControlPanel?.classList.add("hidden");
+        syncComposerInteractivity();
     } else {
         //Normal chat or empty
         turnControlPanel?.classList.add("hidden");
+        syncComposerInteractivity();
     }
+});
+
+window.addEventListener('composer-state-reset', () => {
+    resetComposerContextState();
 });
 
 const setupBottomBar = async () => {
@@ -926,19 +952,7 @@ window.addEventListener('composer-allowance-blocked', (event: any) => {
     isComposerAllowanceBlocked = !!event.detail.blocked;
     composerAllowanceBlockTitle = event.detail.title || 'Request unavailable';
     composerAllowanceBlockText = event.detail.text || 'This request is currently unavailable.';
-
-    // Update send button disabled state
-    if (isComposerAllowanceBlocked) {
-        sendMessageButton.disabled = true;
-        sendMessageButton.classList.add('disabled');
-        sendMessageButton.setAttribute('aria-disabled', 'true');
-        sendMessageButton.title = composerAllowanceBlockTitle;
-    } else {
-        sendMessageButton.disabled = false;
-        sendMessageButton.classList.remove('disabled');
-        sendMessageButton.setAttribute('aria-disabled', 'false');
-        sendMessageButton.title = '';
-    }
+    syncComposerInteractivity();
 });
 
 function addAttachments(rawFiles: File[]): void {

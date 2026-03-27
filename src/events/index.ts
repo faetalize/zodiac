@@ -80,6 +80,12 @@ export interface ChatLoadedDetail {
     chat: DbChat | null;
 }
 
+export interface ComposerStateResetDetail {
+    reason: 'chat-switch' | 'chat-cleared';
+    nextChatId: string | null;
+    preserveMessageText: boolean;
+}
+
 export interface OpenGroupChatEditorDetail {
     chatId: string;
 }
@@ -232,6 +238,7 @@ export const EventNames = {
     
     // Chat
     CHAT_LOADED: 'chat-loaded',
+    COMPOSER_STATE_RESET: 'composer-state-reset',
     OPEN_GROUP_CHAT_EDITOR: 'open-group-chat-editor',
     
     // RPG Group Chat
@@ -304,6 +311,7 @@ export interface AppEventMap {
     
     // Chat
     [EventNames.CHAT_LOADED]: ChatLoadedDetail;
+    [EventNames.COMPOSER_STATE_RESET]: ComposerStateResetDetail;
     [EventNames.OPEN_GROUP_CHAT_EDITOR]: OpenGroupChatEditorDetail;
     
     // RPG Group Chat
