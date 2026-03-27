@@ -125,7 +125,7 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
     // Refresh working chat
     let workingChat = await chatsService.getCurrentChat();
     if (!workingChat) {
-        endGeneration();
+        endGeneration(ctx.chatId);
         return;
     }
     ctx.workingChat = workingChat;
@@ -136,7 +136,7 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
     if (args.msg) {
         userElm = await insertUserMessage(ctx);
         if (!userElm) {
-            endGeneration();
+            endGeneration(ctx.chatId);
             return;
         }
     }
@@ -151,7 +151,7 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
     let executedAiTurns = 0;
     for (const meta of participantMeta) {
         if (currentAbortController?.signal.aborted) {
-            endGeneration();
+            endGeneration(ctx.chatId);
             return userElm;
         }
 
@@ -163,7 +163,7 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
         const result = await executeParticipantTurn({ ctx, meta, participantMeta });
 
         if (!result.continueLoop) {
-            endGeneration();
+            endGeneration(ctx.chatId);
             return userElm;
         }
 
@@ -184,9 +184,9 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
     }
 
     // Dispatch round state for UI
-    dispatchRoundState({ userCompletedTurn, currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId });
+    dispatchRoundState({ chatId: ctx.chatId, userCompletedTurn, currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId });
 
-    endGeneration();
+    endGeneration(ctx.chatId);
     return userElm;
 }
 
@@ -221,7 +221,8 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
         workingChat = updatedChat;
     }
 
-    const abortController = startGeneration();
+    const chatId = workingChat.id;
+    const abortController = startGeneration(chatId);
     const userName = await getUserDisplayName();
     const { participantPersonas, speakerNameById } = await buildParticipantData(participants);
     const allParticipantNames = participantPersonas.map(p => p.name);
@@ -235,6 +236,7 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
 
     return {
         msg: args.msg,
+        chatId,
         attachmentFiles: args.attachmentFiles,
         isInternetSearchEnabled: args.isInternetSearchEnabled,
         isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
@@ -1467,16 +1469,18 @@ If you choose to skip this turn entirely, set kind to "skip".
 }
 
 function dispatchRoundState(args: {
+    chatId: string;
     userCompletedTurn: boolean;
     currentRoundIndex: number;
     stoppedForUser: boolean;
     startsNewRound: boolean;
     nextSpeakerId?: string;
 }): void {
-    const { currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId } = args;
+    const { chatId, currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId } = args;
     const isUserTurnNext = stoppedForUser;
 
     dispatchAppEvent('round-state-changed', {
+        chatId,
         isUserTurn: isUserTurnNext,
         currentRoundIndex,
         roundComplete: stoppedForUser,

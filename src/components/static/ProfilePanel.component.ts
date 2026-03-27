@@ -95,7 +95,7 @@ onAppEvent('subscription-updated', () => {
 });
 
 onAppEvent('generation-state-changed', (event) => {
-    if (!event.detail.isGenerating) {
+    if (!event.detail.anyGenerating) {
         refreshSubscriptionAllowances().catch((error) => console.error('Failed to refresh subscription allowances:', error));
     }
 });
