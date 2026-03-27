@@ -9,23 +9,31 @@ if (!imageEditingButton) {
 
 let imageEditingEnabled = false;
 
+function setImageEditingEnabled(enabled: boolean): void {
+    if (imageEditingEnabled === enabled) {
+        return;
+    }
+
+    imageEditingEnabled = enabled;
+    imageEditingButton!.classList.toggle("btn-toggled", enabled);
+    dispatchAppEvent('image-editing-toggled', { enabled });
+}
+
 imageEditingButton.addEventListener("click", () => {
     if (imageEditingButton.disabled) return;
 
-    imageEditingEnabled = !imageEditingEnabled;
-    imageEditingButton.classList.toggle("btn-toggled");
-
-    // Dispatch event to notify other components
-    dispatchAppEvent('image-editing-toggled', { enabled: imageEditingEnabled });
+    setImageEditingEnabled(!imageEditingEnabled);
 });
 
 //listen for image-toggled event to disable button if needed
 onAppEvent('image-generation-toggled', (event) => {
     if (event.detail.enabled && imageEditingEnabled) {
-        imageEditingEnabled = false;
-        imageEditingButton.classList.remove("btn-toggled");
-        dispatchAppEvent('image-editing-toggled', { enabled: false });
+        setImageEditingEnabled(false);
     }
+});
+
+onAppEvent('composer-state-reset', () => {
+    setImageEditingEnabled(false);
 });
 
 // Listen for auth and subscription changes
@@ -45,11 +53,7 @@ async function updateImageEditingState() {
             imageEditingButton.style.display = "";
         } else {
             imageEditingButton.style.display = "none";
-            // If image mode was enabled, disable it
-            if (imageEditingEnabled) {
-                imageEditingEnabled = false;
-                imageEditingButton.classList.remove("btn-toggled");
-            }
+            setImageEditingEnabled(false);
         }
 
     } catch {
@@ -64,5 +68,4 @@ export function isImageEditingActive(): boolean {
 
 // Update state on initialization
 updateImageEditingState();
-
 

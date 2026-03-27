@@ -82,6 +82,14 @@ function beginChatLoadingFeedback() {
     }, 150);
 }
 
+function dispatchComposerStateReset(reason: 'chat-switch' | 'chat-cleared', nextChatId: string | null): void {
+    dispatchAppEvent('composer-state-reset', {
+        reason,
+        nextChatId,
+        preserveMessageText: true,
+    });
+}
+
 function endChatLoadingFeedback() {
     chatLoadInFlight = Math.max(0, chatLoadInFlight - 1);
     if (chatLoadInFlight > 0) {
@@ -825,6 +833,8 @@ export function newChat() {
     messageContainer.innerHTML = "";
     document.querySelector("#chat-title")!.textContent = "";
 
+    const previousChatId = currentChatIdState;
+
     // Reset pagination state
     currentChatIdState = null;
     currentChatMessages = [];
@@ -840,6 +850,10 @@ export function newChat() {
     const checkedInput = document.querySelector<HTMLInputElement>("input[name='currentChat']:checked");
     if (checkedInput) {
         checkedInput.checked = false;
+    }
+
+    if (previousChatId !== null) {
+        dispatchComposerStateReset('chat-cleared', null);
     }
 
     //dispatch event with null chat to reset UI (e.g., hide Turn Control panel)
@@ -1163,6 +1177,8 @@ async function loadOlderMessages() {
 export async function loadChat(chatID: string, dbArg: Db = db) {
     const chatLoadRequest = beginChatLoadRequest();
     beginChatLoadingFeedback();
+    const previousChatId = currentChatIdState;
+    const shouldResetComposerState = previousChatId !== chatID;
 
     try {
         if (!chatID || !messageContainer) {
@@ -1292,12 +1308,14 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
                 }
 
                 attachScrollListener();
-                dispatchAppEvent('chat-loaded', {
-                    chat: {
-                        ...chat,
-                        content: currentChatMessages,
-                    },
-                });
+                const loadedChat = {
+                    ...chat,
+                    content: currentChatMessages,
+                };
+                if (shouldResetComposerState) {
+                    dispatchComposerStateReset('chat-switch', chatID);
+                }
+                dispatchAppEvent('chat-loaded', { chat: loadedChat });
                 return chat;
             }
         }
@@ -1311,6 +1329,9 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         const total = currentChatMessages.length;
         if (total === 0) {
             //dispatch event even for empty chats so UI can update
+            if (shouldResetComposerState) {
+                dispatchComposerStateReset('chat-switch', chatID);
+            }
             dispatchAppEvent('chat-loaded', { chat });
             return chat;
         }
@@ -1326,6 +1347,9 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         settleChatScrollToBottom(chatLoadRequest.isCurrent);
         attachScrollListener();
 
+        if (shouldResetComposerState) {
+            dispatchComposerStateReset('chat-switch', chatID);
+        }
         dispatchAppEvent('chat-loaded', { chat });
 
         return chat;
