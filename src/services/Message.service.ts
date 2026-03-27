@@ -433,7 +433,7 @@ function setUserMessageRequestSlug(userMessage: Message, requestSlug?: string): 
     userMessage.debugInfo.requestSlugs = Array.from(new Set([...(userMessage.debugInfo.requestSlugs ?? []), requestSlug]));
 }
 
-async function appendRequestSlugToStoredMessage(args: { chatId: string; messageIndex: number; requestSlug?: string }): Promise<void> {
+export async function appendRequestSlugToStoredMessage(args: { chatId: string; messageIndex: number; requestSlug?: string }): Promise<void> {
     if (typeof args.messageIndex !== "number" || !args.requestSlug) return;
 
     const chat = await getChatForWrite(args.chatId);
@@ -458,7 +458,7 @@ async function persistUserAndModel(user: Message, model: Message): Promise<void>
     await persistMessages([user, model]);
 }
 
-async function getChatForWrite(chatId: string): Promise<DbChat | undefined> {
+export async function getChatForWrite(chatId: string): Promise<DbChat | undefined> {
     const chat = await chatsService.getChatById(chatId);
     if (!chat) return undefined;
 
@@ -475,7 +475,7 @@ async function getChatForWrite(chatId: string): Promise<DbChat | undefined> {
     return chat;
 }
 
-async function persistMessagesToChat(chatId: string, messages: Message[]): Promise<{ startIndex: number } | null> {
+export async function persistMessagesToChat(chatId: string, messages: Message[]): Promise<{ startIndex: number } | null> {
     const chat = await getChatForWrite(chatId);
     if (!chat) return null;
     const startIndex = chat.content.length;
@@ -1476,7 +1476,6 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
 
     const pendingOriginModel = getPendingOriginModel(settings);
     const modelPlaceholder = createModelPlaceholderMessage(selectedPersonalityId, "", undefined, pendingOriginModel);
-    const userIndex = currentChat.content.length;
     const persistedIndices = await persistMessagesToChat(chatId, [userMessage, modelPlaceholder]);
     if (!persistedIndices) {
         console.error("Failed to persist pending messages");
@@ -1485,11 +1484,11 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
 
     moveSendInFlight(NEW_CHAT_SEND_LOCK_KEY, chatId);
     const abortController = startGeneration(chatId);
-    const userMessageElement = await insertMessage(userMessage, userIndex);
+    const userMessageElement = await insertMessage(userMessage, persistedIndices.startIndex);
     hljs.highlightAll();
     helpers.messageContainerScrollToBottom(true);
 
-    const responseElement = await insertMessage(modelPlaceholder, userIndex + 1);
+    const responseElement = await insertMessage(modelPlaceholder, persistedIndices.startIndex + 1);
     helpers.messageContainerScrollToBottom(true);
 
     const messageContent = responseElement.querySelector(".message-text .message-text-content")!;

@@ -634,8 +634,9 @@ window.addEventListener('round-state-changed', (event: any) => {
         const roundChatId = currentChatId;
         const startNextRoundIfIdle = async () => {
             if (isCurrentlyGenerating) return;
+            if (chatsService.getCurrentChatId() !== roundChatId) return;
             const chat = await chatsService.getCurrentChat();
-            if (chat?.groupChat?.mode !== "rpg") return;
+            if (chat?.id !== roundChatId || chat.groupChat?.mode !== "rpg") return;
             await messageService.send("");
         };
 
