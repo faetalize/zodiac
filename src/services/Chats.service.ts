@@ -989,6 +989,16 @@ export async function replaceCurrentChatMessages(messages: Message[]): Promise<v
     syncAllChatGenerationIndicators();
 }
 
+export function replaceCachedChatMessages(chatId: string, messages: Message[]): void {
+    const cached = remoteChatsById.get(chatId);
+    if (!cached) return;
+
+    remoteChatsById.set(chatId, {
+        ...cached,
+        content: structuredClone(messages),
+    });
+}
+
 async function renderMessagesSlice(start: number, end: number, prepend: boolean, isCurrentLoad: () => boolean = () => true) {
     if (!messageContainer) {
         console.error("Message container not found while rendering messages slice");

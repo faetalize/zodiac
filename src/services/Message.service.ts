@@ -146,7 +146,12 @@ async function ensureChatFullyHydratedForWrite(chatId?: string | null): Promise<
     if (!syncService.isSyncActive()) return;
     const targetChatId = chatId ?? chatsService.getCurrentChatId();
     if (!targetChatId) return;
-    if (targetChatId === chatsService.getCurrentChatId() && !chatsService.isCurrentChatRemotePagedMode()) return;
+    const isCurrentChat = targetChatId === chatsService.getCurrentChatId();
+    if (isCurrentChat && !chatsService.isCurrentChatRemotePagedMode()) return;
+
+    const existingChat = await chatsService.getChatById(targetChatId);
+    if (!existingChat) return;
+    if (!isCurrentChat && existingChat.content.length > 0) return;
 
     const inFlight = hydrateForWriteInFlightByChatId.get(targetChatId);
     if (inFlight) {
@@ -157,9 +162,12 @@ async function ensureChatFullyHydratedForWrite(chatId?: string | null): Promise<
     const hydrateForWriteInFlight = (async () => {
         const fullMessages = await syncService.fetchAllSyncedChatMessages(targetChatId);
         if (!fullMessages) return;
-        if (targetChatId === chatsService.getCurrentChatId()) {
+        if (isCurrentChat) {
             await chatsService.replaceCurrentChatMessages(fullMessages);
+            return;
         }
+
+        chatsService.replaceCachedChatMessages(targetChatId, fullMessages);
     })();
 
     hydrateForWriteInFlightByChatId.set(targetChatId, hydrateForWriteInFlight);
@@ -467,20 +475,8 @@ async function persistUserAndModel(user: Message, model: Message): Promise<void>
 }
 
 export async function getChatForWrite(chatId: string): Promise<DbChat | undefined> {
-    const chat = await chatsService.getChatById(chatId);
-    if (!chat) return undefined;
-
-    if (syncService.isSyncActive()) {
-        const fullMessages = await syncService.fetchAllSyncedChatMessages(chatId);
-        if (fullMessages) {
-            chat.content = fullMessages;
-            if (chatId === chatsService.getCurrentChatId()) {
-                await chatsService.replaceCurrentChatMessages(fullMessages);
-            }
-        }
-    }
-
-    return chat;
+    await ensureChatFullyHydratedForWrite(chatId);
+    return chatsService.getChatById(chatId);
 }
 
 export async function persistMessagesToChat(chatId: string, messages: Message[]): Promise<{ startIndex: number } | null> {
