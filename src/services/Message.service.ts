@@ -147,11 +147,12 @@ async function ensureChatFullyHydratedForWrite(chatId?: string | null): Promise<
     const targetChatId = chatId ?? chatsService.getCurrentChatId();
     if (!targetChatId) return;
     const isCurrentChat = targetChatId === chatsService.getCurrentChatId();
-    if (isCurrentChat && !chatsService.isCurrentChatRemotePagedMode()) return;
-
     const existingChat = await chatsService.getChatById(targetChatId);
     if (!existingChat) return;
-    if (!isCurrentChat && existingChat.content.length > 0) return;
+    const isFullyHydrated = syncService.isChatSnapshotFullyHydrated(targetChatId, existingChat.content.length);
+
+    if (isCurrentChat && !chatsService.isCurrentChatRemotePagedMode() && isFullyHydrated) return;
+    if (!isCurrentChat && syncService.isChatSnapshotFullyHydrated(targetChatId, existingChat.content.length)) return;
 
     const inFlight = hydrateForWriteInFlightByChatId.get(targetChatId);
     if (inFlight) {

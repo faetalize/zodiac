@@ -395,14 +395,38 @@ export async function waitForCurrentChatPendingWrites(): Promise<void> {
 }
 
 function cacheRemoteChats(chats: DbChat[]) {
-    remoteChatsById.clear();
+    const nextRemoteChatsById = new Map<string, DbChat>();
     for (const chat of chats) {
-        remoteChatsById.set(chat.id, structuredClone(chat));
+        const existing = currentChatSnapshot?.id === chat.id
+            ? currentChatSnapshot
+            : remoteChatsById.get(chat.id);
+
+        const preservedContent = existing && existing.content.length > chat.content.length
+            ? structuredClone(existing.content)
+            : structuredClone(chat.content || []);
+
+        nextRemoteChatsById.set(chat.id, {
+            ...structuredClone(chat),
+            content: preservedContent,
+        });
+    }
+
+    remoteChatsById.clear();
+    for (const [chatId, chat] of nextRemoteChatsById) {
+        remoteChatsById.set(chatId, chat);
     }
 }
 
 function upsertRemoteChat(chat: DbChat) {
     remoteChatsById.set(chat.id, structuredClone(chat));
+}
+
+function pickRicherChatSnapshot(primary: DbChat | null | undefined, secondary: DbChat | null | undefined): DbChat | undefined {
+    if (primary && secondary) {
+        return (primary.content?.length ?? 0) >= (secondary.content?.length ?? 0) ? primary : secondary;
+    }
+
+    return primary ?? secondary ?? undefined;
 }
 
 export async function initialize() {
@@ -979,6 +1003,12 @@ export async function saveChat(chat: DbChat): Promise<void> {
 export async function getChatById(id: string): Promise<DbChat | undefined> {
     if (syncService.isOnlineSyncEnabled()) {
         if (!syncService.isSyncActive()) return undefined;
+        if (currentChatSnapshot?.id === id) {
+            const richestCurrent = pickRicherChatSnapshot(currentChatSnapshot, remoteChatsById.get(id));
+            if (richestCurrent) {
+                return structuredClone(richestCurrent);
+            }
+        }
         const cached = remoteChatsById.get(id);
         if (cached) return structuredClone(cached);
 
@@ -1289,10 +1319,8 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         }
 
         document.querySelector("#chat-title")!.textContent = chat.title || "";
-        currentChatSnapshot = {
-            ...chat,
-            content: [],
-        };
+        const richestKnownChat = pickRicherChatSnapshot(chat, remoteChatsById.get(chatID));
+        currentChatSnapshot = structuredClone(richestKnownChat ?? chat);
 
         if (syncService.isOnlineSyncEnabled()) {
             if (!syncService.isSyncActive()) {
