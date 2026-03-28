@@ -87,75 +87,120 @@ export { NARRATOR_PERSONALITY_ID, createPersonalityMarkerMessage };
 // GENERATION STATE
 // ================================================================================
 
-let currentAbortController: AbortController | null = null;
-let isGenerating = false;
-let sendInFlight = false;
-let hydrateForWriteInFlight: Promise<void> | null = null;
-let hydrateForWriteChatId: string | null = null;
+const abortControllerByChatId = new Map<string, AbortController>();
+const sendInFlightByChatId = new Map<string, boolean>();
+const hydrateForWriteInFlightByChatId = new Map<string, Promise<void>>();
+const NEW_CHAT_SEND_LOCK_KEY = "__new_chat__";
 
-export function abortGeneration(): void {
-    if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
+function getAnyGenerating(): boolean {
+    return abortControllerByChatId.size > 0;
+}
+
+export function abortGeneration(chatId?: string): void {
+    const targetChatId = chatId ?? chatsService.getCurrentChatId();
+    if (!targetChatId) return;
+
+    const abortController = abortControllerByChatId.get(targetChatId);
+    if (!abortController) return;
+
+    abortController.abort();
+    abortControllerByChatId.delete(targetChatId);
+}
+
+export function getIsGenerating(chatId?: string | null): boolean {
+    if (!chatId) {
+        return false;
     }
+
+    return abortControllerByChatId.has(chatId);
 }
 
-export function getIsGenerating(): boolean {
-    return isGenerating;
+function getSendLockKey(chatId?: string | null): string {
+    return chatId || chatsService.getCurrentChatId() || NEW_CHAT_SEND_LOCK_KEY;
 }
 
-function getAbortSignal(): AbortSignal | undefined {
-    return currentAbortController?.signal;
+function isSendInFlight(chatId?: string | null): boolean {
+    return sendInFlightByChatId.get(getSendLockKey(chatId)) === true;
 }
 
-function isSendInFlight(): boolean {
-    return sendInFlight;
-}
-
-function setSendInFlight(value: boolean): void {
-    sendInFlight = value;
-}
-
-async function ensureCurrentChatFullyHydratedForWrite(): Promise<void> {
-    if (!syncService.isSyncActive()) return;
-    if (!chatsService.isCurrentChatRemotePagedMode()) return;
-
-    const chatId = chatsService.getCurrentChatId();
-    if (!chatId) return;
-
-    if (hydrateForWriteInFlight && hydrateForWriteChatId === chatId) {
-        await hydrateForWriteInFlight;
+function setSendInFlight(value: boolean, chatId?: string | null): void {
+    const key = getSendLockKey(chatId);
+    if (value) {
+        sendInFlightByChatId.set(key, true);
         return;
     }
 
-    hydrateForWriteChatId = chatId;
-    hydrateForWriteInFlight = (async () => {
-        const fullMessages = await syncService.fetchAllSyncedChatMessages(chatId);
+    sendInFlightByChatId.delete(key);
+}
+
+function moveSendInFlight(fromChatId: string | null | undefined, toChatId: string): void {
+    const fromKey = getSendLockKey(fromChatId);
+    if (fromKey === toChatId) return;
+    if (sendInFlightByChatId.get(fromKey) !== true) return;
+
+    sendInFlightByChatId.delete(fromKey);
+    sendInFlightByChatId.set(toChatId, true);
+}
+
+async function ensureChatFullyHydratedForWrite(chatId?: string | null): Promise<void> {
+    if (!syncService.isSyncActive()) return;
+    const targetChatId = chatId ?? chatsService.getCurrentChatId();
+    if (!targetChatId) return;
+    const isCurrentChat = targetChatId === chatsService.getCurrentChatId();
+    const existingChat = await chatsService.getChatById(targetChatId);
+    if (!existingChat) return;
+    const isFullyHydrated = syncService.isChatSnapshotFullyHydrated(targetChatId, existingChat.content.length);
+
+    if (isCurrentChat && !chatsService.isCurrentChatRemotePagedMode() && isFullyHydrated) return;
+    if (!isCurrentChat && syncService.isChatSnapshotFullyHydrated(targetChatId, existingChat.content.length)) return;
+
+    const inFlight = hydrateForWriteInFlightByChatId.get(targetChatId);
+    if (inFlight) {
+        await inFlight;
+        return;
+    }
+
+    const hydrateForWriteInFlight = (async () => {
+        const fullMessages = await syncService.fetchAllSyncedChatMessages(targetChatId);
         if (!fullMessages) return;
-        await chatsService.replaceCurrentChatMessages(fullMessages);
+        if (isCurrentChat) {
+            await chatsService.replaceCurrentChatMessages(fullMessages);
+            return;
+        }
+
+        chatsService.replaceCachedChatMessages(targetChatId, fullMessages);
     })();
+
+    hydrateForWriteInFlightByChatId.set(targetChatId, hydrateForWriteInFlight);
 
     try {
         await hydrateForWriteInFlight;
     } finally {
-        if (hydrateForWriteChatId === chatId) {
-            hydrateForWriteInFlight = null;
-            hydrateForWriteChatId = null;
-        }
+        hydrateForWriteInFlightByChatId.delete(targetChatId);
     }
 }
 
-function startGeneration(): AbortController {
-    currentAbortController = new AbortController();
-    isGenerating = true;
-    dispatchAppEvent('generation-state-changed', { isGenerating: true });
+async function ensureCurrentChatFullyHydratedForWrite(): Promise<void> {
+    await ensureChatFullyHydratedForWrite();
+}
+
+function startGeneration(chatId: string): AbortController {
+    const currentAbortController = new AbortController();
+    abortControllerByChatId.set(chatId, currentAbortController);
+    dispatchAppEvent('generation-state-changed', { chatId, isGenerating: true, anyGenerating: true });
     return currentAbortController;
 }
 
-function endGeneration(): void {
-    isGenerating = false;
-    currentAbortController = null;
-    dispatchAppEvent('generation-state-changed', { isGenerating: false });
+function endGeneration(chatId?: string | null): void {
+    const targetChatId = chatId ?? chatsService.getCurrentChatId();
+    if (!targetChatId) return;
+
+    abortControllerByChatId.delete(targetChatId);
+    dispatchAppEvent('generation-state-changed', {
+        chatId: targetChatId,
+        isGenerating: false,
+        anyGenerating: getAnyGenerating(),
+    });
 }
 
 // ================================================================================
@@ -305,6 +350,14 @@ function getSelectedPersonalityId(): string {
     return parentId.startsWith("personality-") ? parentId.slice("personality-".length) : "-1";
 }
 
+function cloneFilesToFileList(files?: Iterable<File> | ArrayLike<File> | null): FileList {
+    const dt = new DataTransfer();
+    for (const file of Array.from(files ?? [])) {
+        dt.items.add(file);
+    }
+    return dt.files;
+}
+
 function createModelPlaceholderMessage(personalityid: string, groundingContent?: string, roundIndex?: number, originModel?: string): Message {
     const m: Message = { role: "model", parts: [{ text: "" }], personalityid, originModel };
     if (groundingContent !== undefined) (m as any).groundingContent = groundingContent;
@@ -397,16 +450,76 @@ function setUserMessageRequestSlug(userMessage: Message, requestSlug?: string): 
     userMessage.debugInfo.requestSlugs = Array.from(new Set([...(userMessage.debugInfo.requestSlugs ?? []), requestSlug]));
 }
 
+export async function appendRequestSlugToStoredMessage(args: { chatId: string; messageIndex: number; requestSlug?: string }): Promise<void> {
+    if (typeof args.messageIndex !== "number" || !args.requestSlug) return;
+    const requestSlug = args.requestSlug;
+
+    await ensureChatFullyHydratedForWrite(args.chatId);
+    await chatsService.mutateChat(args.chatId, async (chat) => {
+        const target = chat.content[args.messageIndex];
+        if (!target) return undefined;
+
+        target.debugInfo ??= buildMessageDebugInfo({
+            settings: settingsService.getSettings(),
+            mode: getCurrentMessageDebugMode(),
+            isPremiumEndpointPreferred: shouldPreferPremiumEndpoint(),
+            isImagePremiumEndpointPreferred: (await supabaseService.isImageGenerationAvailable()).type === "all",
+        });
+        target.debugInfo.requestSlug = target.debugInfo.requestSlug || requestSlug;
+        target.debugInfo.requestSlugs = Array.from(new Set([...(target.debugInfo.requestSlugs ?? []), requestSlug]));
+        chat.lastModified = new Date();
+        return true;
+    });
+}
+
 async function persistUserAndModel(user: Message, model: Message): Promise<void> {
     await persistMessages([user, model]);
 }
 
+export async function getChatForWrite(chatId: string): Promise<DbChat | undefined> {
+    await ensureChatFullyHydratedForWrite(chatId);
+    return chatsService.getChatById(chatId);
+}
+
+export async function persistMessagesToChat(chatId: string, messages: Message[]): Promise<{ startIndex: number } | null> {
+    await ensureChatFullyHydratedForWrite(chatId);
+    const startIndex = await chatsService.mutateChat(chatId, (chat) => {
+        const nextStartIndex = chat.content.length;
+        chat.content.push(...messages);
+        chat.lastModified = new Date();
+        return nextStartIndex;
+    });
+    return typeof startIndex === "number" ? { startIndex } : null;
+}
+
 async function persistMessages(messages: Message[]): Promise<void> {
-    const chat = await chatsService.getCurrentChat();
-    if (!chat) return;
-    chat.content.push(...messages);
-    chat.lastModified = new Date();
-    await chatsService.saveChat(chat);
+    const chatId = chatsService.getCurrentChatId();
+    if (!chatId) return;
+    await persistMessagesToChat(chatId, messages);
+}
+
+async function updateChatMessage(chatId: string, messageIndex: number, message: Message): Promise<boolean> {
+    await ensureChatFullyHydratedForWrite(chatId);
+    const didUpdate = await chatsService.mutateChat(chatId, (chat) => {
+        if (messageIndex < 0 || messageIndex >= chat.content.length) return undefined;
+
+        chat.content[messageIndex] = message;
+        chat.lastModified = new Date();
+        return true;
+    });
+    return didUpdate === true;
+}
+
+async function removeChatMessageRange(chatId: string, startIndex: number, count: number): Promise<boolean> {
+    await ensureChatFullyHydratedForWrite(chatId);
+    const didRemove = await chatsService.mutateChat(chatId, (chat) => {
+        if (count <= 0 || startIndex < 0 || startIndex >= chat.content.length) return undefined;
+
+        chat.content.splice(startIndex, count);
+        chat.lastModified = new Date();
+        return true;
+    });
+    return didRemove === true;
 }
 
 function createModelErrorMessage(selectedPersonalityId: string, originModel?: string): Message {
@@ -482,17 +595,107 @@ function openApiKeySettings(): void {
     }, 100);
 }
 
-async function finalizeResponseElement(responseElement: HTMLElement, scroll: boolean = true): Promise<void> {
-    const updatedChat = await chatsService.getCurrentChat();
-    if (updatedChat) {
-        const modelIndex = updatedChat.content.length - 1;
-        const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
-        responseElement.replaceWith(newElm);
+async function finalizeResponseElement(args: {
+    chatId: string;
+    messageIndex: number;
+    responseElement?: HTMLElement;
+    message: Message;
+    scroll?: boolean;
+}): Promise<void> {
+    if (chatsService.getCurrentChatId() !== args.chatId) {
+        return;
     }
-    if (scroll) {
+
+    const connectedTarget = args.responseElement?.isConnected
+        ? args.responseElement
+        : document.querySelector<HTMLElement>(`[data-chat-index="${args.messageIndex}"]`);
+
+    if (!connectedTarget && chatsService.isChatLoading(args.chatId)) {
+        pendingFinalizedResponseByChatId.set(args.chatId, {
+            chatId: args.chatId,
+            messageIndex: args.messageIndex,
+            message: args.message,
+            scroll: args.scroll,
+        });
+        return;
+    }
+
+    if (connectedTarget) {
+        const newElm = await messageElement(args.message, args.messageIndex);
+        connectedTarget.replaceWith(newElm);
+    } else {
+        await insertMessage(args.message, args.messageIndex);
+    }
+
+    if (args.scroll ?? true) {
         helpers.messageContainerScrollToBottom(true);
     }
 }
+
+interface ActiveStreamingSession {
+    render: () => Promise<void>;
+}
+
+const activeStreamingSessionByChatId = new Map<string, ActiveStreamingSession>();
+const pendingFinalizedResponseByChatId = new Map<string, {
+    chatId: string;
+    messageIndex: number;
+    message: Message;
+    scroll?: boolean;
+}>();
+
+function rebindResponseElement(ctx: SendContext): boolean {
+    if (!isViewingChat(ctx.chatId)) return false;
+
+    const responseElement = ctx.responseElement.isConnected
+        ? ctx.responseElement
+        : document.querySelector<HTMLElement>(`[data-chat-index="${ctx.modelIndex}"]`);
+    if (!responseElement) return false;
+
+    const messageContent = responseElement.querySelector(".message-text .message-text-content");
+    const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content");
+    if (!messageContent || !groundingRendered) return false;
+
+    ctx.responseElement = responseElement;
+    ctx.messageContent = messageContent;
+    ctx.groundingRendered = groundingRendered;
+    ctx.thinkingWrapper = responseElement.querySelector<HTMLElement>(".message-thinking");
+    ctx.thinkingContentElm = responseElement.querySelector<HTMLElement>(".thinking-content");
+    return true;
+}
+
+async function renderStreamingTextState(ctx: SendContext, state: TextChatResponseState): Promise<void> {
+    if (!rebindResponseElement(ctx)) return;
+
+    ctx.responseElement.querySelector(".message-text")?.classList.remove("is-loading");
+    ctx.messageContent.innerHTML = await parseMarkdownToHtml(state.rawText);
+
+    if (state.thinking.trim().length > 0) {
+        ctx.ensureThinkingElements();
+        if (ctx.thinkingContentElm) {
+            ctx.thinkingContentElm.innerHTML = await parseMarkdownToHtml(state.thinking);
+        }
+    }
+
+    renderGroundingToShadowDom(ctx.groundingRendered, state.groundingContent);
+    helpers.messageContainerScrollToBottom();
+}
+
+window.addEventListener('chat-loaded', (event: any) => {
+    const chatId = event?.detail?.chat?.id;
+    if (!chatId) return;
+
+    const session = activeStreamingSessionByChatId.get(chatId);
+    if (session) {
+        void session.render();
+    }
+
+    const pendingFinalization = pendingFinalizedResponseByChatId.get(chatId);
+    if (!pendingFinalization) return;
+
+    pendingFinalizedResponseByChatId.delete(chatId);
+    void finalizeResponseElement(pendingFinalization);
+});
 
 function createInterruptedModelMessage(args: {
     personalityId: string;
@@ -881,12 +1084,15 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
 /**
  * Send a message in normal chat mode.
  */
-export async function send(msg: string): Promise<HTMLElement | undefined> {
-    if (isSendInFlight()) return;
-    setSendInFlight(true);
+export async function send(msg: string, options: SendOptions = {}): Promise<HTMLElement | undefined> {
+    const targetChatId = options.targetChatId ?? chatsService.getCurrentChatId();
+    const sendLockKey = getSendLockKey(targetChatId);
+    let releaseSendLockKey: string | null = targetChatId ?? null;
+    if (isSendInFlight(targetChatId) || getIsGenerating(targetChatId)) return;
+    setSendInFlight(true, sendLockKey);
 
     try {
-        const validation = await performEarlyValidation(msg);
+        const validation = await performEarlyValidation(msg, options);
         if (!validation.canProceed) return;
 
         // Route to group chat handler if applicable
@@ -896,7 +1102,9 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                 return;
             }
 
-            const existingChat = await chatsService.getCurrentChat();
+            const existingChat = options.targetChatId
+                ? await getChatForWrite(options.targetChatId)
+                : await chatsService.getCurrentChat();
             const mode = (existingChat as any)?.groupChat?.mode as ("rpg" | "dynamic" | undefined);
 
             if (mode === "dynamic") {
@@ -916,11 +1124,13 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
                 isInternetSearchEnabled: validation.isInternetSearchEnabled,
                 isPremiumEndpointPreferred: validation.isPremiumEndpointPreferred,
                 skipTurn: false,
+                targetChatId: options.targetChatId,
             });
         }
 
-        const ctx = await buildSendContext(msg, validation);
+        const ctx = await buildSendContext(msg, validation, options);
         if (!ctx) return;
+        releaseSendLockKey = ctx.chatId;
 
         // Route to appropriate handler
         if (isImageEditingActive()) {
@@ -932,7 +1142,10 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
         return await handleTextChat(ctx);
 
     } finally {
-        setSendInFlight(false);
+        setSendInFlight(false, sendLockKey);
+        if (releaseSendLockKey) {
+            setSendInFlight(false, releaseSendLockKey);
+        }
     }
 }
 
@@ -940,8 +1153,10 @@ export async function send(msg: string): Promise<HTMLElement | undefined> {
  * Send user turn in RPG group chat mode.
  */
 export async function sendRpgTurn(msg?: string): Promise<HTMLElement | undefined> {
-    if (isSendInFlight()) return;
-    setSendInFlight(true);
+    const currentChatId = chatsService.getCurrentChatId();
+    const sendLockKey = getSendLockKey(currentChatId);
+    if (isSendInFlight(currentChatId) || getIsGenerating(currentChatId)) return;
+    setSendInFlight(true, sendLockKey);
 
     try {
         const validation = await performEarlyValidation(msg || "");
@@ -960,10 +1175,14 @@ export async function sendRpgTurn(msg?: string): Promise<HTMLElement | undefined
             isInternetSearchEnabled: validation.isInternetSearchEnabled,
             isPremiumEndpointPreferred: validation.isPremiumEndpointPreferred,
             skipTurn: false,
+            targetChatId: currentChatId ?? undefined,
         });
 
     } finally {
-        setSendInFlight(false);
+        setSendInFlight(false, sendLockKey);
+        if (currentChatId) {
+            setSendInFlight(false, currentChatId);
+        }
     }
 }
 
@@ -971,8 +1190,10 @@ export async function sendRpgTurn(msg?: string): Promise<HTMLElement | undefined
  * Skip user turn in RPG group chat mode.
  */
 export async function skipRpgTurn(): Promise<HTMLElement | undefined> {
-    if (isSendInFlight()) return;
-    setSendInFlight(true);
+    const currentChatId = chatsService.getCurrentChatId();
+    const sendLockKey = getSendLockKey(currentChatId);
+    if (isSendInFlight(currentChatId) || getIsGenerating(currentChatId)) return;
+    setSendInFlight(true, sendLockKey);
 
     try {
         const validation = await performEarlyValidation("");
@@ -991,10 +1212,14 @@ export async function skipRpgTurn(): Promise<HTMLElement | undefined> {
             isInternetSearchEnabled: validation.isInternetSearchEnabled,
             isPremiumEndpointPreferred: validation.isPremiumEndpointPreferred,
             skipTurn: true,
+            targetChatId: currentChatId ?? undefined,
         });
 
     } finally {
-        setSendInFlight(false);
+        setSendInFlight(false, sendLockKey);
+        if (currentChatId) {
+            setSendInFlight(false, currentChatId);
+        }
     }
 }
 
@@ -1003,9 +1228,15 @@ export async function skipRpgTurn(): Promise<HTMLElement | undefined> {
 // ================================================================================
 
 export async function regenerate(modelMessageIndex: number): Promise<void> {
-    await chatsService.waitForCurrentChatPendingWrites();
-    await ensureCurrentChatFullyHydratedForWrite();
-    const chat = await chatsService.getCurrentChat();
+    const targetChatId = chatsService.getCurrentChatId();
+    if (!targetChatId) {
+        console.error("No chat found");
+        return;
+    }
+
+    await chatsService.waitForPendingWrites(targetChatId);
+    await ensureChatFullyHydratedForWrite(targetChatId);
+    const chat = await getChatForWrite(targetChatId);
     if (!chat) {
         console.error("No chat found");
         return;
@@ -1022,7 +1253,9 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
         pruneTrailingPersonalityMarkers(chat);
         await chatsService.saveChat(chat as any);
 
-        const container = document.querySelector<HTMLDivElement>(".message-container");
+        const container = isViewingChat(targetChatId)
+            ? document.querySelector<HTMLDivElement>(".message-container")
+            : null;
         if (container) {
             for (const node of Array.from(container.querySelectorAll<HTMLElement>("[data-chat-index]"))) {
                 const indexAttr = node.getAttribute("data-chat-index");
@@ -1040,7 +1273,7 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 
         try {
             if (chat.groupChat?.mode === "rpg") {
-                await send("");
+                await send("", { targetChatId });
             } else {
                 warn({ title: "Not supported", text: "Regeneration for dynamic group chats is not supported yet." });
             }
@@ -1052,6 +1285,8 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
         return;
     }
 
+    const modelMessage = chat.content[modelMessageIndex];
+    const targetPersonalityId = modelMessage?.personalityid || getSelectedPersonalityId();
     const message = chat.content[modelMessageIndex - 1];
     if (!message) {
         console.error("No message found");
@@ -1071,7 +1306,9 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
     pruneTrailingPersonalityMarkers(chat);
     await chatsService.saveChat(chat as any);
 
-    const container = document.querySelector<HTMLDivElement>(".message-container");
+    const container = isViewingChat(targetChatId)
+        ? document.querySelector<HTMLDivElement>(".message-container")
+        : null;
     if (container) {
         const toRemove: Element[] = [];
         for (const child of Array.from(container.children)) {
@@ -1084,18 +1321,14 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
         for (const node of toRemove) node.remove();
     }
 
-    const attachments = message.parts[0]?.attachments || ({} as FileList);
-    const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
-    if (attachmentsInput && attachments.length > 0) {
-        const dataTransfer = new DataTransfer();
-        for (const attachment of attachments) {
-            dataTransfer.items.add(attachment);
-        }
-        attachmentsInput.files = dataTransfer.files;
-    }
+    const attachments = cloneFilesToFileList(message.parts[0]?.attachments);
 
     try {
-        await send(message.parts[0]?.text || "");
+        await send(message.parts[0]?.text || "", {
+            targetChatId,
+            selectedPersonalityId: targetPersonalityId,
+            attachmentFiles: attachments,
+        });
     } catch (error: any) {
         console.error(error);
         danger({ title: "Error regenerating message", text: JSON.stringify(error.message || error) });
@@ -1104,9 +1337,12 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 }
 
 export async function deleteRound(roundIndex: number): Promise<void> {
-    await chatsService.waitForCurrentChatPendingWrites();
-    await ensureCurrentChatFullyHydratedForWrite();
-    const chat = await chatsService.getCurrentChat();
+    const targetChatId = chatsService.getCurrentChatId();
+    if (!targetChatId) return;
+
+    await chatsService.waitForPendingWrites(targetChatId);
+    await ensureChatFullyHydratedForWrite(targetChatId);
+    const chat = await getChatForWrite(targetChatId);
     if (!chat) return;
 
     const beforeLen = chat.content.length;
@@ -1115,13 +1351,18 @@ export async function deleteRound(roundIndex: number): Promise<void> {
 
     pruneTrailingPersonalityMarkers(chat);
     await chatsService.saveChat(chat as any);
-    await chatsService.loadChat((chat as any).id, db);
+    if (isViewingChat(targetChatId)) {
+        await chatsService.loadChat((chat as any).id, db);
+    }
 }
 
 export async function regenerateRound(roundIndex: number): Promise<void> {
-    await chatsService.waitForCurrentChatPendingWrites();
-    await ensureCurrentChatFullyHydratedForWrite();
-    const chat = await chatsService.getCurrentChat();
+    const targetChatId = chatsService.getCurrentChatId();
+    if (!targetChatId) return;
+
+    await chatsService.waitForPendingWrites(targetChatId);
+    await ensureChatFullyHydratedForWrite(targetChatId);
+    const chat = await getChatForWrite(targetChatId);
     if (!chat) return;
 
     const startIndex = (chat.content || []).findIndex(m => m.roundIndex === roundIndex);
@@ -1130,11 +1371,13 @@ export async function regenerateRound(roundIndex: number): Promise<void> {
     chat.content = chat.content.slice(0, startIndex);
     pruneTrailingPersonalityMarkers(chat);
     await chatsService.saveChat(chat as any);
-    await chatsService.loadChat((chat as any).id, db);
+    if (isViewingChat(targetChatId)) {
+        await chatsService.loadChat((chat as any).id, db);
+    }
 
     try {
         if (!settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
-            await send("");
+            await send("", { targetChatId });
         }
     } catch (error: any) {
         console.error(error);
@@ -1166,13 +1409,24 @@ interface EarlyValidationFailure {
 
 type EarlyValidationResult = EarlyValidationSuccess | EarlyValidationFailure;
 
-async function performEarlyValidation(msg: string): Promise<EarlyValidationResult> {
-    await ensureCurrentChatFullyHydratedForWrite();
+interface SendOptions {
+    targetChatId?: string;
+    selectedPersonalityId?: string;
+    attachmentFiles?: FileList;
+    historyImageDataUri?: string | null;
+}
+
+function isViewingChat(chatId: string): boolean {
+    return chatsService.getCurrentChatId() === chatId;
+}
+
+async function performEarlyValidation(msg: string, options: SendOptions = {}): Promise<EarlyValidationResult> {
+    await ensureChatFullyHydratedForWrite(options.targetChatId);
     const settings = settingsService.getSettings();
     const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
     const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
-    const selectedPersonality = await personalityService.getSelected();
-    const selectedPersonalityId = getSelectedPersonalityId();
+    const selectedPersonalityId = options.selectedPersonalityId ?? getSelectedPersonalityId();
+    const selectedPersonality = await personalityService.get(selectedPersonalityId);
     const isInternetSearchEnabled = document.querySelector<HTMLButtonElement>("#btn-internet")?.classList.contains("btn-toggled") ?? false;
 
     const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
@@ -1181,19 +1435,15 @@ async function performEarlyValidation(msg: string): Promise<EarlyValidationResul
         throw new Error("Missing DOM element");
     }
 
-    const historyImageDataUri = getCurrentHistoryImageDataUri();
+    const historyImageDataUri = options.historyImageDataUri ?? getCurrentHistoryImageDataUri();
 
-    const attachmentFiles: FileList = (() => {
-        const dt = new DataTransfer();
-        for (const f of Array.from(attachmentsInput.files || [])) {
-            dt.items.add(f);
-        }
-        return dt.files;
-    })();
+    const attachmentFiles: FileList = options.attachmentFiles ?? cloneFilesToFileList(attachmentsInput.files);
 
-    attachmentsInput.value = "";
-    attachmentsInput.files = new DataTransfer().files;
-    clearAttachmentPreviews();
+    if (!options.attachmentFiles) {
+        attachmentsInput.value = "";
+        attachmentsInput.files = new DataTransfer().files;
+        clearAttachmentPreviews();
+    }
 
     if (!selectedPersonality) {
         return { canProceed: false };
@@ -1223,7 +1473,9 @@ async function performEarlyValidation(msg: string): Promise<EarlyValidationResul
         return { canProceed: false };
     }
 
-    const existingChat = await chatsService.getCurrentChat();
+    const existingChat = options.targetChatId
+        ? await getChatForWrite(options.targetChatId)
+        : await chatsService.getCurrentChat();
     const groupMode = (existingChat as any)?.groupChat?.mode as ("rpg" | "dynamic" | undefined);
     const isGroupChat = groupMode === "rpg" || groupMode === "dynamic";
     const allowsEmptyMessage = groupMode === "rpg";
@@ -1248,8 +1500,12 @@ async function performEarlyValidation(msg: string): Promise<EarlyValidationResul
 }
 
 interface SendContext {
+    chatId: string;
+    userIndex: number;
+    modelIndex: number;
     msg: string;
     userMessage: Message;
+    modelPlaceholder: Message;
     userMessageElement: HTMLElement;
     responseElement: HTMLElement;
     selectedPersonalityId: string;
@@ -1271,7 +1527,7 @@ interface SendContext {
     ensureThinkingElements: () => void;
 }
 
-async function buildSendContext(msg: string, validation: EarlyValidationSuccess): Promise<SendContext | null> {
+async function buildSendContext(msg: string, validation: EarlyValidationSuccess, options: SendOptions = {}): Promise<SendContext | null> {
     const {
         settings,
         selectedPersonalityId,
@@ -1284,7 +1540,6 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
         shouldEnforceThoughtSignaturesInHistory,
     } = validation;
 
-    const abortController = startGeneration();
     const thinkingConfig = generateThinkingConfig(settings.model, settings.enableThinking, settings);
     const ai = isGeminiModel(settings.model)
         ? new GoogleGenAI({ apiKey: getLocalApiKeyForModel(settings.model, settings) })
@@ -1301,16 +1556,20 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
         imageConfig: settings.model === ChatModel.NANO_BANANA_PRO ? { imageSize: "4K" } : undefined,
     };
 
-    const currentChat = isPremiumEndpointPreferred
-        ? await createChatIfAbsentPremium(msg)
-        : await createChatIfAbsentLocal(settings, msg);
+    const currentChat = options.targetChatId
+        ? await getChatForWrite(options.targetChatId)
+        : isPremiumEndpointPreferred
+            ? await createChatIfAbsentPremium(msg)
+            : await createChatIfAbsentLocal(settings, msg);
 
     if (!currentChat) {
         console.error("No current chat found");
         return null;
     }
 
-    const selectedPersonality = await personalityService.getSelected();
+    const chatId = currentChat.id;
+
+    const selectedPersonality = await personalityService.get(selectedPersonalityId);
     const selectedPersonaForHistory = {
         id: selectedPersonalityId,
         dateAdded: Date.now(),
@@ -1332,46 +1591,39 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
             isImagePremiumEndpointPreferred,
         }),
     };
-    const userIndex = currentChat.content.length;
-    const userMessageElement = await insertMessage(userMessage, userIndex);
-    hljs.highlightAll();
-    helpers.messageContainerScrollToBottom(true);
 
     const pendingOriginModel = getPendingOriginModel(settings);
-    const responseElement = await insertMessage(createModelPlaceholderMessage(selectedPersonalityId, "", undefined, pendingOriginModel), userIndex + 1);
-    helpers.messageContainerScrollToBottom(true);
+    const modelPlaceholder = createModelPlaceholderMessage(selectedPersonalityId, "", undefined, pendingOriginModel);
+    const persistedIndices = await persistMessagesToChat(chatId, [userMessage, modelPlaceholder]);
+    if (!persistedIndices) {
+        console.error("Failed to persist pending messages");
+        return null;
+    }
 
-    const messageContent = responseElement.querySelector(".message-text .message-text-content")!;
-    let thinkingWrapper = responseElement.querySelector<HTMLElement>(".message-thinking");
-    let thinkingContentElm = responseElement.querySelector<HTMLElement>(".thinking-content");
-    const groundingRendered = responseElement.querySelector(".message-grounding-rendered-content")!;
+    moveSendInFlight(NEW_CHAT_SEND_LOCK_KEY, chatId);
+    const abortController = startGeneration(chatId);
+    const userMessageElement = isViewingChat(chatId)
+        ? await insertMessage(userMessage, persistedIndices.startIndex)
+        : await messageElement(userMessage, persistedIndices.startIndex);
+    if (isViewingChat(chatId)) {
+        hljs.highlightAll();
+        helpers.messageContainerScrollToBottom(true);
+    }
 
-    // NOTE: ensureThinkingElements mutates these locals, but callers read from ctx.*.
-    // Keep ctx.* in sync so thought parts never fall back into main text.
-    let ctxRef: SendContext | null = null;
-
-    function ensureThinkingElements(): void {
-        // If we don't already have these elements, re-query in case markup was inserted after the initial query.
-        thinkingWrapper ??= responseElement.querySelector<HTMLElement>(".message-thinking");
-        thinkingContentElm ??= responseElement.querySelector<HTMLElement>(".thinking-content");
-
-        if (!thinkingWrapper || !thinkingContentElm) {
-            const header = responseElement.querySelector(".message-header");
-            const { wrapper, content } = createThinkingUiElements();
-            thinkingWrapper = wrapper;
-            thinkingContentElm = content;
-            header?.insertAdjacentElement("afterend", thinkingWrapper);
-        }
-
-        if (ctxRef) {
-            ctxRef.thinkingWrapper = thinkingWrapper;
-            ctxRef.thinkingContentElm = thinkingContentElm;
-        }
+    const responseElement = isViewingChat(chatId)
+        ? await insertMessage(modelPlaceholder, persistedIndices.startIndex + 1)
+        : await messageElement(modelPlaceholder, persistedIndices.startIndex + 1);
+    if (isViewingChat(chatId)) {
+        helpers.messageContainerScrollToBottom(true);
     }
 
     const ctx: SendContext = {
+        chatId,
+        userIndex: persistedIndices.startIndex,
+        modelIndex: persistedIndices.startIndex + 1,
         msg,
         userMessage,
+        modelPlaceholder,
         userMessageElement,
         responseElement,
         selectedPersonalityId,
@@ -1386,14 +1638,26 @@ async function buildSendContext(msg: string, validation: EarlyValidationSuccess)
         isImagePremiumEndpointPreferred,
         shouldUseSkipThoughtSignature,
         abortController,
-        messageContent,
-        groundingRendered,
-        thinkingWrapper,
-        thinkingContentElm,
-        ensureThinkingElements,
+        messageContent: responseElement.querySelector(".message-text .message-text-content")!,
+        groundingRendered: responseElement.querySelector(".message-grounding-rendered-content")!,
+        thinkingWrapper: responseElement.querySelector<HTMLElement>(".message-thinking"),
+        thinkingContentElm: responseElement.querySelector<HTMLElement>(".thinking-content"),
+        ensureThinkingElements: () => {},
     };
 
-    ctxRef = ctx;
+    ctx.ensureThinkingElements = () => {
+        rebindResponseElement(ctx);
+        ctx.thinkingWrapper ??= ctx.responseElement.querySelector<HTMLElement>(".message-thinking");
+        ctx.thinkingContentElm ??= ctx.responseElement.querySelector<HTMLElement>(".thinking-content");
+
+        if (!ctx.thinkingWrapper || !ctx.thinkingContentElm) {
+            const header = ctx.responseElement.querySelector(".message-header");
+            const { wrapper, content } = createThinkingUiElements();
+            ctx.thinkingWrapper = wrapper;
+            ctx.thinkingContentElm = content;
+            header?.insertAdjacentElement("afterend", ctx.thinkingWrapper);
+        }
+    };
 
     return ctx;
 }
@@ -1427,6 +1691,14 @@ async function handleTextChat(ctx: SendContext): Promise<HTMLElement | undefined
         }
     };
 
+    if (ctx.settings.streamResponses) {
+        activeStreamingSessionByChatId.set(ctx.chatId, {
+            render: async () => {
+                await renderStreamingTextState(ctx, state);
+            },
+        });
+    }
+
     try {
         if (ctx.isPremiumEndpointPreferred) {
             await handleTextChatPremium(ctx, state);
@@ -1436,11 +1708,14 @@ async function handleTextChat(ctx: SendContext): Promise<HTMLElement | undefined
             await handleTextChatLocalSdk(ctx, state);
         }
     } catch (err: any) {
+        activeStreamingSessionByChatId.delete(ctx.chatId);
         if (isAbortError(err, ctx.abortController)) {
             return await handleAbort(ctx, state, ensureTextSignature);
         }
         return await handleError(ctx, err);
     }
+
+    activeStreamingSessionByChatId.delete(ctx.chatId);
 
     if (
         state.finishReason === FinishReason.PROHIBITED_CONTENT ||
@@ -1464,18 +1739,29 @@ async function handleAbort(ctx: SendContext, state: TextChatResponseState, ensur
         generatedImages: state.generatedImages,
         originModel: ctx.settings.model,
     });
-    await persistUserAndModel(ctx.userMessage, modelMessage);
-    await finalizeResponseElement(ctx.responseElement);
+    await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
+    await finalizeResponseElement({
+        chatId: ctx.chatId,
+        messageIndex: ctx.modelIndex,
+        responseElement: ctx.responseElement,
+        message: modelMessage,
+    });
     ctx.responseElement.querySelector(".message-text")?.classList.remove("is-loading");
-    endGeneration();
+    endGeneration(ctx.chatId);
     return ctx.userMessageElement;
 }
 
 async function handleError(ctx: SendContext, error: unknown): Promise<never> {
     console.error(error);
-    await persistUserAndModel(ctx.userMessage, createModelErrorMessage(ctx.selectedPersonalityId, ctx.settings.model));
-    await finalizeResponseElement(ctx.responseElement);
-    endGeneration();
+    const modelMessage = createModelErrorMessage(ctx.selectedPersonalityId, ctx.settings.model);
+    await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
+    await finalizeResponseElement({
+        chatId: ctx.chatId,
+        messageIndex: ctx.modelIndex,
+        responseElement: ctx.responseElement,
+        message: modelMessage,
+    });
+    endGeneration(ctx.chatId);
     throw error;
 }
 
@@ -1494,11 +1780,17 @@ async function finalizeTextChatSuccess(ctx: SendContext, state: TextChatResponse
         originModel: ctx.settings.model,
     };
 
-    await persistUserAndModel(ctx.userMessage, modelMessage);
-    await finalizeResponseElement(ctx.responseElement, false);
+    await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
+    await finalizeResponseElement({
+        chatId: ctx.chatId,
+        messageIndex: ctx.modelIndex,
+        responseElement: ctx.responseElement,
+        message: modelMessage,
+        scroll: false,
+    });
     hljs.highlightAll();
     helpers.messageContainerScrollToBottom();
-    endGeneration();
+    endGeneration(ctx.chatId);
 
     return ctx.userMessageElement;
 }
@@ -1548,6 +1840,7 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
             try {
                 const errorJson = await res.json();
                 setUserMessageRequestSlug(ctx.userMessage, errorJson?.requestId);
+                await appendRequestSlugToStoredMessage({ chatId: ctx.chatId, messageIndex: ctx.userIndex, requestSlug: errorJson?.requestId });
                 if (errorJson?.error) {
                     responseError = `Edge function error: ${res.status} - ${String(errorJson.error)}`;
                 }
@@ -1573,8 +1866,9 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
                 throwOnBlocked: () => false,
                 onBlocked: () => { throw new Error("Blocked"); },
                 callbacks: {
-                    onRequestId: (requestId) => {
+                    onRequestId: async (requestId) => {
                         setUserMessageRequestSlug(ctx.userMessage, requestId);
+                        await appendRequestSlugToStoredMessage({ chatId: ctx.chatId, messageIndex: ctx.userIndex, requestSlug: requestId });
                     },
                     onFallbackStart: () => {
                         state.finishReason = undefined;
@@ -1584,21 +1878,15 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
                     },
                     onText: async ({ text }) => {
                         state.rawText = text;
-                        ctx.responseElement.querySelector(".message-text")?.classList.remove("is-loading");
-                        ctx.messageContent.innerHTML = await parseMarkdownToHtml(state.rawText);
-                        helpers.messageContainerScrollToBottom();
+                        await renderStreamingTextState(ctx, state);
                     },
                     onThinking: async ({ thinking: thinkingSoFar }) => {
                         state.thinking = thinkingSoFar;
-                        if (ctx.thinkingContentElm) {
-                            ctx.thinkingContentElm.innerHTML = await parseMarkdownToHtml(state.thinking);
-                        }
-                        helpers.messageContainerScrollToBottom();
+                        await renderStreamingTextState(ctx, state);
                     },
                     onGrounding: ({ renderedContent }) => {
                         state.groundingContent = renderedContent;
-                        renderGroundingToShadowDom(ctx.groundingRendered, state.groundingContent);
-                        helpers.messageContainerScrollToBottom();
+                        void renderStreamingTextState(ctx, state);
                     },
                     onImage: (img) => {
                         state.generatedImages.push(img);
@@ -1609,6 +1897,7 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
 
         state.finishReason = result.finishReason as any;
         setUserMessageRequestSlug(ctx.userMessage, result.requestId);
+        await appendRequestSlugToStoredMessage({ chatId: ctx.chatId, messageIndex: ctx.userIndex, requestSlug: result.requestId });
         state.thinking = result.thinking;
         state.rawText = result.text;
         state.textSignature = result.textSignature;
@@ -1621,6 +1910,7 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
     } else {
         const json = await res.json();
         setUserMessageRequestSlug(ctx.userMessage, json?.requestId);
+        await appendRequestSlugToStoredMessage({ chatId: ctx.chatId, messageIndex: ctx.userIndex, requestSlug: json?.requestId });
         if (json) {
             if (json.decensored) {
                 state.thinking += json.reasoning ?? "";
@@ -1697,17 +1987,11 @@ async function handleTextChatOpenRouter(ctx: SendContext, state: TextChatRespons
         signal: ctx.abortController?.signal,
         onText: async ({ text }) => {
             state.rawText = text;
-            ctx.responseElement.querySelector(".message-text")?.classList.remove("is-loading");
-            ctx.messageContent.innerHTML = await parseMarkdownToHtml(state.rawText);
-            helpers.messageContainerScrollToBottom();
+            await renderStreamingTextState(ctx, state);
         },
         onThinking: async ({ thinking }) => {
             state.thinking = thinking;
-            ctx.ensureThinkingElements();
-            if (ctx.thinkingContentElm) {
-                ctx.thinkingContentElm.innerHTML = await parseMarkdownToHtml(state.thinking);
-            }
-            helpers.messageContainerScrollToBottom();
+            await renderStreamingTextState(ctx, state);
         },
     });
 
@@ -1758,21 +2042,15 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
                 callbacks: {
                     onThinking: ({ thinking: thinkingSoFar }) => {
                         state.thinking = thinkingSoFar;
-                        if (ctx.thinkingContentElm) {
-                            ctx.thinkingContentElm.textContent = state.thinking;
-                        }
-                        helpers.messageContainerScrollToBottom();
+                        void renderStreamingTextState(ctx, state);
                     },
                     onText: async ({ text }) => {
                         state.rawText = text;
-                        ctx.responseElement.querySelector(".message-text")?.classList.remove("is-loading");
-                        ctx.messageContent.innerHTML = await parseMarkdownToHtml(state.rawText);
-                        helpers.messageContainerScrollToBottom();
+                        await renderStreamingTextState(ctx, state);
                     },
                     onGrounding: ({ renderedContent }) => {
                         state.groundingContent = renderedContent;
-                        renderGroundingToShadowDom(ctx.groundingRendered, state.groundingContent);
-                        helpers.messageContainerScrollToBottom();
+                        void renderStreamingTextState(ctx, state);
                     },
                 },
             },
@@ -1851,15 +2129,24 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
         if (!response.ok) {
             const errorData = await response.json();
             setUserMessageRequestSlug(ctx.userMessage, errorData?.requestId);
+            await appendRequestSlugToStoredMessage({ chatId: ctx.chatId, messageIndex: ctx.userIndex, requestSlug: errorData?.requestId });
             const responseError = errorData.error;
             danger({ text: responseError, title: "Image generation failed" });
-            await persistUserAndModel(ctx.userMessage, createImageGenerationErrorMessage(ctx.selectedPersonalityId, imageGenerationModel));
-            await finalizeResponseElement(ctx.responseElement);
-            endGeneration();
+            const modelMessage = createImageGenerationErrorMessage(ctx.selectedPersonalityId, imageGenerationModel);
+            await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
+            await finalizeResponseElement({
+                chatId: ctx.chatId,
+                messageIndex: ctx.modelIndex,
+                responseElement: ctx.responseElement,
+                message: modelMessage,
+            });
+            endGeneration(ctx.chatId);
             return ctx.userMessageElement;
         }
 
-        setUserMessageRequestSlug(ctx.userMessage, response.headers.get("X-Request-Id") ?? undefined);
+        const requestId = response.headers.get("X-Request-Id") ?? undefined;
+        setUserMessageRequestSlug(ctx.userMessage, requestId);
+        await appendRequestSlugToStoredMessage({ chatId: ctx.chatId, messageIndex: ctx.userIndex, requestSlug: requestId });
         const arrayBuf = await response.arrayBuffer();
         b64 = await helpers.arrayBufferToBase64(arrayBuf);
         returnedMimeType = response.headers.get("Content-Type") || "image/png";
@@ -1873,9 +2160,15 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
         if (!response || !response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
             const extraMessage = response?.generatedImages?.[0]?.raiFilteredReason;
             danger({ text: `${extraMessage ? "Reason: " + extraMessage : ""}`, title: "Image generation failed" });
-            await persistUserAndModel(ctx.userMessage, createImageGenerationErrorMessage(ctx.selectedPersonalityId, imageGenerationModel));
-            await finalizeResponseElement(ctx.responseElement);
-            endGeneration();
+            const modelMessage = createImageGenerationErrorMessage(ctx.selectedPersonalityId, imageGenerationModel);
+            await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
+            await finalizeResponseElement({
+                chatId: ctx.chatId,
+                messageIndex: ctx.modelIndex,
+                responseElement: ctx.responseElement,
+                message: modelMessage,
+            });
+            endGeneration(ctx.chatId);
             return ctx.userMessageElement;
         }
         b64 = response.generatedImages[0].image.imageBytes;
@@ -1890,10 +2183,15 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
         originModel: imageGenerationModel,
     };
 
-    await persistUserAndModel(ctx.userMessage, modelMessage);
-    await finalizeResponseElement(ctx.responseElement);
+    await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
+    await finalizeResponseElement({
+        chatId: ctx.chatId,
+        messageIndex: ctx.modelIndex,
+        responseElement: ctx.responseElement,
+        message: modelMessage,
+    });
     supabaseService.refreshImageGenerationRecord();
-    endGeneration();
+    endGeneration(ctx.chatId);
     return ctx.userMessageElement;
 }
 
@@ -1919,9 +2217,10 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
 
     if (imagesToEdit.length === 0) {
         danger({ title: "No images to edit", text: "Please attach an image or select an image for editing." });
+        await removeChatMessageRange(ctx.chatId, ctx.userIndex, 2);
         ctx.responseElement.remove();
         ctx.userMessageElement.remove();
-        endGeneration();
+        endGeneration(ctx.chatId);
         return;
     }
 
@@ -1946,23 +2245,37 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
         if (!response.ok) {
             const errorData = await response.json();
             setUserMessageRequestSlug(ctx.userMessage, errorData?.requestId);
+            await appendRequestSlugToStoredMessage({ chatId: ctx.chatId, messageIndex: ctx.userIndex, requestSlug: errorData?.requestId });
             danger({ text: errorData.error || "Unknown error", title: "Image editing failed" });
-            await persistUserAndModel(ctx.userMessage, createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel));
-            await finalizeResponseElement(ctx.responseElement);
-            endGeneration();
+            const modelMessage = createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel);
+            await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
+            await finalizeResponseElement({
+                chatId: ctx.chatId,
+                messageIndex: ctx.modelIndex,
+                responseElement: ctx.responseElement,
+                message: modelMessage,
+            });
+            endGeneration(ctx.chatId);
             return ctx.userMessageElement;
         }
 
         const result = await response.json();
         setUserMessageRequestSlug(ctx.userMessage, result?.requestId);
+        await appendRequestSlugToStoredMessage({ chatId: ctx.chatId, messageIndex: ctx.userIndex, requestSlug: result?.requestId });
         const editedImageBase64 = result.image;
         const mimeType = result.mimeType || "image/png";
 
         if (!editedImageBase64) {
             danger({ title: "Image editing failed", text: "No image data returned from server." });
-            await persistUserAndModel(ctx.userMessage, createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel));
-            await finalizeResponseElement(ctx.responseElement);
-            endGeneration();
+            const modelMessage = createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel);
+            await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
+            await finalizeResponseElement({
+                chatId: ctx.chatId,
+                messageIndex: ctx.modelIndex,
+                responseElement: ctx.responseElement,
+                message: modelMessage,
+            });
+            endGeneration(ctx.chatId);
             return ctx.userMessageElement;
         }
 
@@ -1974,18 +2287,29 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
             originModel: editingModel,
         };
 
-        await persistUserAndModel(ctx.userMessage, modelMessage);
-        await finalizeResponseElement(ctx.responseElement);
+        await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
+        await finalizeResponseElement({
+            chatId: ctx.chatId,
+            messageIndex: ctx.modelIndex,
+            responseElement: ctx.responseElement,
+            message: modelMessage,
+        });
         supabaseService.refreshImageGenerationRecord();
-        endGeneration();
+        endGeneration(ctx.chatId);
         return ctx.userMessageElement;
 
     } catch (error: any) {
         console.error("Image editing error:", error);
         danger({ title: "Image editing failed", text: error.message || "An unexpected error occurred" });
-        await persistUserAndModel(ctx.userMessage, createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel));
-        await finalizeResponseElement(ctx.responseElement);
-        endGeneration();
+        const modelMessage = createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel);
+        await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
+        await finalizeResponseElement({
+            chatId: ctx.chatId,
+            messageIndex: ctx.modelIndex,
+            responseElement: ctx.responseElement,
+            message: modelMessage,
+        });
+        endGeneration(ctx.chatId);
         return ctx.userMessageElement;
     }
 }

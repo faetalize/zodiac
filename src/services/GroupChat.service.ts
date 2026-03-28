@@ -151,11 +151,6 @@ export async function updateRpgGroupChat(chatId: string, options: {
     scenarioPrompt?: string;
     narratorEnabled?: boolean;
 }): Promise<boolean> {
-    const chat = await chatsService.getChatById(chatId);
-    if (!chat || !chat.groupChat) {
-        return false;
-    }
-
     const participantIds = uniq(options.participantIds).slice(0, 5);
     if (participantIds.length < 2) {
         return false;
@@ -179,24 +174,29 @@ export async function updateRpgGroupChat(chatId: string, options: {
         scenarioPrompt: options.scenarioPrompt?.trim() || undefined,
         narratorEnabled: !!options.narratorEnabled,
     };
-
-    chat.groupChat = {
-        ...chat.groupChat,
-        participantIds,
-        rpg,
-    };
-
-    // Update title if it was the default group title
-    if (chat.title.startsWith("Group: ")) {
-        const names: string[] = [];
-        for (const id of participantIds) {
-            const persona = await personalityService.get(id);
-            names.push(persona?.name || "Unknown");
-        }
-        chat.title = `Group: ${names.join(", ")}`.slice(0, 60);
+    const names: string[] = [];
+    for (const id of participantIds) {
+        const persona = await personalityService.get(id);
+        names.push(persona?.name || "Unknown");
     }
 
-    await chatsService.saveChat(chat);
+    const didUpdate = await chatsService.mutateChat(chatId, (chat) => {
+        if (!chat.groupChat) return undefined;
+
+        chat.groupChat = {
+            ...chat.groupChat,
+            participantIds,
+            rpg,
+        };
+
+        if (chat.title.startsWith("Group: ")) {
+            chat.title = `Group: ${names.join(", ")}`.slice(0, 60);
+        }
+        return true;
+    });
+    if (!didUpdate) {
+        return false;
+    }
     
     // If this is the current chat, reload it to reflect changes in UI
     const currentId = chatsService.getCurrentChatId();
@@ -215,17 +215,17 @@ export async function updateDynamicGroupChat(chatId: string, options: {
     maxMessageGuardById?: Record<string, number>;
     allowPings?: boolean;
 }): Promise<boolean> {
-    const chat = await chatsService.getChatById(chatId);
-    if (!chat || !chat.groupChat) {
-        return false;
-    }
-
     const participantIds = uniq(options.participantIds).slice(0, 5);
     if (participantIds.length < 2) {
         return false;
     }
 
     const allowPings = !!options.allowPings;
+
+    const existingChat = await chatsService.getChatById(chatId);
+    if (!existingChat || !existingChat.groupChat) {
+        return false;
+    }
 
     const personaIndependenceById = new Map<string, number>();
     for (const id of participantIds) {
@@ -237,31 +237,36 @@ export async function updateDynamicGroupChat(chatId: string, options: {
 
     const maxMessageGuardById = normalizeGuardMap({
         participantIds,
-        existing: options.maxMessageGuardById ?? chat.groupChat.dynamic?.maxMessageGuardById,
-        legacyFallback: chat.groupChat.dynamic?.maxMessageGuard,
+        existing: options.maxMessageGuardById ?? existingChat.groupChat.dynamic?.maxMessageGuardById,
+        legacyFallback: existingChat.groupChat.dynamic?.maxMessageGuard,
         defaultForId: (id) => defaultGuardFromIndependence(personaIndependenceById.get(id)),
     });
-
-    chat.groupChat = {
-        ...chat.groupChat,
-        participantIds,
-        dynamic: {
-            maxMessageGuardById,
-            allowPings,
-        },
-    };
-
-    // Update title if it was the default group title
-    if (chat.title.startsWith("Group: ")) {
-        const names: string[] = [];
-        for (const id of participantIds) {
-            const persona = await personalityService.get(id);
-            names.push(persona?.name || "Unknown");
-        }
-        chat.title = `Group: ${names.join(", ")}`.slice(0, 60);
+    const names: string[] = [];
+    for (const id of participantIds) {
+        const persona = await personalityService.get(id);
+        names.push(persona?.name || "Unknown");
     }
 
-    await chatsService.saveChat(chat);
+    const didUpdate = await chatsService.mutateChat(chatId, (chat) => {
+        if (!chat.groupChat) return undefined;
+
+        chat.groupChat = {
+            ...chat.groupChat,
+            participantIds,
+            dynamic: {
+                maxMessageGuardById,
+                allowPings,
+            },
+        };
+
+        if (chat.title.startsWith("Group: ")) {
+            chat.title = `Group: ${names.join(", ")}`.slice(0, 60);
+        }
+        return true;
+    });
+    if (!didUpdate) {
+        return false;
+    }
 
     // If this is the current chat, reload it to reflect changes in UI
     const currentId = chatsService.getCurrentChatId();

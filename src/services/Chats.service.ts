@@ -36,6 +36,7 @@ let chatLoadInFlight = 0;
 let chatLoadDelayTimer: number | null = null;
 let activeChatLoadToken = 0;
 let activeChatLoadAbortController: AbortController | null = null;
+const generatingChatIds = new Set<string>();
 
 const CHAT_SORT_MODE_STORAGE_KEY = "chat-sort-mode";
 // Lazily initialized from localStorage on first access so that the initial
@@ -114,6 +115,40 @@ function resetChatLoadingFeedback() {
 
     setChatLoadingVisibility(false);
 }
+
+function updateChatGenerationIndicator(chatId: string): void {
+    const label = document.querySelector<HTMLLabelElement>(`label[for='chat${chatId}']`);
+    if (!label) return;
+
+    const spinner = label.querySelector<HTMLElement>('.chat-generation-indicator');
+    if (!spinner) return;
+
+    const isGenerating = generatingChatIds.has(chatId);
+    spinner.classList.toggle('hidden', !isGenerating);
+    label.classList.toggle('chat-is-generating', isGenerating);
+}
+
+function syncAllChatGenerationIndicators(): void {
+    for (const label of Array.from(document.querySelectorAll<HTMLLabelElement>('label.label-currentchat'))) {
+        const target = label.htmlFor;
+        const chatId = target.startsWith('chat') ? target.slice('chat'.length) : '';
+        if (!chatId) continue;
+        updateChatGenerationIndicator(chatId);
+    }
+}
+
+window.addEventListener('generation-state-changed', (event: any) => {
+    const chatId = event?.detail?.chatId;
+    if (!chatId) return;
+
+    if (event.detail?.isGenerating) {
+        generatingChatIds.add(chatId);
+    } else {
+        generatingChatIds.delete(chatId);
+    }
+
+    updateChatGenerationIndicator(chatId);
+});
 
 function beginChatLoadRequest() {
     activeChatLoadToken += 1;
@@ -260,6 +295,11 @@ export function isCurrentChatRemotePagedMode(): boolean {
     return isRemotePagedMode;
 }
 
+export function isChatLoading(chatId?: string | null): boolean {
+    if (!chatId) return false;
+    return currentChatIdState === chatId && chatLoadInFlight > 0;
+}
+
 async function enqueueChatWrite(chatId: string, task: () => Promise<void>): Promise<void> {
     const previous = chatWriteQueueById.get(chatId) ?? Promise.resolve();
     const run = previous
@@ -276,6 +316,77 @@ async function enqueueChatWrite(chatId: string, task: () => Promise<void>): Prom
     return tracked;
 }
 
+async function persistChatWithinQueue(chat: DbChat): Promise<void> {
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) {
+            throw new Error('Cloud sync is enabled but locked. Unlock sync before saving chat changes.');
+        }
+        let chatToSave = chat;
+        let previousForSync = remoteChatsById.get(chat.id) ?? (currentChatSnapshot?.id === chat.id ? currentChatSnapshot : undefined);
+
+        if (isRemotePagedMode && currentChatIdState === chat.id) {
+            const fullMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
+            if (fullMessages) {
+                const localMessages = chat.content || [];
+                const rebased = [...fullMessages];
+                const previousLocalMessages = currentChatSnapshot?.id === chat.id
+                    ? (currentChatSnapshot.content || [])
+                    : [];
+
+                for (let localIndex = 0; localIndex < localMessages.length; localIndex++) {
+                    const absoluteIndex = remoteWindowStartIndex + localIndex;
+                    rebased[absoluteIndex] = localMessages[localIndex];
+                }
+
+                if (localMessages.length < previousLocalMessages.length) {
+                    const truncateAt = Math.max(0, remoteWindowStartIndex + localMessages.length);
+                    rebased.length = Math.min(rebased.length, truncateAt);
+                }
+
+                chatToSave = {
+                    ...chat,
+                    content: rebased,
+                };
+
+                previousForSync = {
+                    ...(chat as any),
+                    content: fullMessages,
+                } as DbChat;
+            }
+        }
+
+        const ok = await syncService.upsertSyncedChat(chatToSave, previousForSync);
+        if (!ok) {
+            throw new Error(`Failed to sync chat ${chat.id}`);
+        }
+        upsertRemoteChat(chatToSave);
+        if (currentChatSnapshot?.id === chat.id) {
+            currentChatSnapshot = structuredClone(chatToSave);
+        }
+        await refreshChatListAfterActivity(db);
+        return;
+    }
+
+    await db.chats.put(chat);
+    await refreshChatListAfterActivity(db);
+}
+
+export async function mutateChat<T>(chatId: string, mutator: (chat: DbChat) => Promise<T | undefined> | T | undefined): Promise<T | undefined> {
+    let result: T | undefined;
+
+    await enqueueChatWrite(chatId, async () => {
+        const chat = await getChatById(chatId);
+        if (!chat) return;
+
+        result = await mutator(chat);
+        if (typeof result === 'undefined') return;
+
+        await persistChatWithinQueue(chat);
+    });
+
+    return result;
+}
+
 export async function waitForPendingWrites(chatId: string): Promise<void> {
     const pending = chatWriteQueueById.get(chatId);
     if (!pending) return;
@@ -289,14 +400,38 @@ export async function waitForCurrentChatPendingWrites(): Promise<void> {
 }
 
 function cacheRemoteChats(chats: DbChat[]) {
-    remoteChatsById.clear();
+    const nextRemoteChatsById = new Map<string, DbChat>();
     for (const chat of chats) {
-        remoteChatsById.set(chat.id, structuredClone(chat));
+        const existing = currentChatSnapshot?.id === chat.id
+            ? currentChatSnapshot
+            : remoteChatsById.get(chat.id);
+
+        const preservedContent = existing && existing.content.length > chat.content.length
+            ? structuredClone(existing.content)
+            : structuredClone(chat.content || []);
+
+        nextRemoteChatsById.set(chat.id, {
+            ...structuredClone(chat),
+            content: preservedContent,
+        });
+    }
+
+    remoteChatsById.clear();
+    for (const [chatId, chat] of nextRemoteChatsById) {
+        remoteChatsById.set(chatId, chat);
     }
 }
 
 function upsertRemoteChat(chat: DbChat) {
     remoteChatsById.set(chat.id, structuredClone(chat));
+}
+
+function pickRicherChatSnapshot(primary: DbChat | null | undefined, secondary: DbChat | null | undefined): DbChat | undefined {
+    if (primary && secondary) {
+        return (primary.content?.length ?? 0) >= (secondary.content?.length ?? 0) ? primary : secondary;
+    }
+
+    return primary ?? secondary ?? undefined;
 }
 
 export async function initialize() {
@@ -434,6 +569,11 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
     pinnedIndicator.textContent = "keep";
     pinnedIndicator.setAttribute("aria-hidden", "true");
     pinnedIndicator.classList.toggle("hidden", !isPinned);
+
+    const generationIndicator = document.createElement("span");
+    generationIndicator.classList.add("chat-generation-indicator", "loading-spinner");
+    generationIndicator.classList.toggle("hidden", !generatingChatIds.has(chat.id));
+    generationIndicator.setAttribute("aria-hidden", "true");
 
     // chat icon
     const chatIcon = document.createElement("span");
@@ -656,6 +796,7 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 
     chatLabel.append(chatIcon);
     chatLabel.append(chatLabelText);
+    chatLabel.append(generationIndicator);
     chatLabel.append(pinnedIndicator);
     chatLabel.append(actionsWrapper);
 
@@ -672,6 +813,8 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
             chatHistorySection.prepend(chatRadioButton, chatLabel);
         }
     }
+
+    updateChatGenerationIndicator(chat.id);
 }
 
 export async function addChat(title: string, content?: Message[]): Promise<string> {
@@ -858,64 +1001,19 @@ export function newChat() {
 
 export async function saveChat(chat: DbChat): Promise<void> {
     await enqueueChatWrite(chat.id, async () => {
-        if (syncService.isOnlineSyncEnabled()) {
-            if (!syncService.isSyncActive()) {
-                throw new Error('Cloud sync is enabled but locked. Unlock sync before saving chat changes.');
-            }
-            let chatToSave = chat;
-            let previousForSync = remoteChatsById.get(chat.id) ?? (currentChatSnapshot?.id === chat.id ? currentChatSnapshot : undefined);
-
-            if (isRemotePagedMode && currentChatIdState === chat.id) {
-                const fullMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
-                if (fullMessages) {
-                    const localMessages = chat.content || [];
-                    const rebased = [...fullMessages];
-                    const previousLocalMessages = currentChatSnapshot?.id === chat.id
-                        ? (currentChatSnapshot.content || [])
-                        : [];
-
-                    for (let localIndex = 0; localIndex < localMessages.length; localIndex++) {
-                        const absoluteIndex = remoteWindowStartIndex + localIndex;
-                        rebased[absoluteIndex] = localMessages[localIndex];
-                    }
-
-                    if (localMessages.length < previousLocalMessages.length) {
-                        const truncateAt = Math.max(0, remoteWindowStartIndex + localMessages.length);
-                        rebased.length = Math.min(rebased.length, truncateAt);
-                    }
-
-                    chatToSave = {
-                        ...chat,
-                        content: rebased,
-                    };
-
-                    previousForSync = {
-                        ...(chat as any),
-                        content: fullMessages,
-                    } as DbChat;
-                }
-            }
-
-            const ok = await syncService.upsertSyncedChat(chatToSave, previousForSync);
-            if (!ok) {
-                throw new Error(`Failed to sync chat ${chat.id}`);
-            }
-            upsertRemoteChat(chatToSave);
-            if (currentChatSnapshot?.id === chat.id) {
-                currentChatSnapshot = structuredClone(chatToSave);
-            }
-            await refreshChatListAfterActivity(db);
-            return;
-        }
-
-        await db.chats.put(chat);
-        await refreshChatListAfterActivity(db);
+        await persistChatWithinQueue(chat);
     });
 }
 
 export async function getChatById(id: string): Promise<DbChat | undefined> {
     if (syncService.isOnlineSyncEnabled()) {
         if (!syncService.isSyncActive()) return undefined;
+        if (currentChatSnapshot?.id === id) {
+            const richestCurrent = pickRicherChatSnapshot(currentChatSnapshot, remoteChatsById.get(id));
+            if (richestCurrent) {
+                return structuredClone(richestCurrent);
+            }
+        }
         const cached = remoteChatsById.get(id);
         if (cached) return structuredClone(cached);
 
@@ -943,6 +1041,17 @@ export async function replaceCurrentChatMessages(messages: Message[]): Promise<v
         content: structuredClone(currentChatMessages),
     };
     upsertRemoteChat(currentChatSnapshot);
+    syncAllChatGenerationIndicators();
+}
+
+export function replaceCachedChatMessages(chatId: string, messages: Message[]): void {
+    const cached = remoteChatsById.get(chatId);
+    if (!cached) return;
+
+    remoteChatsById.set(chatId, {
+        ...cached,
+        content: structuredClone(messages),
+    });
 }
 
 async function renderMessagesSlice(start: number, end: number, prepend: boolean, isCurrentLoad: () => boolean = () => true) {
@@ -1215,10 +1324,8 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
         }
 
         document.querySelector("#chat-title")!.textContent = chat.title || "";
-        currentChatSnapshot = {
-            ...chat,
-            content: [],
-        };
+        const richestKnownChat = pickRicherChatSnapshot(chat, remoteChatsById.get(chatID));
+        currentChatSnapshot = structuredClone(richestKnownChat ?? chat);
 
         if (syncService.isOnlineSyncEnabled()) {
             if (!syncService.isSyncActive()) {
@@ -1371,13 +1478,14 @@ export async function getAllChats(db: Db): Promise<DbChat[]> {
 }
 
 export async function editChat(id: string, title: string) {
-    const chat = await getChatById(id);
-    if (chat) {
+    const didUpdate = await mutateChat(id, (chat) => {
         chat.title = title;
-        await saveChat(chat);
-        // Resort entries in place to reflect updated title without full reload
-        void reorderChatListInDom();
-    }
+        return true;
+    });
+    if (!didUpdate) return;
+
+    // Resort entries in place to reflect updated title without full reload
+    void reorderChatListInDom();
 }
 
 export async function exportChat(id: string): Promise<void> {

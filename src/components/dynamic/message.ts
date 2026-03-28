@@ -770,31 +770,40 @@ function setupMessageClipboard(messageElement: HTMLElement) {
 
 async function updateMessageInDatabase(markdownContent: string, messageIndex: number, attachments?: File[]) {
     try {
-        // Get the current chat and update the specific message
         const currentChat = await chatsService.getCurrentChat();
-        if (!currentChat || !currentChat.content[messageIndex] || !markdownContent) return;
+        if (!currentChat || !markdownContent) return;
 
-         // Update the message content in the parts array
-         if (currentChat.content[messageIndex].parts.length === 0) {
-             currentChat.content[messageIndex].parts.push({ text: markdownContent });
-         } else {
-             currentChat.content[messageIndex].parts[0].text = markdownContent;
-         }
+        const nextAttachments = attachments === undefined
+            ? undefined
+            : (() => {
+                const dataTransfer = new DataTransfer();
+                attachments.forEach(file => dataTransfer.items.add(file));
+                return dataTransfer.files;
+            })();
 
-        // Update attachments if provided
-        if (attachments !== undefined) {
-            // Convert File[] to FileList
-            const dataTransfer = new DataTransfer();
-            attachments.forEach(file => dataTransfer.items.add(file));
-            if (currentChat.content[messageIndex].parts.length === 0) {
-                currentChat.content[messageIndex].parts.push({ text: "", attachments: dataTransfer.files });
+        const didUpdate = await chatsService.mutateChat(currentChat.id, (chat) => {
+            const targetMessage = chat.content[messageIndex];
+            if (!targetMessage) return undefined;
+
+            if (targetMessage.parts.length === 0) {
+                targetMessage.parts.push({ text: markdownContent });
             } else {
-                currentChat.content[messageIndex].parts[0].attachments = dataTransfer.files;
+                targetMessage.parts[0].text = markdownContent;
             }
-        }
 
-        // Save the updated chat back through chat persistence abstraction
-        await chatsService.saveChat(currentChat as any);
+            if (nextAttachments !== undefined) {
+                if (targetMessage.parts.length === 0) {
+                    targetMessage.parts.push({ text: "", attachments: nextAttachments });
+                } else {
+                    targetMessage.parts[0].attachments = nextAttachments;
+                }
+            }
+
+            chat.lastModified = new Date();
+            return true;
+        });
+        if (!didUpdate) return;
+
         console.log("Message updated in database");
     } catch (error) {
         console.error("Error updating message in database:", error);

@@ -547,10 +547,37 @@ messageInput.addEventListener("drop", handleDrop);
 //track if currently generating a response
 let isCurrentlyGenerating = false;
 
+function syncGenerationUiForCurrentChat(): void {
+    const currentChatId = chatsService.getCurrentChatId();
+    isCurrentlyGenerating = messageService.getIsGenerating(currentChatId);
+    syncComposerInteractivity();
+
+    if (isCurrentlyGenerating) {
+        sendMessageButton!.textContent = 'stop';
+        sendMessageButton!.title = 'Stop generating';
+        sendMessageButton!.classList.add('generating');
+        turnControlPanel?.classList.add('hidden');
+        if (turnControlLabel) turnControlLabel.textContent = 'AI responding...';
+        return;
+    }
+
+    sendMessageButton!.textContent = 'send';
+    if (!isComposerAllowanceBlocked) {
+        sendMessageButton!.title = '';
+    }
+    sendMessageButton!.classList.remove('generating');
+
+    void chatsService.getCurrentChat().then(chat => {
+        if (chat?.groupChat?.mode === 'rpg') {
+            turnControlPanel?.classList.remove('hidden');
+        }
+    });
+}
+
 sendMessageButton.addEventListener("click", async () => {
     //if generating, abort instead of send
     if (isCurrentlyGenerating) {
-        messageService.abortGeneration();
+        messageService.abortGeneration(chatsService.getCurrentChatId() ?? undefined);
         return;
     }
 
@@ -589,48 +616,34 @@ sendMessageButton.addEventListener("click", async () => {
 
 //listen for generation state changes to toggle send/stop button
 window.addEventListener('generation-state-changed', (event: any) => {
-    isCurrentlyGenerating = event.detail.isGenerating;
-    syncComposerInteractivity();
-
-    if (isCurrentlyGenerating) {
-        sendMessageButton.textContent = 'stop';
-        sendMessageButton.title = 'Stop generating';
-        sendMessageButton.classList.add('generating');
-        turnControlPanel?.classList.add('hidden');
-        if (turnControlLabel) turnControlLabel.textContent = "AI responding...";
-    } else {
-        sendMessageButton.textContent = 'send';
-        sendMessageButton.title = '';
-        sendMessageButton.classList.remove('generating');
-
-        //re-show turn control if it's an RPG group chat
-        void chatsService.getCurrentChat().then(chat => {
-            if (chat?.groupChat?.mode === "rpg") {
-                turnControlPanel?.classList.remove('hidden');
-            }
-        });
-    }
+    if (!event?.detail?.chatId) return;
+    syncGenerationUiForCurrentChat();
 });
 
 //listen for round state changes to update UI dynamically
 window.addEventListener('round-state-changed', (event: any) => {
+    const currentChatId = chatsService.getCurrentChatId();
+    if (!currentChatId || event.detail?.chatId !== currentChatId) return;
+
     const { isUserTurn, roundComplete, nextRoundNumber, startsNewRound, nextSpeakerId } = event.detail;
 
     void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
 
     // auto-progress RPG group chats (never pause on AI)
     if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
+        const roundChatId = currentChatId;
         const startNextRoundIfIdle = async () => {
             if (isCurrentlyGenerating) return;
+            if (chatsService.getCurrentChatId() !== roundChatId) return;
             const chat = await chatsService.getCurrentChat();
-            if (chat?.groupChat?.mode !== "rpg") return;
+            if (chat?.id !== roundChatId || chat.groupChat?.mode !== "rpg") return;
             await messageService.send("");
         };
 
         //round-state-changed is dispatched before generation-state-changed(false),
         //so wait for generation to finish, then kick off the next round.
         const onGenerationState = async (e: any) => {
-            if (e?.detail?.isGenerating) return;
+            if (e?.detail?.chatId !== roundChatId || e?.detail?.isGenerating) return;
             window.removeEventListener('generation-state-changed', onGenerationState as any);
             try {
                 // Let the originating send() fully unwind (sendInFlight reset, etc.)
@@ -828,6 +841,7 @@ window.addEventListener("chat-loaded", async (e: any) => {
         //auto-progress when loading into a state that requires starting the next round
         if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
             //avoid double-triggers during initial load
+            syncGenerationUiForCurrentChat();
             if (!isCurrentlyGenerating) {
                 void messageService.send("");
             }
@@ -841,6 +855,8 @@ window.addEventListener("chat-loaded", async (e: any) => {
         turnControlPanel?.classList.add("hidden");
         syncComposerInteractivity();
     }
+
+    syncGenerationUiForCurrentChat();
 });
 
 window.addEventListener('composer-state-reset', () => {

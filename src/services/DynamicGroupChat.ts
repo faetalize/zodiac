@@ -116,14 +116,12 @@ async function appendMessageToChat(args: {
     message: Message;
 }): Promise<{ index: number; chat: DbChat } | null> {
     const { chatId, message } = args;
-    const chat = await chatsService.getChatById(chatId);
-    if (!chat) return null;
-
-    const index = chat.content.length;
-    chat.content.push(message);
-    chat.lastModified = new Date();
-    await chatsService.saveChat(chat);
-    return { index, chat };
+    return await chatsService.mutateChat(chatId, (chat) => {
+        const index = chat.content.length;
+        chat.content.push(message);
+        chat.lastModified = new Date();
+        return { index, chat: structuredClone(chat) };
+    }) ?? null;
 }
 
 async function refreshAfterActivity(chatId: ChatId): Promise<void> {
@@ -138,23 +136,23 @@ async function refreshAfterActivity(chatId: ChatId): Promise<void> {
 
 async function appendRequestSlugToMessage(args: { chatId: ChatId; messageIndex: number; requestSlug?: string }): Promise<void> {
     if (!args.requestSlug) return;
+    const requestSlug = args.requestSlug;
 
-    const chat = await chatsService.getChatById(args.chatId);
-    if (!chat) return;
+    await chatsService.mutateChat(args.chatId, (chat) => {
+        const target = chat.content[args.messageIndex];
+        if (!target) return undefined;
 
-    const target = chat.content[args.messageIndex];
-    if (!target) return;
-
-    target.debugInfo ??= buildMessageDebugInfo({
-        settings: settingsService.getSettings(),
-        mode: "normal",
-        isPremiumEndpointPreferred: true,
-        isImagePremiumEndpointPreferred: false,
+        target.debugInfo ??= buildMessageDebugInfo({
+            settings: settingsService.getSettings(),
+            mode: "normal",
+            isPremiumEndpointPreferred: true,
+            isImagePremiumEndpointPreferred: false,
+        });
+        target.debugInfo.requestSlug = target.debugInfo.requestSlug || requestSlug;
+        target.debugInfo.requestSlugs = Array.from(new Set([...(target.debugInfo.requestSlugs ?? []), requestSlug]));
+        chat.lastModified = new Date();
+        return true;
     });
-    target.debugInfo.requestSlug = target.debugInfo.requestSlug || args.requestSlug;
-    target.debugInfo.requestSlugs = Array.from(new Set([...(target.debugInfo.requestSlugs ?? []), args.requestSlug]));
-    chat.lastModified = new Date();
-    await chatsService.saveChat(chat);
 }
 
 function appendRequestSlugToMessageRef(message: Message | undefined, requestSlug?: string): void {

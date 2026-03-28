@@ -106,7 +106,7 @@ window.addEventListener('subscription-updated', async () => {
 });
 
 window.addEventListener('generation-state-changed', async (event: any) => {
-    if (event.detail?.isGenerating === false) {
+    if (event.detail?.anyGenerating === false) {
         imageGenStatus = await isImageGenerationAvailable();
         await refreshSupplementalAllowanceState();
     }
