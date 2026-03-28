@@ -7,7 +7,7 @@
  * Contributors: Treat this as READ-ONLY.
  * If you need schema changes, open an issue describing the required modifications.
  * 
- * Generated: 2026-03-11
+ * Generated: 2026-03-28
  */
 
 export type Json =
@@ -57,7 +57,15 @@ export type Database = {
           persona_id?: string
           persona_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "admin_comment_deletions_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       admin_persona_deletions: {
         Row: {
@@ -84,7 +92,15 @@ export type Database = {
           id?: string
           persona_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "admin_persona_deletions_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       admin_spotlight_modifications: {
         Row: {
@@ -117,7 +133,15 @@ export type Database = {
           persona_id?: string
           persona_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "admin_spotlight_modifications_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       admin_user_bans: {
         Row: {
@@ -141,7 +165,15 @@ export type Database = {
           target_user_id?: string
           target_username?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "admin_user_bans_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       deleted_comments: {
         Row: {
@@ -171,7 +203,15 @@ export type Database = {
           persona_id?: string
           persona_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "deleted_comments_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       deleted_personas: {
         Row: {
@@ -198,7 +238,15 @@ export type Database = {
           persona_id?: string
           persona_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "deleted_personas_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       feature_flags: {
         Row: {
@@ -234,7 +282,15 @@ export type Database = {
           remaining_image_generations?: number
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "image_generations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       image_sub_allowance: {
         Row: {
@@ -273,7 +329,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "image_sub_allowance_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       mega_credits: {
         Row: {
@@ -312,7 +376,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "mega_credits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       nano_banana_daily_usage: {
         Row: {
@@ -336,7 +408,15 @@ export type Database = {
           usage_date?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "nano_banana_daily_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       persona_comment_upvotes: {
         Row: {
@@ -471,6 +551,13 @@ export type Database = {
             referencedRelation: "spotlight_marketplace"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "persona_downloads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       persona_ratings: {
@@ -580,7 +667,15 @@ export type Database = {
           tone_examples?: string[] | null
           version?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "Personas_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -613,7 +708,15 @@ export type Database = {
           user_id?: string | null
           username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       spotlight_personas: {
         Row: {
@@ -638,6 +741,13 @@ export type Database = {
           persona_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "spotlight_personas_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "spotlight_personas_persona_id_fkey"
             columns: ["persona_id"]
@@ -698,7 +808,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       user_sync_preferences: {
         Row: {
@@ -728,7 +846,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_sync_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       user_sync_quotas: {
         Row: {
@@ -752,7 +878,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_sync_quotas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       user_synced_chats: {
         Row: {
@@ -782,7 +916,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_synced_chats_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       user_synced_messages: {
         Row: {
@@ -823,6 +965,13 @@ export type Database = {
             referencedRelation: "user_synced_chats"
             referencedColumns: ["user_id", "id"]
           },
+          {
+            foreignKeyName: "user_synced_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       user_synced_personas: {
@@ -853,7 +1002,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_synced_personas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       user_synced_settings: {
         Row: {
@@ -877,10 +1034,40 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_synced_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
     }
     Views: {
+      admin_dashboard: {
+        Row: {
+          email: string | null
+          last_activity_timestamp: string | null
+          last_chat_timestamp: string | null
+          name: string | null
+          nano_usage_today: number | null
+          remaining_image_gens: number | null
+          remaining_mega_credits: number | null
+          subscription_status: string | null
+          subscription_tier:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          sync_storage_quota_bytes: number | null
+          sync_storage_used_bytes: number | null
+          total_bucket_storage_bytes: number | null
+          user_created_at: string | null
+          user_id: string | null
+          username: string | null
+        }
+        Relationships: []
+      }
       persona_marketplace: {
         Row: {
           aggressiveness: number | null
@@ -910,7 +1097,15 @@ export type Database = {
           tone_examples: string[] | null
           version: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "Personas_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       public_profiles: {
         Row: {
@@ -928,7 +1123,15 @@ export type Database = {
           user_id?: string | null
           username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       spotlight_marketplace: {
         Row: {
@@ -961,7 +1164,15 @@ export type Database = {
           tone_examples: string[] | null
           version: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "Personas_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "admin_dashboard"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -996,6 +1207,10 @@ export type Database = {
           usage_count: number
           usage_date: string
         }[]
+      }
+      get_persona_download_count: {
+        Args: { persona_uuid: string }
+        Returns: number
       }
       get_popular_tags: {
         Args: { tag_limit?: number }
