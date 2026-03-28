@@ -70,7 +70,20 @@ let allowDynamicPings = false;
 
 function syncBottomUiHeight(): void {
     const height = Math.ceil(bottomUiContainer!.getBoundingClientRect().height);
+    const prevHeightStr = document.documentElement.style.getPropertyValue('--bottom-ui-height');
+    
+    if (prevHeightStr === `${height}px`) return;
+
+    const scrollContainer = document.querySelector<HTMLDivElement>("#scrollable-chat-container");
+    const isAtBottom = scrollContainer 
+        ? scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 50 
+        : false;
+
     document.documentElement.style.setProperty('--bottom-ui-height', `${height}px`);
+
+    if (isAtBottom && scrollContainer) {
+        helpers.messageContainerScrollToBottom(true);
+    }
 }
 
 syncBottomUiHeight();
@@ -523,7 +536,6 @@ document.addEventListener("click", (event) => {
 });
 
 window.addEventListener("resize", () => {
-    syncBottomUiHeight();
     if (mentionMenuOpen && mentionState) {
         positionMentionMenu(mentionState.range);
     }
