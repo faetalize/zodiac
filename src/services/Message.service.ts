@@ -108,11 +108,11 @@ export function abortGeneration(chatId?: string): void {
 }
 
 export function getIsGenerating(chatId?: string | null): boolean {
-    if (chatId) {
-        return abortControllerByChatId.has(chatId);
+    if (!chatId) {
+        return false;
     }
 
-    return getAnyGenerating();
+    return abortControllerByChatId.has(chatId);
 }
 
 function getSendLockKey(chatId?: string | null): string {
@@ -1101,6 +1101,7 @@ export async function send(msg: string, options: SendOptions = {}): Promise<HTML
                 isInternetSearchEnabled: validation.isInternetSearchEnabled,
                 isPremiumEndpointPreferred: validation.isPremiumEndpointPreferred,
                 skipTurn: false,
+                targetChatId: options.targetChatId,
             });
         }
 
@@ -1151,6 +1152,7 @@ export async function sendRpgTurn(msg?: string): Promise<HTMLElement | undefined
             isInternetSearchEnabled: validation.isInternetSearchEnabled,
             isPremiumEndpointPreferred: validation.isPremiumEndpointPreferred,
             skipTurn: false,
+            targetChatId: currentChatId ?? undefined,
         });
 
     } finally {
@@ -1187,6 +1189,7 @@ export async function skipRpgTurn(): Promise<HTMLElement | undefined> {
             isInternetSearchEnabled: validation.isInternetSearchEnabled,
             isPremiumEndpointPreferred: validation.isPremiumEndpointPreferred,
             skipTurn: true,
+            targetChatId: currentChatId ?? undefined,
         });
 
     } finally {

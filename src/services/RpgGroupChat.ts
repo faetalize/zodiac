@@ -111,6 +111,7 @@ export interface RpgInputArgs {
     isInternetSearchEnabled: boolean;
     isPremiumEndpointPreferred: boolean;
     skipTurn: boolean;
+    targetChatId?: string;
 }
 
 export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement | undefined> {
@@ -205,7 +206,9 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
     const settings = settingsService.getSettings();
     const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 
-    let workingChat = await chatsService.getCurrentChat();
+    let workingChat = args.targetChatId
+        ? await getChatForWrite(args.targetChatId)
+        : await chatsService.getCurrentChat();
     if (!workingChat) {
         console.error("Group chat send called without an active chat");
         return null;
