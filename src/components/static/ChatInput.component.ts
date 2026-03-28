@@ -19,6 +19,7 @@ interface AttachmentRemovedDetail {
 
 const messageInput = document.querySelector<HTMLDivElement>("#messageInput");
 const messageBox = document.querySelector<HTMLDivElement>("#message-box");
+const bottomUiContainer = document.querySelector<HTMLDivElement>("#bottom-ui-container");
 const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
 const attachmentPreview = document.querySelector<HTMLDivElement>("#attachment-preview");
 const sendMessageButton = document.querySelector<HTMLButtonElement>("#btn-send");
@@ -33,7 +34,7 @@ const startRoundText = document.querySelector<HTMLSpanElement>("#start-round-tex
 const skipTurnBtn = document.querySelector<HTMLButtonElement>("#btn-skip-turn");
 const rpgSettingsButton = document.querySelector<HTMLButtonElement>("#btn-rpg-settings");
 
-if (!messageInput || !messageBox || !attachmentsInput || !attachmentPreview || !sendMessageButton || !internetSearchToggle || !roleplayActionsMenu) {
+if (!messageInput || !messageBox || !bottomUiContainer || !attachmentsInput || !attachmentPreview || !sendMessageButton || !internetSearchToggle || !roleplayActionsMenu) {
     console.error("Chat input component is missing some elements. Please check the HTML structure.");
     throw new Error("Chat input component is not properly initialized.");
 }
@@ -66,6 +67,19 @@ let isGroupChatContext = false;
 let isRpgGroupChatContext = false;
 let isDynamicGroupChatContext = false;
 let allowDynamicPings = false;
+
+function syncBottomUiHeight(): void {
+    const height = Math.ceil(bottomUiContainer!.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--bottom-ui-height', `${height}px`);
+}
+
+syncBottomUiHeight();
+
+const bottomUiResizeObserver = new ResizeObserver(() => {
+    syncBottomUiHeight();
+});
+
+bottomUiResizeObserver.observe(bottomUiContainer);
 
 function syncComposerInteractivity(): void {
     const canEdit = !isRpgGroupChatContext || (!isCurrentlyGenerating && isUserTurnInRpg);
@@ -509,6 +523,7 @@ document.addEventListener("click", (event) => {
 });
 
 window.addEventListener("resize", () => {
+    syncBottomUiHeight();
     if (mentionMenuOpen && mentionState) {
         positionMentionMenu(mentionState.range);
     }
