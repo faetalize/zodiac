@@ -107,6 +107,12 @@ npm run build        # Type-check + production build
 npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 ```
 
+### Agent worktree workflow
+- Use `npm run create-worktree -- <branch> [worktree-path] [options]` to create a sibling worktree without interactive prompts.
+- For issue-driven work, prefer `npm run create-worktree -- --issue <number> --publish --open`.
+- The script can create or reuse a local branch, run `npm install`, push with `-u` to the remote, and open a new Alacritty window running `opencode` in the new worktree.
+- Run `npm run create-worktree -- --help` for the full flag list and positional argument rules.
+
 ## Release Cycle
 
 ### Branching and deployment flow
