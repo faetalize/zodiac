@@ -36,6 +36,7 @@ let chatLoadInFlight = 0;
 let chatLoadDelayTimer: number | null = null;
 let activeChatLoadToken = 0;
 let activeChatLoadAbortController: AbortController | null = null;
+const generatingChatIds = new Set<string>();
 
 const CHAT_SORT_MODE_STORAGE_KEY = "chat-sort-mode";
 // Lazily initialized from localStorage on first access so that the initial
@@ -114,6 +115,40 @@ function resetChatLoadingFeedback() {
 
     setChatLoadingVisibility(false);
 }
+
+function updateChatGenerationIndicator(chatId: string): void {
+    const label = document.querySelector<HTMLLabelElement>(`label[for='chat${chatId}']`);
+    if (!label) return;
+
+    const spinner = label.querySelector<HTMLElement>('.chat-generation-indicator');
+    if (!spinner) return;
+
+    const isGenerating = generatingChatIds.has(chatId);
+    spinner.classList.toggle('hidden', !isGenerating);
+    label.classList.toggle('chat-is-generating', isGenerating);
+}
+
+function syncAllChatGenerationIndicators(): void {
+    for (const label of Array.from(document.querySelectorAll<HTMLLabelElement>('label.label-currentchat'))) {
+        const target = label.htmlFor;
+        const chatId = target.startsWith('chat') ? target.slice('chat'.length) : '';
+        if (!chatId) continue;
+        updateChatGenerationIndicator(chatId);
+    }
+}
+
+window.addEventListener('generation-state-changed', (event: any) => {
+    const chatId = event?.detail?.chatId;
+    if (!chatId) return;
+
+    if (event.detail?.isGenerating) {
+        generatingChatIds.add(chatId);
+    } else {
+        generatingChatIds.delete(chatId);
+    }
+
+    updateChatGenerationIndicator(chatId);
+});
 
 function beginChatLoadRequest() {
     activeChatLoadToken += 1;
@@ -435,6 +470,11 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
     pinnedIndicator.setAttribute("aria-hidden", "true");
     pinnedIndicator.classList.toggle("hidden", !isPinned);
 
+    const generationIndicator = document.createElement("span");
+    generationIndicator.classList.add("chat-generation-indicator", "loading-spinner");
+    generationIndicator.classList.toggle("hidden", !generatingChatIds.has(chat.id));
+    generationIndicator.setAttribute("aria-hidden", "true");
+
     // chat icon
     const chatIcon = document.createElement("span");
     chatIcon.classList.add("material-symbols-outlined");
@@ -656,6 +696,7 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 
     chatLabel.append(chatIcon);
     chatLabel.append(chatLabelText);
+    chatLabel.append(generationIndicator);
     chatLabel.append(pinnedIndicator);
     chatLabel.append(actionsWrapper);
 
@@ -672,6 +713,8 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
             chatHistorySection.prepend(chatRadioButton, chatLabel);
         }
     }
+
+    updateChatGenerationIndicator(chat.id);
 }
 
 export async function addChat(title: string, content?: Message[]): Promise<string> {
@@ -943,6 +986,7 @@ export async function replaceCurrentChatMessages(messages: Message[]): Promise<v
         content: structuredClone(currentChatMessages),
     };
     upsertRemoteChat(currentChatSnapshot);
+    syncAllChatGenerationIndicators();
 }
 
 async function renderMessagesSlice(start: number, end: number, prepend: boolean, isCurrentLoad: () => boolean = () => true) {
