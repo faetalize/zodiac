@@ -1445,13 +1445,14 @@ export async function getAllChats(db: Db): Promise<DbChat[]> {
 }
 
 export async function editChat(id: string, title: string) {
-    const chat = await getChatById(id);
-    if (chat) {
+    const didUpdate = await mutateChat(id, (chat) => {
         chat.title = title;
-        await saveChat(chat);
-        // Resort entries in place to reflect updated title without full reload
-        void reorderChatListInDom();
-    }
+        return true;
+    });
+    if (!didUpdate) return;
+
+    // Resort entries in place to reflect updated title without full reload
+    void reorderChatListInDom();
 }
 
 export async function exportChat(id: string): Promise<void> {
