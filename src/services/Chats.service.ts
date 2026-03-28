@@ -311,6 +311,77 @@ async function enqueueChatWrite(chatId: string, task: () => Promise<void>): Prom
     return tracked;
 }
 
+async function persistChatWithinQueue(chat: DbChat): Promise<void> {
+    if (syncService.isOnlineSyncEnabled()) {
+        if (!syncService.isSyncActive()) {
+            throw new Error('Cloud sync is enabled but locked. Unlock sync before saving chat changes.');
+        }
+        let chatToSave = chat;
+        let previousForSync = remoteChatsById.get(chat.id) ?? (currentChatSnapshot?.id === chat.id ? currentChatSnapshot : undefined);
+
+        if (isRemotePagedMode && currentChatIdState === chat.id) {
+            const fullMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
+            if (fullMessages) {
+                const localMessages = chat.content || [];
+                const rebased = [...fullMessages];
+                const previousLocalMessages = currentChatSnapshot?.id === chat.id
+                    ? (currentChatSnapshot.content || [])
+                    : [];
+
+                for (let localIndex = 0; localIndex < localMessages.length; localIndex++) {
+                    const absoluteIndex = remoteWindowStartIndex + localIndex;
+                    rebased[absoluteIndex] = localMessages[localIndex];
+                }
+
+                if (localMessages.length < previousLocalMessages.length) {
+                    const truncateAt = Math.max(0, remoteWindowStartIndex + localMessages.length);
+                    rebased.length = Math.min(rebased.length, truncateAt);
+                }
+
+                chatToSave = {
+                    ...chat,
+                    content: rebased,
+                };
+
+                previousForSync = {
+                    ...(chat as any),
+                    content: fullMessages,
+                } as DbChat;
+            }
+        }
+
+        const ok = await syncService.upsertSyncedChat(chatToSave, previousForSync);
+        if (!ok) {
+            throw new Error(`Failed to sync chat ${chat.id}`);
+        }
+        upsertRemoteChat(chatToSave);
+        if (currentChatSnapshot?.id === chat.id) {
+            currentChatSnapshot = structuredClone(chatToSave);
+        }
+        await refreshChatListAfterActivity(db);
+        return;
+    }
+
+    await db.chats.put(chat);
+    await refreshChatListAfterActivity(db);
+}
+
+export async function mutateChat<T>(chatId: string, mutator: (chat: DbChat) => Promise<T | undefined> | T | undefined): Promise<T | undefined> {
+    let result: T | undefined;
+
+    await enqueueChatWrite(chatId, async () => {
+        const chat = await getChatById(chatId);
+        if (!chat) return;
+
+        result = await mutator(chat);
+        if (typeof result === 'undefined') return;
+
+        await persistChatWithinQueue(chat);
+    });
+
+    return result;
+}
+
 export async function waitForPendingWrites(chatId: string): Promise<void> {
     const pending = chatWriteQueueById.get(chatId);
     if (!pending) return;
@@ -901,58 +972,7 @@ export function newChat() {
 
 export async function saveChat(chat: DbChat): Promise<void> {
     await enqueueChatWrite(chat.id, async () => {
-        if (syncService.isOnlineSyncEnabled()) {
-            if (!syncService.isSyncActive()) {
-                throw new Error('Cloud sync is enabled but locked. Unlock sync before saving chat changes.');
-            }
-            let chatToSave = chat;
-            let previousForSync = remoteChatsById.get(chat.id) ?? (currentChatSnapshot?.id === chat.id ? currentChatSnapshot : undefined);
-
-            if (isRemotePagedMode && currentChatIdState === chat.id) {
-                const fullMessages = await syncService.fetchAllSyncedChatMessages(chat.id);
-                if (fullMessages) {
-                    const localMessages = chat.content || [];
-                    const rebased = [...fullMessages];
-                    const previousLocalMessages = currentChatSnapshot?.id === chat.id
-                        ? (currentChatSnapshot.content || [])
-                        : [];
-
-                    for (let localIndex = 0; localIndex < localMessages.length; localIndex++) {
-                        const absoluteIndex = remoteWindowStartIndex + localIndex;
-                        rebased[absoluteIndex] = localMessages[localIndex];
-                    }
-
-                    if (localMessages.length < previousLocalMessages.length) {
-                        const truncateAt = Math.max(0, remoteWindowStartIndex + localMessages.length);
-                        rebased.length = Math.min(rebased.length, truncateAt);
-                    }
-
-                    chatToSave = {
-                        ...chat,
-                        content: rebased,
-                    };
-
-                    previousForSync = {
-                        ...(chat as any),
-                        content: fullMessages,
-                    } as DbChat;
-                }
-            }
-
-            const ok = await syncService.upsertSyncedChat(chatToSave, previousForSync);
-            if (!ok) {
-                throw new Error(`Failed to sync chat ${chat.id}`);
-            }
-            upsertRemoteChat(chatToSave);
-            if (currentChatSnapshot?.id === chat.id) {
-                currentChatSnapshot = structuredClone(chatToSave);
-            }
-            await refreshChatListAfterActivity(db);
-            return;
-        }
-
-        await db.chats.put(chat);
-        await refreshChatListAfterActivity(db);
+        await persistChatWithinQueue(chat);
     });
 }
 

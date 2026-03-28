@@ -451,23 +451,24 @@ function setUserMessageRequestSlug(userMessage: Message, requestSlug?: string): 
 
 export async function appendRequestSlugToStoredMessage(args: { chatId: string; messageIndex: number; requestSlug?: string }): Promise<void> {
     if (typeof args.messageIndex !== "number" || !args.requestSlug) return;
+    const requestSlug = args.requestSlug;
 
-    const chat = await getChatForWrite(args.chatId);
-    if (!chat) return;
+    await ensureChatFullyHydratedForWrite(args.chatId);
+    await chatsService.mutateChat(args.chatId, async (chat) => {
+        const target = chat.content[args.messageIndex];
+        if (!target) return undefined;
 
-    const target = chat.content[args.messageIndex];
-    if (!target) return;
-
-    target.debugInfo ??= buildMessageDebugInfo({
-        settings: settingsService.getSettings(),
-        mode: getCurrentMessageDebugMode(),
-        isPremiumEndpointPreferred: shouldPreferPremiumEndpoint(),
-        isImagePremiumEndpointPreferred: (await supabaseService.isImageGenerationAvailable()).type === "all",
+        target.debugInfo ??= buildMessageDebugInfo({
+            settings: settingsService.getSettings(),
+            mode: getCurrentMessageDebugMode(),
+            isPremiumEndpointPreferred: shouldPreferPremiumEndpoint(),
+            isImagePremiumEndpointPreferred: (await supabaseService.isImageGenerationAvailable()).type === "all",
+        });
+        target.debugInfo.requestSlug = target.debugInfo.requestSlug || requestSlug;
+        target.debugInfo.requestSlugs = Array.from(new Set([...(target.debugInfo.requestSlugs ?? []), requestSlug]));
+        chat.lastModified = new Date();
+        return true;
     });
-    target.debugInfo.requestSlug = target.debugInfo.requestSlug || args.requestSlug;
-    target.debugInfo.requestSlugs = Array.from(new Set([...(target.debugInfo.requestSlugs ?? []), args.requestSlug]));
-    chat.lastModified = new Date();
-    await chatsService.saveChat(chat);
 }
 
 async function persistUserAndModel(user: Message, model: Message): Promise<void> {
@@ -480,13 +481,14 @@ export async function getChatForWrite(chatId: string): Promise<DbChat | undefine
 }
 
 export async function persistMessagesToChat(chatId: string, messages: Message[]): Promise<{ startIndex: number } | null> {
-    const chat = await getChatForWrite(chatId);
-    if (!chat) return null;
-    const startIndex = chat.content.length;
-    chat.content.push(...messages);
-    chat.lastModified = new Date();
-    await chatsService.saveChat(chat);
-    return { startIndex };
+    await ensureChatFullyHydratedForWrite(chatId);
+    const startIndex = await chatsService.mutateChat(chatId, (chat) => {
+        const nextStartIndex = chat.content.length;
+        chat.content.push(...messages);
+        chat.lastModified = new Date();
+        return nextStartIndex;
+    });
+    return typeof startIndex === "number" ? { startIndex } : null;
 }
 
 async function persistMessages(messages: Message[]): Promise<void> {
@@ -496,25 +498,27 @@ async function persistMessages(messages: Message[]): Promise<void> {
 }
 
 async function updateChatMessage(chatId: string, messageIndex: number, message: Message): Promise<boolean> {
-    const chat = await getChatForWrite(chatId);
-    if (!chat) return false;
-    if (messageIndex < 0 || messageIndex >= chat.content.length) return false;
+    await ensureChatFullyHydratedForWrite(chatId);
+    const didUpdate = await chatsService.mutateChat(chatId, (chat) => {
+        if (messageIndex < 0 || messageIndex >= chat.content.length) return undefined;
 
-    chat.content[messageIndex] = message;
-    chat.lastModified = new Date();
-    await chatsService.saveChat(chat);
-    return true;
+        chat.content[messageIndex] = message;
+        chat.lastModified = new Date();
+        return true;
+    });
+    return didUpdate === true;
 }
 
 async function removeChatMessageRange(chatId: string, startIndex: number, count: number): Promise<boolean> {
-    const chat = await getChatForWrite(chatId);
-    if (!chat) return false;
-    if (count <= 0 || startIndex < 0 || startIndex >= chat.content.length) return false;
+    await ensureChatFullyHydratedForWrite(chatId);
+    const didRemove = await chatsService.mutateChat(chatId, (chat) => {
+        if (count <= 0 || startIndex < 0 || startIndex >= chat.content.length) return undefined;
 
-    chat.content.splice(startIndex, count);
-    chat.lastModified = new Date();
-    await chatsService.saveChat(chat);
-    return true;
+        chat.content.splice(startIndex, count);
+        chat.lastModified = new Date();
+        return true;
+    });
+    return didRemove === true;
 }
 
 function createModelErrorMessage(selectedPersonalityId: string, originModel?: string): Message {
