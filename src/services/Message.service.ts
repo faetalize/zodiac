@@ -598,7 +598,7 @@ function openApiKeySettings(): void {
 async function finalizeResponseElement(args: {
     chatId: string;
     messageIndex: number;
-    responseElement: HTMLElement;
+    responseElement?: HTMLElement;
     message: Message;
     scroll?: boolean;
 }): Promise<void> {
@@ -606,9 +606,19 @@ async function finalizeResponseElement(args: {
         return;
     }
 
-    const connectedTarget = args.responseElement.isConnected
+    const connectedTarget = args.responseElement?.isConnected
         ? args.responseElement
         : document.querySelector<HTMLElement>(`[data-chat-index="${args.messageIndex}"]`);
+
+    if (!connectedTarget && chatsService.isChatLoading(args.chatId)) {
+        pendingFinalizedResponseByChatId.set(args.chatId, {
+            chatId: args.chatId,
+            messageIndex: args.messageIndex,
+            message: args.message,
+            scroll: args.scroll,
+        });
+        return;
+    }
 
     if (connectedTarget) {
         const newElm = await messageElement(args.message, args.messageIndex);
@@ -627,6 +637,12 @@ interface ActiveStreamingSession {
 }
 
 const activeStreamingSessionByChatId = new Map<string, ActiveStreamingSession>();
+const pendingFinalizedResponseByChatId = new Map<string, {
+    chatId: string;
+    messageIndex: number;
+    message: Message;
+    scroll?: boolean;
+}>();
 
 function rebindResponseElement(ctx: SendContext): boolean {
     if (!isViewingChat(ctx.chatId)) return false;
@@ -670,9 +686,15 @@ window.addEventListener('chat-loaded', (event: any) => {
     if (!chatId) return;
 
     const session = activeStreamingSessionByChatId.get(chatId);
-    if (!session) return;
+    if (session) {
+        void session.render();
+    }
 
-    void session.render();
+    const pendingFinalization = pendingFinalizedResponseByChatId.get(chatId);
+    if (!pendingFinalization) return;
+
+    pendingFinalizedResponseByChatId.delete(chatId);
+    void finalizeResponseElement(pendingFinalization);
 });
 
 function createInterruptedModelMessage(args: {

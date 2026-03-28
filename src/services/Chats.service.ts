@@ -295,6 +295,11 @@ export function isCurrentChatRemotePagedMode(): boolean {
     return isRemotePagedMode;
 }
 
+export function isChatLoading(chatId?: string | null): boolean {
+    if (!chatId) return false;
+    return currentChatIdState === chatId && chatLoadInFlight > 0;
+}
+
 async function enqueueChatWrite(chatId: string, task: () => Promise<void>): Promise<void> {
     const previous = chatWriteQueueById.get(chatId) ?? Promise.resolve();
     const run = previous
