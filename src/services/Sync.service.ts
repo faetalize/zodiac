@@ -2449,12 +2449,12 @@ export async function hydrateChatMessages(chatId: string): Promise<boolean> {
 }
 
 export function isChatSnapshotFullyHydrated(chatId: string, loadedMessageCount: number): boolean {
-    if (hydratedChats.has(chatId)) return true;
-
     const knownRemoteCount = remoteMessageCountByChatId.get(chatId);
-    if (typeof knownRemoteCount !== 'number') return false;
+    if (typeof knownRemoteCount === 'number') {
+        return loadedMessageCount >= knownRemoteCount;
+    }
 
-    return loadedMessageCount >= knownRemoteCount;
+    return hydratedChats.has(chatId);
 }
 
 export async function fetchAllSyncedChatMessages(chatId: string, options?: { signal?: AbortSignal }): Promise<Message[] | null> {
