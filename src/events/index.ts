@@ -71,7 +71,9 @@ export interface ComposerAllowanceBlockedDetail {
 // --- Generation State Events ---
 
 export interface GenerationStateChangedDetail {
+    chatId: string;
     isGenerating: boolean;
+    anyGenerating: boolean;
 }
 
 // --- Chat Events ---
@@ -93,6 +95,7 @@ export interface OpenGroupChatEditorDetail {
 // --- RPG Group Chat Events ---
 
 export interface RoundStateChangedDetail {
+    chatId: string;
     isUserTurn: boolean;
     currentRoundIndex: number;
     roundComplete: boolean;

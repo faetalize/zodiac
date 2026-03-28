@@ -63,6 +63,7 @@ export interface RpgContext {
     shouldEnforceThoughtSignaturesInHistory: boolean;
 
     // Chat state
+    chatId: string;
     workingChat: DbChat;
     currentRoundIndex: number;
     rootUserMessageIndex?: number;

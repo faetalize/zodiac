@@ -64,7 +64,9 @@ import {
     startGeneration,
     endGeneration,
     insertMessage,
-    persistMessages,
+    persistMessagesToChat,
+    appendRequestSlugToStoredMessage,
+    getChatForWrite,
     createModelPlaceholderMessage,
     createModelErrorMessage,
     buildMessageDebugInfo,
@@ -109,6 +111,7 @@ export interface RpgInputArgs {
     isInternetSearchEnabled: boolean;
     isPremiumEndpointPreferred: boolean;
     skipTurn: boolean;
+    targetChatId?: string;
 }
 
 export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement | undefined> {
@@ -123,9 +126,9 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
     }
 
     // Refresh working chat
-    let workingChat = await chatsService.getCurrentChat();
+    let workingChat = await getChatForWrite(ctx.chatId);
     if (!workingChat) {
-        endGeneration();
+        endGeneration(ctx.chatId);
         return;
     }
     ctx.workingChat = workingChat;
@@ -136,7 +139,7 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
     if (args.msg) {
         userElm = await insertUserMessage(ctx);
         if (!userElm) {
-            endGeneration();
+            endGeneration(ctx.chatId);
             return;
         }
     }
@@ -151,7 +154,7 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
     let executedAiTurns = 0;
     for (const meta of participantMeta) {
         if (currentAbortController?.signal.aborted) {
-            endGeneration();
+            endGeneration(ctx.chatId);
             return userElm;
         }
 
@@ -163,13 +166,18 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
         const result = await executeParticipantTurn({ ctx, meta, participantMeta });
 
         if (!result.continueLoop) {
-            endGeneration();
+            endGeneration(ctx.chatId);
             return userElm;
         }
 
         executedAiTurns += 1;
 
-        ctx.workingChat = (await chatsService.getCurrentChat())!;
+        const updatedChat = await getChatForWrite(ctx.chatId);
+        if (!updatedChat) {
+            endGeneration(ctx.chatId);
+            return userElm;
+        }
+        ctx.workingChat = updatedChat;
     }
 
     // Narrator after round: only when the round actually completes
@@ -184,9 +192,9 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
     }
 
     // Dispatch round state for UI
-    dispatchRoundState({ userCompletedTurn, currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId });
+    dispatchRoundState({ chatId: ctx.chatId, userCompletedTurn, currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId });
 
-    endGeneration();
+    endGeneration(ctx.chatId);
     return userElm;
 }
 
@@ -198,7 +206,9 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
     const settings = settingsService.getSettings();
     const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 
-    let workingChat = await chatsService.getCurrentChat();
+    let workingChat = args.targetChatId
+        ? await getChatForWrite(args.targetChatId)
+        : await chatsService.getCurrentChat();
     if (!workingChat) {
         console.error("Group chat send called without an active chat");
         return null;
@@ -221,7 +231,8 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
         workingChat = updatedChat;
     }
 
-    const abortController = startGeneration();
+    const chatId = workingChat.id;
+    const abortController = startGeneration(chatId);
     const userName = await getUserDisplayName();
     const { participantPersonas, speakerNameById } = await buildParticipantData(participants);
     const allParticipantNames = participantPersonas.map(p => p.name);
@@ -235,6 +246,7 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
 
     return {
         msg: args.msg,
+        chatId,
         attachmentFiles: args.attachmentFiles,
         isInternetSearchEnabled: args.isInternetSearchEnabled,
         isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
@@ -258,24 +270,40 @@ async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
     };
 }
 
-async function appendRequestSlugToCurrentChatMessage(args: { messageIndex?: number; requestSlug?: string }): Promise<void> {
+function isViewingChat(chatId: string): boolean {
+    return chatsService.getCurrentChatId() === chatId;
+}
+
+async function appendRequestSlugToChatMessage(args: { chatId: string; messageIndex?: number; requestSlug?: string }): Promise<void> {
     if (typeof args.messageIndex !== "number" || !args.requestSlug) return;
-
-    const chat = await chatsService.getCurrentChat();
-    if (!chat) return;
-
-    const target = chat.content[args.messageIndex];
-    if (!target) return;
-
-    target.debugInfo ??= buildMessageDebugInfo({
-        settings: settingsService.getSettings(),
-        mode: "normal",
-        isPremiumEndpointPreferred: true,
-        isImagePremiumEndpointPreferred: false,
+    await appendRequestSlugToStoredMessage({
+        chatId: args.chatId,
+        messageIndex: args.messageIndex,
+        requestSlug: args.requestSlug,
     });
-    target.debugInfo.requestSlug = target.debugInfo.requestSlug || args.requestSlug;
-    target.debugInfo.requestSlugs = Array.from(new Set([...(target.debugInfo.requestSlugs ?? []), args.requestSlug]));
-    await chatsService.saveChat(chat);
+}
+
+async function replacePlaceholderWithPersistedMessage(args: {
+    chatId: string;
+    messageIndex: number;
+    message: Message;
+    placeholderElm?: HTMLElement;
+}): Promise<void> {
+    if (!isViewingChat(args.chatId)) return;
+
+    const connectedTarget = args.placeholderElm?.isConnected
+        ? args.placeholderElm
+        : document.querySelector<HTMLElement>(`[data-chat-index="${args.messageIndex}"]`);
+
+    const newElm = await messageElement(args.message, args.messageIndex);
+    if (connectedTarget) {
+        connectedTarget.replaceWith(newElm);
+    } else {
+        await insertMessage(args.message, args.messageIndex);
+    }
+
+    hljs.highlightAll();
+    helpers.messageContainerScrollToBottom(true);
 }
 
 function appendRequestSlugToMessageRef(message: Message | undefined, requestSlug?: string): void {
@@ -378,11 +406,13 @@ async function persistSkipTurnMarkerIfNeeded(chat: DbChat, currentRoundIndex: nu
             roundIndex: currentRoundIndex,
             parts: [{ text: USER_SKIP_TURN_MARKER_TEXT }],
         };
-        const skipMarkerIndex = chatContent.length;
-        await persistMessages([skipMarker]);
-        await insertMessage(skipMarker, skipMarkerIndex);
-        helpers.messageContainerScrollToBottom(true);
-        return (await chatsService.getCurrentChat()) ?? null;
+        const persisted = await persistMessagesToChat(chat.id, [skipMarker]);
+        if (!persisted) return null;
+        if (isViewingChat(chat.id)) {
+            await insertMessage(skipMarker, persisted.startIndex);
+            helpers.messageContainerScrollToBottom(true);
+        }
+        return (await getChatForWrite(chat.id)) ?? null;
     }
 
     return chat;
@@ -565,8 +595,8 @@ function hasAiTurnInRound(chat: DbChat, roundIndex: number): boolean {
     });
 }
 
-async function persistAiSkipTurnMarker(args: { personaId: string; currentRoundIndex: number }): Promise<void> {
-    const chat = await chatsService.getCurrentChat();
+async function persistAiSkipTurnMarker(args: { chatId: string; personaId: string; currentRoundIndex: number }): Promise<void> {
+    const chat = await getChatForWrite(args.chatId);
     const chatContent = chat?.content ?? [];
 
     const hasSkipMarkerForRound = chatContent.some((m: Message) => {
@@ -586,7 +616,7 @@ async function persistAiSkipTurnMarker(args: { personaId: string; currentRoundIn
         parts: [{ text: AI_SKIP_TURN_MARKER_TEXT }],
     };
 
-    await persistMessages([skipMarker]);
+    await persistMessagesToChat(args.chatId, [skipMarker]);
 }
 
 async function buildParticipantMeta(participantIds: string[]): Promise<ParticipantMeta[]> {
@@ -618,18 +648,23 @@ async function insertUserMessage(ctx: RpgContext): Promise<HTMLElement | undefin
         }),
     };
 
-    const userIndex = ctx.workingChat.content.length;
-    ctx.rootUserMessageIndex = userIndex;
-    ctx.rootUserMessageRef = userMessage;
-    const userElm = await insertMessage(userMessage, userIndex);
-    await persistMessages([userMessage]);
+    const persisted = await persistMessagesToChat(ctx.chatId, [userMessage]);
+    if (!persisted) return undefined;
 
-    const updatedChat = await chatsService.getCurrentChat();
+    ctx.rootUserMessageIndex = persisted.startIndex;
+    ctx.rootUserMessageRef = userMessage;
+    const userElm = isViewingChat(ctx.chatId)
+        ? await insertMessage(userMessage, persisted.startIndex)
+        : undefined;
+
+    const updatedChat = await getChatForWrite(ctx.chatId);
     if (!updatedChat) return undefined;
     ctx.workingChat = updatedChat;
 
-    hljs.highlightAll();
-    helpers.messageContainerScrollToBottom(true);
+    if (userElm) {
+        hljs.highlightAll();
+        helpers.messageContainerScrollToBottom(true);
+    }
 
     return userElm;
 }
@@ -659,8 +694,9 @@ async function executeParticipantTurn(args: {
         toneExamples: toneExamplesForSpeaker,
     });
 
-    const chatSnapshot = await chatsService.getCurrentChat();
+    const chatSnapshot = await getChatForWrite(ctx.chatId);
     if (!chatSnapshot) return { continueLoop: false };
+    ctx.workingChat = chatSnapshot;
 
     const { history } = await constructGeminiChatHistoryForGroupChatRpg(
         chatSnapshot,
@@ -675,11 +711,13 @@ async function executeParticipantTurn(args: {
     const participantsLine = participantMeta.map(p => `${p.name} (${p.id})`).join(", ");
     const turnInstruction = buildTurnInstruction({ participantsLine, speakerName: meta.name, useIndependentAction });
 
-    const placeholderIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
-    const placeholderElm = placeholderIndex >= 0
+    const placeholderIndex = chatSnapshot.content.length;
+    const placeholderElm = isViewingChat(ctx.chatId)
         ? await insertMessage(createModelPlaceholderMessage(meta.id, "", currentRoundIndex, settings.model), placeholderIndex)
         : undefined;
-    helpers.messageContainerScrollToBottom(true);
+    if (placeholderElm) {
+        helpers.messageContainerScrollToBottom(true);
+    }
 
     let raw = "";
     let turnThinking = "";
@@ -728,10 +766,16 @@ async function executeParticipantTurn(args: {
                 requestSlug,
             }),
         };
-        await persistMessages([modelMessage]);
-        await appendRequestSlugToCurrentChatMessage({ messageIndex: ctx.rootUserMessageIndex, requestSlug });
+        const persisted = await persistMessagesToChat(ctx.chatId, [modelMessage]);
+        if (!persisted) return { continueLoop: false };
+        await appendRequestSlugToChatMessage({ chatId: ctx.chatId, messageIndex: ctx.rootUserMessageIndex, requestSlug });
         appendRequestSlugToMessageRef(ctx.rootUserMessageRef, requestSlug);
-        await replacePlaceholderWithPersistedMessage(placeholderElm);
+        await replacePlaceholderWithPersistedMessage({
+            chatId: ctx.chatId,
+            messageIndex: persisted.startIndex,
+            message: modelMessage,
+            placeholderElm,
+        });
         return { continueLoop: true };
     }
 
@@ -750,7 +794,7 @@ async function executeParticipantTurn(args: {
 
         // Persist a hidden marker so future turn calculation can advance.
         // Without this, a skip isn't represented in chat history, so "Continue" can loop.
-        await persistAiSkipTurnMarker({ personaId: meta.id, currentRoundIndex });
+        await persistAiSkipTurnMarker({ chatId: ctx.chatId, personaId: meta.id, currentRoundIndex });
 
         return { continueLoop: true };
     }
@@ -771,26 +815,17 @@ async function executeParticipantTurn(args: {
             requestSlug,
         }),
     };
-    await persistMessages([modelMessage]);
-    await appendRequestSlugToCurrentChatMessage({ messageIndex: ctx.rootUserMessageIndex, requestSlug });
+    const persisted = await persistMessagesToChat(ctx.chatId, [modelMessage]);
+    if (!persisted) return { continueLoop: false };
+    await appendRequestSlugToChatMessage({ chatId: ctx.chatId, messageIndex: ctx.rootUserMessageIndex, requestSlug });
     appendRequestSlugToMessageRef(ctx.rootUserMessageRef, requestSlug);
-    await replacePlaceholderWithPersistedMessage(placeholderElm);
+    await replacePlaceholderWithPersistedMessage({
+        chatId: ctx.chatId,
+        messageIndex: persisted.startIndex,
+        message: modelMessage,
+        placeholderElm,
+    });
     return { continueLoop: true };
-}
-
-async function replacePlaceholderWithPersistedMessage(placeholderElm: HTMLElement | undefined): Promise<void> {
-    const updatedChat = await chatsService.getCurrentChat();
-    if (updatedChat) {
-        const modelIndex = updatedChat.content.length - 1;
-        const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
-        if (placeholderElm) {
-            placeholderElm.replaceWith(newElm);
-        } else {
-            await insertMessage(updatedChat.content[modelIndex], modelIndex);
-        }
-    }
-    hljs.highlightAll();
-    helpers.messageContainerScrollToBottom(true);
 }
 
 // ================================================================================
@@ -1107,20 +1142,27 @@ async function handleNarratorBeforeFirst(ctx: RpgContext): Promise<void> {
                 }),
             };
 
-            const narratorIndex = ctx.workingChat.content.length;
-            await insertMessage(narratorMessage, narratorIndex);
-            await persistMessages([narratorMessage]);
-            await appendRequestSlugToCurrentChatMessage({ messageIndex: ctx.rootUserMessageIndex, requestSlug: before.requestSlug });
+            const persisted = await persistMessagesToChat(ctx.chatId, [narratorMessage]);
+            if (!persisted) return;
+            if (isViewingChat(ctx.chatId)) {
+                await insertMessage(narratorMessage, persisted.startIndex);
+                hljs.highlightAll();
+                helpers.messageContainerScrollToBottom(true);
+            }
+            await appendRequestSlugToChatMessage({ chatId: ctx.chatId, messageIndex: ctx.rootUserMessageIndex, requestSlug: before.requestSlug });
             appendRequestSlugToMessageRef(ctx.rootUserMessageRef, before.requestSlug);
-            hljs.highlightAll();
-            helpers.messageContainerScrollToBottom(true);
+            const updatedChat = await getChatForWrite(ctx.chatId);
+            if (updatedChat) {
+                ctx.workingChat = updatedChat;
+            }
         }
     }
 }
 
 async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
-    const chatForInterjection = await chatsService.getCurrentChat();
+    const chatForInterjection = await getChatForWrite(ctx.chatId);
     if (!chatForInterjection) return;
+    ctx.workingChat = chatForInterjection;
 
     const { history: interjectionHistory } = await constructGeminiChatHistoryForGroupChatRpg(
         chatForInterjection,
@@ -1155,21 +1197,26 @@ async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
             }),
         };
 
-        const interjectionIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
-        if (interjectionIndex >= 0) {
-            await insertMessage(interjectionMessage, interjectionIndex);
-            await persistMessages([interjectionMessage]);
-            await appendRequestSlugToCurrentChatMessage({ messageIndex: ctx.rootUserMessageIndex, requestSlug: interjection.requestSlug });
-            appendRequestSlugToMessageRef(ctx.rootUserMessageRef, interjection.requestSlug);
+        const persisted = await persistMessagesToChat(ctx.chatId, [interjectionMessage]);
+        if (!persisted) return;
+        if (isViewingChat(ctx.chatId)) {
+            await insertMessage(interjectionMessage, persisted.startIndex);
             hljs.highlightAll();
             helpers.messageContainerScrollToBottom(true);
+        }
+        await appendRequestSlugToChatMessage({ chatId: ctx.chatId, messageIndex: ctx.rootUserMessageIndex, requestSlug: interjection.requestSlug });
+        appendRequestSlugToMessageRef(ctx.rootUserMessageRef, interjection.requestSlug);
+        const updatedChat = await getChatForWrite(ctx.chatId);
+        if (updatedChat) {
+            ctx.workingChat = updatedChat;
         }
     }
 }
 
 async function handleNarratorAfterRound(ctx: RpgContext): Promise<void> {
-    const chatForAfter = await chatsService.getCurrentChat();
+    const chatForAfter = await getChatForWrite(ctx.chatId);
     if (!chatForAfter) return;
+    ctx.workingChat = chatForAfter;
 
     const lastInRound = [...(chatForAfter.content || [])]
         .reverse()
@@ -1218,14 +1265,18 @@ async function handleNarratorAfterRound(ctx: RpgContext): Promise<void> {
                 }),
             };
 
-            const afterIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
-            if (afterIndex >= 0) {
-                await insertMessage(afterMessage, afterIndex);
-                await persistMessages([afterMessage]);
-                await appendRequestSlugToCurrentChatMessage({ messageIndex: ctx.rootUserMessageIndex, requestSlug: after.requestSlug });
-                appendRequestSlugToMessageRef(ctx.rootUserMessageRef, after.requestSlug);
+            const persisted = await persistMessagesToChat(ctx.chatId, [afterMessage]);
+            if (!persisted) return;
+            if (isViewingChat(ctx.chatId)) {
+                await insertMessage(afterMessage, persisted.startIndex);
                 hljs.highlightAll();
                 helpers.messageContainerScrollToBottom(true);
+            }
+            await appendRequestSlugToChatMessage({ chatId: ctx.chatId, messageIndex: ctx.rootUserMessageIndex, requestSlug: after.requestSlug });
+            appendRequestSlugToMessageRef(ctx.rootUserMessageRef, after.requestSlug);
+            const updatedChat = await getChatForWrite(ctx.chatId);
+            if (updatedChat) {
+                ctx.workingChat = updatedChat;
             }
         }
     }
@@ -1467,16 +1518,18 @@ If you choose to skip this turn entirely, set kind to "skip".
 }
 
 function dispatchRoundState(args: {
+    chatId: string;
     userCompletedTurn: boolean;
     currentRoundIndex: number;
     stoppedForUser: boolean;
     startsNewRound: boolean;
     nextSpeakerId?: string;
 }): void {
-    const { currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId } = args;
+    const { chatId, currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId } = args;
     const isUserTurnNext = stoppedForUser;
 
     dispatchAppEvent('round-state-changed', {
+        chatId,
         isUserTurn: isUserTurnNext,
         currentRoundIndex,
         roundComplete: stoppedForUser,
