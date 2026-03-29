@@ -22,7 +22,6 @@ const MODE_TO_VALUE: Record<'light' | 'auto' | 'dark', string> = {
 };
 
 function initialize() {
-    console.log('[ThemeControls] Initializing theme controls');
     
     modeInputElement.addEventListener('change', handleModeInput);
     
@@ -41,7 +40,6 @@ function initialize() {
     // Update UI to reflect current state
     updateUI();
     
-    console.log('[ThemeControls] Theme controls initialized');
 }
 
 // Auto-initialize when component loads

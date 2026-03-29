@@ -804,7 +804,6 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
         });
         if (!didUpdate) return;
 
-        console.log("Message updated in database");
     } catch (error) {
         console.error("Error updating message in database:", error);
         toastService.danger({

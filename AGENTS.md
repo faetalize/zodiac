@@ -185,6 +185,7 @@ User preferences use `localStorage` with service-level get/set wrappers. See [sr
 - Do not make a `create`, `edit`, or `delete` test fail only because an internal child selector or styling hook changed unless that internal structure is the behavior being tested.
 - If a DOM structure is itself important, write a separate render-contract test for it, for example `renders a complete persona sidebar card`.
 - When a regression should be caught by a specific selector, class, or subtree shape, make that selector part of a dedicated rendering test instead of coupling unrelated behavioral tests to the same detail.
+- After every code or file change, end the final response with a short `Should we commit this?` section that answers yes or no and briefly explains why.
 
 ### Styling
 - **Custom CSS** - Hand-written styles in `src/styles/main.css`, `src/styles/dark.css`, `src/styles/light.css`

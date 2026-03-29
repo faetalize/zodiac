@@ -875,7 +875,6 @@ export async function addChatRecord(chat: Chat): Promise<string> {
     } else {
         await db.chats.put(record);
     }
-    console.log(`addChatRecord: inserted chat id=${id}`, record);
     insertChatEntry(record, "prepend");
     await reorderChatListInDom();
     return id;
@@ -1194,7 +1193,6 @@ function attachScrollListener() {
         // When the user scrolls near the top of the scrollable container, load older messages
         const threshold = 200; // px
         if (scrollContainer.scrollTop <= threshold) {
-            console.log("Loading older messages...");
             await loadOlderMessages();
         }
     };

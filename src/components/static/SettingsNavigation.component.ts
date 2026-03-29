@@ -36,8 +36,6 @@ function showPage(target: SettingsPageKey, container: HTMLElement): void {
         return;
     }
 
-    console.log("SettingsNavigation: showPage called", { target, pagesCount: pages.length });
-
     // Hide all pages instantly (no fade-out delay) to avoid everything being hidden mid-transition
     helpers.hideElement(homeView, true);
     pages.forEach((page) => helpers.hideElement(page, true));
@@ -56,11 +54,6 @@ function showPage(target: SettingsPageKey, container: HTMLElement): void {
             return;
         }
 
-        console.log("SettingsNavigation: showing page", {
-            target,
-            pageDataset: page.dataset.settingsPage,
-            classList: Array.from(page.classList),
-        });
         // Show the requested page immediately
         helpers.showElement(page, false);
     }

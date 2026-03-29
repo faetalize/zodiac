@@ -21,8 +21,6 @@ class ThemeService {
      * Initialize the theme service - sets up initial theme and listeners
      */
     public initialize(): void {
-        console.log('[ThemeService] Initializing theme service');
-        
         // Apply the current theme
         this.applyTheme(this.currentSettings.colorTheme, this.getEffectiveMode());
         
@@ -33,8 +31,6 @@ class ThemeService {
                 this.applyTheme(this.currentSettings.colorTheme, mode);
             }
         });
-
-        console.log('[ThemeService] Theme service initialized', this.currentSettings);
     }
 
     /**
@@ -67,7 +63,6 @@ class ThemeService {
      * Set the color theme (blue, red, etc.)
      */
     public setColorTheme(theme: ColorTheme): void {
-        console.log(`[ThemeService] Setting color theme to: ${theme}`);
         this.currentSettings.colorTheme = theme;
         this.saveSettings();
         this.applyTheme(theme, this.getEffectiveMode());
@@ -77,7 +72,6 @@ class ThemeService {
      * Set the mode (light, dark, or auto)
      */
     public setMode(mode: ThemeMode, preference: 'auto' | 'manual' = 'manual'): void {
-        console.log(`[ThemeService] Setting mode to: ${mode} (preference: ${preference})`);
         this.currentSettings.mode = mode;
         this.currentSettings.preference = preference;
         this.saveSettings();
@@ -97,7 +91,6 @@ class ThemeService {
      * Reset to auto mode (follow OS preference)
      */
     public setAutoMode(): void {
-        console.log('[ThemeService] Setting mode to auto');
         this.currentSettings.preference = 'auto';
         this.saveSettings();
         this.applyTheme(this.currentSettings.colorTheme, this.getEffectiveMode());
@@ -117,8 +110,6 @@ class ThemeService {
      * Apply the theme to the document
      */
     private applyTheme(colorTheme: ColorTheme, mode: ThemeMode): void {
-        console.log(`[ThemeService] Applying theme: ${colorTheme}-${mode}`);
-        
         const html = document.documentElement;
         
         // Set data attributes for CSS targeting

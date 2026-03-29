@@ -252,7 +252,6 @@ export const db = await setupDB();
 try {
     if (typeof window !== 'undefined') {
         (window as any).zodiac_db = db;
-        console.log('Db.service: exported zodiac_db for DevTools inspection');
     }
 } catch (e) {
     // ignore

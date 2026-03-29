@@ -11,7 +11,6 @@ for (const stepper of steppers) {
     const submit = stepper.element.querySelector(".btn-stepper-submit");
     if (!form || !next || !prev || !submit) {
         console.error("Stepper buttons not found or form is missing.");
-        console.log(stepper);
         continue;
     }
 

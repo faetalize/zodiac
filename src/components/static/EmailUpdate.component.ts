@@ -14,7 +14,6 @@ const hideOverlayButton = document.querySelector<HTMLButtonElement>("#btn-hide-o
 
 if (!emailUpdateForm || !newEmailInput || !confirmEmailInput || !errorContainer || !errorMessage || !submitButton || !cancelButton || !hideOverlayButton) {
     console.error("Email update form elements are missing.");
-    console.log({ emailUpdateForm, newEmailInput, confirmEmailInput, errorContainer, errorMessage, submitButton, cancelButton, hideOverlayButton });
     throw new Error("Email update initialization failed.");
 }
 

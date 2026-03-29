@@ -25,7 +25,6 @@ let image: File;
 
 if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader || !infoCard || !infoHeader || !remainingImageGenerations || !remainingMegaCredits || !remainingNanoBanana || !accountCard || !accountHeader || !accountEmailEl || !resetPasswordButton || !changeEmailButton) {
     console.error("One or more profile panel elements are missing.");
-    console.log({ pfpChangeButton, preferredNameInput, systemPromptAddition, saveButton, subscriptionBadge, manageSubscriptionBtn, subscriptionCard, subscriptionHeader, infoCard, infoHeader, remainingImageGenerations, remainingMegaCredits, remainingNanoBanana, accountCard, accountHeader, accountEmailEl, resetPasswordButton, changeEmailButton });
     throw new Error("Profile panel initialization failed.");
 }
 

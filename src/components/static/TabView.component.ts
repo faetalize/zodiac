@@ -31,7 +31,6 @@ for (const tabGroup of tabGroups) {
     }
     if (tabs.length !== views.length) {
         console.error("Number of tabs and views do not match. Please check the HTML structure.");
-        console.log("Tabs:", tabs.length, "Views:", views.length);  
         throw new Error("Tab view is not properly initialized.");
     }
     if (!tabHighlight) {
