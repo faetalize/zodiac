@@ -269,4 +269,65 @@ describe("paged long-chat message editing", () => {
         expect(document.querySelector<HTMLElement>(`.message[data-chat-index='101'] .message-text`)?.textContent).toContain("Long chat message 101");
         expect(Array.from(document.querySelectorAll<HTMLElement>(".message[data-chat-index]"))).toHaveLength(50);
     });
+
+    it("loads older messages without remapping absolute chat indices", async () => {
+        const { db: testDb, chatsService } = await loadServices();
+        db = testDb;
+
+        await createAndLoadChat({
+            chatsService,
+            chatId: "chat-long-prepend",
+            messageCount: 150,
+        });
+
+        const scrollContainer = document.querySelector<HTMLDivElement>("#scrollable-chat-container");
+        expect(scrollContainer).not.toBeNull();
+
+        const initiallyVisibleMessages = Array.from(document.querySelectorAll<HTMLElement>(".message[data-chat-index]"));
+        expect(initiallyVisibleMessages).toHaveLength(50);
+        expect(initiallyVisibleMessages[0]?.dataset.chatIndex).toBe("100");
+        expect(initiallyVisibleMessages[49]?.dataset.chatIndex).toBe("149");
+
+        if (!scrollContainer) {
+            throw new Error("Missing scroll container");
+        }
+
+        scrollContainer.scrollTop = 0;
+        scrollContainer.dispatchEvent(new Event("scroll"));
+
+        await waitFor(() => {
+            const renderedMessages = Array.from(document.querySelectorAll<HTMLElement>(".message[data-chat-index]"));
+            return renderedMessages.length === 100;
+        }, "Timed out waiting for older messages to prepend");
+
+        const renderedMessages = Array.from(document.querySelectorAll<HTMLElement>(".message[data-chat-index]"));
+        expect(renderedMessages).toHaveLength(100);
+        expect(renderedMessages[0]?.dataset.chatIndex).toBe("50");
+        expect(renderedMessages[49]?.dataset.chatIndex).toBe("99");
+        expect(renderedMessages[50]?.dataset.chatIndex).toBe("100");
+        expect(renderedMessages[99]?.dataset.chatIndex).toBe("149");
+
+        expect(renderedMessages[0]?.querySelector(".message-text")?.textContent).toContain("Long chat message 050");
+        expect(renderedMessages[49]?.querySelector(".message-text")?.textContent).toContain("Long chat message 099");
+        expect(renderedMessages[50]?.querySelector(".message-text")?.textContent).toContain("Long chat message 100");
+        expect(renderedMessages[99]?.querySelector(".message-text")?.textContent).toContain("Long chat message 149");
+
+        expect(document.querySelector<HTMLElement>(`.message[data-chat-index='50'] .message-text`)?.textContent).toContain("Long chat message 050");
+        expect(document.querySelector<HTMLElement>(`.message[data-chat-index='99'] .message-text`)?.textContent).toContain("Long chat message 099");
+        expect(document.querySelector<HTMLElement>(`.message[data-chat-index='100'] .message-text`)?.textContent).toContain("Long chat message 100");
+        expect(document.querySelector<HTMLElement>(`.message[data-chat-index='149'] .message-text`)?.textContent).toContain("Long chat message 149");
+        expect(document.querySelector(`.message[data-chat-index='49']`)).toBeNull();
+
+        const currentChat = await chatsService.getCurrentChat();
+        expect(currentChat?.content[50]?.parts[0]?.text).toBe("Long chat message 050");
+        expect(currentChat?.content[99]?.parts[0]?.text).toBe("Long chat message 099");
+        expect(currentChat?.content[100]?.parts[0]?.text).toBe("Long chat message 100");
+        expect(currentChat?.content[149]?.parts[0]?.text).toBe("Long chat message 149");
+
+        const persistedChat = await testDb.chats.get("chat-long-prepend");
+        expect(persistedChat?.content[50]?.parts[0]?.text).toBe("Long chat message 050");
+        expect(persistedChat?.content[99]?.parts[0]?.text).toBe("Long chat message 099");
+        expect(persistedChat?.content[100]?.parts[0]?.text).toBe("Long chat message 100");
+        expect(persistedChat?.content[149]?.parts[0]?.text).toBe("Long chat message 149");
+    });
 });
