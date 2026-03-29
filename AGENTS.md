@@ -184,6 +184,7 @@ User preferences use `localStorage` with service-level get/set wrappers. See [sr
 - Type 1: pure logic/unit tests. These can mock freely and should not make UI behavior claims.
 - Type 2: service/state integration tests. These may mock renderers or external boundaries, and should be presented as service/state coverage rather than proof of live DOM behavior.
 - Type 3: feature/user-story tests. These should use the real component, real DOM wiring, and real user-triggered entrypoint wherever practical.
+- Default to using the real existing component/element unless there is a concrete reason to mock it, such as unsupported browser behavior, meaningfully harder setup, substantial test slowdown, or unrelated failure modes.
 - If the user asks to test a feature, user story, live behavior, or a reported UI bug, default to a Type 3 test unless they explicitly ask for a lower-layer test.
 - Most Zodiac feature-level tests should be Type 3. Use Type 1 and Type 2 tests to support targeted logic and service coverage, not as substitutes for feature behavior coverage.
 - Name tests so their primary failure reason matches the behavior under test.
