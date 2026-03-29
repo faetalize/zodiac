@@ -52,19 +52,6 @@ export interface DynamicInputArgs {
 
 type ChatId = string;
 
-const isDevEnvironment = ["localhost", "127.0.0.1", "::1", "192.168.1.1"].includes(window.location.hostname);
-
-function debugLogDynamic(label: string, details?: Record<string, unknown>): void {
-    if (!isDevEnvironment) return;
-    if (details) {
-        // eslint-disable-next-line no-console
-        console.log(`[DynamicGroupChat] ${label}`, details);
-    } else {
-        // eslint-disable-next-line no-console
-        console.log(`[DynamicGroupChat] ${label}`);
-    }
-}
-
 const inFlightByChatId = new Map<ChatId, Set<string>>();
 const countSinceUserByChatId = new Map<ChatId, Map<string, number>>();
 
@@ -107,7 +94,6 @@ function shouldRespondGivenIndependence(independence: number): boolean {
     const chance = chanceByInd[clamped] ?? 0.5;
     const roll = Math.random();
     const decision = roll < chance;
-    debugLogDynamic("Independence roll", { independence, clamped, chance, roll, decision });
     return decision;
 }
 
@@ -274,24 +260,12 @@ async function triggerResponses(args: {
             continue;
         }
         const independence = Math.max(0, Math.min(3, Math.trunc(Number((persona as any)?.independence ?? 0))));
-        debugLogDynamic(`${personaName} decision`, {
-            personaId,
-            personaName,
-            forced: isForced,
-            independence,
-            inFlight: inFlight.has(personaId),
-            messagesSinceUser: count,
-            maxMessageGuard: guard,
-        });
-
         if (!isForced) {
             if (!shouldRespondGivenIndependence(independence)) {
-                debugLogDynamic("Persona skipped by independence roll", { personaId, personaName, independence });
                 continue;
             }
         }
 
-        debugLogDynamic("Persona selected to respond", { personaId, personaName });
         selected.push(persona);
     }
 
@@ -511,7 +485,6 @@ async function respondAsPersona(args: {
     }
 
     if (cascadeText && args.allowCascade) {
-        debugLogDynamic("Cascade triggered", { fromPersonaId: personaId, text: cascadeText.slice(0, 80) });
         void triggerResponses({
             chatId: args.chatId,
             senderId: personaId,
