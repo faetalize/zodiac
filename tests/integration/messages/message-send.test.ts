@@ -109,6 +109,10 @@ vi.mock("../../../src/services/Toast.service", () => ({
     danger: vi.fn(),
 }));
 
+vi.mock("../../../src/services/Overlay.service", () => ({
+    showMessageDebugModal: vi.fn(),
+}));
+
 vi.mock("../../../src/services/Parser.service", () => ({
     parseMarkdownToHtml: vi.fn(async (text: string) => text),
     parseHtmlToMarkdown: vi.fn((text: string) => text),
@@ -419,7 +423,17 @@ async function createAndLoadChat(args: {
 }
 
 function getVisibleMessageElements(): HTMLElement[] {
-    return Array.from(document.querySelectorAll<HTMLElement>(".message[data-hidden='false']"));
+    return Array.from(document.querySelectorAll<HTMLElement>(".message")).filter((element) => {
+        return element.dataset.hidden !== "true" && element.style.display !== "none";
+    });
+}
+
+function getVisibleMessageTexts(): Array<string | undefined> {
+    return getVisibleMessageElements().map((element) => {
+        return element.querySelector<HTMLElement>(".message-text-content")?.textContent
+            ?? element.querySelector<HTMLElement>(".message-text")?.textContent
+            ?? undefined;
+    });
 }
 
 describe("Message send lifecycle", () => {
@@ -429,6 +443,15 @@ describe("Message send lifecycle", () => {
         vi.resetModules();
         await resetIndexedDb();
         bootstrapMessagingDom();
+        const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
+        if (!attachmentsInput) {
+            throw new Error("Missing attachments input in test DOM");
+        }
+        Object.defineProperty(attachmentsInput, "files", {
+            value: makeEmptyFileList(),
+            writable: true,
+            configurable: true,
+        });
         Object.defineProperty(globalThis, "DataTransfer", {
             value: MockDataTransfer,
             configurable: true,
@@ -776,5 +799,167 @@ describe("Message send lifecycle", () => {
         ]);
         expect(document.querySelector(".message-container")?.textContent).not.toContain("Third prompt");
         expect(document.querySelector(".message-container")?.textContent).not.toContain("Third reply");
+    });
+
+    it("regeneration in an RPG group chat round prunes later round DOM and state consistently", async () => {
+        vi.doUnmock("../../../src/components/dynamic/message");
+
+        seedMockPersonas([
+            {
+                id: "persona-rpg-a",
+                persona: {
+                    name: "RPG Alpha",
+                    description: "First RPG responder.",
+                },
+            },
+            {
+                id: "persona-rpg-b",
+                persona: {
+                    name: "RPG Beta",
+                    description: "Second RPG responder.",
+                },
+            },
+            {
+                id: "persona-rpg-c",
+                persona: {
+                    name: "RPG Gamma",
+                    description: "Third RPG responder.",
+                },
+            },
+            {
+                id: "persona-rpg-d",
+                persona: {
+                    name: "RPG Delta",
+                    description: "Fourth RPG responder.",
+                },
+            },
+        ]);
+
+        queueOpenRouterResponse('{"kind":"skip","text":"Alpha steps back."}');
+        queueOpenRouterResponse('{"kind":"reply","text":"Beta speaks."}');
+        queueOpenRouterResponse('{"kind":"skip","text":"Gamma steps aside."}');
+        queueOpenRouterResponse('{"kind":"reply","text":"Delta closes the round."}');
+        queueOpenRouterResponse('{"kind":"reply","text":"Beta regenerated."}');
+        queueOpenRouterResponse('{"kind":"reply","text":"Gamma regenerated."}');
+        queueOpenRouterResponse('{"kind":"reply","text":"Delta regenerated."}');
+
+        const { db: testDb, chatsService, messageService } = await loadServices();
+        db = testDb;
+        const openRouterService = await import("../../../src/services/OpenRouter.service");
+
+        const groupChat: GroupChatConfig = {
+            mode: "rpg",
+            participantIds: ["persona-rpg-a", "persona-rpg-b", "persona-rpg-c", "persona-rpg-d"],
+            rpg: {
+                turnOrder: ["user", "persona-rpg-a", "persona-rpg-b", "persona-rpg-c", "persona-rpg-d"],
+                narratorEnabled: false,
+            },
+        };
+
+        const chatId = await createAndLoadChat({
+            chatsService,
+            chat: makeChat({
+                id: "chat-rpg-regenerate",
+                title: "RPG Regenerate Chat",
+                content: [],
+                groupChat,
+            }),
+        });
+
+        await messageService.send("Round one prompt", {
+            targetChatId: chatId,
+            selectedPersonalityId: "persona-rpg-a",
+            attachmentFiles: makeEmptyFileList(),
+        });
+
+        await waitFor(async () => getVisibleMessageTexts().length === 3, "Timed out waiting for initial RPG round render");
+        expect(getVisibleMessageTexts()).toEqual([
+            "Round one prompt",
+            "Beta speaks.",
+            "Delta closes the round.",
+        ]);
+
+        const initialRoundBlock = document.querySelector<HTMLElement>(".round-block[data-round-index='1']");
+        expect(initialRoundBlock).not.toBeNull();
+        expect(initialRoundBlock?.querySelectorAll(".message, .skip-notice")).toHaveLength(5);
+
+        const initialSkipNotices = Array.from(initialRoundBlock?.querySelectorAll<HTMLElement>(".skip-notice") ?? []);
+        expect(initialSkipNotices).toHaveLength(2);
+        expect(initialSkipNotices[0]?.textContent).toContain("RPG Alpha skipped their turn: Alpha steps back.");
+        expect(initialSkipNotices[1]?.textContent).toContain("RPG Gamma skipped their turn: Gamma steps aside.");
+
+        vi.mocked(openRouterService.requestOpenRouterCompletion).mockClear();
+
+        const roundOneBetaMessage = Array.from(document.querySelectorAll<HTMLElement>(".message[data-round-index='1']"))
+            .find((element) => element.querySelector(".message-text-content")?.textContent === "Beta speaks.");
+        expect(roundOneBetaMessage).not.toBeUndefined();
+
+        const refreshButton = roundOneBetaMessage?.querySelector<HTMLButtonElement>(".btn-refresh");
+        expect(refreshButton).not.toBeNull();
+        refreshButton?.click();
+
+        await waitFor(async () => vi.mocked(openRouterService.requestOpenRouterCompletion).mock.calls.length === 3, "Timed out waiting for RPG regenerate provider calls");
+        await chatsService.waitForPendingWrites(chatId);
+
+        const persistedChat = await testDb.chats.get(chatId);
+        expect(persistedChat?.content).toHaveLength(5);
+
+        const persistedVisibleMessages = (persistedChat?.content ?? []).filter((message) => !message.hidden);
+        expect(persistedVisibleMessages.map((message) => ({
+            text: message.parts[0]?.text,
+            roundIndex: message.roundIndex,
+            personalityid: message.personalityid,
+        }))).toEqual([
+            { text: "Round one prompt", roundIndex: 1, personalityid: undefined },
+            { text: "Beta regenerated.", roundIndex: 1, personalityid: "persona-rpg-b" },
+            { text: "Gamma regenerated.", roundIndex: 1, personalityid: "persona-rpg-c" },
+            { text: "Delta regenerated.", roundIndex: 1, personalityid: "persona-rpg-d" },
+        ]);
+        expect((persistedChat?.content ?? []).some((message) => message.hidden && message.personalityid === "persona-rpg-a" && message.parts[0]?.text === "__ai_skip_turn__" && message.roundIndex === 1)).toBe(true);
+        expect((persistedChat?.content ?? []).some((message) => message.hidden && message.personalityid === "persona-rpg-c" && message.parts[0]?.text === "__ai_skip_turn__" && message.roundIndex === 1)).toBe(false);
+
+        const currentChat = await chatsService.getCurrentChat();
+        expect(currentChat?.content).toHaveLength(5);
+        expect((currentChat?.content ?? []).filter((message) => !message.hidden).map((message) => ({
+            text: message.parts[0]?.text,
+            roundIndex: message.roundIndex,
+            personalityid: message.personalityid,
+        }))).toEqual([
+            { text: "Round one prompt", roundIndex: 1, personalityid: undefined },
+            { text: "Beta regenerated.", roundIndex: 1, personalityid: "persona-rpg-b" },
+            { text: "Gamma regenerated.", roundIndex: 1, personalityid: "persona-rpg-c" },
+            { text: "Delta regenerated.", roundIndex: 1, personalityid: "persona-rpg-d" },
+        ]);
+        expect((currentChat?.content ?? []).some((message) => message.hidden && message.personalityid === "persona-rpg-a" && message.parts[0]?.text === "__ai_skip_turn__" && message.roundIndex === 1)).toBe(true);
+        expect((currentChat?.content ?? []).some((message) => message.hidden && message.personalityid === "persona-rpg-c" && message.parts[0]?.text === "__ai_skip_turn__" && message.roundIndex === 1)).toBe(false);
+        expect(messageService.getIsGenerating(chatId)).toBe(false);
+
+        await waitFor(async () => getVisibleMessageElements().length >= 4, "Timed out waiting for group regeneration DOM to settle");
+        expect(getVisibleMessageTexts()).toEqual([
+            "Round one prompt",
+            "Beta regenerated.",
+            "Gamma regenerated.",
+            "Delta regenerated.",
+        ]);
+
+        const roundOneBlock = document.querySelector<HTMLElement>(".round-block[data-round-index='1']");
+        expect(roundOneBlock).not.toBeNull();
+        expect(document.querySelectorAll(".round-block")).toHaveLength(1);
+        expect(roundOneBlock?.querySelectorAll(".message, .skip-notice")).toHaveLength(5);
+
+        expect(Array.from(roundOneBlock?.querySelectorAll<HTMLElement>(".message") ?? []).map((element) => {
+            return element.querySelector<HTMLElement>(".message-text-content")?.textContent
+                ?? element.querySelector<HTMLElement>(".message-text")?.textContent
+                ?? undefined;
+        })).toEqual([
+            "Round one prompt",
+            "Beta regenerated.",
+            "Gamma regenerated.",
+            "Delta regenerated.",
+        ]);
+
+        const roundOneSkipNotices = Array.from(roundOneBlock?.querySelectorAll<HTMLElement>(".skip-notice") ?? []);
+        expect(roundOneSkipNotices).toHaveLength(1);
+        expect(roundOneSkipNotices[0]?.textContent).toContain("RPG Alpha skipped their turn: Alpha steps back.");
     });
 });
