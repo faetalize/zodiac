@@ -179,6 +179,13 @@ db.version(N).stores({ /* schema */ }).upgrade(async (tx) => { /* migrate */ });
 ### Settings Persistence
 User preferences use `localStorage` with service-level get/set wrappers. See [src/services/Settings.service.ts](src/services/Settings.service.ts).
 
+### Test Scope And Failure Mapping
+- Name tests so their primary failure reason matches the behavior under test.
+- For CRUD or state-transition tests, prioritize assertions about persisted state, current in-memory state, and coarse DOM outcomes such as element presence, selection state, or removal from the list.
+- Do not make a `create`, `edit`, or `delete` test fail only because an internal child selector or styling hook changed unless that internal structure is the behavior being tested.
+- If a DOM structure is itself important, write a separate render-contract test for it, for example `renders a complete persona sidebar card`.
+- When a regression should be caught by a specific selector, class, or subtree shape, make that selector part of a dedicated rendering test instead of coupling unrelated behavioral tests to the same detail.
+
 ### Styling
 - **Custom CSS** - Hand-written styles in `src/styles/main.css`, `src/styles/dark.css`, `src/styles/light.css`
 - **Tailwind base reset** - `@import "tailwindcss"` in main.css for normalization only (no utility classes used)
