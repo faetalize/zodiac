@@ -185,6 +185,11 @@ User preferences use `localStorage` with service-level get/set wrappers. See [sr
 - Do not make a `create`, `edit`, or `delete` test fail only because an internal child selector or styling hook changed unless that internal structure is the behavior being tested.
 - If a DOM structure is itself important, write a separate render-contract test for it, for example `renders a complete persona sidebar card`.
 - When a regression should be caught by a specific selector, class, or subtree shape, make that selector part of a dedicated rendering test instead of coupling unrelated behavioral tests to the same detail.
+- Many Zodiac features are cloud-sync-aware, so feature behavior may depend on remote Supabase-backed state instead of only local Dexie state.
+- When adding tests for a feature, assess whether the cloud-sync path is meaningfully different and worth covering. If that tradeoff is unclear, discuss it with the user instead of guessing.
+- When adding cloud-sync variants of tests, prefer exercising the remote-aware app path with clear contract-shaped fixtures or mocks at the sync boundary rather than duplicating the full backend implementation in tests.
+
+### Workflow Notes
 - After every code or file change, end the final response with a short `Should we commit this?` section that answers yes or no and briefly explains why.
 
 ### Styling
