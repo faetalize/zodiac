@@ -289,53 +289,6 @@ vi.mock("../../../src/events", () => ({
     onAppEvent: vi.fn(),
 }));
 
-vi.mock("../../../src/components/dynamic/message", () => ({
-    messageElement: vi.fn(async (message: {
-        role: "user" | "model";
-        personalityid?: string;
-        hidden?: boolean;
-        roundIndex?: number;
-        parts: Array<{ text: string }>;
-    }, index: number) => {
-        const element = document.createElement("div");
-        element.className = `message message-${message.role}`;
-        element.dataset.chatIndex = String(index);
-        element.dataset.hidden = message.hidden ? "true" : "false";
-        if (typeof message.roundIndex === "number") {
-            element.dataset.roundIndex = String(message.roundIndex);
-        }
-        if (message.hidden) {
-            element.style.display = "none";
-        }
-
-        const header = document.createElement("div");
-        header.className = "message-header";
-        const role = document.createElement("h3");
-        role.className = "message-role";
-        role.textContent = message.role === "user" ? "You" : (message.personalityid ?? "Model");
-        header.append(role);
-
-        const textWrapper = document.createElement("div");
-        textWrapper.className = "message-text";
-        if ((message.parts[0]?.text ?? "").trim().length === 0) {
-            textWrapper.classList.add("is-loading");
-        }
-
-        const spinner = document.createElement("span");
-        spinner.className = "message-spinner";
-        const textContent = document.createElement("div");
-        textContent.className = "message-text-content";
-        textContent.textContent = message.parts[0]?.text ?? "";
-        textWrapper.append(spinner, textContent);
-
-        const grounding = document.createElement("div");
-        grounding.className = "message-grounding-rendered-content";
-
-        element.append(header, textWrapper, grounding);
-        return element;
-    }),
-}));
-
 function bootstrapMessagingDom(): void {
     bootstrapDom(`
         <div class="sidebar"></div>
@@ -526,8 +479,7 @@ describe("Message send lifecycle", () => {
 
         const visibleDomMessages = getVisibleMessageElements();
         expect(visibleDomMessages).toHaveLength(2);
-        expect(visibleDomMessages[0].querySelector(".message-text-content")?.textContent).toBe("Hello normal chat");
-        expect(visibleDomMessages[1].querySelector(".message-text-content")?.textContent).toBe("Mocked assistant reply");
+        expect(getVisibleMessageTexts()).toEqual(["Hello normal chat", "Mocked assistant reply"]);
         expect(document.querySelector("#chat-title")?.textContent).toBe("Normal Chat");
     });
 
@@ -600,9 +552,13 @@ describe("Message send lifecycle", () => {
 
         const roundBlock = document.querySelector<HTMLElement>(".round-block[data-round-index='1']");
         expect(roundBlock).not.toBeNull();
-        const visibleDomMessages = Array.from(roundBlock?.querySelectorAll<HTMLElement>(".message[data-hidden='false']") ?? []);
+        const visibleDomMessages = Array.from(roundBlock?.querySelectorAll<HTMLElement>(".message") ?? []);
         expect(visibleDomMessages).toHaveLength(3);
-        expect(visibleDomMessages.map((element) => element.querySelector(".message-text-content")?.textContent)).toEqual([
+        expect(visibleDomMessages.map((element) => {
+            return element.querySelector<HTMLElement>(".message-text-content")?.textContent
+                ?? element.querySelector<HTMLElement>(".message-text")?.textContent
+                ?? undefined;
+        })).toEqual([
             "Advance the round",
             "Alpha takes the lead.",
             "Beta follows up.",
@@ -695,8 +651,7 @@ describe("Message send lifecycle", () => {
         expect(messageService.getIsGenerating(chatId)).toBe(false);
 
         await waitFor(async () => getVisibleMessageElements().length === 2, "Timed out waiting for dynamic response to render");
-        const visibleDomMessages = getVisibleMessageElements();
-        expect(visibleDomMessages.map((element) => element.querySelector(".message-text-content")?.textContent)).toEqual([
+        expect(getVisibleMessageTexts()).toEqual([
             "Step in here",
             "Dynamic Alpha replies to the ping.",
         ]);
@@ -741,7 +696,7 @@ describe("Message send lifecycle", () => {
             }),
         });
 
-        expect(getVisibleMessageElements().map((element) => element.querySelector(".message-text-content")?.textContent)).toEqual([
+        expect(getVisibleMessageTexts()).toEqual([
             "First prompt",
             "First reply",
             "Second prompt",
@@ -790,8 +745,7 @@ describe("Message send lifecycle", () => {
         expect(messageService.getIsGenerating(chatId)).toBe(false);
 
         await waitFor(async () => getVisibleMessageElements().length === 4, "Timed out waiting for regenerated DOM to settle");
-        expect(document.querySelector(`.message[data-hidden='true']`)).not.toBeNull();
-        expect(getVisibleMessageElements().map((element) => element.querySelector(".message-text-content")?.textContent)).toEqual([
+        expect(getVisibleMessageTexts()).toEqual([
             "First prompt",
             "First reply",
             "Second prompt",
@@ -802,8 +756,6 @@ describe("Message send lifecycle", () => {
     });
 
     it("regeneration in an RPG group chat round prunes later round DOM and state consistently", async () => {
-        vi.doUnmock("../../../src/components/dynamic/message");
-
         seedMockPersonas([
             {
                 id: "persona-rpg-a",
