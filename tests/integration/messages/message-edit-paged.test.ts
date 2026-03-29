@@ -205,6 +205,41 @@ describe("paged long-chat message editing", () => {
         await resetIndexedDb();
     });
 
+    it("loads only the current page for long chats", async () => {
+        const { db: testDb, chatsService } = await loadServices();
+        db = testDb;
+
+        await createAndLoadChat({
+            chatsService,
+            chatId: "chat-long-initial-window",
+            messageCount: 150,
+        });
+
+        const renderedMessages = Array.from(document.querySelectorAll<HTMLElement>(".message[data-chat-index]"));
+        expect(renderedMessages).toHaveLength(50);
+        expect(renderedMessages[0]?.dataset.chatIndex).toBe("100");
+        expect(renderedMessages[49]?.dataset.chatIndex).toBe("149");
+        expect(renderedMessages[0]?.querySelector(".message-text")?.textContent).toContain("Long chat message 100");
+        expect(renderedMessages[49]?.querySelector(".message-text")?.textContent).toContain("Long chat message 149");
+
+        expect(document.querySelector(`.message[data-chat-index='99']`)).toBeNull();
+        expect(document.querySelector(`.message[data-chat-index='150']`)).toBeNull();
+
+        const currentChat = await chatsService.getCurrentChat();
+        expect(currentChat?.content).toHaveLength(150);
+        expect(currentChat?.content[0]?.parts[0]?.text).toBe("Long chat message 000");
+        expect(currentChat?.content[99]?.parts[0]?.text).toBe("Long chat message 099");
+        expect(currentChat?.content[100]?.parts[0]?.text).toBe("Long chat message 100");
+        expect(currentChat?.content[149]?.parts[0]?.text).toBe("Long chat message 149");
+
+        const persistedChat = await testDb.chats.get("chat-long-initial-window");
+        expect(persistedChat?.content).toHaveLength(150);
+        expect(persistedChat?.content[0]?.parts[0]?.text).toBe("Long chat message 000");
+        expect(persistedChat?.content[99]?.parts[0]?.text).toBe("Long chat message 099");
+        expect(persistedChat?.content[100]?.parts[0]?.text).toBe("Long chat message 100");
+        expect(persistedChat?.content[149]?.parts[0]?.text).toBe("Long chat message 149");
+    });
+
     it("edits absolute message index in a 150 message paged chat", async () => {
         const { db: testDb, chatsService } = await loadServices();
         db = testDb;
