@@ -180,17 +180,28 @@ db.version(N).stores({ /* schema */ }).upgrade(async (tx) => { /* migrate */ });
 User preferences use `localStorage` with service-level get/set wrappers. See [src/services/Settings.service.ts](src/services/Settings.service.ts).
 
 ### Test Scope And Failure Mapping
+- Treat tests as three explicit layers:
+- Type 1: pure logic/unit tests. These can mock freely and should not make UI behavior claims.
+- Type 2: service/state integration tests. These may mock renderers or external boundaries, and should be presented as service/state coverage rather than proof of live DOM behavior.
+- Type 3: feature/user-story tests. These should use the real component, real DOM wiring, and real user-triggered entrypoint wherever practical.
+- If the user asks to test a feature, user story, live behavior, or a reported UI bug, default to a Type 3 test unless they explicitly ask for a lower-layer test.
+- Most Zodiac feature-level tests should be Type 3. Use Type 1 and Type 2 tests to support targeted logic and service coverage, not as substitutes for feature behavior coverage.
 - Name tests so their primary failure reason matches the behavior under test.
 - For CRUD or state-transition tests, prioritize assertions about persisted state, current in-memory state, and coarse DOM outcomes such as element presence, selection state, or removal from the list.
 - Do not make a `create`, `edit`, or `delete` test fail only because an internal child selector or styling hook changed unless that internal structure is the behavior being tested.
 - If a DOM structure is itself important, write a separate render-contract test for it, for example `renders a complete persona sidebar card`.
 - When a regression should be caught by a specific selector, class, or subtree shape, make that selector part of a dedicated rendering test instead of coupling unrelated behavioral tests to the same detail.
+- When the user asks for a test of live app behavior or reports a UI bug, do not mock the UI/component layer whose behavior is under test. Prefer the real component, real DOM wiring, and the real user-triggered entrypoint.
+- Prefer reproducing the actual user timeline over seeding an end-state that merely resembles it. If a bug happens after a live sequence of sends, skips, scrolls, or clicks, the test should create that sequence the same way.
+- Be explicit about the layer a test covers. If a test mocks a renderer or other boundary, do not present it as proof of real DOM behavior.
+- For stateful UI bugs, assert both backing state and visible DOM state, and ensure the assertion can catch them diverging in-session.
+- For bug-reproduction tests, make the first failing assertion describe the user-visible symptom as directly as possible so another agent can tell what is broken from the failure output.
 - Many Zodiac features are cloud-sync-aware, so feature behavior may depend on remote Supabase-backed state instead of only local Dexie state.
 - When adding tests for a feature, assess whether the cloud-sync path is meaningfully different and worth covering. If that tradeoff is unclear, discuss it with the user instead of guessing.
 - When adding cloud-sync variants of tests, prefer exercising the remote-aware app path with clear contract-shaped fixtures or mocks at the sync boundary rather than duplicating the full backend implementation in tests.
 
 ### Workflow Notes
-- After every code or file change, end the final response with a short `Should we commit this?` section that answers yes or no and briefly explains why.
+- After every code or file change, end the final response with a short `Should we commit this?` section that considers the full current worktree, including any earlier uncommitted changes, and answers yes or no with a brief reason.
 
 ### Styling
 - **Custom CSS** - Hand-written styles in `src/styles/main.css`, `src/styles/dark.css`, `src/styles/light.css`
