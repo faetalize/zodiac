@@ -151,6 +151,40 @@ describe("Personality.service persona CRUD", () => {
         expect(document.querySelector("#btn-add-personality")).not.toBeNull();
     });
 
+    it("pushes persona creation through the sync boundary when cloud sync is active", async () => {
+        const syncService = await import("../../../src/services/Sync.service");
+        const { db: testDb, personalityService } = await loadPersonalityService();
+        db = testDb;
+
+        vi.mocked(syncService.isOnlineSyncEnabled).mockReturnValue(true);
+        vi.mocked(syncService.isSyncActive).mockReturnValue(true);
+        vi.mocked(syncService.fetchSyncedPersonas).mockResolvedValue([]);
+        vi.mocked(syncService.pushPersona).mockResolvedValue(true);
+
+        const created = await personalityService.add(
+            makeLocalPersonality({
+                name: "Synced Persona",
+                description: "Created while cloud sync is active.",
+                prompt: "Keep things synchronized.",
+            }),
+            "persona-synced",
+        );
+
+        expect(created).toBe(true);
+        expect(syncService.pushPersona).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: "persona-synced",
+                name: "Synced Persona",
+                description: "Created while cloud sync is active.",
+            }),
+        );
+        expect(await testDb.personalities.get("persona-synced")).toBeUndefined();
+        expect(document.querySelector("#personality-persona-synced")).not.toBeNull();
+        expect(
+            document.querySelector<HTMLInputElement>("#personality-persona-synced input[name='personality']")?.value,
+        ).toBe("Synced Persona");
+    });
+
     it("edits an existing persona without affecting others", async () => {
         const { db: testDb, personalityService } = await loadPersonalityService();
         db = testDb;

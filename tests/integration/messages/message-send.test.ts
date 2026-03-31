@@ -5,8 +5,10 @@ import type { Chat, GroupChatConfig } from "../../../src/types/Chat";
 import type { Personality } from "../../../src/types/Personality";
 import { makeChat } from "../../fixtures/chats";
 import { makeModelMessage, makeUserMessage } from "../../fixtures/messages";
+import { waitForCondition } from "../../helpers/async";
 import { resetIndexedDb } from "../../helpers/db";
 import { bootstrapDom } from "../../helpers/dom";
+import { MockDataTransfer, makeEmptyFileList } from "../../helpers/files";
 
 type MockOpenRouterResult = {
     text: string;
@@ -29,6 +31,7 @@ type MockSettings = {
     rpgGroupChatsProgressAutomatically: boolean;
     disallowPersonaPinging: boolean;
     dynamicGroupChatPingOnly: boolean;
+    autoscroll: boolean;
 };
 
 const testState = vi.hoisted(() => ({
@@ -49,6 +52,7 @@ const testState = vi.hoisted(() => ({
         rpgGroupChatsProgressAutomatically: true,
         disallowPersonaPinging: false,
         dynamicGroupChatPingOnly: false,
+        autoscroll: true,
     } as MockSettings,
 }));
 
@@ -303,24 +307,6 @@ function bootstrapMessagingDom(): void {
     `);
 }
 
-class MockDataTransfer {
-    private filesInternal: File[] = [];
-
-    readonly items = {
-        add: (file: File) => {
-            this.filesInternal.push(file);
-        },
-    };
-
-    get files(): FileList {
-        return this.filesInternal as unknown as FileList;
-    }
-}
-
-function makeEmptyFileList(): FileList {
-    return [] as unknown as FileList;
-}
-
 function queueOpenRouterResponse(text: string, thinking?: string): void {
     testState.openRouterResults.push({ text, thinking });
 }
@@ -334,18 +320,6 @@ function seedMockPersonas(personas: Array<{ id: string; persona: Partial<Persona
             ...entry.persona,
         });
     }
-}
-
-async function waitFor(condition: () => Promise<boolean>, message: string): Promise<void> {
-    for (let attempt = 0; attempt < 40; attempt += 1) {
-        if (await condition()) {
-            return;
-        }
-
-        await new Promise((resolve) => window.setTimeout(resolve, 0));
-    }
-
-    throw new Error(message);
 }
 
 async function loadServices() {
@@ -381,12 +355,14 @@ function getVisibleMessageElements(): HTMLElement[] {
     });
 }
 
-function getVisibleMessageTexts(): Array<string | undefined> {
-    return getVisibleMessageElements().map((element) => {
-        return element.querySelector<HTMLElement>(".message-text-content")?.textContent
-            ?? element.querySelector<HTMLElement>(".message-text")?.textContent
-            ?? undefined;
-    });
+function getVisibleMessageTexts(): string[] {
+    return getVisibleMessageElements()
+        .map((element) => {
+            return element.querySelector<HTMLElement>(".message-text-content")?.textContent
+                ?? element.querySelector<HTMLElement>(".message-text")?.textContent
+                ?? "";
+        })
+        .filter(Boolean);
 }
 
 describe("Message send lifecycle", () => {
@@ -625,9 +601,9 @@ describe("Message send lifecycle", () => {
             shouldEnforceThoughtSignaturesInHistory: false,
         });
 
-        await waitFor(async () => vi.mocked(openRouterService.requestOpenRouterCompletion).mock.calls.length === 1, "Timed out waiting for dynamic provider call");
+        await waitForCondition(async () => vi.mocked(openRouterService.requestOpenRouterCompletion).mock.calls.length === 1, "Timed out waiting for dynamic provider call");
 
-        await waitFor(async () => {
+        await waitForCondition(async () => {
             const chat = await testDb.chats.get(chatId);
             return (chat?.content ?? []).filter((message) => !message.hidden).length >= 2;
         }, "Timed out waiting for dynamic response to persist");
@@ -650,7 +626,7 @@ describe("Message send lifecycle", () => {
         expect(chatsService.getCurrentChatId()).toBe(chatId);
         expect(messageService.getIsGenerating(chatId)).toBe(false);
 
-        await waitFor(async () => getVisibleMessageElements().length === 2, "Timed out waiting for dynamic response to render");
+        await waitForCondition(async () => getVisibleMessageElements().length === 2, "Timed out waiting for dynamic response to render");
         expect(getVisibleMessageTexts()).toEqual([
             "Step in here",
             "Dynamic Alpha replies to the ping.",
@@ -744,7 +720,7 @@ describe("Message send lifecycle", () => {
         expect((currentChat?.content ?? []).some((message) => message.parts[0]?.text === "Third reply")).toBe(false);
         expect(messageService.getIsGenerating(chatId)).toBe(false);
 
-        await waitFor(async () => getVisibleMessageElements().length === 4, "Timed out waiting for regenerated DOM to settle");
+        await waitForCondition(async () => getVisibleMessageElements().length === 4, "Timed out waiting for regenerated DOM to settle");
         expect(getVisibleMessageTexts()).toEqual([
             "First prompt",
             "First reply",
@@ -824,7 +800,7 @@ describe("Message send lifecycle", () => {
             attachmentFiles: makeEmptyFileList(),
         });
 
-        await waitFor(async () => getVisibleMessageTexts().length === 3, "Timed out waiting for initial RPG round render");
+        await waitForCondition(async () => getVisibleMessageTexts().length === 3, "Timed out waiting for initial RPG round render");
         expect(getVisibleMessageTexts()).toEqual([
             "Round one prompt",
             "Beta speaks.",
@@ -850,7 +826,7 @@ describe("Message send lifecycle", () => {
         expect(refreshButton).not.toBeNull();
         refreshButton?.click();
 
-        await waitFor(async () => vi.mocked(openRouterService.requestOpenRouterCompletion).mock.calls.length === 3, "Timed out waiting for RPG regenerate provider calls");
+        await waitForCondition(async () => vi.mocked(openRouterService.requestOpenRouterCompletion).mock.calls.length === 3, "Timed out waiting for RPG regenerate provider calls");
         await chatsService.waitForPendingWrites(chatId);
 
         const persistedChat = await testDb.chats.get(chatId);
@@ -886,7 +862,7 @@ describe("Message send lifecycle", () => {
         expect((currentChat?.content ?? []).some((message) => message.hidden && message.personalityid === "persona-rpg-c" && message.parts[0]?.text === "__ai_skip_turn__" && message.roundIndex === 1)).toBe(false);
         expect(messageService.getIsGenerating(chatId)).toBe(false);
 
-        await waitFor(async () => getVisibleMessageElements().length >= 4, "Timed out waiting for group regeneration DOM to settle");
+        await waitForCondition(async () => getVisibleMessageElements().length >= 4, "Timed out waiting for group regeneration DOM to settle");
         expect(getVisibleMessageTexts()).toEqual([
             "Round one prompt",
             "Beta regenerated.",

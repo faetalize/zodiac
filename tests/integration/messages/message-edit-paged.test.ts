@@ -3,8 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "../../../src/services/Db.service";
 import { makeChat } from "../../fixtures/chats";
 import { makeUserMessage } from "../../fixtures/messages";
+import { waitForCondition } from "../../helpers/async";
 import { resetIndexedDb } from "../../helpers/db";
 import { bootstrapDom } from "../../helpers/dom";
+import { MockDataTransfer } from "../../helpers/files";
 
 vi.mock("highlight.js", () => ({
     default: {
@@ -119,37 +121,11 @@ function bootstrapChatDom(): void {
     `);
 }
 
-class MockDataTransfer {
-    private filesInternal: File[] = [];
-
-    readonly items = {
-        add: (file: File) => {
-            this.filesInternal.push(file);
-        },
-    };
-
-    get files(): FileList {
-        return this.filesInternal as unknown as FileList;
-    }
-}
-
 function makeLongChatMessageContent(total: number): ReturnType<typeof makeUserMessage>[] {
     return Array.from({ length: total }, (_, index) => {
         const label = index.toString().padStart(3, "0");
         return makeUserMessage(`Long chat message ${label}`);
     });
-}
-
-async function waitFor(condition: () => Promise<boolean> | boolean, message: string): Promise<void> {
-    for (let attempt = 0; attempt < 40; attempt += 1) {
-        if (await condition()) {
-            return;
-        }
-
-        await new Promise((resolve) => window.setTimeout(resolve, 0));
-    }
-
-    throw new Error(message);
 }
 
 async function loadServices() {
@@ -267,7 +243,7 @@ describe("paged long-chat message editing", () => {
 
         editButton?.click();
 
-        await waitFor(
+        await waitForCondition(
             () => targetText?.getAttribute("contenteditable") === "true",
             "Timed out waiting for message edit mode",
         );
@@ -279,7 +255,7 @@ describe("paged long-chat message editing", () => {
         targetText.innerText = "Edited absolute message 100";
         saveButton?.click();
 
-        await waitFor(async () => {
+        await waitForCondition(async () => {
             const chat = await testDb.chats.get("chat-long-paged");
             return chat?.content[100]?.parts[0]?.text === "Edited absolute message 100";
         }, "Timed out waiting for edited message to persist");
@@ -294,7 +270,7 @@ describe("paged long-chat message editing", () => {
         expect(currentChat?.content[100]?.parts[0]?.text).toBe("Edited absolute message 100");
         expect(currentChat?.content[101]?.parts[0]?.text).toBe("Long chat message 101");
 
-        await waitFor(() => {
+        await waitForCondition(() => {
             const rerenderedTarget = document.querySelector<HTMLElement>(`.message[data-chat-index='100'] .message-text`);
             return rerenderedTarget?.textContent?.includes("Edited absolute message 100") === true;
         }, "Timed out waiting for edited message DOM to update");
@@ -330,7 +306,7 @@ describe("paged long-chat message editing", () => {
         scrollContainer.scrollTop = 0;
         scrollContainer.dispatchEvent(new Event("scroll"));
 
-        await waitFor(() => {
+        await waitForCondition(() => {
             const renderedMessages = Array.from(document.querySelectorAll<HTMLElement>(".message[data-chat-index]"));
             return renderedMessages.length === 100;
         }, "Timed out waiting for older messages to prepend");

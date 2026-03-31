@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/marked": "^5.0.2",
     "@types/turndown": "^5.0.5",
     "@types/uuid": "^9.0.8",
@@ -36,6 +37,8 @@
     "build": "npm run type-check && vite build",
     "test": "vitest run --config vitest.config.mts",
     "test:watch": "vitest --config vitest.config.mts",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
     "test:ci": "npm run type-check && npm run test",
     "preview": "vite preview",
     "sync-db-types": "node scripts/sync-db-types.mjs",
