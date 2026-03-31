@@ -199,6 +199,7 @@ User preferences use `localStorage` with service-level get/set wrappers. See [sr
 - For bug-reproduction tests, make the first failing assertion describe the user-visible symptom as directly as possible so another agent can tell what is broken from the failure output.
 - Many Zodiac features are cloud-sync-aware, so feature behavior may depend on remote Supabase-backed state instead of only local Dexie state.
 - When adding tests for a feature, assess whether the cloud-sync path is meaningfully different and worth covering. If that tradeoff is unclear, discuss it with the user instead of guessing.
+- When you add or revise a test, include a short explicit note in your final response stating whether a Supabase/cloud-sync variant is worth adding for that test and why.
 - When adding cloud-sync variants of tests, prefer exercising the remote-aware app path with clear contract-shaped fixtures or mocks at the sync boundary rather than duplicating the full backend implementation in tests.
 
 ### Workflow Notes
