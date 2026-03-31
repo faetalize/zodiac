@@ -633,6 +633,78 @@ describe("Message send lifecycle", () => {
         ]);
     });
 
+    it("aborts generation and preserves the partial response safely", async () => {
+        seedMockPersonas([
+            {
+                id: "persona-abort",
+                persona: {
+                    name: "Abort Persona",
+                    description: "Used for abort lifecycle tests.",
+                },
+            },
+        ]);
+
+        testState.settings.streamResponses = true;
+
+        const { db: testDb, chatsService, messageService } = await loadServices();
+        db = testDb;
+        const openRouterService = await import("../../../src/services/OpenRouter.service");
+
+        const chatId = await createAndLoadChat({
+            chatsService,
+            chat: makeChat({
+                id: "chat-abort",
+                title: "Abort Chat",
+                content: [],
+            }),
+        });
+
+        vi.mocked(openRouterService.requestOpenRouterCompletion).mockImplementationOnce(async ({ onText, onThinking }) => {
+            await onThinking?.({ thinking: "Partial thinking trace", delta: "Partial thinking trace" });
+            await onText?.({ text: "Partial assistant reply", delta: "Partial assistant reply" });
+            messageService.abortGeneration(chatId);
+            throw new DOMException("The operation was aborted.", "AbortError");
+        });
+
+        await messageService.send("Interrupt me", {
+            targetChatId: chatId,
+            selectedPersonalityId: "persona-abort",
+            attachmentFiles: makeEmptyFileList(),
+        });
+
+        const persistedChat = await testDb.chats.get(chatId);
+        const visiblePersistedMessages = (persistedChat?.content ?? []).filter((message) => !message.hidden);
+        expect(visiblePersistedMessages).toHaveLength(2);
+        expect(visiblePersistedMessages[0]).toMatchObject({
+            role: "user",
+            parts: [expect.objectContaining({ text: "Interrupt me" })],
+        });
+        expect(visiblePersistedMessages[1]).toMatchObject({
+            role: "model",
+            personalityid: "persona-abort",
+            interrupted: true,
+            thinking: "Partial thinking trace",
+            parts: [expect.objectContaining({ text: "Partial assistant reply" })],
+            originModel: "openai/gpt-5.4",
+        });
+
+        const currentChat = await chatsService.getCurrentChat();
+        const visibleCurrentMessages = (currentChat?.content ?? []).filter((message) => !message.hidden);
+        expect(currentChat?.id).toBe(chatId);
+        expect(visibleCurrentMessages).toHaveLength(2);
+        expect(visibleCurrentMessages[1]).toMatchObject({
+            interrupted: true,
+            thinking: "Partial thinking trace",
+            parts: [expect.objectContaining({ text: "Partial assistant reply" })],
+        });
+        expect(messageService.getIsGenerating(chatId)).toBe(false);
+
+        await waitForCondition(async () => getVisibleMessageElements().length === 2, "Timed out waiting for aborted response DOM to settle");
+        expect(getVisibleMessageTexts()).toEqual(["Interrupt me", "Partial assistant reply"]);
+        expect(document.querySelector("#chat-title")?.textContent).toBe("Abort Chat");
+        expect(document.querySelector<HTMLElement>(".message:last-of-type .message-text")?.classList.contains("is-loading")).toBe(false);
+    });
+
     it("regenerate prunes only the expected tail", async () => {
         seedMockPersonas([
             {
