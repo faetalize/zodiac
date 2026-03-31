@@ -184,9 +184,13 @@ User preferences use `localStorage` with service-level get/set wrappers. See [sr
 - Type 1: pure logic/unit tests. These can mock freely and should not make UI behavior claims.
 - Type 2: service/state integration tests. These may mock renderers or external boundaries, and should be presented as service/state coverage rather than proof of live DOM behavior.
 - Type 3: feature/user-story tests. These should use the real component, real DOM wiring, and real user-triggered entrypoint wherever practical.
+- Do not force Vitest/JSDOM to stand in for full browser fidelity when the main risk is real browser behavior. If a feature story depends on focus, selection, drag/drop, scrolling, async DOM timing, or broad app-shell wiring, prefer Playwright over a heavily simulated JSDOM setup.
 - Default to using the real existing component/element unless there is a concrete reason to mock it, such as unsupported browser behavior, meaningfully harder setup, substantial test slowdown, or unrelated failure modes.
 - If the user asks to test a feature, user story, live behavior, or a reported UI bug, default to a Type 3 test unless they explicitly ask for a lower-layer test.
 - Most Zodiac feature-level tests should be Type 3. Use Type 1 and Type 2 tests to support targeted logic and service coverage, not as substitutes for feature behavior coverage.
+- Use Playwright for the highest-value user stories and browser-fidelity risks. In Zodiac this especially includes chat creation/selection flows, deleting selected vs unselected chats, attachment drag/drop, abort-generation behavior, and cloud-sync-critical stories.
+- Use Vitest for logic, state integrity, message index correctness, persistence behavior, and targeted integrations where browser fidelity is not the main uncertainty.
+- If making a JSDOM test requires rebuilding large parts of the browser environment or app shell just to exercise the user story, treat that as a signal to switch to Playwright instead of continuing to add harness complexity.
 - Name tests so their primary failure reason matches the behavior under test.
 - For CRUD or state-transition tests, prioritize assertions about persisted state, current in-memory state, and coarse DOM outcomes such as element presence, selection state, or removal from the list.
 - Do not make a `create`, `edit`, or `delete` test fail only because an internal child selector or styling hook changed unless that internal structure is the behavior being tested.
