@@ -39,7 +39,7 @@
     "test:watch": "vitest --config vitest.config.mts",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "test:ci": "npm run type-check && npm run test",
+    "test:ci": "npm run type-check && npm run test && npm run test:e2e",
     "preview": "vite preview",
     "sync-db-types": "node scripts/sync-db-types.mjs",
     "create-worktree": "node scripts/create-worktree.mjs"
