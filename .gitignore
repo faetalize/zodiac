@@ -152,3 +152,5 @@ cloudflare-workers/*
 src/services/GLM.service.ts
 zozo-edge/
 TASK_PROGRESS.md
+test-results/
+playwright-report/
