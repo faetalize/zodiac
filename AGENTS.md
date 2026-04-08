@@ -1,3 +1,5 @@
+NEVER FIX REGRESSIONS OR BUGS DISCOVERED BY TESTS, THEY ARE A POSITIVE THING BECAUSE IT MEANS THE TESTS ARE WORKING AS THEY SHOULD, THIS BRANCH'S PURPOSE IS THE INTRODUCTION OF TESTS, NOT FIXING BUGS
+
 # Zodiac AI Agent Instructions
 
 A Vite + TypeScript frontend for Google Gemini and OpenRouter APIs with local-first IndexedDB storage and optional Supabase cloud sync.
@@ -182,14 +184,18 @@ User preferences use `localStorage` with service-level get/set wrappers. See [sr
 ### Test Scope And Failure Mapping
 - Treat tests as three explicit layers:
 - Type 1: pure logic/unit tests. These can mock freely and should not make UI behavior claims.
-- Type 2: service/state integration tests. These may mock renderers or external boundaries, and should be presented as service/state coverage rather than proof of live DOM behavior.
-- Type 3: feature/user-story tests. These should use the real component, real DOM wiring, and real user-triggered entrypoint wherever practical.
-- Do not force Vitest/JSDOM to stand in for full browser fidelity when the main risk is real browser behavior. If a feature story depends on focus, selection, drag/drop, scrolling, async DOM timing, or broad app-shell wiring, prefer Playwright over a heavily simulated JSDOM setup.
+- Type 2: service/state integration tests. Use these for app-owned rules and invariants without claiming real browser behavior. Good examples: deleting the correct chat record, editing message `content[231]` without shifting other indices, pruning the correct tail on regenerate, or building the correct final payload at the cloud-sync boundary.
+- Type 3: feature/user-story tests. Use these when any real UI behavior matters. These should use the real component, real DOM wiring, and real user-triggered entrypoint wherever practical.
+- Default split: if the behavior under test involves the UI at all, use Playwright. If the behavior under test is state/persistence logic and does not need real UI behavior, use Vitest.
+- In practice, use Playwright for things like sidebar deletion, visible message editing controls, drag/drop, scrolling, loading older messages, abort-generation, selection/focus behavior, and end-to-end persistence after reload.
+- In practice, use Vitest for things like message index correctness, chat persistence invariants, regenerate/prune state rules, sync payload construction, and other logic where the main risk is incorrect state rather than incorrect browser behavior.
+- Do not force Vitest/JSDOM to stand in for full browser fidelity when the main risk is real browser behavior. If a feature story depends on focus, selection, drag/drop, scrolling, async DOM timing, reload behavior, or broad app-shell wiring, prefer Playwright over a heavily simulated JSDOM setup.
 - Default to using the real existing component/element unless there is a concrete reason to mock it, such as unsupported browser behavior, meaningfully harder setup, substantial test slowdown, or unrelated failure modes.
 - If the user asks to test a feature, user story, live behavior, or a reported UI bug, default to a Type 3 test unless they explicitly ask for a lower-layer test.
 - Most Zodiac feature-level tests should be Type 3. Use Type 1 and Type 2 tests to support targeted logic and service coverage, not as substitutes for feature behavior coverage.
 - Use Playwright for the highest-value user stories and browser-fidelity risks. In Zodiac this especially includes chat creation/selection flows, deleting selected vs unselected chats, attachment drag/drop, abort-generation behavior, and cloud-sync-critical stories.
 - Use Vitest for logic, state integrity, message index correctness, persistence behavior, and targeted integrations where browser fidelity is not the main uncertainty.
+- JSDOM is allowed for narrow render-contract checks only. Good examples: `messageElement(message)` renders a `.message`, includes the edit button for user messages, shows a reasoning block when `thinking` exists, or renders an attachment preview node. Do not present those tests as proof that the live UI flow works.
 - If making a JSDOM test requires rebuilding large parts of the browser environment or app shell just to exercise the user story, treat that as a signal to switch to Playwright instead of continuing to add harness complexity.
 - Name tests so their primary failure reason matches the behavior under test.
 - For CRUD or state-transition tests, prioritize assertions about persisted state, current in-memory state, and coarse DOM outcomes such as element presence, selection state, or removal from the list.
