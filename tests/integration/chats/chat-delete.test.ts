@@ -129,6 +129,13 @@ function getVisibleMessageTexts(): string[] {
         .filter(Boolean);
 }
 
+function makeLongChatMessages(total: number) {
+    return Array.from({ length: total }, (_, index) => {
+        const label = index.toString().padStart(3, "0");
+        return makeUserMessage(`Current long message ${label}`);
+    });
+}
+
 async function loadServices() {
     const dbService = await import("../../../src/services/Db.service");
     const chatsService = await import("../../../src/services/Chats.service");
@@ -170,6 +177,7 @@ describe("chat deletion behavior", () => {
     it("deletes the selected chat and returns to the new-chat state", async () => {
         const { db: testDb, chatsService } = await loadServices();
         db = testDb;
+        const pinningService = await import("../../../src/services/Pinning.service");
 
         await createChat({
             chatsService,
@@ -217,6 +225,7 @@ describe("chat deletion behavior", () => {
         expect(document.querySelector("label[for='chatchat-selected-delete']")).toBeNull();
         expect(document.querySelector("#chatchat-neighbor-keep")).not.toBeNull();
         expect(document.querySelector("label[for='chatchat-neighbor-keep']")?.textContent).toContain("Neighbor Chat");
+        expect(vi.mocked(pinningService.removeChatPin)).toHaveBeenCalledWith("chat-selected-delete");
     });
 
     it("deletes an unselected chat without changing the current chat", async () => {
@@ -269,5 +278,86 @@ describe("chat deletion behavior", () => {
         expect(document.querySelector("label[for='chatchat-unselected-delete']")).toBeNull();
         expect(document.querySelector("#chatchat-current-keep")).not.toBeNull();
         expect(document.querySelector("label[for='chatchat-current-keep']")?.textContent).toContain("Current Chat");
+    });
+
+    it("deletes the only existing chat and leaves no records or selection behind", async () => {
+        const { db: testDb, chatsService } = await loadServices();
+        db = testDb;
+
+        await createChat({
+            chatsService,
+            chatId: "chat-only-delete",
+            title: "Only Chat",
+            messageText: "Lonely message",
+        });
+
+        const onlyRadio = document.querySelector<HTMLInputElement>("#chatchat-only-delete");
+        if (!onlyRadio) {
+            throw new Error("Missing only chat radio");
+        }
+
+        onlyRadio.click();
+        await chatsService.loadChat("chat-only-delete");
+
+        await chatsService.deleteChat("chat-only-delete", testDb);
+
+        expect(await testDb.chats.toArray()).toEqual([]);
+        expect(chatsService.getCurrentChatId()).toBeNull();
+        expect(await chatsService.getCurrentChat()).toBeNull();
+
+        expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")).toBeNull();
+        expect(document.querySelectorAll("input[name='currentChat']")).toHaveLength(0);
+        expect(document.querySelectorAll("label.label-currentchat")).toHaveLength(0);
+        expect(document.querySelector("#chat-title")?.textContent).toBe("");
+        expect(document.querySelectorAll(".message")).toHaveLength(0);
+        expect(getVisibleMessageTexts()).toEqual([]);
+    });
+
+    it("deletes an unselected chat without mutating the active long chat content", async () => {
+        const { db: testDb, chatsService } = await loadServices();
+        db = testDb;
+
+        await chatsService.addChatRecord(makeChat({
+            id: "chat-current-long-keep",
+            title: "Current Long Chat",
+            content: makeLongChatMessages(120),
+        }));
+        await createChat({
+            chatsService,
+            chatId: "chat-delete-short",
+            title: "Delete Short Chat",
+            messageText: "Delete me",
+        });
+
+        const currentRadio = document.querySelector<HTMLInputElement>("#chatchat-current-long-keep");
+        if (!currentRadio) {
+            throw new Error("Missing current long chat radio");
+        }
+
+        currentRadio.click();
+        await chatsService.loadChat("chat-current-long-keep");
+
+        const expectedCurrentTexts = makeLongChatMessages(120).map((message) => message.parts[0]?.text ?? "");
+
+        await chatsService.deleteChat("chat-delete-short", testDb);
+
+        const currentChat = await chatsService.getCurrentChat();
+        const persistedCurrentChat = await testDb.chats.get("chat-current-long-keep");
+
+        expect(await testDb.chats.get("chat-delete-short")).toBeUndefined();
+        expect((await testDb.chats.toArray()).map((chat) => chat.id)).toEqual(["chat-current-long-keep"]);
+        expect(chatsService.getCurrentChatId()).toBe("chat-current-long-keep");
+        expect(currentChat?.content.map((message) => message.parts[0]?.text ?? "")).toEqual(expectedCurrentTexts);
+        expect(persistedCurrentChat?.content.map((message) => message.parts[0]?.text ?? "")).toEqual(expectedCurrentTexts);
+
+        expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")?.id).toBe(
+            "chatchat-current-long-keep",
+        );
+        expect(document.querySelector("#chat-title")?.textContent).toBe("Current Long Chat");
+        expect(getVisibleMessageTexts()).toHaveLength(50);
+        expect(getVisibleMessageTexts()[0]).toBe("Current long message 070");
+        expect(getVisibleMessageTexts()[49]).toBe("Current long message 119");
+        expect(document.querySelector("#chatchat-delete-short")).toBeNull();
+        expect(document.querySelector("label[for='chatchat-delete-short']")).toBeNull();
     });
 });
