@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "../../../src/services/Db.service";
 import type { Personality } from "../../../src/types/Personality";
 import { makePersona } from "../../fixtures/personas";
+import { waitForCondition } from "../../helpers/async";
 import { resetIndexedDb } from "../../helpers/db";
 import { bootstrapDom } from "../../helpers/dom";
 
@@ -256,6 +257,108 @@ describe("Personality.service persona CRUD", () => {
         expect(document.querySelector("#personality-persona-beta")).not.toBeNull();
     });
 
+    it("pushes synced persona edits through the sync boundary without affecting others", async () => {
+        const syncService = await import("../../../src/services/Sync.service");
+        const alphaOriginal = makePersona({
+            id: "persona-synced-alpha",
+            name: "Synced Alpha",
+            description: "Original synced alpha description.",
+            prompt: "Original synced alpha prompt.",
+            syncedFrom: "market-alpha",
+            version: 7,
+            dateAdded: 1_700_000_000_000,
+            lastModified: 1_700_000_000_000,
+        });
+        const betaOriginal = makePersona({
+            id: "persona-synced-beta",
+            name: "Synced Beta",
+            description: "Leave this synced persona alone.",
+            prompt: "Beta prompt.",
+            syncedFrom: "market-beta",
+            version: 4,
+            dateAdded: 1_700_000_100_000,
+            lastModified: 1_700_000_100_000,
+        });
+        const remotePersonasById = new Map([
+            [alphaOriginal.id, alphaOriginal],
+            [betaOriginal.id, betaOriginal],
+        ]);
+
+        vi.mocked(syncService.isOnlineSyncEnabled).mockReturnValue(true);
+        vi.mocked(syncService.isSyncActive).mockReturnValue(true);
+        vi.mocked(syncService.fetchSyncedPersonas).mockImplementation(async () => {
+            return Array.from(remotePersonasById.values()).map((persona) => structuredClone(persona));
+        });
+        vi.mocked(syncService.pushPersona).mockImplementation(async (persona) => {
+            remotePersonasById.set(persona.id, structuredClone(persona));
+            return true;
+        });
+
+        const { db: testDb, personalityService } = await loadPersonalityService();
+        db = testDb;
+
+        document
+            .querySelector<HTMLInputElement>("#personality-persona-synced-alpha input[name='personality']")
+            ?.click();
+        expect((await personalityService.getSelected())?.name).toBe("Synced Alpha");
+
+        const untouchedBefore = structuredClone(remotePersonasById.get("persona-synced-beta"));
+
+        await personalityService.edit(
+            "persona-synced-alpha",
+            makeLocalPersonality({
+                name: "Synced Alpha Updated",
+                description: "Updated synced alpha description.",
+                prompt: "Keep synced edits precise.",
+                category: "assistant",
+                tags: ["synced", "updated"],
+            }),
+        );
+
+        const updatedRemote = remotePersonasById.get("persona-synced-alpha");
+        expect(syncService.pushPersona).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: "persona-synced-alpha",
+                name: "Synced Alpha Updated",
+                description: "Updated synced alpha description.",
+                prompt: "Keep synced edits precise.",
+                category: "assistant",
+                tags: ["synced", "updated"],
+                syncedFrom: "market-alpha",
+                version: 0,
+                dateAdded: alphaOriginal.dateAdded,
+            }),
+        );
+        expect(updatedRemote).toMatchObject({
+            id: "persona-synced-alpha",
+            name: "Synced Alpha Updated",
+            description: "Updated synced alpha description.",
+            prompt: "Keep synced edits precise.",
+            category: "assistant",
+            tags: ["synced", "updated"],
+            syncedFrom: "market-alpha",
+            version: 0,
+            dateAdded: alphaOriginal.dateAdded,
+        });
+        expect(updatedRemote?.lastModified).toBeGreaterThan(alphaOriginal.lastModified);
+        expect(remotePersonasById.get("persona-synced-beta")).toEqual(untouchedBefore);
+
+        expect(await testDb.personalities.toArray()).toEqual([]);
+        expect((await personalityService.getSelected())?.name).toBe("Synced Alpha Updated");
+        expect(document.querySelector("#personality-persona-synced-alpha")).not.toBeNull();
+        expect(
+            document.querySelector<HTMLInputElement>(
+                "#personality-persona-synced-alpha input[name='personality']",
+            )?.value,
+        ).toBe("Synced Alpha Updated");
+        expect(
+            document.querySelector<HTMLInputElement>(
+                "#personality-persona-synced-alpha input[name='personality']",
+            )?.checked,
+        ).toBe(true);
+        expect(document.querySelector("#personality-persona-synced-beta")).not.toBeNull();
+    });
+
     it("deletes a persona and removes it from the UI", async () => {
         const { db: testDb, personalityService } = await loadPersonalityService();
         db = testDb;
@@ -300,6 +403,79 @@ describe("Personality.service persona CRUD", () => {
 
         expect(document.querySelector("#personality-persona-delete")).toBeNull();
         expect(document.querySelector("#personality-persona-keep")).not.toBeNull();
+        expect(
+            document.querySelector<HTMLInputElement>(
+                "#personalitiesDiv .card-personality:not([id]) input[name='personality']",
+            )?.checked,
+        ).toBe(true);
+    });
+
+    it("deletes a selected synced persona and falls back to the default persona", async () => {
+        const syncService = await import("../../../src/services/Sync.service");
+        const remotePersonasById = new Map([
+            [
+                "persona-synced-delete",
+                makePersona({
+                    id: "persona-synced-delete",
+                    name: "Delete Synced Persona",
+                    description: "This synced persona should be removed.",
+                    syncedFrom: "market-delete",
+                    version: 3,
+                }),
+            ],
+            [
+                "persona-synced-keep",
+                makePersona({
+                    id: "persona-synced-keep",
+                    name: "Keep Synced Persona",
+                    description: "This synced persona should remain.",
+                    syncedFrom: "market-keep",
+                    version: 5,
+                }),
+            ],
+        ]);
+
+        vi.mocked(syncService.isOnlineSyncEnabled).mockReturnValue(true);
+        vi.mocked(syncService.isSyncActive).mockReturnValue(true);
+        vi.mocked(syncService.fetchSyncedPersonas).mockImplementation(async () => {
+            return Array.from(remotePersonasById.values()).map((persona) => structuredClone(persona));
+        });
+        vi.mocked(syncService.deleteSyncedPersona).mockImplementation(async (id: string) => {
+            return remotePersonasById.delete(id);
+        });
+
+        const { db: testDb, personalityService } = await loadPersonalityService();
+        db = testDb;
+
+        document
+            .querySelector<HTMLInputElement>("#personality-persona-synced-delete input[name='personality']")
+            ?.click();
+        expect((await personalityService.getSelected())?.name).toBe("Delete Synced Persona");
+
+        document
+            .querySelector<HTMLButtonElement>("#personality-persona-synced-delete .btn-delete-card")
+            ?.click();
+
+        await waitForCondition(
+            () => !remotePersonasById.has("persona-synced-delete"),
+            "Timed out waiting for synced persona deletion",
+        );
+
+        expect(syncService.deleteSyncedPersona).toHaveBeenCalledWith("persona-synced-delete");
+        expect(await testDb.personalities.toArray()).toEqual([]);
+        expect(remotePersonasById.get("persona-synced-keep")).toMatchObject({
+            id: "persona-synced-keep",
+            name: "Keep Synced Persona",
+        });
+
+        const allPersonas = await personalityService.getAll();
+        expect(allPersonas).toEqual([
+            expect.objectContaining({ id: "persona-synced-keep", name: "Keep Synced Persona" }),
+        ]);
+        expect((await personalityService.getSelected())?.name).toBe("zodiac");
+
+        expect(document.querySelector("#personality-persona-synced-delete")).toBeNull();
+        expect(document.querySelector("#personality-persona-synced-keep")).not.toBeNull();
         expect(
             document.querySelector<HTMLInputElement>(
                 "#personalitiesDiv .card-personality:not([id]) input[name='personality']",
