@@ -71,6 +71,12 @@ vi.mock("../../../src/services/Toast.service", () => ({
 vi.mock("../../../src/services/Sync.service", () => ({
     isOnlineSyncEnabled: vi.fn(() => false),
     isSyncActive: vi.fn(() => false),
+    fetchSyncedChatsMetadata: vi.fn(async () => []),
+    fetchSyncedChatMetadata: vi.fn(async () => null),
+    hydrateLatestChatMessagesWindow: vi.fn(async () => null),
+    hydrateOlderChatMessagesWindow: vi.fn(async () => null),
+    upsertSyncedChat: vi.fn(async () => true),
+    deleteSyncedChat: vi.fn(async () => true),
 }));
 
 vi.mock("../../../src/services/Pinning.service", () => ({
@@ -278,6 +284,115 @@ describe("chat deletion behavior", () => {
         expect(document.querySelector("label[for='chatchat-unselected-delete']")).toBeNull();
         expect(document.querySelector("#chatchat-current-keep")).not.toBeNull();
         expect(document.querySelector("label[for='chatchat-current-keep']")?.textContent).toContain("Current Chat");
+    });
+
+    it("deletes an unselected synced chat without changing the current synced chat", async () => {
+        const syncService = await import("../../../src/services/Sync.service");
+        const { db: testDb, chatsService } = await loadServices();
+        db = testDb;
+
+        const syncedCurrentChatMetadata = makeChat({
+            id: "chat-synced-current-keep",
+            title: "Current Synced Chat",
+            content: [],
+        });
+        const syncedDeletedChatMetadata = makeChat({
+            id: "chat-synced-delete-me",
+            title: "Delete Synced Chat",
+            content: [],
+        });
+        const syncedCurrentMessages = [makeUserMessage("Current synced message")];
+        const syncedChatsById = new Map([
+            [syncedCurrentChatMetadata.id, syncedCurrentChatMetadata],
+            [syncedDeletedChatMetadata.id, syncedDeletedChatMetadata],
+        ]);
+
+        vi.mocked(syncService.isOnlineSyncEnabled).mockReturnValue(true);
+        vi.mocked(syncService.isSyncActive).mockReturnValue(true);
+        vi.mocked(syncService.upsertSyncedChat).mockImplementation(async (chat) => {
+            syncedChatsById.set(chat.id, {
+                ...chat,
+                content: [],
+            });
+
+            return true;
+        });
+        vi.mocked(syncService.fetchSyncedChatsMetadata).mockImplementation(async () => {
+            return Array.from(syncedChatsById.values()).map((chat) => structuredClone(chat));
+        });
+        vi.mocked(syncService.fetchSyncedChatMetadata).mockImplementation(async (chatId: string) => {
+            const chat = syncedChatsById.get(chatId);
+            return chat ? structuredClone(chat) : null;
+        });
+        vi.mocked(syncService.hydrateLatestChatMessagesWindow).mockImplementation(async (chatId: string) => {
+            if (chatId !== syncedCurrentChatMetadata.id) {
+                return null;
+            }
+
+            return {
+                messages: structuredClone(syncedCurrentMessages),
+                startIndex: 0,
+                endExclusive: syncedCurrentMessages.length,
+                totalCount: syncedCurrentMessages.length,
+                hasMoreOlder: false,
+            };
+        });
+        vi.mocked(syncService.deleteSyncedChat).mockImplementation(async (chatId: string) => {
+            return syncedChatsById.delete(chatId);
+        });
+
+        await chatsService.addChatRecord(makeChat({
+            id: syncedCurrentChatMetadata.id,
+            title: syncedCurrentChatMetadata.title,
+            content: syncedCurrentMessages,
+        }));
+        await chatsService.addChatRecord(makeChat({
+            id: syncedDeletedChatMetadata.id,
+            title: syncedDeletedChatMetadata.title,
+            content: [makeUserMessage("Delete synced message")],
+        }));
+
+        const currentRadio = document.querySelector<HTMLInputElement>(`#chat${syncedCurrentChatMetadata.id}`);
+        if (!currentRadio) {
+            throw new Error("Missing current synced chat radio");
+        }
+
+        currentRadio.click();
+        await chatsService.loadChat(syncedCurrentChatMetadata.id);
+
+        expect(chatsService.getCurrentChatId()).toBe(syncedCurrentChatMetadata.id);
+        expect((await chatsService.getCurrentChat())?.title).toBe("Current Synced Chat");
+        expect((await chatsService.getCurrentChat())?.content.map((message) => message.parts[0]?.text ?? "")).toEqual([
+            "Current synced message",
+        ]);
+        expect(document.querySelector("#chat-title")?.textContent).toBe("Current Synced Chat");
+        expect(getVisibleMessageTexts()).toEqual(["Current synced message"]);
+
+        await chatsService.deleteChat(syncedDeletedChatMetadata.id, testDb);
+
+        const currentChat = await chatsService.getCurrentChat();
+
+        expect(syncService.deleteSyncedChat).toHaveBeenCalledWith(syncedDeletedChatMetadata.id);
+        expect(await testDb.chats.toArray()).toEqual([]);
+        expect(chatsService.getCurrentChatId()).toBe(syncedCurrentChatMetadata.id);
+        expect(currentChat).toMatchObject({
+            id: syncedCurrentChatMetadata.id,
+            title: "Current Synced Chat",
+        });
+        expect(currentChat?.content.map((message) => message.parts[0]?.text ?? "")).toEqual([
+            "Current synced message",
+        ]);
+        expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")?.id).toBe(
+            `chat${syncedCurrentChatMetadata.id}`,
+        );
+        expect(document.querySelector("#chat-title")?.textContent).toBe("Current Synced Chat");
+        expect(getVisibleMessageTexts()).toEqual(["Current synced message"]);
+        expect(document.querySelector(`#chat${syncedDeletedChatMetadata.id}`)).toBeNull();
+        expect(document.querySelector(`label[for='chat${syncedDeletedChatMetadata.id}']`)).toBeNull();
+        expect(document.querySelector(`#chat${syncedCurrentChatMetadata.id}`)).not.toBeNull();
+        expect(document.querySelector(`label[for='chat${syncedCurrentChatMetadata.id}']`)?.textContent).toContain(
+            "Current Synced Chat",
+        );
     });
 
     it("deletes the only existing chat and leaves no records or selection behind", async () => {
