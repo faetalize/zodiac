@@ -1,626 +1,680 @@
-import { createClient, RealtimeChannel, Session, User as SupabaseUser } from '@supabase/supabase-js'
-import { User } from "../types/User";
-import { SubscriptionPriceIDs, SubscriptionPriceIDsOld } from '../types/Price';
-import { ImageGenerationPermitted } from '../types/ImageGenerationTypes';
-import { danger, warn } from './Toast.service';
-import type { SubscriptionTier, UserSubscription, ImageGenerationRecord, MarketplacePersonaInfo, MegaCreditsRecord, NanoBananaDailyUsageRecord } from '../types/Supabase';
-import { dispatchAppEvent } from '../events';
+import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
+import { createClient, RealtimeChannel } from "@supabase/supabase-js";
+import type { User } from "../types/User";
+import { SubscriptionPriceIDs, SubscriptionPriceIDsOld } from "../types/Price";
+import type { ImageGenerationPermitted } from "../types/ImageGenerationTypes";
+import { danger, warn } from "./Toast.service";
+import type {
+	SubscriptionTier,
+	UserSubscription,
+	ImageGenerationRecord,
+	MarketplacePersonaInfo,
+	MegaCreditsRecord,
+	NanoBananaDailyUsageRecord
+} from "../types/Supabase";
+import { dispatchAppEvent } from "../events";
 
-export type { SubscriptionTier, UserSubscription, ImageGenerationRecord, MarketplacePersonaInfo, MegaCreditsRecord, NanoBananaDailyUsageRecord };
+export type {
+	SubscriptionTier,
+	UserSubscription,
+	ImageGenerationRecord,
+	MarketplacePersonaInfo,
+	MegaCreditsRecord,
+	NanoBananaDailyUsageRecord
+};
 
 let userCache: SupabaseUser | null = null;
 
-export const SUPABASE_URL = 'https://hglcltvwunzynnzduauy.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ';
+export const SUPABASE_URL = "https://hglcltvwunzynnzduauy.supabase.co";
+const SUPABASE_ANON_KEY =
+	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ";
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const subscriptionBadgeClasses = [
-    'badge-tier-free',
-    'badge-tier-pro',
-    'badge-tier-pro-plus',
-    'badge-tier-pro_plus',
-    'badge-tier-max',
-    'badge-tier-canceled'
+	"badge-tier-free",
+	"badge-tier-pro",
+	"badge-tier-pro-plus",
+	"badge-tier-pro_plus",
+	"badge-tier-max",
+	"badge-tier-canceled"
 ];
 
-export const PASSWORD_RECOVERY_QUERY_PARAM = 'recovery=true';
+export const PASSWORD_RECOVERY_QUERY_PARAM = "recovery=true";
 
 function buildPasswordRecoveryRedirectUrl(): string {
-    if (typeof window === 'undefined') {
-        return `${SUPABASE_URL}/auth/password-recovery`;
-    }
-    const { origin, pathname } = window.location;
-    // Use a query parameter instead of a hash to avoid interfering with Supabase's auth tokens
-    return `${origin}${pathname}?${PASSWORD_RECOVERY_QUERY_PARAM}`;
+	if (typeof window === "undefined") {
+		return `${SUPABASE_URL}/auth/password-recovery`;
+	}
+	const { origin, pathname } = window.location;
+	// Use a query parameter instead of a hash to avoid interfering with Supabase's auth tokens
+	return `${origin}${pathname}?${PASSWORD_RECOVERY_QUERY_PARAM}`;
 }
 
 export async function getAuthHeaders(): Promise<Record<string, string>> {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-        return { Authorization: `Bearer ${session.access_token}` };
-    }
-    return {};
+	const {
+		data: { session }
+	} = await supabase.auth.getSession();
+	if (session?.access_token) {
+		return { Authorization: `Bearer ${session.access_token}` };
+	}
+	return {};
 }
 
 supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'PASSWORD_RECOVERY' && session) {
-        console.log('Password recovery session detected.');
-        userCache = session.user;
-        try { dispatchAppEvent('password-recovery', { session }); } catch (e) { console.error(e); }
-    }
+	if (event === "PASSWORD_RECOVERY" && session) {
+		console.log("Password recovery session detected.");
+		userCache = session.user;
+		try {
+			dispatchAppEvent("password-recovery", { session });
+		} catch (e) {
+			console.error(e);
+		}
+	}
 
-    //on login
-    if (event === 'SIGNED_IN' && session) {
-        console.log("User signed in.");
-        //cache user
-        userCache = session.user;
-        //show relevant components
-        document.querySelectorAll('.logged-in-component').forEach(el => {
-            (el as HTMLElement).classList.remove('hidden');
-        });
-        document.querySelectorAll('.logged-out-component').forEach(el => {
-            (el as HTMLElement).classList.add('hidden');
-        });
-        //initial profile load
-        getUserProfile().then(
-            (profile) => {
-                if (profile.avatar) {
-                    document.querySelector("#profile-pfp")?.setAttribute("src", profile.avatar);
-                    document.querySelector("#user-profile")?.setAttribute("src", profile.avatar);
-                }
-                document.querySelector<HTMLInputElement>("#profile-preferred-name")!.value = profile.preferredName;
-                document.querySelector<HTMLTextAreaElement>("#profile-system-prompt")!.defaultValue = profile.systemPromptAddition;
-                getUserSubscription(session).then((sub) => {
-                    // notify listeners
-                    getImageGenerationRecord().then((imageGenRecord) => {
-                        updateSubscriptionUI(session, sub, imageGenRecord);
-                        try { dispatchAppEvent('auth-state-changed', { loggedIn: true, session, subscription: sub, imageGenerationRecord: imageGenRecord }); } catch (e) { console.error(e); }
-                    });
-                });
-            }
-        );
-    } else if (event === 'SIGNED_OUT') {
-        console.log("User signed out.");
-        try { dispatchAppEvent('auth-state-changed', { loggedIn: false }); } catch (e) { console.error(e); }
-        //clear cached user
-        userCache = null;
-        //hide relevant components
-        document.querySelectorAll('.logged-out-component').forEach(el => {
-            (el as HTMLElement).classList.remove('hidden');
-        });
-        document.querySelectorAll('.logged-in-component').forEach(el => {
-            (el as HTMLElement).classList.add('hidden');
-        });
-        // reset subscription UI
-        const badge = document.querySelector<HTMLElement>('#subscription-badge');
-        const manageBtn = document.querySelector<HTMLButtonElement>('#btn-manage-subscription');
-        const tierEl = document.querySelector<HTMLElement>('#subscription-tier-text');
-        const periodEndEl = document.querySelector<HTMLElement>('#subscription-period-end');
-        if (badge) {
-            badge.textContent = 'Free';
-            badge.classList.remove(...subscriptionBadgeClasses);
-            badge.classList.add('badge-tier-free');
-        }
-        if (manageBtn) {
-            manageBtn.classList.add('hidden');
-            manageBtn.onclick = null;
-        }
-        if (tierEl) {
-            tierEl.textContent = 'Free';
-        }
-        if (periodEndEl) {
-            periodEndEl.textContent = '—';
-        }
+	//on login
+	if (event === "SIGNED_IN" && session) {
+		console.log("User signed in.");
+		//cache user
+		userCache = session.user;
+		//show relevant components
+		document.querySelectorAll(".logged-in-component").forEach((el) => {
+			(el as HTMLElement).classList.remove("hidden");
+		});
+		document.querySelectorAll(".logged-out-component").forEach((el) => {
+			(el as HTMLElement).classList.add("hidden");
+		});
+		//initial profile load
+		getUserProfile().then((profile) => {
+			if (profile.avatar) {
+				document.querySelector("#profile-pfp")?.setAttribute("src", profile.avatar);
+				document.querySelector("#user-profile")?.setAttribute("src", profile.avatar);
+			}
+			document.querySelector<HTMLInputElement>("#profile-preferred-name")!.value = profile.preferredName;
+			document.querySelector<HTMLTextAreaElement>("#profile-system-prompt")!.defaultValue =
+				profile.systemPromptAddition;
+			getUserSubscription(session).then((sub) => {
+				// notify listeners
+				getImageGenerationRecord().then((imageGenRecord) => {
+					updateSubscriptionUI(session, sub, imageGenRecord);
+					try {
+						dispatchAppEvent("auth-state-changed", {
+							loggedIn: true,
+							session,
+							subscription: sub,
+							imageGenerationRecord: imageGenRecord
+						});
+					} catch (e) {
+						console.error(e);
+					}
+				});
+			});
+		});
+	} else if (event === "SIGNED_OUT") {
+		console.log("User signed out.");
+		try {
+			dispatchAppEvent("auth-state-changed", { loggedIn: false });
+		} catch (e) {
+			console.error(e);
+		}
+		//clear cached user
+		userCache = null;
+		//hide relevant components
+		document.querySelectorAll(".logged-out-component").forEach((el) => {
+			(el as HTMLElement).classList.remove("hidden");
+		});
+		document.querySelectorAll(".logged-in-component").forEach((el) => {
+			(el as HTMLElement).classList.add("hidden");
+		});
+		// reset subscription UI
+		const badge = document.querySelector<HTMLElement>("#subscription-badge");
+		const manageBtn = document.querySelector<HTMLButtonElement>("#btn-manage-subscription");
+		const tierEl = document.querySelector<HTMLElement>("#subscription-tier-text");
+		const periodEndEl = document.querySelector<HTMLElement>("#subscription-period-end");
+		if (badge) {
+			badge.textContent = "Free";
+			badge.classList.remove(...subscriptionBadgeClasses);
+			badge.classList.add("badge-tier-free");
+		}
+		if (manageBtn) {
+			manageBtn.classList.add("hidden");
+			manageBtn.onclick = null;
+		}
+		if (tierEl) {
+			tierEl.textContent = "Free";
+		}
+		if (periodEndEl) {
+			periodEndEl.textContent = "—";
+		}
 
-        // Treat signed-out as Free tier for settings UI
-        const apiKeyInput = document.querySelector<HTMLInputElement>('#apiKeyInput');
-        const noNeedMsg = document.querySelector<HTMLElement>('#apiKeyNoNeedMsg');
-        const orDivider = document.querySelector<HTMLElement>('#or-divider');
-        const upgradeBtn = document.querySelector<HTMLButtonElement>('#btn-show-subscription-options');
-        const apiKeyError = document.querySelector<HTMLElement>('.api-key-error');
-        if (apiKeyInput) {
-            apiKeyInput.disabled = false;
-            apiKeyInput.classList.remove('api-key-invalid', 'api-key-valid');
-        }
-        if (apiKeyError) apiKeyError.classList.add('hidden');
-        if (noNeedMsg) noNeedMsg.classList.add('hidden');
-        if (orDivider) orDivider.classList.remove('hidden');
-        if (upgradeBtn) upgradeBtn.classList.remove('hidden');
-        // Treat as free tier for any listeners
-        try { dispatchAppEvent('subscription-updated', { tier: 'free' }); } catch { }
-    } else if (event === 'TOKEN_REFRESHED' && session) {
-        console.log("Token refreshed.");
-        //update cached user
-        userCache = session.user;
-    } else if (event === 'USER_UPDATED' && session) {
-        console.log("User update event.");
-        //update cached user
-        userCache = session.user;
-    }
+		// Treat signed-out as Free tier for settings UI
+		const apiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
+		const noNeedMsg = document.querySelector<HTMLElement>("#apiKeyNoNeedMsg");
+		const orDivider = document.querySelector<HTMLElement>("#or-divider");
+		const upgradeBtn = document.querySelector<HTMLButtonElement>("#btn-show-subscription-options");
+		const apiKeyError = document.querySelector<HTMLElement>(".api-key-error");
+		if (apiKeyInput) {
+			apiKeyInput.disabled = false;
+			apiKeyInput.classList.remove("api-key-invalid", "api-key-valid");
+		}
+		if (apiKeyError) apiKeyError.classList.add("hidden");
+		if (noNeedMsg) noNeedMsg.classList.add("hidden");
+		if (orDivider) orDivider.classList.remove("hidden");
+		if (upgradeBtn) upgradeBtn.classList.remove("hidden");
+		// Treat as free tier for any listeners
+		try {
+			dispatchAppEvent("subscription-updated", { tier: "free" });
+		} catch {}
+	} else if (event === "TOKEN_REFRESHED" && session) {
+		console.log("Token refreshed.");
+		//update cached user
+		userCache = session.user;
+	} else if (event === "USER_UPDATED" && session) {
+		console.log("User update event.");
+		//update cached user
+		userCache = session.user;
+	}
 });
 
 export async function createAccount(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({
-        email: email,
-        password: password
-    });
-    if (error) {
-        console.error("Sign up error:", error.message);
-        throw new Error(error.message);
-    }
-    return data;
+	const { data, error } = await supabase.auth.signUp({
+		email: email,
+		password: password
+	});
+	if (error) {
+		console.error("Sign up error:", error.message);
+		throw new Error(error.message);
+	}
+	return data;
 }
 
 export async function login(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password
-    });
-    if (error) {
-        console.error("Login error:", error.message);
-        throw new Error(error.message);
-    }
-    return data;
+	const { data, error } = await supabase.auth.signInWithPassword({
+		email: email,
+		password: password
+	});
+	if (error) {
+		console.error("Login error:", error.message);
+		throw new Error(error.message);
+	}
+	return data;
 }
 
 export async function logout() {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-        console.error("Logout error:", error.message);
-        throw new Error(error.message);
-    }
-    userCache = null;
-    return true;
+	const { error } = await supabase.auth.signOut();
+	if (error) {
+		console.error("Logout error:", error.message);
+		throw new Error(error.message);
+	}
+	userCache = null;
+	return true;
 }
 
 export async function getCurrentUser() {
-    //to prevent multiple network calls, we can cache the user in memory and only fetch if not present
-    if (userCache) return userCache;
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) {
-        console.error("Get current user error:", JSON.stringify(error));
-        if(error.name === "AuthSessionMissingError"){
-            //do nothing
-        }
-        if(error.code === "user_not_found"){
-            //we must clear the session cache
-            warn({
-                title: "Session Expired",
-                text: "Your session has expired. Please log in again.",
-                actions: [
-                    {
-                        label: "Log In",
-                        onClick: () => {
-                            document.querySelector<HTMLButtonElement>("#btn-login")?.click();
-                        }
-                    }
-                ]
-            });
-            await logout();
-        }
-        if (error.code === "user_banned"){
-            danger({
-                title: "Account Disabled",
-                text: "Your account has been disabled. Please contact support for more information.",
-                actions: [
-                    {
-                        label: "Contact Support",
-                        onClick: () => {
-                            //mailto zodiac@faetalize.dev
-                            window.location.href = "mailto:zodiac@faetalize.dev";
-                        }
-                    }
-                ]
-            });
-        }
-        userCache = null;
-        return null;
-    }
-    userCache = user;
-    return user;
+	//to prevent multiple network calls, we can cache the user in memory and only fetch if not present
+	if (userCache) return userCache;
+	const {
+		data: { user },
+		error
+	} = await supabase.auth.getUser();
+	if (error) {
+		console.error("Get current user error:", JSON.stringify(error));
+		if (error.name === "AuthSessionMissingError") {
+			//do nothing
+		}
+		if (error.code === "user_not_found") {
+			//we must clear the session cache
+			warn({
+				title: "Session Expired",
+				text: "Your session has expired. Please log in again.",
+				actions: [
+					{
+						label: "Log In",
+						onClick: () => {
+							document.querySelector<HTMLButtonElement>("#btn-login")?.click();
+						}
+					}
+				]
+			});
+			await logout();
+		}
+		if (error.code === "user_banned") {
+			danger({
+				title: "Account Disabled",
+				text: "Your account has been disabled. Please contact support for more information.",
+				actions: [
+					{
+						label: "Contact Support",
+						onClick: () => {
+							//mailto zodiac@faetalize.dev
+							window.location.href = "mailto:zodiac@faetalize.dev";
+						}
+					}
+				]
+			});
+		}
+		userCache = null;
+		return null;
+	}
+	userCache = user;
+	return user;
 }
 
 export async function uploadPfpToSupabase(file: File) {
-    //we wanna create a folder for each user
-    const file_ending = file.name.split('.').pop();
-    const user = await getCurrentUser();
-    if (!user) {
-        throw new Error("User not found");
-    }
-    const { data, error } = await supabase.storage.from('profile_pictures').upload(`${user.id}/profile_picture.${file_ending}`, file, {
-        upsert: true,
-    });
-    if (error) {
-        console.error("Upload error:", error.message);
-        throw new Error(error.message);
-    }
-    return data.fullPath;
+	//we wanna create a folder for each user
+	const file_ending = file.name.split(".").pop();
+	const user = await getCurrentUser();
+	if (!user) {
+		throw new Error("User not found");
+	}
+	const { data, error } = await supabase.storage
+		.from("profile_pictures")
+		.upload(`${user.id}/profile_picture.${file_ending}`, file, {
+			upsert: true
+		});
+	if (error) {
+		console.error("Upload error:", error.message);
+		throw new Error(error.message);
+	}
+	return data.fullPath;
 }
 
 export async function updateUser(user: User) {
-    //we update user's profile in supabase in profile table
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        throw new Error("User not found");
-    }
-    return supabase.from('profiles').update(user).eq('user_id', currentUser.id);
+	//we update user's profile in supabase in profile table
+	const currentUser = await getCurrentUser();
+	if (!currentUser) {
+		throw new Error("User not found");
+	}
+	return supabase.from("profiles").update(user).eq("user_id", currentUser.id);
 }
 
 export async function getUserProfile() {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        throw new Error("User not found");
-    }
-    const { data, error } = await supabase.from('profiles').select('*').eq('user_id', currentUser.id).single();
-    if (error) {
-        console.error("Get user profile error:", error.message);
-        throw new Error(error.message);
-    }
-    return data as User;
+	const currentUser = await getCurrentUser();
+	if (!currentUser) {
+		throw new Error("User not found");
+	}
+	const { data, error } = await supabase.from("profiles").select("*").eq("user_id", currentUser.id).single();
+	if (error) {
+		console.error("Get user profile error:", error.message);
+		throw new Error(error.message);
+	}
+	return data as User;
 }
 
 // Subscription helpers
 
 export async function getCurrentUserEmail(): Promise<string | null> {
-    const user = await getCurrentUser();
-    return user?.email ?? null;
+	const user = await getCurrentUser();
+	return user?.email ?? null;
 }
 
 export async function sendPasswordResetEmail(email: string): Promise<void> {
-    const targetEmail = email?.trim();
-    if (!targetEmail) {
-        throw new Error("Email is required for password reset");
-    }
-    const redirectTo = buildPasswordRecoveryRedirectUrl();
-    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo });
-    if (error) {
-        console.error("Password reset request error:", error.message);
-        throw new Error(error.message);
-    }
+	const targetEmail = email?.trim();
+	if (!targetEmail) {
+		throw new Error("Email is required for password reset");
+	}
+	const redirectTo = buildPasswordRecoveryRedirectUrl();
+	const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo });
+	if (error) {
+		console.error("Password reset request error:", error.message);
+		throw new Error(error.message);
+	}
 }
 
 export async function updatePassword(newPassword: string): Promise<void> {
-    const trimmed = newPassword?.trim();
-    if (!trimmed) {
-        throw new Error("New password is required");
-    }
-    const { data, error } = await supabase.auth.updateUser({ password: trimmed });
-    if (error) {
-        console.error("Password update error:", error.message);
-        throw new Error(error.message);
-    }
-    if (data?.user) {
-        userCache = data.user;
-    }
+	const trimmed = newPassword?.trim();
+	if (!trimmed) {
+		throw new Error("New password is required");
+	}
+	const { data, error } = await supabase.auth.updateUser({ password: trimmed });
+	if (error) {
+		console.error("Password update error:", error.message);
+		throw new Error(error.message);
+	}
+	if (data?.user) {
+		userCache = data.user;
+	}
 }
 
 export async function updateCurrentUserEmail(newEmail: string): Promise<void> {
-    const targetEmail = newEmail?.trim();
-    if (!targetEmail) {
-        throw new Error("New email is required");
-    }
-    const { data, error } = await supabase.auth.updateUser({ email: targetEmail });
-    if (error) {
-        console.error("Email update error:", error.message);
-        throw new Error(error.message);
-    }
-    if (data?.user) {
-        userCache = data.user;
-    }
+	const targetEmail = newEmail?.trim();
+	if (!targetEmail) {
+		throw new Error("New email is required");
+	}
+	const { data, error } = await supabase.auth.updateUser({ email: targetEmail });
+	if (error) {
+		console.error("Email update error:", error.message);
+		throw new Error(error.message);
+	}
+	if (data?.user) {
+		userCache = data.user;
+	}
 }
 
 export async function getUserSubscription(session?: Session): Promise<UserSubscription | null> {
-    const currentUser = session?.user || await getCurrentUser();
-    if (!currentUser) return null;
-    const { data, error } = await supabase
-        .from('user_subscriptions')
-        .select('user_id,status,price_id,current_period_end,cancel_at_period_end,stripe_customer_id')
-        .eq('user_id', currentUser.id)
-        .order('current_period_end', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-    if (error) {
-        console.error('Get user subscription error:', error.message);
-        return null;
-    }
-    return (data as UserSubscription) ?? null;
+	const currentUser = session?.user || (await getCurrentUser());
+	if (!currentUser) return null;
+	const { data, error } = await supabase
+		.from("user_subscriptions")
+		.select("user_id,status,price_id,current_period_end,cancel_at_period_end,stripe_customer_id")
+		.eq("user_id", currentUser.id)
+		.order("current_period_end", { ascending: false })
+		.limit(1)
+		.maybeSingle();
+	if (error) {
+		console.error("Get user subscription error:", error.message);
+		return null;
+	}
+	return (data as UserSubscription) ?? null;
 }
 
 export async function refreshSubscriptionAllowances(): Promise<void> {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) return;
+	const currentUser = await getCurrentUser();
+	if (!currentUser) return;
 
-    const { error } = await supabase.functions.invoke('refresh-subscription-allowances', {
-        method: 'POST',
-        body: JSON.stringify({ user_id: currentUser.id })
-    });
+	const { error } = await supabase.functions.invoke("refresh-subscription-allowances", {
+		method: "POST",
+		body: JSON.stringify({ user_id: currentUser.id })
+	});
 
-    if (error) {
-        console.error('Refresh subscription allowances error:', error.message);
-    }
+	if (error) {
+		console.error("Refresh subscription allowances error:", error.message);
+	}
 }
 
 export async function getImageGenerationRecord(): Promise<ImageGenerationRecord | null> {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) return null;
-    await refreshSubscriptionAllowances();
+	const currentUser = await getCurrentUser();
+	if (!currentUser) return null;
+	await refreshSubscriptionAllowances();
 
-    const { data: purchasedData, error: purchasedError } = await supabase
-        .from('image_generations')
-        .select('user_id, remaining_image_generations')
-        .eq('user_id', currentUser.id)
-        .limit(1)
-        .maybeSingle();
-    if (purchasedError) {
-        console.error('Get image generation record error:', purchasedError.message);
-        return null;
-    }
+	const { data: purchasedData, error: purchasedError } = await supabase
+		.from("image_generations")
+		.select("user_id, remaining_image_generations")
+		.eq("user_id", currentUser.id)
+		.limit(1)
+		.maybeSingle();
+	if (purchasedError) {
+		console.error("Get image generation record error:", purchasedError.message);
+		return null;
+	}
 
-    const { data: subAllowanceData, error: subAllowanceError } = await supabase
-        .from('image_sub_allowance')
-        .select('remaining_image_generations')
-        .eq('user_id', currentUser.id)
-        .limit(1)
-        .maybeSingle();
-    if (subAllowanceError) {
-        console.error('Get image sub allowance error:', subAllowanceError.message);
-        return purchasedData;
-    }
+	const { data: subAllowanceData, error: subAllowanceError } = await supabase
+		.from("image_sub_allowance")
+		.select("remaining_image_generations")
+		.eq("user_id", currentUser.id)
+		.limit(1)
+		.maybeSingle();
+	if (subAllowanceError) {
+		console.error("Get image sub allowance error:", subAllowanceError.message);
+		return purchasedData;
+	}
 
-    return {
-        user_id: currentUser.id,
-        remaining_image_generations: Number(purchasedData?.remaining_image_generations ?? 0) + Number(subAllowanceData?.remaining_image_generations ?? 0),
-    };
+	return {
+		user_id: currentUser.id,
+		remaining_image_generations:
+			Number(purchasedData?.remaining_image_generations ?? 0) +
+			Number(subAllowanceData?.remaining_image_generations ?? 0)
+	};
 }
 
 export async function getMegaCreditsRecord(): Promise<MegaCreditsRecord | null> {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) return null;
-    await refreshSubscriptionAllowances();
-    const { data, error } = await supabase
-        .from('mega_credits')
-        .select('user_id, remaining_mega_credits')
-        .eq('user_id', currentUser.id)
-        .limit(1)
-        .maybeSingle();
-    if (error) {
-        console.error('Get mega credits record error:', error.message);
-        return null;
-    }
-    return data;
+	const currentUser = await getCurrentUser();
+	if (!currentUser) return null;
+	await refreshSubscriptionAllowances();
+	const { data, error } = await supabase
+		.from("mega_credits")
+		.select("user_id, remaining_mega_credits")
+		.eq("user_id", currentUser.id)
+		.limit(1)
+		.maybeSingle();
+	if (error) {
+		console.error("Get mega credits record error:", error.message);
+		return null;
+	}
+	return data;
 }
 
 export async function getNanoBananaDailyUsageRecord(): Promise<NanoBananaDailyUsageRecord | null> {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) return null;
-    const { data, error } = await supabase
-        .from('nano_banana_daily_usage')
-        .select('user_id, usage_date, usage_count')
-        .eq('user_id', currentUser.id)
-        .limit(1)
-        .maybeSingle();
-    if (error) {
-        console.error('Get nano banana daily usage record error:', error.message);
-        return null;
-    }
-    return data;
+	const currentUser = await getCurrentUser();
+	if (!currentUser) return null;
+	const { data, error } = await supabase
+		.from("nano_banana_daily_usage")
+		.select("user_id, usage_date, usage_count")
+		.eq("user_id", currentUser.id)
+		.limit(1)
+		.maybeSingle();
+	if (error) {
+		console.error("Get nano banana daily usage record error:", error.message);
+		return null;
+	}
+	return data;
 }
 
 export async function getRemoteKeyValue<T = unknown>(key: string): Promise<T | null> {
-    const normalizedKey = key.trim();
-    if (!normalizedKey) {
-        return null;
-    }
+	const normalizedKey = key.trim();
+	if (!normalizedKey) {
+		return null;
+	}
 
-    const { data, error } = await supabase
-        .from('feature_flags')
-        .select('value')
-        .eq('key', normalizedKey)
-        .maybeSingle();
+	const { data, error } = await supabase.from("feature_flags").select("value").eq("key", normalizedKey).maybeSingle();
 
-    if (error) {
-        console.error('Get remote key value error:', error.message);
-        return null;
-    }
+	if (error) {
+		console.error("Get remote key value error:", error.message);
+		return null;
+	}
 
-    return (data?.value as T | undefined) ?? null;
+	return (data?.value as T | undefined) ?? null;
 }
 
 export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionTier {
-    // treat non-active as free
-    if (!sub || !sub.status || !['active', 'trialing', 'past_due', 'canceled'].includes(String(sub.status))) {
-        return 'free';
-    }
-    if (['canceled', 'incomplete_expired', 'unpaid'].includes(String(sub.status))) {
-        return 'free';
-    }
-    switch (sub.price_id) {
-        case 'price_1S0heGGiJrKwXclR69Ku7XEc': //legacy 29.99 oldstripe
-        case 'price_1SDf2NGiJrKwXclRwDs7XOd0': //legacy oldstripe
-        case SubscriptionPriceIDsOld.MAX_MONTHLY:
-        case SubscriptionPriceIDsOld.MAX_YEARLY:
-        case SubscriptionPriceIDs.MAX_MONTHLY:
-        case SubscriptionPriceIDs.MAX_YEARLY:
-            return 'max';
-        case SubscriptionPriceIDs.PRO_PLUS_MONTHLY:
-        case SubscriptionPriceIDs.PRO_PLUS_YEARLY:
-            return 'pro_plus';
-        case 'price_1S0hdiGiJrKwXclRByeNLSPu': //legacy 14.99 oldstripe
-        case 'price_1SDdbKGiJrKwXclR7hn7fF4s': //legacy oldstripe
-        case SubscriptionPriceIDsOld.PRO_MONTHLY:
-        case SubscriptionPriceIDsOld.PRO_YEARLY:
-        case SubscriptionPriceIDs.PRO_MONTHLY:
-        case SubscriptionPriceIDs.PRO_YEARLY:
-            return 'pro';
-        default:
-            return 'free';
-    }
+	// treat non-active as free
+	if (!sub || !sub.status || !["active", "trialing", "past_due", "canceled"].includes(String(sub.status))) {
+		return "free";
+	}
+	if (["canceled", "incomplete_expired", "unpaid"].includes(String(sub.status))) {
+		return "free";
+	}
+	switch (sub.price_id) {
+		case "price_1S0heGGiJrKwXclR69Ku7XEc": //legacy 29.99 oldstripe
+		case "price_1SDf2NGiJrKwXclRwDs7XOd0": //legacy oldstripe
+		case SubscriptionPriceIDsOld.MAX_MONTHLY:
+		case SubscriptionPriceIDsOld.MAX_YEARLY:
+		case SubscriptionPriceIDs.MAX_MONTHLY:
+		case SubscriptionPriceIDs.MAX_YEARLY:
+			return "max";
+		case SubscriptionPriceIDs.PRO_PLUS_MONTHLY:
+		case SubscriptionPriceIDs.PRO_PLUS_YEARLY:
+			return "pro_plus";
+		case "price_1S0hdiGiJrKwXclRByeNLSPu": //legacy 14.99 oldstripe
+		case "price_1SDdbKGiJrKwXclR7hn7fF4s": //legacy oldstripe
+		case SubscriptionPriceIDsOld.PRO_MONTHLY:
+		case SubscriptionPriceIDsOld.PRO_YEARLY:
+		case SubscriptionPriceIDs.PRO_MONTHLY:
+		case SubscriptionPriceIDs.PRO_YEARLY:
+			return "pro";
+		default:
+			return "free";
+	}
 }
 
 export function getBillingPortalUrlWithEmail(email: string | null): string {
-    const base = 'https://billing.stripe.com/p/login/5kQ8wQfgzcX6bfP8hNb7y00';
-    if (!email) return base;
-    const param = encodeURIComponent(email);
-    return `${base}?prefilled_email=${param}`;
+	const base = "https://billing.stripe.com/p/login/5kQ8wQfgzcX6bfP8hNb7y00";
+	if (!email) return base;
+	const param = encodeURIComponent(email);
+	return `${base}?prefilled_email=${param}`;
 }
 
 export async function openCustomerPortal(): Promise<void> {
-    const newWindow = window.open('about:blank', '_blank');
-    const { data, error } = await supabase.functions.invoke("return-stripe-customer-portal", {
-        method: 'POST',
-    });
+	const newWindow = window.open("about:blank", "_blank");
+	const { data, error } = await supabase.functions.invoke("return-stripe-customer-portal", {
+		method: "POST"
+	});
 
-    if (error) {
-        newWindow?.close();
-        throw error;
-    }
+	if (error) {
+		newWindow?.close();
+		throw error;
+	}
 
-    if (data?.url && newWindow) {
-        newWindow.location.href = data.url;
-        return;
-    }
+	if (data?.url && newWindow) {
+		newWindow.location.href = data.url;
+		return;
+	}
 
-    newWindow?.close();
-    throw new Error('Failed to retrieve billing portal URL');
+	newWindow?.close();
+	throw new Error("Failed to retrieve billing portal URL");
 }
 
-export async function updateSubscriptionUI(session: Session | null, sub: UserSubscription | null, imageGenerationRecord: ImageGenerationRecord | null): Promise<void> {
-    try {
-        const email = session?.user.email ?? await getCurrentUserEmail();
-        const tier = getSubscriptionTier(sub);
+export async function updateSubscriptionUI(
+	session: Session | null,
+	sub: UserSubscription | null,
+	imageGenerationRecord: ImageGenerationRecord | null
+): Promise<void> {
+	try {
+		const email = session?.user.email ?? (await getCurrentUserEmail());
+		const tier = getSubscriptionTier(sub);
 
-        const cancelAtPeriodEnd = sub?.cancel_at_period_end;
-        const badge = document.querySelector<HTMLElement>('#subscription-badge');
-        const manageBtn = document.querySelector<HTMLButtonElement>('#btn-manage-subscription');
-        const tierEl = document.querySelector<HTMLElement>('#subscription-tier-text');
-        const periodEndEl = document.querySelector<HTMLElement>('#subscription-period-end');
-        const remainingGenerationsEl = document.querySelector<HTMLElement>('#subscription-remaining-generations');
-        const tierLabel = tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : tier === 'pro_plus' ? 'Pro Plus' : 'Max';
-        const subscriptionrenewalDateLabel = document.querySelector<HTMLElement>('#subscription-renewal-date-label');
-        let periodEndLabel = '—';
-        const rawEnd = sub?.current_period_end ?? null;
-        if (rawEnd) {
-            const d = new Date(rawEnd as string);
-            if (!isNaN(d.getTime())) {
-                periodEndLabel = d.toLocaleDateString();
-            }
-        }
-        if (badge) {
-            badge.textContent = tierLabel;
-            badge.classList.remove(...subscriptionBadgeClasses);
-            badge.classList.add(`badge-tier-${tier}`);
-        }
-        if (tierEl) {
-            tierEl.textContent = tierLabel;
-        }
-        if (periodEndEl) {
-            periodEndEl.textContent = periodEndLabel;
-        }
-        if (remainingGenerationsEl) {
-            remainingGenerationsEl.textContent = imageGenerationRecord?.remaining_image_generations != null ? String(imageGenerationRecord.remaining_image_generations) : '—';
-        }
-        if (manageBtn) {
-            if (tier === 'free') {
-                manageBtn.classList.add('hidden');
-                manageBtn.onclick = null;
-            } else {
-                manageBtn.classList.remove('hidden');
-                manageBtn.onclick = async (e) => {
-                    e.preventDefault();
-                    try {
-                        console.log('Opening billing portal for user:', email, "with stripe customer ID:", sub?.stripe_customer_id);
-                        console.log(sub);
-                        await openCustomerPortal();
-                    } catch (error) {
-                        console.error('Failed to retrieve billing portal URL');
-                        console.error(error);
-                    }
-                };
-            }
-        }
-        if (subscriptionrenewalDateLabel) {
-            if (cancelAtPeriodEnd) {
-                subscriptionrenewalDateLabel.textContent = 'Will end on';
-            }
-            else {
-                subscriptionrenewalDateLabel.textContent = 'Renewal date';
-            }
-        }
+		const cancelAtPeriodEnd = sub?.cancel_at_period_end;
+		const badge = document.querySelector<HTMLElement>("#subscription-badge");
+		const manageBtn = document.querySelector<HTMLButtonElement>("#btn-manage-subscription");
+		const tierEl = document.querySelector<HTMLElement>("#subscription-tier-text");
+		const periodEndEl = document.querySelector<HTMLElement>("#subscription-period-end");
+		const remainingGenerationsEl = document.querySelector<HTMLElement>("#subscription-remaining-generations");
+		const tierLabel = tier === "free" ? "Free" : tier === "pro" ? "Pro" : tier === "pro_plus" ? "Pro Plus" : "Max";
+		const subscriptionrenewalDateLabel = document.querySelector<HTMLElement>("#subscription-renewal-date-label");
+		let periodEndLabel = "—";
+		const rawEnd = sub?.current_period_end ?? null;
+		if (rawEnd) {
+			const d = new Date(rawEnd as string);
+			if (!isNaN(d.getTime())) {
+				periodEndLabel = d.toLocaleDateString();
+			}
+		}
+		if (badge) {
+			badge.textContent = tierLabel;
+			badge.classList.remove(...subscriptionBadgeClasses);
+			badge.classList.add(`badge-tier-${tier}`);
+		}
+		if (tierEl) {
+			tierEl.textContent = tierLabel;
+		}
+		if (periodEndEl) {
+			periodEndEl.textContent = periodEndLabel;
+		}
+		if (remainingGenerationsEl) {
+			remainingGenerationsEl.textContent =
+				imageGenerationRecord?.remaining_image_generations != null
+					? String(imageGenerationRecord.remaining_image_generations)
+					: "—";
+		}
+		if (manageBtn) {
+			if (tier === "free") {
+				manageBtn.classList.add("hidden");
+				manageBtn.onclick = null;
+			} else {
+				manageBtn.classList.remove("hidden");
+				manageBtn.onclick = async (e) => {
+					e.preventDefault();
+					try {
+						console.log(
+							"Opening billing portal for user:",
+							email,
+							"with stripe customer ID:",
+							sub?.stripe_customer_id
+						);
+						console.log(sub);
+						await openCustomerPortal();
+					} catch (error) {
+						console.error("Failed to retrieve billing portal URL");
+						console.error(error);
+					}
+				};
+			}
+		}
+		if (subscriptionrenewalDateLabel) {
+			if (cancelAtPeriodEnd) {
+				subscriptionrenewalDateLabel.textContent = "Will end on";
+			} else {
+				subscriptionrenewalDateLabel.textContent = "Renewal date";
+			}
+		}
 
-        // Toggle Settings section based on subscription tier
-        const apiKeyInput = document.querySelector<HTMLInputElement>('#apiKeyInput');
-        const noNeedMsg = document.querySelector<HTMLElement>('#apiKeyNoNeedMsg');
-        const orDivider = document.querySelector<HTMLElement>('#or-divider');
-        const upgradeBtn = document.querySelector<HTMLButtonElement>('#btn-show-subscription-options');
-        const apiKeyError = document.querySelector<HTMLElement>('.api-key-error');
+		// Toggle Settings section based on subscription tier
+		const apiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
+		const noNeedMsg = document.querySelector<HTMLElement>("#apiKeyNoNeedMsg");
+		const orDivider = document.querySelector<HTMLElement>("#or-divider");
+		const upgradeBtn = document.querySelector<HTMLButtonElement>("#btn-show-subscription-options");
+		const apiKeyError = document.querySelector<HTMLElement>(".api-key-error");
 
-        const isSubscribed = tier === 'pro' || tier === 'pro_plus' || tier === 'max';
-        // Leave API key input enable/disable and hint visibility to the API key component based on route
-        if (apiKeyInput && isSubscribed) {
-            apiKeyInput.classList.remove('api-key-invalid');
-            if (apiKeyError) apiKeyError.classList.add('hidden');
-        }
-        if (orDivider) orDivider.classList.toggle('hidden', isSubscribed);
-        if (upgradeBtn) upgradeBtn.classList.toggle('hidden', isSubscribed);
-        // Notify listeners so UI can react without reload
-        try { dispatchAppEvent('subscription-updated', { tier }); } catch { }
-    } catch (err) {
-        console.error('Error updating subscription UI:', err);
-    }
+		const isSubscribed = tier === "pro" || tier === "pro_plus" || tier === "max";
+		// Leave API key input enable/disable and hint visibility to the API key component based on route
+		if (apiKeyInput && isSubscribed) {
+			apiKeyInput.classList.remove("api-key-invalid");
+			if (apiKeyError) apiKeyError.classList.add("hidden");
+		}
+		if (orDivider) orDivider.classList.toggle("hidden", isSubscribed);
+		if (upgradeBtn) upgradeBtn.classList.toggle("hidden", isSubscribed);
+		// Notify listeners so UI can react without reload
+		try {
+			dispatchAppEvent("subscription-updated", { tier });
+		} catch {}
+	} catch (err) {
+		console.error("Error updating subscription UI:", err);
+	}
 }
 
 /**
  * Determines if image generation is available based on subscription and settings.
  */
 export async function isImageGenerationAvailable(): Promise<ImageGenerationPermitted> {
-    try {
-        const imageGenerationRecord = await getImageGenerationRecord();
-        if (!imageGenerationRecord) return { enabled: true, type: "google_only" }; //free tier, assume available (with API key)
-        if (imageGenerationRecord?.remaining_image_generations && imageGenerationRecord?.remaining_image_generations > 0) {
-            return { enabled: true, type: "all" }; //Has credits, can use premium endpoints + Google
-        }
-        //Has record but no credits (0 or null) - can still use Google with API key
-        return { enabled: true, type: "google_only" };
-    } catch {
-        //If not logged in or error, assume available (probably Free tier with API key)
-        return { enabled: true, type: "google_only" };
-    }
+	try {
+		const imageGenerationRecord = await getImageGenerationRecord();
+		if (!imageGenerationRecord) return { enabled: true, type: "google_only" }; //free tier, assume available (with API key)
+		if (
+			imageGenerationRecord?.remaining_image_generations &&
+			imageGenerationRecord?.remaining_image_generations > 0
+		) {
+			return { enabled: true, type: "all" }; //Has credits, can use premium endpoints + Google
+		}
+		//Has record but no credits (0 or null) - can still use Google with API key
+		return { enabled: true, type: "google_only" };
+	} catch {
+		//If not logged in or error, assume available (probably Free tier with API key)
+		return { enabled: true, type: "google_only" };
+	}
 }
 
 export async function refreshAll() {
-    refreshProfile();
-    refreshSubscription();
-    refreshImageGenerationRecord();
+	refreshProfile();
+	refreshSubscription();
+	refreshImageGenerationRecord();
 }
 
-
 export async function refreshProfile() {
-    try {
-        const profile = await getUserProfile();
-        dispatchAppEvent('profile-refreshed', { user: profile });
-    } catch (error) {
-        console.error('Error refreshing profile:', error);
-    }
+	try {
+		const profile = await getUserProfile();
+		dispatchAppEvent("profile-refreshed", { user: profile });
+	} catch (error) {
+		console.error("Error refreshing profile:", error);
+	}
 }
 
 export async function refreshSubscription() {
-    try {
-        const subscriptionDetails = await getUserSubscription();
-        if (!subscriptionDetails) return;
-        dispatchAppEvent('subscription-refreshed', { subDetails: subscriptionDetails });
-    } catch (error) {
-        console.error('Error refreshing subscription:', error);
-    }
+	try {
+		const subscriptionDetails = await getUserSubscription();
+		if (!subscriptionDetails) return;
+		dispatchAppEvent("subscription-refreshed", { subDetails: subscriptionDetails });
+	} catch (error) {
+		console.error("Error refreshing subscription:", error);
+	}
 }
 
 export async function refreshImageGenerationRecord() {
-    try {
-        const imageGenRecord = await getImageGenerationRecord();
-        if (!imageGenRecord) return;
-        dispatchAppEvent('image-generation-record-refreshed', { imageGenerationRecord: imageGenRecord });
-    } catch (error) {
-        console.error('Error refreshing image generation record:', error);
-    }
+	try {
+		const imageGenRecord = await getImageGenerationRecord();
+		if (!imageGenRecord) return;
+		dispatchAppEvent("image-generation-record-refreshed", { imageGenerationRecord: imageGenRecord });
+	} catch (error) {
+		console.error("Error refreshing image generation record:", error);
+	}
 }
 
 // -------------------- Marketplace Sync --------------------
@@ -630,77 +684,72 @@ export async function refreshImageGenerationRecord() {
  * Used to determine sync status (up-to-date, outdated, or deleted from marketplace).
  */
 export async function getMarketplacePersonaVersion(personaId: string): Promise<MarketplacePersonaInfo> {
-    const { data, error } = await supabase
-        .from('personas')
-        .select('id, version, name')
-        .eq('id', personaId)
-        .maybeSingle();
+	const { data, error } = await supabase
+		.from("personas")
+		.select("id, version, name")
+		.eq("id", personaId)
+		.maybeSingle();
 
-    if (error || !data) {
-        return { exists: false };
-    }
+	if (error || !data) {
+		return { exists: false };
+	}
 
-    return {
-        id: data.id,
-        version: data.version,
-        name: data.name,
-        exists: true,
-    };
+	return {
+		id: data.id,
+		version: data.version,
+		name: data.name,
+		exists: true
+	};
 }
 
 /**
  * Batch check multiple persona IDs for their marketplace versions.
  * More efficient than individual calls when checking all personalities.
  */
-export async function getMarketplacePersonaVersions(personaIds: string[]): Promise<Map<string, MarketplacePersonaInfo>> {
-    if (personaIds.length === 0) {
-        return new Map();
-    }
+export async function getMarketplacePersonaVersions(
+	personaIds: string[]
+): Promise<Map<string, MarketplacePersonaInfo>> {
+	if (personaIds.length === 0) {
+		return new Map();
+	}
 
-    const { data, error } = await supabase
-        .from('personas')
-        .select('id, version, name')
-        .in('id', personaIds);
+	const { data, error } = await supabase.from("personas").select("id, version, name").in("id", personaIds);
 
-    const result = new Map<string, MarketplacePersonaInfo>();
+	const result = new Map<string, MarketplacePersonaInfo>();
 
-    //initialize all as not existing
-    for (const id of personaIds) {
-        result.set(id, { exists: false });
-    }
+	//initialize all as not existing
+	for (const id of personaIds) {
+		result.set(id, { exists: false });
+	}
 
-    if (error || !data) {
-        console.error('Failed to fetch marketplace persona versions:', error);
-        return result;
-    }
+	if (error || !data) {
+		console.error("Failed to fetch marketplace persona versions:", error);
+		return result;
+	}
 
-    //update with found personas
-    for (const persona of data) {
-        result.set(persona.id, {
-            id: persona.id,
-            version: persona.version,
-            name: persona.name,
-            exists: true,
-        });
-    }
+	//update with found personas
+	for (const persona of data) {
+		result.set(persona.id, {
+			id: persona.id,
+			version: persona.version,
+			name: persona.name,
+			exists: true
+		});
+	}
 
-    return result;
+	return result;
 }
 
 /**
  * Fetch full persona data from marketplace for updating local copy.
  */
 export async function fetchMarketplacePersona(personaId: string) {
-    const { data, error } = await supabase
-        .from('personas')
-        .select('*')
-        .eq('id', personaId)
-        .single();
+	const { data, error } = await supabase.from("personas").select("*").eq("id", personaId).single();
 
-    if (error || !data) {
-        console.error('Failed to fetch marketplace persona:', error);
-        return null;
-    }
+	if (error || !data) {
+		console.error("Failed to fetch marketplace persona:", error);
+		return null;
+	}
 
-    return data;
+	return data;
 }

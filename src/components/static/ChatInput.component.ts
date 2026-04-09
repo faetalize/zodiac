@@ -1,20 +1,28 @@
-import * as messageService from '../../services/Message.service';
-import * as helpers from '../../utils/helpers';
-import * as personalityService from '../../services/Personality.service';
-import { attachmentPreviewElement, getAttachmentCount } from './AttachmentPreview.component';
-import * as toastService from '../../services/Toast.service';
-import { formatFileListForToast, getFileSignature, isSupportedFileType, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS, SUPPORTED_ACCEPT_ATTRIBUTE, SUPPORTED_TYPES_LABEL } from '../../utils/attachments';
-import * as settingsService from '../../services/Settings.service';
-import * as chatsService from '../../services/Chats.service';
-import { db } from '../../services/Db.service';
-import { findLastEditableImage, EditableImage } from '../../utils/imageHistory';
-import { historyImagePreviewElement } from '../dynamic/HistoryImagePreview';
-import { getSelectedEditingModel } from './ImageEditModelSelector.component';
-import { updateImageCreditsLabelVisibility } from './ImageCreditsLabel.component';
-import { MODEL_IMAGE_LIMITS } from '../../constants/ImageModels';
+import * as messageService from "../../services/Message.service";
+import * as helpers from "../../utils/helpers";
+import * as personalityService from "../../services/Personality.service";
+import { attachmentPreviewElement, getAttachmentCount } from "./AttachmentPreview.component";
+import * as toastService from "../../services/Toast.service";
+import {
+	formatFileListForToast,
+	getFileSignature,
+	isSupportedFileType,
+	MAX_ATTACHMENT_BYTES,
+	MAX_ATTACHMENTS,
+	SUPPORTED_ACCEPT_ATTRIBUTE,
+	SUPPORTED_TYPES_LABEL
+} from "../../utils/attachments";
+import * as settingsService from "../../services/Settings.service";
+import * as chatsService from "../../services/Chats.service";
+import { db } from "../../services/Db.service";
+import { findLastEditableImage, EditableImage } from "../../utils/imageHistory";
+import { historyImagePreviewElement } from "../dynamic/HistoryImagePreview";
+import { getSelectedEditingModel } from "./ImageEditModelSelector.component";
+import { updateImageCreditsLabelVisibility } from "./ImageCreditsLabel.component";
+import { MODEL_IMAGE_LIMITS } from "../../constants/ImageModels";
 
 interface AttachmentRemovedDetail {
-    signature: string;
+	signature: string;
 }
 
 const messageInput = document.querySelector<HTMLDivElement>("#messageInput");
@@ -33,14 +41,22 @@ const startRoundText = document.querySelector<HTMLSpanElement>("#start-round-tex
 const skipTurnBtn = document.querySelector<HTMLButtonElement>("#btn-skip-turn");
 const rpgSettingsButton = document.querySelector<HTMLButtonElement>("#btn-rpg-settings");
 
-if (!messageInput || !messageBox || !attachmentsInput || !attachmentPreview || !sendMessageButton || !internetSearchToggle || !roleplayActionsMenu) {
-    console.error("Chat input component is missing some elements. Please check the HTML structure.");
-    throw new Error("Chat input component is not properly initialized.");
+if (
+	!messageInput ||
+	!messageBox ||
+	!attachmentsInput ||
+	!attachmentPreview ||
+	!sendMessageButton ||
+	!internetSearchToggle ||
+	!roleplayActionsMenu
+) {
+	console.error("Chat input component is missing some elements. Please check the HTML structure.");
+	throw new Error("Chat input component is not properly initialized.");
 }
 
 const scrollbarWidth = helpers.getClientScrollbarWidth();
 if (scrollbarWidth > 0) {
-    document.documentElement.style.setProperty('--scroll-bar-width', `${scrollbarWidth}px`);
+	document.documentElement.style.setProperty("--scroll-bar-width", `${scrollbarWidth}px`);
 }
 
 attachmentPreview.setAttribute("aria-live", "polite");
@@ -58,8 +74,8 @@ let currentHistoryImagePreview: HTMLElement | null = null;
 let isImageEditingActive = false;
 let isImageModeActive = false;
 let isComposerAllowanceBlocked = false;
-let composerAllowanceBlockTitle = 'Request unavailable';
-let composerAllowanceBlockText = 'This request is currently unavailable.';
+let composerAllowanceBlockTitle = "Request unavailable";
+let composerAllowanceBlockText = "This request is currently unavailable.";
 
 let isUserTurnInRpg = true;
 let isGroupChatContext = false;
@@ -68,49 +84,50 @@ let isDynamicGroupChatContext = false;
 let allowDynamicPings = false;
 
 function syncComposerInteractivity(): void {
-    const canEdit = !isRpgGroupChatContext || (!isCurrentlyGenerating && isUserTurnInRpg);
-    messageInput!.contentEditable = String(canEdit);
-    messageInput!.classList.toggle("disabled", !canEdit);
+	const canEdit = !isRpgGroupChatContext || (!isCurrentlyGenerating && isUserTurnInRpg);
+	messageInput!.contentEditable = String(canEdit);
+	messageInput!.classList.toggle("disabled", !canEdit);
 
-    const isSendActionBlocked = isComposerAllowanceBlocked && !isCurrentlyGenerating;
-    const isSendUiDisabled = isSendActionBlocked || (isRpgGroupChatContext && (!isUserTurnInRpg && !isCurrentlyGenerating));
+	const isSendActionBlocked = isComposerAllowanceBlocked && !isCurrentlyGenerating;
+	const isSendUiDisabled =
+		isSendActionBlocked || (isRpgGroupChatContext && !isUserTurnInRpg && !isCurrentlyGenerating);
 
-    sendMessageButton!.disabled = isSendActionBlocked;
-    sendMessageButton!.classList.toggle("disabled", isSendUiDisabled);
-    sendMessageButton!.setAttribute('aria-disabled', isSendActionBlocked ? 'true' : 'false');
+	sendMessageButton!.disabled = isSendActionBlocked;
+	sendMessageButton!.classList.toggle("disabled", isSendUiDisabled);
+	sendMessageButton!.setAttribute("aria-disabled", isSendActionBlocked ? "true" : "false");
 
-    if (isSendActionBlocked) {
-        sendMessageButton!.title = composerAllowanceBlockTitle;
-    } else if (!isCurrentlyGenerating) {
-        sendMessageButton!.title = '';
-    }
+	if (isSendActionBlocked) {
+		sendMessageButton!.title = composerAllowanceBlockTitle;
+	} else if (!isCurrentlyGenerating) {
+		sendMessageButton!.title = "";
+	}
 }
 
 function resetComposerContextState(): void {
-    isUserTurnInRpg = true;
-    isGroupChatContext = false;
-    isRpgGroupChatContext = false;
-    isDynamicGroupChatContext = false;
-    allowDynamicPings = false;
-    mentionOptions = [];
+	isUserTurnInRpg = true;
+	isGroupChatContext = false;
+	isRpgGroupChatContext = false;
+	isDynamicGroupChatContext = false;
+	allowDynamicPings = false;
+	mentionOptions = [];
 
-    closeMentionMenu();
-    clearHistoryPreview();
-    turnControlPanel?.classList.add("hidden");
-    syncComposerInteractivity();
+	closeMentionMenu();
+	clearHistoryPreview();
+	turnControlPanel?.classList.add("hidden");
+	syncComposerInteractivity();
 }
 
 type MentionOption = {
-    id: string;
-    name: string;
-    image?: string;
+	id: string;
+	name: string;
+	image?: string;
 };
 
 type MentionState = {
-    query: string;
-    startIndex: number;
-    endIndex: number;
-    range: Range;
+	query: string;
+	startIndex: number;
+	endIndex: number;
+	range: Range;
 };
 
 let mentionOptions: MentionOption[] = [];
@@ -127,411 +144,418 @@ mentionMenu.setAttribute("aria-label", "Mention suggestions");
 document.body.appendChild(mentionMenu);
 
 async function updateRpgTurnControlUi(args: {
-    isUserTurn: boolean;
-    startsNewRound: boolean;
-    nextRoundNumber: number;
-    nextSpeakerId?: string;
+	isUserTurn: boolean;
+	startsNewRound: boolean;
+	nextRoundNumber: number;
+	nextSpeakerId?: string;
 }) {
-    const { isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId } = args;
+	const { isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId } = args;
 
-    isUserTurnInRpg = !!isUserTurn;
-    syncComposerInteractivity();
+	isUserTurnInRpg = !!isUserTurn;
+	syncComposerInteractivity();
 
-    if (isUserTurn) {
-        if (turnControlLabel) turnControlLabel.textContent = "Your turn";
-        startTurnBtn?.classList.add("hidden");
-        skipTurnBtn?.classList.remove("hidden");
-    } else {
-        startTurnBtn?.classList.remove("hidden");
-        skipTurnBtn?.classList.add("hidden");
+	if (isUserTurn) {
+		if (turnControlLabel) turnControlLabel.textContent = "Your turn";
+		startTurnBtn?.classList.add("hidden");
+		skipTurnBtn?.classList.remove("hidden");
+	} else {
+		startTurnBtn?.classList.remove("hidden");
+		skipTurnBtn?.classList.add("hidden");
 
-        // Determine next speaker name
-        let nextSpeakerName = "AI";
-        if (nextSpeakerId) {
-            const persona = await personalityService.get(nextSpeakerId);
-            if (persona) nextSpeakerName = persona.name;
-        }
+		// Determine next speaker name
+		let nextSpeakerName = "AI";
+		if (nextSpeakerId) {
+			const persona = await personalityService.get(nextSpeakerId);
+			if (persona) nextSpeakerName = persona.name;
+		}
 
-        if (startsNewRound) {
-            if (turnControlLabel) turnControlLabel.textContent = "Start next round";
-            if (startRoundText && typeof nextRoundNumber === "number") {
-                startRoundText.textContent = `Start Round ${nextRoundNumber}`;
-                startTurnBtn?.setAttribute("aria-label", `Start Round ${nextRoundNumber}`);
-            }
-        } else {
-            if (turnControlLabel) turnControlLabel.textContent = `${nextSpeakerName}'s turn`;
-            if (startRoundText && typeof nextRoundNumber === "number") {
-                startRoundText.textContent = `Continue`;
-                startTurnBtn?.setAttribute("aria-label", `Continue`);
-            }
-        }
-    }
+		if (startsNewRound) {
+			if (turnControlLabel) turnControlLabel.textContent = "Start next round";
+			if (startRoundText && typeof nextRoundNumber === "number") {
+				startRoundText.textContent = `Start Round ${nextRoundNumber}`;
+				startTurnBtn?.setAttribute("aria-label", `Start Round ${nextRoundNumber}`);
+			}
+		} else {
+			if (turnControlLabel) turnControlLabel.textContent = `${nextSpeakerName}'s turn`;
+			if (startRoundText && typeof nextRoundNumber === "number") {
+				startRoundText.textContent = `Continue`;
+				startTurnBtn?.setAttribute("aria-label", `Continue`);
+			}
+		}
+	}
 }
 
 function getPlainTextNodes(): Array<{ node: Text; start: number; end: number }> {
-    const input = messageInput as HTMLDivElement;
-    const nodes: Array<{ node: Text; start: number; end: number }> = [];
-    const walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT, null);
-    let index = 0;
+	const input = messageInput as HTMLDivElement;
+	const nodes: Array<{ node: Text; start: number; end: number }> = [];
+	const walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT, null);
+	let index = 0;
 
-    while (walker.nextNode()) {
-        const node = walker.currentNode as Text;
-        const parent = node.parentElement;
-        if (parent?.classList.contains("mention-chip-input")) {
-            continue;
-        }
-        const value = node.nodeValue ?? "";
-        const start = index;
-        const end = index + value.length;
-        nodes.push({ node, start, end });
-        index = end;
-    }
+	while (walker.nextNode()) {
+		const node = walker.currentNode as Text;
+		const parent = node.parentElement;
+		if (parent?.classList.contains("mention-chip-input")) {
+			continue;
+		}
+		const value = node.nodeValue ?? "";
+		const start = index;
+		const end = index + value.length;
+		nodes.push({ node, start, end });
+		index = end;
+	}
 
-    return nodes;
+	return nodes;
 }
 
 function getPlainTextBeforeCaret(): { text: string; caretIndex: number } | null {
-    const input = messageInput as HTMLDivElement;
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return null;
-    const range = selection.getRangeAt(0);
-    if (!input.contains(range.endContainer)) return null;
+	const input = messageInput as HTMLDivElement;
+	const selection = window.getSelection();
+	if (!selection || selection.rangeCount === 0) return null;
+	const range = selection.getRangeAt(0);
+	if (!input.contains(range.endContainer)) return null;
 
-    const caretRange = range.cloneRange();
-    caretRange.collapse(true);
-    const preRange = range.cloneRange();
-    preRange.selectNodeContents(input);
-    preRange.setEnd(caretRange.endContainer, caretRange.endOffset);
+	const caretRange = range.cloneRange();
+	caretRange.collapse(true);
+	const preRange = range.cloneRange();
+	preRange.selectNodeContents(input);
+	preRange.setEnd(caretRange.endContainer, caretRange.endOffset);
 
-    const fragment = preRange.cloneContents();
-    fragment.querySelectorAll(".mention-chip-input").forEach(node => node.remove());
-    const text = fragment.textContent ?? "";
+	const fragment = preRange.cloneContents();
+	fragment.querySelectorAll(".mention-chip-input").forEach((node) => node.remove());
+	const text = fragment.textContent ?? "";
 
-    return { text, caretIndex: text.length };
+	return { text, caretIndex: text.length };
 }
 
 function buildRangeFromPlainTextOffsets(startIndex: number, endIndex: number): Range | null {
-    if (startIndex < 0 || endIndex < 0 || endIndex < startIndex) return null;
-    const nodes = getPlainTextNodes();
-    if (nodes.length === 0) return null;
+	if (startIndex < 0 || endIndex < 0 || endIndex < startIndex) return null;
+	const nodes = getPlainTextNodes();
+	if (nodes.length === 0) return null;
 
-    const startNode = nodes.find(n => startIndex >= n.start && startIndex <= n.end);
-    const endNode = nodes.find(n => endIndex >= n.start && endIndex <= n.end);
-    if (!startNode || !endNode) return null;
+	const startNode = nodes.find((n) => startIndex >= n.start && startIndex <= n.end);
+	const endNode = nodes.find((n) => endIndex >= n.start && endIndex <= n.end);
+	if (!startNode || !endNode) return null;
 
-    const range = document.createRange();
-    range.setStart(startNode.node, Math.max(0, startIndex - startNode.start));
-    range.setEnd(endNode.node, Math.max(0, endIndex - endNode.start));
-    return range;
+	const range = document.createRange();
+	range.setStart(startNode.node, Math.max(0, startIndex - startNode.start));
+	range.setEnd(endNode.node, Math.max(0, endIndex - endNode.start));
+	return range;
 }
 
 function shouldShowMentionMenu(): boolean {
-    if (!isDynamicGroupChatContext) return false;
-    if (!allowDynamicPings) return false;
-    if (settingsService.getSettings().disallowPersonaPinging) return false;
-    return true;
+	if (!isDynamicGroupChatContext) return false;
+	if (!allowDynamicPings) return false;
+	if (settingsService.getSettings().disallowPersonaPinging) return false;
+	return true;
 }
 
 function closeMentionMenu(): void {
-    const input = messageInput as HTMLDivElement;
-    mentionMenu.classList.add("hidden");
-    mentionMenuOpen = false;
-    mentionState = null;
-    mentionActiveIndex = 0;
-    input.removeAttribute("aria-activedescendant");
+	const input = messageInput as HTMLDivElement;
+	mentionMenu.classList.add("hidden");
+	mentionMenuOpen = false;
+	mentionState = null;
+	mentionActiveIndex = 0;
+	input.removeAttribute("aria-activedescendant");
 }
 
 function positionMentionMenu(range: Range): void {
-    const input = messageInput as HTMLDivElement;
-    const rect = range.getBoundingClientRect();
-    const fallback = input.getBoundingClientRect();
-    const anchor = (rect.width || rect.height) ? rect : fallback;
+	const input = messageInput as HTMLDivElement;
+	const rect = range.getBoundingClientRect();
+	const fallback = input.getBoundingClientRect();
+	const anchor = rect.width || rect.height ? rect : fallback;
 
-    const menuRect = mentionMenu.getBoundingClientRect();
-    const padding = 8;
-    let left = Math.min(anchor.left, window.innerWidth - menuRect.width - padding);
-    left = Math.max(padding, left);
+	const menuRect = mentionMenu.getBoundingClientRect();
+	const padding = 8;
+	let left = Math.min(anchor.left, window.innerWidth - menuRect.width - padding);
+	left = Math.max(padding, left);
 
-    let top = anchor.bottom + padding;
-    if (top + menuRect.height > window.innerHeight - padding) {
-        top = Math.max(padding, anchor.top - menuRect.height - padding);
-    }
+	let top = anchor.bottom + padding;
+	if (top + menuRect.height > window.innerHeight - padding) {
+		top = Math.max(padding, anchor.top - menuRect.height - padding);
+	}
 
-    mentionMenu.style.left = `${Math.round(left)}px`;
-    mentionMenu.style.top = `${Math.round(top)}px`;
+	mentionMenu.style.left = `${Math.round(left)}px`;
+	mentionMenu.style.top = `${Math.round(top)}px`;
 }
 
 function renderMentionMenu(options: MentionOption[]): void {
-    mentionMenu.innerHTML = "";
+	mentionMenu.innerHTML = "";
 
-    if (options.length === 0) {
-        const empty = document.createElement("div");
-        empty.className = "mention-suggestion-empty";
-        empty.textContent = "No matches";
-        mentionMenu.appendChild(empty);
-        return;
-    }
+	if (options.length === 0) {
+		const empty = document.createElement("div");
+		empty.className = "mention-suggestion-empty";
+		empty.textContent = "No matches";
+		mentionMenu.appendChild(empty);
+		return;
+	}
 
-    options.forEach((option, index) => {
-        const item = document.createElement("button");
-        item.type = "button";
-        item.className = "mention-suggestion-item";
-        if (index === mentionActiveIndex) {
-            item.classList.add("active");
-        }
-        item.setAttribute("role", "option");
-        item.setAttribute("aria-selected", index === mentionActiveIndex ? "true" : "false");
-        item.dataset.index = String(index);
-        item.textContent = option.name;
-        item.addEventListener("mousedown", (event) => {
-            event.preventDefault();
-        });
-        item.addEventListener("click", () => {
-            insertMention(option);
-        });
-        mentionMenu.appendChild(item);
-    });
+	options.forEach((option, index) => {
+		const item = document.createElement("button");
+		item.type = "button";
+		item.className = "mention-suggestion-item";
+		if (index === mentionActiveIndex) {
+			item.classList.add("active");
+		}
+		item.setAttribute("role", "option");
+		item.setAttribute("aria-selected", index === mentionActiveIndex ? "true" : "false");
+		item.dataset.index = String(index);
+		item.textContent = option.name;
+		item.addEventListener("mousedown", (event) => {
+			event.preventDefault();
+		});
+		item.addEventListener("click", () => {
+			insertMention(option);
+		});
+		mentionMenu.appendChild(item);
+	});
 
-    const active = mentionMenu.querySelector<HTMLElement>(`.mention-suggestion-item[data-index="${mentionActiveIndex}"]`);
-    if (active) {
-        const id = `mention-option-${mentionActiveIndex}`;
-        active.id = id;
-        (messageInput as HTMLDivElement).setAttribute("aria-activedescendant", id);
-    }
+	const active = mentionMenu.querySelector<HTMLElement>(
+		`.mention-suggestion-item[data-index="${mentionActiveIndex}"]`
+	);
+	if (active) {
+		const id = `mention-option-${mentionActiveIndex}`;
+		active.id = id;
+		(messageInput as HTMLDivElement).setAttribute("aria-activedescendant", id);
+	}
 }
 
 function openMentionMenu(state: MentionState, options: MentionOption[]): void {
-    mentionState = state;
-    mentionMenuOpen = true;
-    mentionMenu.classList.remove("hidden");
-    mentionMenu.style.position = "fixed";
-    renderMentionMenu(options);
-    positionMentionMenu(state.range);
+	mentionState = state;
+	mentionMenuOpen = true;
+	mentionMenu.classList.remove("hidden");
+	mentionMenu.style.position = "fixed";
+	renderMentionMenu(options);
+	positionMentionMenu(state.range);
 }
 
 function updateMentionMenu(): void {
-    if (!shouldShowMentionMenu()) {
-        closeMentionMenu();
-        return;
-    }
+	if (!shouldShowMentionMenu()) {
+		closeMentionMenu();
+		return;
+	}
 
-    const plain = getPlainTextBeforeCaret();
-    if (!plain) {
-        closeMentionMenu();
-        return;
-    }
+	const plain = getPlainTextBeforeCaret();
+	if (!plain) {
+		closeMentionMenu();
+		return;
+	}
 
-    const match = plain.text.match(/(^|\s)@([^\s@]*)$/);
-    if (!match) {
-        closeMentionMenu();
-        return;
-    }
+	const match = plain.text.match(/(^|\s)@([^\s@]*)$/);
+	if (!match) {
+		closeMentionMenu();
+		return;
+	}
 
-    const query = match[2] ?? "";
-    const tokenLength = 1 + query.length;
-    const endIndex = plain.caretIndex;
-    const startIndex = endIndex - tokenLength;
-    const range = buildRangeFromPlainTextOffsets(startIndex, endIndex);
-    if (!range) {
-        closeMentionMenu();
-        return;
-    }
+	const query = match[2] ?? "";
+	const tokenLength = 1 + query.length;
+	const endIndex = plain.caretIndex;
+	const startIndex = endIndex - tokenLength;
+	const range = buildRangeFromPlainTextOffsets(startIndex, endIndex);
+	if (!range) {
+		closeMentionMenu();
+		return;
+	}
 
-    const normalized = query.toLowerCase();
-    const filtered = mentionOptions.filter(option => option.name.toLowerCase().includes(normalized));
-    mentionFilteredOptions = filtered;
-    mentionActiveIndex = Math.min(mentionActiveIndex, Math.max(0, filtered.length - 1));
+	const normalized = query.toLowerCase();
+	const filtered = mentionOptions.filter((option) => option.name.toLowerCase().includes(normalized));
+	mentionFilteredOptions = filtered;
+	mentionActiveIndex = Math.min(mentionActiveIndex, Math.max(0, filtered.length - 1));
 
-    openMentionMenu({ query, startIndex, endIndex, range }, filtered);
+	openMentionMenu({ query, startIndex, endIndex, range }, filtered);
 }
 
 function insertMention(option: MentionOption): void {
-    if (!mentionState) return;
-    const range = mentionState.range;
+	if (!mentionState) return;
+	const range = mentionState.range;
 
-    range.deleteContents();
+	range.deleteContents();
 
-    const chip = document.createElement("span");
-    chip.className = "mention-chip mention-chip-input";
-    chip.dataset.personaId = option.id;
-    chip.contentEditable = "false";
-    chip.textContent = `@${option.name}`;
+	const chip = document.createElement("span");
+	chip.className = "mention-chip mention-chip-input";
+	chip.dataset.personaId = option.id;
+	chip.contentEditable = "false";
+	chip.textContent = `@${option.name}`;
 
-    const space = document.createTextNode(" ");
-    range.insertNode(space);
-    range.insertNode(chip);
+	const space = document.createTextNode(" ");
+	range.insertNode(space);
+	range.insertNode(chip);
 
-    const selection = window.getSelection();
-    if (selection) {
-        const nextRange = document.createRange();
-        nextRange.setStartAfter(space);
-        nextRange.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(nextRange);
-    }
+	const selection = window.getSelection();
+	if (selection) {
+		const nextRange = document.createRange();
+		nextRange.setStartAfter(space);
+		nextRange.collapse(true);
+		selection.removeAllRanges();
+		selection.addRange(nextRange);
+	}
 
-    closeMentionMenu();
+	closeMentionMenu();
 }
 
 function serializeMessageInput(): string {
-    const clone = (messageInput as HTMLDivElement).cloneNode(true) as HTMLElement;
-    clone.querySelectorAll<HTMLElement>(".mention-chip-input[data-persona-id]").forEach(chip => {
-        const id = chip.dataset.personaId;
-        if (!id) return;
-        chip.replaceWith(document.createTextNode(`@<${id}>`));
-    });
-    return helpers.getEncoded(clone.innerHTML);
+	const clone = (messageInput as HTMLDivElement).cloneNode(true) as HTMLElement;
+	clone.querySelectorAll<HTMLElement>(".mention-chip-input[data-persona-id]").forEach((chip) => {
+		const id = chip.dataset.personaId;
+		if (!id) return;
+		chip.replaceWith(document.createTextNode(`@<${id}>`));
+	});
+	return helpers.getEncoded(clone.innerHTML);
 }
 
 internetSearchToggle.addEventListener("click", () => {
-    isInternetSearchEnabled = !isInternetSearchEnabled;
-    internetSearchToggle.classList.toggle("btn-toggled");
+	isInternetSearchEnabled = !isInternetSearchEnabled;
+	internetSearchToggle.classList.toggle("btn-toggled");
 });
 
 //enter key to send message but support shift+enter for new line on PC only
 messageInput.addEventListener("keydown", (e: KeyboardEvent) => {
-    const isMobile = settingsService.isMobile();
+	const isMobile = settingsService.isMobile();
 
-    if (mentionMenuOpen) {
-        if (e.key === "ArrowDown") {
-            if (mentionFilteredOptions.length > 0) {
-                e.preventDefault();
-                mentionActiveIndex = (mentionActiveIndex + 1) % mentionFilteredOptions.length;
-                renderMentionMenu(mentionFilteredOptions);
-                if (mentionState) positionMentionMenu(mentionState.range);
-            }
-            return;
-        }
-        if (e.key === "ArrowUp") {
-            if (mentionFilteredOptions.length > 0) {
-                e.preventDefault();
-                mentionActiveIndex = (mentionActiveIndex - 1 + mentionFilteredOptions.length) % mentionFilteredOptions.length;
-                renderMentionMenu(mentionFilteredOptions);
-                if (mentionState) positionMentionMenu(mentionState.range);
-            }
-            return;
-        }
-        if (e.key === "Enter" || e.key === "Tab") {
-            if (mentionFilteredOptions.length > 0) {
-                e.preventDefault();
-                const choice = mentionFilteredOptions[mentionActiveIndex];
-                if (choice) {
-                    insertMention(choice);
-                }
-            } else {
-                closeMentionMenu();
-            }
-            return;
-        }
-        if (e.key === "Escape") {
-            e.preventDefault();
-            closeMentionMenu();
-            return;
-        }
-        if (e.key === " " || e.key === "Spacebar") {
-            closeMentionMenu();
-            return;
-        }
-    }
+	if (mentionMenuOpen) {
+		if (e.key === "ArrowDown") {
+			if (mentionFilteredOptions.length > 0) {
+				e.preventDefault();
+				mentionActiveIndex = (mentionActiveIndex + 1) % mentionFilteredOptions.length;
+				renderMentionMenu(mentionFilteredOptions);
+				if (mentionState) positionMentionMenu(mentionState.range);
+			}
+			return;
+		}
+		if (e.key === "ArrowUp") {
+			if (mentionFilteredOptions.length > 0) {
+				e.preventDefault();
+				mentionActiveIndex =
+					(mentionActiveIndex - 1 + mentionFilteredOptions.length) % mentionFilteredOptions.length;
+				renderMentionMenu(mentionFilteredOptions);
+				if (mentionState) positionMentionMenu(mentionState.range);
+			}
+			return;
+		}
+		if (e.key === "Enter" || e.key === "Tab") {
+			if (mentionFilteredOptions.length > 0) {
+				e.preventDefault();
+				const choice = mentionFilteredOptions[mentionActiveIndex];
+				if (choice) {
+					insertMention(choice);
+				}
+			} else {
+				closeMentionMenu();
+			}
+			return;
+		}
+		if (e.key === "Escape") {
+			e.preventDefault();
+			closeMentionMenu();
+			return;
+		}
+		if (e.key === " " || e.key === "Spacebar") {
+			closeMentionMenu();
+			return;
+		}
+	}
 
-    if (e.key === "Enter" && !e.shiftKey && !isMobile) {
-        e.preventDefault();
-        // Don't send if insufficient credits
-        if (isComposerAllowanceBlocked) {
-            toastService.warn({
-                title: composerAllowanceBlockTitle,
-                text: composerAllowanceBlockText,
-            });
-            return;
-        }
-        sendMessageButton.click();
-    }
+	if (e.key === "Enter" && !e.shiftKey && !isMobile) {
+		e.preventDefault();
+		// Don't send if insufficient credits
+		if (isComposerAllowanceBlocked) {
+			toastService.warn({
+				title: composerAllowanceBlockTitle,
+				text: composerAllowanceBlockText
+			});
+			return;
+		}
+		sendMessageButton.click();
+	}
 });
 
 messageInput.addEventListener("blur", () => {
-    closeMentionMenu();
+	closeMentionMenu();
 });
 
 messageInput.addEventListener("focus", () => {
-    if (!settingsService.isMobile()) {
-        return;
-    }
+	if (!settingsService.isMobile()) {
+		return;
+	}
 
-    window.requestAnimationFrame(() => {
-        messageInput.scrollIntoView({ block: "nearest", inline: "nearest" });
-    });
+	window.requestAnimationFrame(() => {
+		messageInput.scrollIntoView({ block: "nearest", inline: "nearest" });
+	});
 });
 
 messageInput.addEventListener("paste", (event: ClipboardEvent) => {
-    const files = collectFilesFromClipboard(event);
-    const text = event.clipboardData?.getData("text/plain") ?? "";
-    const hasFiles = files.length > 0;
-    const hasText = text.trim().length > 0;
+	const files = collectFilesFromClipboard(event);
+	const text = event.clipboardData?.getData("text/plain") ?? "";
+	const hasFiles = files.length > 0;
+	const hasText = text.trim().length > 0;
 
-    if (!hasFiles) {
-        if (hasText) {
-            event.preventDefault();
-            document.execCommand("insertText", false, text.replace(/\r/g, ""));
-        }
-        return;
-    }
+	if (!hasFiles) {
+		if (hasText) {
+			event.preventDefault();
+			document.execCommand("insertText", false, text.replace(/\r/g, ""));
+		}
+		return;
+	}
 
-    event.preventDefault();
-    if (hasText) {
-        document.execCommand("insertText", false, text.replace(/\r/g, ""));
-    }
-    addAttachments(files);
+	event.preventDefault();
+	if (hasText) {
+		document.execCommand("insertText", false, text.replace(/\r/g, ""));
+	}
+	addAttachments(files);
 });
 
 messageInput.addEventListener("input", () => {
-    if (messageInput.innerHTML.trim() === "<br>" || messageInput.innerHTML.trim() === "<p><br></p>") {
-        messageInput.innerHTML = "";
-    }
-    updateMentionMenu();
+	if (messageInput.innerHTML.trim() === "<br>" || messageInput.innerHTML.trim() === "<p><br></p>") {
+		messageInput.innerHTML = "";
+	}
+	updateMentionMenu();
 });
 
 document.addEventListener("selectionchange", () => {
-    const input = messageInput as HTMLDivElement;
-    if (document.activeElement === input) {
-        updateMentionMenu();
-    } else if (mentionMenuOpen) {
-        closeMentionMenu();
-    }
+	const input = messageInput as HTMLDivElement;
+	if (document.activeElement === input) {
+		updateMentionMenu();
+	} else if (mentionMenuOpen) {
+		closeMentionMenu();
+	}
 });
 
 document.addEventListener("click", (event) => {
-    if (!mentionMenuOpen) return;
-    const target = event.target as Node | null;
-    if (!target) return;
-    if (mentionMenu.contains(target)) return;
-    if ((messageInput as HTMLDivElement).contains(target)) return;
-    closeMentionMenu();
+	if (!mentionMenuOpen) return;
+	const target = event.target as Node | null;
+	if (!target) return;
+	if (mentionMenu.contains(target)) return;
+	if ((messageInput as HTMLDivElement).contains(target)) return;
+	closeMentionMenu();
 });
 
 window.addEventListener("resize", () => {
-    if (mentionMenuOpen && mentionState) {
-        positionMentionMenu(mentionState.range);
-    }
+	if (mentionMenuOpen && mentionState) {
+		positionMentionMenu(mentionState.range);
+	}
 });
 
-attachmentsInput.addEventListener("change", (event) => {
-    const files = Array.from(attachmentsInput.files || []);
-    if (files.length === 0) {
-        return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
-    addAttachments(files);
-}, true);
+attachmentsInput.addEventListener(
+	"change",
+	(event) => {
+		const files = Array.from(attachmentsInput.files || []);
+		if (files.length === 0) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		event.stopImmediatePropagation();
+		addAttachments(files);
+	},
+	true
+);
 
 attachmentPreview.addEventListener("attachmentremoved", (event: Event) => {
-    const detail = (event as CustomEvent<AttachmentRemovedDetail>).detail;
-    if (!detail?.signature) {
-        return;
-    }
-    attachmentState = attachmentState.filter(file => getFileSignature(file) !== detail.signature);
-    syncAttachmentInput();
+	const detail = (event as CustomEvent<AttachmentRemovedDetail>).detail;
+	if (!detail?.signature) {
+		return;
+	}
+	attachmentState = attachmentState.filter((file) => getFileSignature(file) !== detail.signature);
+	syncAttachmentInput();
 });
 
 messageBox.addEventListener("dragenter", handleDragEnter);
@@ -548,761 +572,760 @@ messageInput.addEventListener("drop", handleDrop);
 let isCurrentlyGenerating = false;
 
 function syncGenerationUiForCurrentChat(): void {
-    const currentChatId = chatsService.getCurrentChatId();
-    isCurrentlyGenerating = messageService.getIsGenerating(currentChatId);
-    syncComposerInteractivity();
+	const currentChatId = chatsService.getCurrentChatId();
+	isCurrentlyGenerating = messageService.getIsGenerating(currentChatId);
+	syncComposerInteractivity();
 
-    if (isCurrentlyGenerating) {
-        sendMessageButton!.textContent = 'stop';
-        sendMessageButton!.title = 'Stop generating';
-        sendMessageButton!.classList.add('generating');
-        turnControlPanel?.classList.add('hidden');
-        if (turnControlLabel) turnControlLabel.textContent = 'AI responding...';
-        return;
-    }
+	if (isCurrentlyGenerating) {
+		sendMessageButton!.textContent = "stop";
+		sendMessageButton!.title = "Stop generating";
+		sendMessageButton!.classList.add("generating");
+		turnControlPanel?.classList.add("hidden");
+		if (turnControlLabel) turnControlLabel.textContent = "AI responding...";
+		return;
+	}
 
-    sendMessageButton!.textContent = 'send';
-    if (!isComposerAllowanceBlocked) {
-        sendMessageButton!.title = '';
-    }
-    sendMessageButton!.classList.remove('generating');
+	sendMessageButton!.textContent = "send";
+	if (!isComposerAllowanceBlocked) {
+		sendMessageButton!.title = "";
+	}
+	sendMessageButton!.classList.remove("generating");
 
-    void chatsService.getCurrentChat().then(chat => {
-        if (chat?.groupChat?.mode === 'rpg') {
-            turnControlPanel?.classList.remove('hidden');
-        }
-    });
+	void chatsService.getCurrentChat().then((chat) => {
+		if (chat?.groupChat?.mode === "rpg") {
+			turnControlPanel?.classList.remove("hidden");
+		}
+	});
 }
 
 sendMessageButton.addEventListener("click", async () => {
-    //if generating, abort instead of send
-    if (isCurrentlyGenerating) {
-        messageService.abortGeneration(chatsService.getCurrentChatId() ?? undefined);
-        return;
-    }
+	//if generating, abort instead of send
+	if (isCurrentlyGenerating) {
+		messageService.abortGeneration(chatsService.getCurrentChatId() ?? undefined);
+		return;
+	}
 
-    // In RPG group chats, only allow sending during the user's turn.
-    if (isRpgGroupChatContext && !isUserTurnInRpg) {
-        toastService.warn({
-            title: "Not your turn",
-            text: "Wait for your turn, then send your message.",
-        });
-        return;
-    }
+	// In RPG group chats, only allow sending during the user's turn.
+	if (isRpgGroupChatContext && !isUserTurnInRpg) {
+		toastService.warn({
+			title: "Not your turn",
+			text: "Wait for your turn, then send your message."
+		});
+		return;
+	}
 
-    // Check for insufficient credits before sending
-    if (isComposerAllowanceBlocked) {
-        toastService.warn({
-            title: composerAllowanceBlockTitle,
-            text: composerAllowanceBlockText,
-        });
-        return;
-    }
+	// Check for insufficient credits before sending
+	if (isComposerAllowanceBlocked) {
+		toastService.warn({
+			title: composerAllowanceBlockTitle,
+			text: composerAllowanceBlockText
+		});
+		return;
+	}
 
-    try {
-        const message = serializeMessageInput();
-        messageInput.innerHTML = "";
-        closeMentionMenu();
-        await messageService.send(message);
-    } catch (error: any) {
-        toastService.danger({
-            title: "Error sending message",
-            text: JSON.stringify(error.message || error),
-        });
-        console.error(error);
-        return;
-    }
+	try {
+		const message = serializeMessageInput();
+		messageInput.innerHTML = "";
+		closeMentionMenu();
+		await messageService.send(message);
+	} catch (error: any) {
+		toastService.danger({
+			title: "Error sending message",
+			text: JSON.stringify(error.message || error)
+		});
+		console.error(error);
+		return;
+	}
 });
 
 //listen for generation state changes to toggle send/stop button
-window.addEventListener('generation-state-changed', (event: any) => {
-    if (!event?.detail?.chatId) return;
-    syncGenerationUiForCurrentChat();
+window.addEventListener("generation-state-changed", (event: any) => {
+	if (!event?.detail?.chatId) return;
+	syncGenerationUiForCurrentChat();
 });
 
 //listen for round state changes to update UI dynamically
-window.addEventListener('round-state-changed', (event: any) => {
-    const currentChatId = chatsService.getCurrentChatId();
-    if (!currentChatId || event.detail?.chatId !== currentChatId) return;
+window.addEventListener("round-state-changed", (event: any) => {
+	const currentChatId = chatsService.getCurrentChatId();
+	if (!currentChatId || event.detail?.chatId !== currentChatId) return;
 
-    const { isUserTurn, roundComplete, nextRoundNumber, startsNewRound, nextSpeakerId } = event.detail;
+	const { isUserTurn, roundComplete, nextRoundNumber, startsNewRound, nextSpeakerId } = event.detail;
 
-    void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
+	void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
 
-    // auto-progress RPG group chats (never pause on AI)
-    if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
-        const roundChatId = currentChatId;
-        const startNextRoundIfIdle = async () => {
-            if (isCurrentlyGenerating) return;
-            if (chatsService.getCurrentChatId() !== roundChatId) return;
-            const chat = await chatsService.getCurrentChat();
-            if (chat?.id !== roundChatId || chat.groupChat?.mode !== "rpg") return;
-            await messageService.send("");
-        };
+	// auto-progress RPG group chats (never pause on AI)
+	if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
+		const roundChatId = currentChatId;
+		const startNextRoundIfIdle = async () => {
+			if (isCurrentlyGenerating) return;
+			if (chatsService.getCurrentChatId() !== roundChatId) return;
+			const chat = await chatsService.getCurrentChat();
+			if (chat?.id !== roundChatId || chat.groupChat?.mode !== "rpg") return;
+			await messageService.send("");
+		};
 
-        //round-state-changed is dispatched before generation-state-changed(false),
-        //so wait for generation to finish, then kick off the next round.
-        const onGenerationState = async (e: any) => {
-            if (e?.detail?.chatId !== roundChatId || e?.detail?.isGenerating) return;
-            window.removeEventListener('generation-state-changed', onGenerationState as any);
-            try {
-                // Let the originating send() fully unwind (sendInFlight reset, etc.)
-                // before we trigger the next round.
-                window.setTimeout(() => {
-                    void startNextRoundIfIdle();
-                }, 0);
-            } catch (error: any) {
-                toastService.danger({
-                    title: "Error starting next round",
-                    text: JSON.stringify(error?.message || error),
-                });
-            }
-        };
-        window.addEventListener('generation-state-changed', onGenerationState as any);
-    }
+		//round-state-changed is dispatched before generation-state-changed(false),
+		//so wait for generation to finish, then kick off the next round.
+		const onGenerationState = async (e: any) => {
+			if (e?.detail?.chatId !== roundChatId || e?.detail?.isGenerating) return;
+			window.removeEventListener("generation-state-changed", onGenerationState as any);
+			try {
+				// Let the originating send() fully unwind (sendInFlight reset, etc.)
+				// before we trigger the next round.
+				window.setTimeout(() => {
+					void startNextRoundIfIdle();
+				}, 0);
+			} catch (error: any) {
+				toastService.danger({
+					title: "Error starting next round",
+					text: JSON.stringify(error?.message || error)
+				});
+			}
+		};
+		window.addEventListener("generation-state-changed", onGenerationState as any);
+	}
 });
 
 //skip turn button - skips user's turn and triggers next round
 skipTurnBtn?.addEventListener("click", async () => {
-    if (isCurrentlyGenerating) return;
+	if (isCurrentlyGenerating) return;
 
-    try {
-        await messageService.skipRpgTurn();
-    } catch (error: any) {
-        toastService.danger({
-            title: "Error skipping turn",
-            text: JSON.stringify(error.message || error),
-        });
-    }
+	try {
+		await messageService.skipRpgTurn();
+	} catch (error: any) {
+		toastService.danger({
+			title: "Error skipping turn",
+			text: JSON.stringify(error.message || error)
+		});
+	}
 });
 
 //start turn button - triggers AI participants before user's turn
 startTurnBtn?.addEventListener("click", async () => {
-    if (isCurrentlyGenerating) return;
+	if (isCurrentlyGenerating) return;
 
-    try {
-        // send empty message to trigger AI turn (participants before user will respond)
-        await messageService.send("");
-    } catch (error: any) {
-        toastService.danger({
-            title: "Error starting turn",
-            text: JSON.stringify(error.message || error),
-        });
-    }
+	try {
+		// send empty message to trigger AI turn (participants before user will respond)
+		await messageService.send("");
+	} catch (error: any) {
+		toastService.danger({
+			title: "Error starting turn",
+			text: JSON.stringify(error.message || error)
+		});
+	}
 });
 
 rpgSettingsButton?.addEventListener("click", async () => {
-    const chat = await chatsService.getCurrentChat();
-    if (!chat?.groupChat) return;
+	const chat = await chatsService.getCurrentChat();
+	if (!chat?.groupChat) return;
 
-    // Ensure sidebar is visible
-    const sidebar = document.querySelector<HTMLElement>(".sidebar");
-    if (sidebar) {
-        sidebar.style.display = "flex";
-        helpers.showElement(sidebar, false);
-    }
+	// Ensure sidebar is visible
+	const sidebar = document.querySelector<HTMLElement>(".sidebar");
+	if (sidebar) {
+		sidebar.style.display = "flex";
+		helpers.showElement(sidebar, false);
+	}
 
-    // Switch to the Settings tab (3rd tab)
-    const navbar = document.querySelector<HTMLElement>('.navbar[data-target-id="sidebar-content"]');
-    const settingsTab = navbar?.querySelector<HTMLElement>(".navbar-tab:nth-child(3)");
-    settingsTab?.click();
+	// Switch to the Settings tab (3rd tab)
+	const navbar = document.querySelector<HTMLElement>('.navbar[data-target-id="sidebar-content"]');
+	const settingsTab = navbar?.querySelector<HTMLElement>(".navbar-tab:nth-child(3)");
+	settingsTab?.click();
 
-    // Open the Group chat Settings page
-    const settingsSection = document.querySelector<HTMLElement>("#settings-section");
-    const groupChatSettingsButton = settingsSection?.querySelector<HTMLElement>('[data-settings-target="groupchat"]');
+	// Open the Group chat Settings page
+	const settingsSection = document.querySelector<HTMLElement>("#settings-section");
+	const groupChatSettingsButton = settingsSection?.querySelector<HTMLElement>('[data-settings-target="groupchat"]');
 
-    // If we're already in settings home, clicking this will navigate to the groupchat page.
-    // If we're already inside another settings page, the click will still work because
-    // SettingsNavigation attaches handlers directly to the home list items.
-    groupChatSettingsButton?.click();
+	// If we're already in settings home, clicking this will navigate to the groupchat page.
+	// If we're already inside another settings page, the click will still work because
+	// SettingsNavigation attaches handlers directly to the home list items.
+	groupChatSettingsButton?.click();
 });
 
 window.addEventListener("chat-loaded", async (e: any) => {
-    const chat = e.detail.chat;
+	const chat = e.detail.chat;
 
-    isGroupChatContext = !!chat?.groupChat;
-    isRpgGroupChatContext = chat?.groupChat?.mode === "rpg";
-    isDynamicGroupChatContext = chat?.groupChat?.mode === "dynamic";
-    allowDynamicPings = !!chat?.groupChat?.dynamic?.allowPings && !settingsService.getSettings().disallowPersonaPinging;
+	isGroupChatContext = !!chat?.groupChat;
+	isRpgGroupChatContext = chat?.groupChat?.mode === "rpg";
+	isDynamicGroupChatContext = chat?.groupChat?.mode === "dynamic";
+	allowDynamicPings = !!chat?.groupChat?.dynamic?.allowPings && !settingsService.getSettings().disallowPersonaPinging;
 
-    if (isDynamicGroupChatContext) {
-        const participantIds: string[] = Array.isArray(chat.groupChat?.participantIds) ? chat.groupChat.participantIds : [];
-        const nextOptions: MentionOption[] = [];
-        for (const id of participantIds) {
-            const persona = await personalityService.get(String(id));
-            const resolved = persona || personalityService.getDefault();
-            if (!resolved) continue;
-            nextOptions.push({ id: String(id), name: String(resolved.name || "Unknown"), image: resolved.image });
-        }
-        mentionOptions = nextOptions;
-    } else {
-        mentionOptions = [];
-        closeMentionMenu();
-    }
+	if (isDynamicGroupChatContext) {
+		const participantIds: string[] = Array.isArray(chat.groupChat?.participantIds)
+			? chat.groupChat.participantIds
+			: [];
+		const nextOptions: MentionOption[] = [];
+		for (const id of participantIds) {
+			const persona = await personalityService.get(String(id));
+			const resolved = persona || personalityService.getDefault();
+			if (!resolved) continue;
+			nextOptions.push({ id: String(id), name: String(resolved.name || "Unknown"), image: resolved.image });
+		}
+		mentionOptions = nextOptions;
+	} else {
+		mentionOptions = [];
+		closeMentionMenu();
+	}
 
-    if (isGroupChatContext) {
-        messageInput?.setAttribute("placeholder", "Send a message");
-        internetSearchToggle?.classList.add("hidden");
-        roleplayActionsMenu?.classList.add("hidden");
-    } else {
-        await setupBottomBar();
-    }
+	if (isGroupChatContext) {
+		messageInput?.setAttribute("placeholder", "Send a message");
+		internetSearchToggle?.classList.add("hidden");
+		roleplayActionsMenu?.classList.add("hidden");
+	} else {
+		await setupBottomBar();
+	}
 
-    const imageBtn = document.querySelector<HTMLButtonElement>("#btn-image");
-    const editBtn = document.querySelector<HTMLButtonElement>("#btn-edit");
-    imageBtn?.classList.toggle("hidden", isGroupChatContext);
-    editBtn?.classList.toggle("hidden", isGroupChatContext);
+	const imageBtn = document.querySelector<HTMLButtonElement>("#btn-image");
+	const editBtn = document.querySelector<HTMLButtonElement>("#btn-edit");
+	imageBtn?.classList.toggle("hidden", isGroupChatContext);
+	editBtn?.classList.toggle("hidden", isGroupChatContext);
 
-    if (isRpgGroupChatContext) {
-        turnControlPanel?.classList.remove("hidden");
+	if (isRpgGroupChatContext) {
+		turnControlPanel?.classList.remove("hidden");
 
-        //determine turn state from chat content
-        const rpg = chat.groupChat?.rpg;
-        const turnOrder: string[] = Array.isArray(rpg?.turnOrder) ? rpg.turnOrder : [];
-        const participants: string[] = Array.isArray(chat.groupChat?.participantIds) ? chat.groupChat.participantIds : [];
-        const effectiveOrder = turnOrder.length > 0 ? turnOrder : [...participants, "user"];
-        const userIndex = effectiveOrder.indexOf("user");
+		//determine turn state from chat content
+		const rpg = chat.groupChat?.rpg;
+		const turnOrder: string[] = Array.isArray(rpg?.turnOrder) ? rpg.turnOrder : [];
+		const participants: string[] = Array.isArray(chat.groupChat?.participantIds)
+			? chat.groupChat.participantIds
+			: [];
+		const effectiveOrder = turnOrder.length > 0 ? turnOrder : [...participants, "user"];
+		const userIndex = effectiveOrder.indexOf("user");
 
-        const allMessages = (chat.content || []) as any[];
-        const isUserSkipTurnMarker = (m: any): boolean => {
-            if (!m || m.role !== "user" || !m.hidden) return false;
-            const parts = Array.isArray(m.parts) ? m.parts : [];
-            return parts.some((p: any) => (p?.text ?? "").toString() === messageService.USER_SKIP_TURN_MARKER_TEXT);
-        };
-        const isAiSkipTurnMarker = (m: any): boolean => {
-            if (!m || m.role !== "model" || !m.hidden) return false;
-            const parts = Array.isArray(m.parts) ? m.parts : [];
-            return parts.some((p: any) => (p?.text ?? "").toString() === "__ai_skip_turn__");
-        };
-        const isSkipTurnMarker = (m: any): boolean => isUserSkipTurnMarker(m) || isAiSkipTurnMarker(m);
+		const allMessages = (chat.content || []) as any[];
+		const isUserSkipTurnMarker = (m: any): boolean => {
+			if (!m || m.role !== "user" || !m.hidden) return false;
+			const parts = Array.isArray(m.parts) ? m.parts : [];
+			return parts.some((p: any) => (p?.text ?? "").toString() === messageService.USER_SKIP_TURN_MARKER_TEXT);
+		};
+		const isAiSkipTurnMarker = (m: any): boolean => {
+			if (!m || m.role !== "model" || !m.hidden) return false;
+			const parts = Array.isArray(m.parts) ? m.parts : [];
+			return parts.some((p: any) => (p?.text ?? "").toString() === "__ai_skip_turn__");
+		};
+		const isSkipTurnMarker = (m: any): boolean => isUserSkipTurnMarker(m) || isAiSkipTurnMarker(m);
 
-        //use "turn relevant" messages to determine current state
-        //this includes the hidden skip-turn marker (counts as user completing their turn)
-        const turnRelevantMessages = allMessages.filter((m: any) => !m.hidden || isSkipTurnMarker(m));
-        const lastMessage = turnRelevantMessages[turnRelevantMessages.length - 1];
+		//use "turn relevant" messages to determine current state
+		//this includes the hidden skip-turn marker (counts as user completing their turn)
+		const turnRelevantMessages = allMessages.filter((m: any) => !m.hidden || isSkipTurnMarker(m));
+		const lastMessage = turnRelevantMessages[turnRelevantMessages.length - 1];
 
-        let isUserTurn = false;
-        let startsNewRound = false;
-        let nextSpeakerId: string | undefined;
+		let isUserTurn = false;
+		let startsNewRound = false;
+		let nextSpeakerId: string | undefined;
 
-        //calculate next round number from existing messages
-        const roundIndices = (chat.content || [])
-            .filter((m: any) => typeof m.roundIndex === "number")
-            .map((m: any) => m.roundIndex as number);
-        const maxRoundIndex = roundIndices.length > 0 ? Math.max(...roundIndices) : 0;
+		//calculate next round number from existing messages
+		const roundIndices = (chat.content || [])
+			.filter((m: any) => typeof m.roundIndex === "number")
+			.map((m: any) => m.roundIndex as number);
+		const maxRoundIndex = roundIndices.length > 0 ? Math.max(...roundIndices) : 0;
 
-        if (turnRelevantMessages.length === 0) {
-            // Empty chat: next speaker is the first in the order.
-            const nextSpeaker = effectiveOrder[0];
-            nextSpeakerId = nextSpeaker;
-            startsNewRound = true;
-            isUserTurn = nextSpeaker === "user" || userIndex === 0 || userIndex === -1;
-        } else {
-            // Determine whose turn is next based on last speaker
-            const lastSpeakerId = isUserSkipTurnMarker(lastMessage)
-                ? "user"
-                : lastMessage.role === "user"
-                    ? "user"
-                    : lastMessage.personalityid;
+		if (turnRelevantMessages.length === 0) {
+			// Empty chat: next speaker is the first in the order.
+			const nextSpeaker = effectiveOrder[0];
+			nextSpeakerId = nextSpeaker;
+			startsNewRound = true;
+			isUserTurn = nextSpeaker === "user" || userIndex === 0 || userIndex === -1;
+		} else {
+			// Determine whose turn is next based on last speaker
+			const lastSpeakerId = isUserSkipTurnMarker(lastMessage)
+				? "user"
+				: lastMessage.role === "user"
+					? "user"
+					: lastMessage.personalityid;
 
-            // Skip narrator messages when determining turn
-            let effectiveLastSpeaker = lastSpeakerId;
-            if (lastSpeakerId === "__narrator__") {
-                // Look backwards for non-narrator message
-                for (let i = turnRelevantMessages.length - 2; i >= 0; i--) {
-                    const msg = turnRelevantMessages[i];
-                    const speakerId = msg.role === "user" ? "user" : msg.personalityid;
-                    if (speakerId !== "__narrator__") {
-                        effectiveLastSpeaker = speakerId;
-                        break;
-                    }
-                }
-            }
+			// Skip narrator messages when determining turn
+			let effectiveLastSpeaker = lastSpeakerId;
+			if (lastSpeakerId === "__narrator__") {
+				// Look backwards for non-narrator message
+				for (let i = turnRelevantMessages.length - 2; i >= 0; i--) {
+					const msg = turnRelevantMessages[i];
+					const speakerId = msg.role === "user" ? "user" : msg.personalityid;
+					if (speakerId !== "__narrator__") {
+						effectiveLastSpeaker = speakerId;
+						break;
+					}
+				}
+			}
 
-            const lastSpeakerIndex = effectiveOrder.indexOf(String(effectiveLastSpeaker));
-            if (lastSpeakerIndex === -1) {
-                // Unknown speaker, default to user's turn
-                isUserTurn = true;
-                startsNewRound = false;
-            } else {
-                // Next speaker is the one after lastSpeaker in the order
-                const nextIndex = (lastSpeakerIndex + 1) % effectiveOrder.length;
-                const nextSpeaker = effectiveOrder[nextIndex];
-                nextSpeakerId = nextSpeaker;
-                isUserTurn = nextSpeaker === "user";
-                startsNewRound = nextSpeaker === effectiveOrder[0];
-            }
-        }
+			const lastSpeakerIndex = effectiveOrder.indexOf(String(effectiveLastSpeaker));
+			if (lastSpeakerIndex === -1) {
+				// Unknown speaker, default to user's turn
+				isUserTurn = true;
+				startsNewRound = false;
+			} else {
+				// Next speaker is the one after lastSpeaker in the order
+				const nextIndex = (lastSpeakerIndex + 1) % effectiveOrder.length;
+				const nextSpeaker = effectiveOrder[nextIndex];
+				nextSpeakerId = nextSpeaker;
+				isUserTurn = nextSpeaker === "user";
+				startsNewRound = nextSpeaker === effectiveOrder[0];
+			}
+		}
 
-        const nextRoundNumber = startsNewRound ? maxRoundIndex + 1 : Math.max(1, maxRoundIndex);
+		const nextRoundNumber = startsNewRound ? maxRoundIndex + 1 : Math.max(1, maxRoundIndex);
 
-        void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
+		void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
 
-        //auto-progress when loading into a state that requires starting the next round
-        if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
-            //avoid double-triggers during initial load
-            syncGenerationUiForCurrentChat();
-            if (!isCurrentlyGenerating) {
-                void messageService.send("");
-            }
-        }
-    } else if (chat?.groupChat) {
-        // Dynamic group chat
-        turnControlPanel?.classList.add("hidden");
-        syncComposerInteractivity();
-    } else {
-        //Normal chat or empty
-        turnControlPanel?.classList.add("hidden");
-        syncComposerInteractivity();
-    }
+		//auto-progress when loading into a state that requires starting the next round
+		if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
+			//avoid double-triggers during initial load
+			syncGenerationUiForCurrentChat();
+			if (!isCurrentlyGenerating) {
+				void messageService.send("");
+			}
+		}
+	} else if (chat?.groupChat) {
+		// Dynamic group chat
+		turnControlPanel?.classList.add("hidden");
+		syncComposerInteractivity();
+	} else {
+		//Normal chat or empty
+		turnControlPanel?.classList.add("hidden");
+		syncComposerInteractivity();
+	}
 
-    syncGenerationUiForCurrentChat();
+	syncGenerationUiForCurrentChat();
 });
 
-window.addEventListener('composer-state-reset', () => {
-    resetComposerContextState();
+window.addEventListener("composer-state-reset", () => {
+	resetComposerContextState();
 });
 
 const setupBottomBar = async () => {
-    if (isGroupChatContext) {
-        messageInput.setAttribute("placeholder", "Send a message");
-        return;
-    }
+	if (isGroupChatContext) {
+		messageInput.setAttribute("placeholder", "Send a message");
+		return;
+	}
 
-    const personality = await personalityService.getSelected();
-    if (personality) {
-        messageInput.setAttribute("placeholder", `Send a message to ${personality.name}`);
-        if (personality.roleplayEnabled) {
-            roleplayActionsMenu.classList.remove("hidden");
-        }
-        else {
-            roleplayActionsMenu.classList.add("hidden");
-        }
-        if (personality.internetEnabled) {
-            internetSearchToggle.classList.remove("hidden");
-        }
-        else {
-            internetSearchToggle.classList.add("hidden");
-        }
-    }
-    else {
-        messageInput.setAttribute("placeholder", "Send a message");
-    }
-
-}
-
+	const personality = await personalityService.getSelected();
+	if (personality) {
+		messageInput.setAttribute("placeholder", `Send a message to ${personality.name}`);
+		if (personality.roleplayEnabled) {
+			roleplayActionsMenu.classList.remove("hidden");
+		} else {
+			roleplayActionsMenu.classList.add("hidden");
+		}
+		if (personality.internetEnabled) {
+			internetSearchToggle.classList.remove("hidden");
+		} else {
+			internetSearchToggle.classList.add("hidden");
+		}
+	} else {
+		messageInput.setAttribute("placeholder", "Send a message");
+	}
+};
 
 document.querySelector<HTMLDivElement>("#personalitiesDiv")!.addEventListener("change", async (e: Event) => {
-    if ((e.target as HTMLSelectElement).name === "personality") {
-        await setupBottomBar();
-    }
+	if ((e.target as HTMLSelectElement).name === "personality") {
+		await setupBottomBar();
+	}
 });
 
 await setupBottomBar();
 
 // Listen for image editing toggle events
-window.addEventListener('image-editing-toggled', async (event: any) => {
-    isImageEditingActive = event.detail.enabled;
+window.addEventListener("image-editing-toggled", async (event: any) => {
+	isImageEditingActive = event.detail.enabled;
 
-    if (!isImageEditingActive) {
-        // Clear history preview when editing is disabled
-        clearHistoryPreview();
-    } else {
-        // If toggled ON, enforce model-specific image limit
-        enforceImageLimitForModel();
-    }
+	if (!isImageEditingActive) {
+		// Clear history preview when editing is disabled
+		clearHistoryPreview();
+	} else {
+		// If toggled ON, enforce model-specific image limit
+		enforceImageLimitForModel();
+	}
 
-    updateImageCreditsLabelVisibility();
+	updateImageCreditsLabelVisibility();
 });
 
 // Listen for image generation toggle events
-window.addEventListener('image-generation-toggled', (event: any) => {
-    isImageModeActive = !!event.detail?.enabled;
-    updateImageCreditsLabelVisibility();
+window.addEventListener("image-generation-toggled", (event: any) => {
+	isImageModeActive = !!event.detail?.enabled;
+	updateImageCreditsLabelVisibility();
 });
 
 // Listen for attachment changes
-window.addEventListener('attachment-added', async () => {
-    // Hide history preview when attachments are added
-    if (isImageEditingActive) {
-        clearHistoryPreview();
-        enforceImageLimitForModel();
-    }
+window.addEventListener("attachment-added", async () => {
+	// Hide history preview when attachments are added
+	if (isImageEditingActive) {
+		clearHistoryPreview();
+		enforceImageLimitForModel();
+	}
 });
 
 // Listen for history image removal
-window.addEventListener('history-image-removed', () => {
-    currentHistoryImagePreview = null;
+window.addEventListener("history-image-removed", () => {
+	currentHistoryImagePreview = null;
 });
 
 // Listen for attach-image-from-chat event (from Edit/Attach buttons in messages)
-window.addEventListener('attach-image-from-chat', (event: any) => {
-    const { file, toggleEditing } = event.detail;
-    if (!file) return;
+window.addEventListener("attach-image-from-chat", (event: any) => {
+	const { file, toggleEditing } = event.detail;
+	if (!file) return;
 
-    // Mark this file as coming from chat history
-    (file as any)._fromChatHistory = true;
+	// Mark this file as coming from chat history
+	(file as any)._fromChatHistory = true;
 
-    // Add the file using the existing addAttachments function
-    addAttachments([file]);
+	// Add the file using the existing addAttachments function
+	addAttachments([file]);
 
-    // Toggle editing mode if requested
-    if (toggleEditing) {
-        const editButton = document.querySelector<HTMLButtonElement>("#btn-edit");
-        if (editButton && !editButton.classList.contains("btn-toggled")) {
-            editButton.click();
-        }
-    }
+	// Toggle editing mode if requested
+	if (toggleEditing) {
+		const editButton = document.querySelector<HTMLButtonElement>("#btn-edit");
+		if (editButton && !editButton.classList.contains("btn-toggled")) {
+			editButton.click();
+		}
+	}
 });
 
 // Listen for edit model changes (model-specific image limit)
-window.addEventListener('edit-model-changed', (event: any) => {
-    const model = event.detail.model;
-    if (isImageEditingActive) {
-        enforceImageLimitForModel();
-    }
+window.addEventListener("edit-model-changed", (event: any) => {
+	const model = event.detail.model;
+	if (isImageEditingActive) {
+		enforceImageLimitForModel();
+	}
 });
 
 // Listen for composer allowance state changes
-window.addEventListener('composer-allowance-blocked', (event: any) => {
-    isComposerAllowanceBlocked = !!event.detail.blocked;
-    composerAllowanceBlockTitle = event.detail.title || 'Request unavailable';
-    composerAllowanceBlockText = event.detail.text || 'This request is currently unavailable.';
-    syncComposerInteractivity();
+window.addEventListener("composer-allowance-blocked", (event: any) => {
+	isComposerAllowanceBlocked = !!event.detail.blocked;
+	composerAllowanceBlockTitle = event.detail.title || "Request unavailable";
+	composerAllowanceBlockText = event.detail.text || "This request is currently unavailable.";
+	syncComposerInteractivity();
 });
 
 function addAttachments(rawFiles: File[]): void {
-    if (!rawFiles.length) {
-        return;
-    }
+	if (!rawFiles.length) {
+		return;
+	}
 
-    const files = dedupeFiles(rawFiles);
-    const duplicateNames: string[] = [];
-    const oversizedNames: string[] = [];
-    const unsupportedNames: string[] = [];
-    let limitReached = false;
-    const added: File[] = [];
-    const existingSignatures = new Set(attachmentState.map(getFileSignature));
+	const files = dedupeFiles(rawFiles);
+	const duplicateNames: string[] = [];
+	const oversizedNames: string[] = [];
+	const unsupportedNames: string[] = [];
+	let limitReached = false;
+	const added: File[] = [];
+	const existingSignatures = new Set(attachmentState.map(getFileSignature));
 
-    for (const file of files) {
-        if (attachmentState.length + added.length >= MAX_ATTACHMENTS) {
-            limitReached = true;
-            break;
-        }
+	for (const file of files) {
+		if (attachmentState.length + added.length >= MAX_ATTACHMENTS) {
+			limitReached = true;
+			break;
+		}
 
-        const displayName = getDisplayName(file);
+		const displayName = getDisplayName(file);
 
-        if (!isSupportedFileType(file)) {
-            unsupportedNames.push(displayName);
-            continue;
-        }
+		if (!isSupportedFileType(file)) {
+			unsupportedNames.push(displayName);
+			continue;
+		}
 
-        if (file.size > MAX_ATTACHMENT_BYTES) {
-            oversizedNames.push(displayName);
-            continue;
-        }
+		if (file.size > MAX_ATTACHMENT_BYTES) {
+			oversizedNames.push(displayName);
+			continue;
+		}
 
-        const signature = getFileSignature(file);
-        if (existingSignatures.has(signature)) {
-            duplicateNames.push(displayName);
-            continue;
-        }
+		const signature = getFileSignature(file);
+		if (existingSignatures.has(signature)) {
+			duplicateNames.push(displayName);
+			continue;
+		}
 
-        existingSignatures.add(signature);
-        added.push(file);
-    }
+		existingSignatures.add(signature);
+		added.push(file);
+	}
 
-    if (added.length > 0) {
-        let finalAdded = added;
-        if (isImageEditingActive) {
-            const editingModel = getSelectedEditingModel();
-            const maxImages = MODEL_IMAGE_LIMITS[editingModel];
-            if (maxImages) {
-                const currentImageCount = attachmentState.filter(f => f.type.startsWith('image/')).length;
-                const newImageFiles = added.filter(f => f.type.startsWith('image/'));
-                const slotsRemaining = maxImages - currentImageCount;
+	if (added.length > 0) {
+		let finalAdded = added;
+		if (isImageEditingActive) {
+			const editingModel = getSelectedEditingModel();
+			const maxImages = MODEL_IMAGE_LIMITS[editingModel];
+			if (maxImages) {
+				const currentImageCount = attachmentState.filter((f) => f.type.startsWith("image/")).length;
+				const newImageFiles = added.filter((f) => f.type.startsWith("image/"));
+				const slotsRemaining = maxImages - currentImageCount;
 
-                if (slotsRemaining < newImageFiles.length) {
-                    const skippedCount = newImageFiles.length - Math.max(0, slotsRemaining);
-                    const keptNewImages = newImageFiles.slice(0, Math.max(0, slotsRemaining));
-                    const nonImageFiles = added.filter(f => !f.type.startsWith('image/'));
-                    finalAdded = [...nonImageFiles, ...keptNewImages];
-                    toastService.warn({
-                        title: `${editingModel.charAt(0).toUpperCase() + editingModel.slice(1)} supports up to ${maxImages} image${maxImages > 1 ? 's' : ''}`,
-                        text: `${skippedCount} image${skippedCount > 1 ? 's were' : ' was'} skipped (${currentImageCount} already attached, max ${maxImages}).`,
-                    });
-                }
-            }
-        }
+				if (slotsRemaining < newImageFiles.length) {
+					const skippedCount = newImageFiles.length - Math.max(0, slotsRemaining);
+					const keptNewImages = newImageFiles.slice(0, Math.max(0, slotsRemaining));
+					const nonImageFiles = added.filter((f) => !f.type.startsWith("image/"));
+					finalAdded = [...nonImageFiles, ...keptNewImages];
+					toastService.warn({
+						title: `${editingModel.charAt(0).toUpperCase() + editingModel.slice(1)} supports up to ${maxImages} image${maxImages > 1 ? "s" : ""}`,
+						text: `${skippedCount} image${skippedCount > 1 ? "s were" : " was"} skipped (${currentImageCount} already attached, max ${maxImages}).`
+					});
+				}
+			}
+		}
 
-        attachmentState = [...attachmentState, ...finalAdded];
-        syncAttachmentInput();
-        for (const file of finalAdded) {
-            const preview = attachmentPreviewElement(file);
-            preview.dataset.attachmentSignature = getFileSignature(file);
-            attachmentPreview!.appendChild(preview);
-        }
-    } else {
-        // ensure FileList is in sync even if we only removed/filtered files
-        syncAttachmentInput();
-    }
+		attachmentState = [...attachmentState, ...finalAdded];
+		syncAttachmentInput();
+		for (const file of finalAdded) {
+			const preview = attachmentPreviewElement(file);
+			preview.dataset.attachmentSignature = getFileSignature(file);
+			attachmentPreview!.appendChild(preview);
+		}
+	} else {
+		// ensure FileList is in sync even if we only removed/filtered files
+		syncAttachmentInput();
+	}
 
-    if (duplicateNames.length) {
-        toastService.warn({
-            title: duplicateNames.length === 1 ? "Duplicate attachment skipped" : "Duplicate attachments skipped",
-            text: formatFileListForToast(duplicateNames),
-        });
-    }
+	if (duplicateNames.length) {
+		toastService.warn({
+			title: duplicateNames.length === 1 ? "Duplicate attachment skipped" : "Duplicate attachments skipped",
+			text: formatFileListForToast(duplicateNames)
+		});
+	}
 
-    if (oversizedNames.length) {
-        toastService.warn({
-            title: oversizedNames.length === 1 ? "File exceeds 5 MB limit" : "Files exceed 5 MB limit",
-            text: formatFileListForToast(oversizedNames),
-        });
-    }
+	if (oversizedNames.length) {
+		toastService.warn({
+			title: oversizedNames.length === 1 ? "File exceeds 5 MB limit" : "Files exceed 5 MB limit",
+			text: formatFileListForToast(oversizedNames)
+		});
+	}
 
-    if (unsupportedNames.length) {
-        toastService.danger({
-            title: unsupportedNames.length === 1 ? "Unsupported file type" : "Unsupported file types",
-            text: `${formatFileListForToast(unsupportedNames)}\nSupported types: ${SUPPORTED_TYPES_LABEL}.`,
-        });
-    }
+	if (unsupportedNames.length) {
+		toastService.danger({
+			title: unsupportedNames.length === 1 ? "Unsupported file type" : "Unsupported file types",
+			text: `${formatFileListForToast(unsupportedNames)}\nSupported types: ${SUPPORTED_TYPES_LABEL}.`
+		});
+	}
 
-    if (limitReached) {
-        toastService.warn({
-            title: "Attachment limit reached",
-            text: `You can attach up to ${MAX_ATTACHMENTS} files per message.`,
-        });
-    }
+	if (limitReached) {
+		toastService.warn({
+			title: "Attachment limit reached",
+			text: `You can attach up to ${MAX_ATTACHMENTS} files per message.`
+		});
+	}
 }
 
 function syncAttachmentInput(): void {
-    const dataTransfer = new DataTransfer();
-    for (const file of attachmentState) {
-        dataTransfer.items.add(file);
-    }
-    attachmentsInput!.files = dataTransfer.files;
+	const dataTransfer = new DataTransfer();
+	for (const file of attachmentState) {
+		dataTransfer.items.add(file);
+	}
+	attachmentsInput!.files = dataTransfer.files;
 }
 
 function collectFilesFromClipboard(event: ClipboardEvent): File[] {
-    const data = event.clipboardData;
-    if (!data) {
-        return [];
-    }
-    const files: File[] = [];
-    for (const file of Array.from(data.files || [])) {
-        if (file) {
-            files.push(file);
-        }
-    }
-    for (const item of Array.from(data.items || [])) {
-        if (item.kind === "file") {
-            const file = item.getAsFile();
-            if (file) {
-                files.push(file);
-            }
-        }
-    }
-    return dedupeFiles(files);
+	const data = event.clipboardData;
+	if (!data) {
+		return [];
+	}
+	const files: File[] = [];
+	for (const file of Array.from(data.files || [])) {
+		if (file) {
+			files.push(file);
+		}
+	}
+	for (const item of Array.from(data.items || [])) {
+		if (item.kind === "file") {
+			const file = item.getAsFile();
+			if (file) {
+				files.push(file);
+			}
+		}
+	}
+	return dedupeFiles(files);
 }
 
 function dedupeFiles(files: File[]): File[] {
-    const seen = new Set<string>();
-    const unique: File[] = [];
-    for (const file of files) {
-        const signature = getFileSignature(file);
-        if (seen.has(signature)) {
-            continue;
-        }
-        seen.add(signature);
-        unique.push(file);
-    }
-    return unique;
+	const seen = new Set<string>();
+	const unique: File[] = [];
+	for (const file of files) {
+		const signature = getFileSignature(file);
+		if (seen.has(signature)) {
+			continue;
+		}
+		seen.add(signature);
+		unique.push(file);
+	}
+	return unique;
 }
 
 function handleDragEnter(event: DragEvent): void {
-    if (!isFileDrag(event)) {
-        return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    if (dragDepth === 0) {
-        messageBox!.classList.add("drag-over");
-    }
-    dragDepth += 1;
+	if (!isFileDrag(event)) {
+		return;
+	}
+	event.preventDefault();
+	event.stopPropagation();
+	if (dragDepth === 0) {
+		messageBox!.classList.add("drag-over");
+	}
+	dragDepth += 1;
 }
 
 function handleDragOver(event: DragEvent): void {
-    if (!isFileDrag(event)) {
-        return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.dataTransfer) {
-        event.dataTransfer.dropEffect = "copy";
-    }
+	if (!isFileDrag(event)) {
+		return;
+	}
+	event.preventDefault();
+	event.stopPropagation();
+	if (event.dataTransfer) {
+		event.dataTransfer.dropEffect = "copy";
+	}
 }
 
 function handleDragLeave(event: DragEvent): void {
-    if (!isFileDrag(event)) {
-        return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    dragDepth = Math.max(0, dragDepth - 1);
-    if (dragDepth === 0) {
-        messageBox!.classList.remove("drag-over");
-    }
+	if (!isFileDrag(event)) {
+		return;
+	}
+	event.preventDefault();
+	event.stopPropagation();
+	dragDepth = Math.max(0, dragDepth - 1);
+	if (dragDepth === 0) {
+		messageBox!.classList.remove("drag-over");
+	}
 }
 
 function handleDrop(event: DragEvent): void {
-    if (!isFileDrag(event)) {
-        return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    const files = collectFilesFromDataTransfer(event.dataTransfer);
-    if (files.length) {
-        addAttachments(files);
-    }
-    resetDragState();
+	if (!isFileDrag(event)) {
+		return;
+	}
+	event.preventDefault();
+	event.stopPropagation();
+	const files = collectFilesFromDataTransfer(event.dataTransfer);
+	if (files.length) {
+		addAttachments(files);
+	}
+	resetDragState();
 }
 
 function collectFilesFromDataTransfer(dataTransfer: DataTransfer | null): File[] {
-    if (!dataTransfer) {
-        return [];
-    }
-    const files: File[] = [];
-    for (const file of Array.from(dataTransfer.files || [])) {
-        if (file) {
-            files.push(file);
-        }
-    }
-    for (const item of Array.from(dataTransfer.items || [])) {
-        if (item.kind === "file") {
-            const file = item.getAsFile();
-            if (file) {
-                files.push(file);
-            }
-        }
-    }
-    return dedupeFiles(files);
+	if (!dataTransfer) {
+		return [];
+	}
+	const files: File[] = [];
+	for (const file of Array.from(dataTransfer.files || [])) {
+		if (file) {
+			files.push(file);
+		}
+	}
+	for (const item of Array.from(dataTransfer.items || [])) {
+		if (item.kind === "file") {
+			const file = item.getAsFile();
+			if (file) {
+				files.push(file);
+			}
+		}
+	}
+	return dedupeFiles(files);
 }
 
 function isFileDrag(event: DragEvent): boolean {
-    return Array.from(event.dataTransfer?.types || []).includes("Files");
+	return Array.from(event.dataTransfer?.types || []).includes("Files");
 }
 
 function resetDragState(): void {
-    dragDepth = 0;
-    messageBox!.classList.remove("drag-over");
+	dragDepth = 0;
+	messageBox!.classList.remove("drag-over");
 }
 
 function getDisplayName(file: File): string {
-    return file.name?.trim() ? file.name : "Unnamed file";
+	return file.name?.trim() ? file.name : "Unnamed file";
 }
 
 /**
  * Updates or creates the history image preview based on current chat state
  */
 async function updateHistoryPreview(): Promise<void> {
-    // Don't show if there are attachments
-    if (getAttachmentCount() > 0) {
-        clearHistoryPreview();
-        return;
-    }
+	// Don't show if there are attachments
+	if (getAttachmentCount() > 0) {
+		clearHistoryPreview();
+		return;
+	}
 
-    const currentChat = await chatsService.getCurrentChat();
-    if (!currentChat) {
-        clearHistoryPreview();
-        return;
-    }
+	const currentChat = await chatsService.getCurrentChat();
+	if (!currentChat) {
+		clearHistoryPreview();
+		return;
+	}
 
-    const editableImage = await findLastEditableImage(currentChat);
-    if (!editableImage) {
-        clearHistoryPreview();
-        return;
-    }
+	const editableImage = await findLastEditableImage(currentChat);
+	if (!editableImage) {
+		clearHistoryPreview();
+		return;
+	}
 
-    // Remove existing preview if any
-    clearHistoryPreview();
+	// Remove existing preview if any
+	clearHistoryPreview();
 
-    // Create and add new preview
-    currentHistoryImagePreview = historyImagePreviewElement(editableImage);
-    attachmentPreview!.appendChild(currentHistoryImagePreview);
+	// Create and add new preview
+	currentHistoryImagePreview = historyImagePreviewElement(editableImage);
+	attachmentPreview!.appendChild(currentHistoryImagePreview);
 }
 
 /**
  * Clears the history image preview
  */
 function clearHistoryPreview(): void {
-    // Remove tracked preview
-    if (currentHistoryImagePreview) {
-        currentHistoryImagePreview.remove();
-        currentHistoryImagePreview = null;
-    }
+	// Remove tracked preview
+	if (currentHistoryImagePreview) {
+		currentHistoryImagePreview.remove();
+		currentHistoryImagePreview = null;
+	}
 
-    // Also remove any orphaned history previews that might exist in the DOM
-    const orphanedPreviews = attachmentPreview?.querySelectorAll('.history-image-preview');
-    orphanedPreviews?.forEach(preview => preview.remove());
+	// Also remove any orphaned history previews that might exist in the DOM
+	const orphanedPreviews = attachmentPreview?.querySelectorAll(".history-image-preview");
+	orphanedPreviews?.forEach((preview) => preview.remove());
 }
 
 function enforceImageLimitForModel(): void {
-    const editingModel = getSelectedEditingModel();
-    const maxImages = MODEL_IMAGE_LIMITS[editingModel];
-    if (!maxImages) return;
+	const editingModel = getSelectedEditingModel();
+	const maxImages = MODEL_IMAGE_LIMITS[editingModel];
+	if (!maxImages) return;
 
-    const imageFiles = attachmentState.filter(file => file.type.startsWith("image/"));
-    if (imageFiles.length <= maxImages) {
-        return;
-    }
+	const imageFiles = attachmentState.filter((file) => file.type.startsWith("image/"));
+	if (imageFiles.length <= maxImages) {
+		return;
+	}
 
-    let keptImages = 0;
-    let removedImages = 0;
-    const nextAttachmentState: File[] = [];
+	let keptImages = 0;
+	let removedImages = 0;
+	const nextAttachmentState: File[] = [];
 
-    for (const file of attachmentState) {
-        if (!file.type.startsWith("image/")) {
-            nextAttachmentState.push(file);
-            continue;
-        }
+	for (const file of attachmentState) {
+		if (!file.type.startsWith("image/")) {
+			nextAttachmentState.push(file);
+			continue;
+		}
 
-        if (keptImages < maxImages) {
-            nextAttachmentState.push(file);
-            keptImages += 1;
-        } else {
-            removedImages += 1;
-        }
-    }
+		if (keptImages < maxImages) {
+			nextAttachmentState.push(file);
+			keptImages += 1;
+		} else {
+			removedImages += 1;
+		}
+	}
 
-    attachmentState = nextAttachmentState;
-    syncAttachmentInput();
+	attachmentState = nextAttachmentState;
+	syncAttachmentInput();
 
-    // Rebuild attachment previews from state to avoid duplicates
-    const previews = attachmentPreview?.querySelectorAll('.attachment-container:not(.history-image-preview)');
-    previews?.forEach(preview => preview.remove());
+	// Rebuild attachment previews from state to avoid duplicates
+	const previews = attachmentPreview?.querySelectorAll(".attachment-container:not(.history-image-preview)");
+	previews?.forEach((preview) => preview.remove());
 
-    for (const file of attachmentState) {
-        const preview = attachmentPreviewElement(file);
-        preview.dataset.attachmentSignature = getFileSignature(file);
-        attachmentPreview!.appendChild(preview);
-    }
+	for (const file of attachmentState) {
+		const preview = attachmentPreviewElement(file);
+		preview.dataset.attachmentSignature = getFileSignature(file);
+		attachmentPreview!.appendChild(preview);
+	}
 
-    const modelName = editingModel.charAt(0).toUpperCase() + editingModel.slice(1);
-    toastService.warn({
-        title: `${modelName} supports up to ${maxImages} image${maxImages > 1 ? 's' : ''}`,
-        text: `${removedImages} image${removedImages > 1 ? 's were' : ' was'} removed.`,
-    });
+	const modelName = editingModel.charAt(0).toUpperCase() + editingModel.slice(1);
+	toastService.warn({
+		title: `${modelName} supports up to ${maxImages} image${maxImages > 1 ? "s" : ""}`,
+		text: `${removedImages} image${removedImages > 1 ? "s were" : " was"} removed.`
+	});
 }
 
 /**
  * Export function to get current history image data URI
  */
 export function getCurrentHistoryImageDataUri(): string | null {
-    if (!currentHistoryImagePreview) {
-        return null;
-    }
+	if (!currentHistoryImagePreview) {
+		return null;
+	}
 
-    const img = currentHistoryImagePreview.querySelector<HTMLImageElement>('.history-image-thumbnail');
-    return img?.src || null;
+	const img = currentHistoryImagePreview.querySelector<HTMLImageElement>(".history-image-thumbnail");
+	return img?.src || null;
 }

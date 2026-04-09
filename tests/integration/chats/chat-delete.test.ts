@@ -7,113 +7,113 @@ import { resetIndexedDb } from "../../helpers/db";
 import { bootstrapDom } from "../../helpers/dom";
 
 vi.mock("highlight.js", () => ({
-    default: {
-        highlightAll: vi.fn(),
-    },
+	default: {
+		highlightAll: vi.fn()
+	}
 }));
 
 vi.mock("../../../src/services/Settings.service", () => ({
-    isMobile: vi.fn(() => false),
+	isMobile: vi.fn(() => false)
 }));
 
 vi.mock("../../../src/services/Personality.service", () => ({
-    get: vi.fn(async () => ({
-        name: "Mock Persona",
-        image: "https://example.com/persona.png",
-        description: "Mock persona",
-        prompt: "Be helpful.",
-        aggressiveness: 0,
-        sensuality: 0,
-        independence: 0,
-        nsfw: false,
-        internetEnabled: false,
-        roleplayEnabled: false,
-        toneExamples: [],
-        tags: [],
-        category: "assistant",
-    })),
-    getDefault: vi.fn(() => ({
-        name: "Mock Persona",
-        image: "https://example.com/persona.png",
-        description: "Mock persona",
-        prompt: "Be helpful.",
-        aggressiveness: 0,
-        sensuality: 0,
-        independence: 0,
-        nsfw: false,
-        internetEnabled: false,
-        roleplayEnabled: false,
-        toneExamples: [],
-        tags: [],
-        category: "assistant",
-    })),
+	get: vi.fn(async () => ({
+		name: "Mock Persona",
+		image: "https://example.com/persona.png",
+		description: "Mock persona",
+		prompt: "Be helpful.",
+		aggressiveness: 0,
+		sensuality: 0,
+		independence: 0,
+		nsfw: false,
+		internetEnabled: false,
+		roleplayEnabled: false,
+		toneExamples: [],
+		tags: [],
+		category: "assistant"
+	})),
+	getDefault: vi.fn(() => ({
+		name: "Mock Persona",
+		image: "https://example.com/persona.png",
+		description: "Mock persona",
+		prompt: "Be helpful.",
+		aggressiveness: 0,
+		sensuality: 0,
+		independence: 0,
+		nsfw: false,
+		internetEnabled: false,
+		roleplayEnabled: false,
+		toneExamples: [],
+		tags: [],
+		category: "assistant"
+	}))
 }));
 
 vi.mock("../../../src/services/Message.service", () => ({
-    ensureRoundBlockUi: vi.fn(),
+	ensureRoundBlockUi: vi.fn()
 }));
 
 vi.mock("../../../src/services/Overlay.service", () => ({
-    showMessageDebugModal: vi.fn(),
+	showMessageDebugModal: vi.fn()
 }));
 
 vi.mock("../../../src/services/Parser.service", () => ({
-    parseMarkdownToHtml: vi.fn(async (text: string) => text),
-    parseHtmlToMarkdown: vi.fn((text: string) => text),
+	parseMarkdownToHtml: vi.fn(async (text: string) => text),
+	parseHtmlToMarkdown: vi.fn((text: string) => text)
 }));
 
 vi.mock("../../../src/services/Toast.service", () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    danger: vi.fn(),
+	info: vi.fn(),
+	warn: vi.fn(),
+	danger: vi.fn()
 }));
 
 vi.mock("../../../src/services/Sync.service", () => ({
-    isOnlineSyncEnabled: vi.fn(() => false),
-    isSyncActive: vi.fn(() => false),
-    fetchSyncedChatsMetadata: vi.fn(async () => []),
-    fetchSyncedChatMetadata: vi.fn(async () => null),
-    hydrateLatestChatMessagesWindow: vi.fn(async () => null),
-    hydrateOlderChatMessagesWindow: vi.fn(async () => null),
-    upsertSyncedChat: vi.fn(async () => true),
-    deleteSyncedChat: vi.fn(async () => true),
+	isOnlineSyncEnabled: vi.fn(() => false),
+	isSyncActive: vi.fn(() => false),
+	fetchSyncedChatsMetadata: vi.fn(async () => []),
+	fetchSyncedChatMetadata: vi.fn(async () => null),
+	hydrateLatestChatMessagesWindow: vi.fn(async () => null),
+	hydrateOlderChatMessagesWindow: vi.fn(async () => null),
+	upsertSyncedChat: vi.fn(async () => true),
+	deleteSyncedChat: vi.fn(async () => true)
 }));
 
 vi.mock("../../../src/services/Pinning.service", () => ({
-    getPinnedChatIds: vi.fn(() => []),
-    isChatPinned: vi.fn(() => false),
-    toggleChatPinned: vi.fn(async () => false),
-    removeChatPin: vi.fn(async () => {}),
-    clearChatPins: vi.fn(async () => {}),
+	getPinnedChatIds: vi.fn(() => []),
+	isChatPinned: vi.fn(() => false),
+	toggleChatPinned: vi.fn(async () => false),
+	removeChatPin: vi.fn(async () => {}),
+	clearChatPins: vi.fn(async () => {})
 }));
 
 vi.mock("../../../src/utils/helpers", () => ({
-    getDecoded: vi.fn(async (value: string) => value),
-    getSanitized: vi.fn((value: string) => value),
-    messageContainerScrollToBottom: vi.fn(),
-    hideElement: vi.fn(),
-    showElement: vi.fn(),
+	getDecoded: vi.fn(async (value: string) => value),
+	getSanitized: vi.fn((value: string) => value),
+	messageContainerScrollToBottom: vi.fn(),
+	hideElement: vi.fn(),
+	showElement: vi.fn()
 }));
 
 vi.mock("../../../src/utils/codeBlocks", () => ({
-    enhanceCodeBlocks: vi.fn(),
-    stripCodeBlockEnhancements: vi.fn(),
+	enhanceCodeBlocks: vi.fn(),
+	stripCodeBlockEnhancements: vi.fn()
 }));
 
 vi.mock("../../../src/utils/blobResolver", () => ({
-    resolveAttachmentFile: vi.fn(),
-    resolveGeneratedImageSrc: vi.fn(),
-    resolveThoughtSignature: vi.fn(async (part: { thoughtSignature?: string }) => part.thoughtSignature),
+	resolveAttachmentFile: vi.fn(),
+	resolveGeneratedImageSrc: vi.fn(),
+	resolveThoughtSignature: vi.fn(async (part: { thoughtSignature?: string }) => part.thoughtSignature)
 }));
 
 vi.mock("../../../src/events", () => ({
-    dispatchAppEvent: vi.fn((name: string, detail: unknown) => {
-        window.dispatchEvent(new CustomEvent(name, { detail }));
-    }),
+	dispatchAppEvent: vi.fn((name: string, detail: unknown) => {
+		window.dispatchEvent(new CustomEvent(name, { detail }));
+	})
 }));
 
 function bootstrapChatDom(): void {
-    bootstrapDom(`
+	bootstrapDom(`
         <div class="sidebar"></div>
         <div id="chatHistorySection"></div>
         <div id="chat-title"></div>
@@ -125,453 +125,467 @@ function bootstrapChatDom(): void {
 }
 
 function getVisibleMessageTexts(): string[] {
-    return Array.from(document.querySelectorAll<HTMLElement>(".message"))
-        .filter((element) => element.dataset.hidden !== "true" && element.style.display !== "none")
-        .map((element) => {
-            return element.querySelector<HTMLElement>(".message-text-content")?.textContent
-                ?? element.querySelector<HTMLElement>(".message-text")?.textContent
-                ?? "";
-        })
-        .filter(Boolean);
+	return Array.from(document.querySelectorAll<HTMLElement>(".message"))
+		.filter((element) => element.dataset.hidden !== "true" && element.style.display !== "none")
+		.map((element) => {
+			return (
+				element.querySelector<HTMLElement>(".message-text-content")?.textContent ??
+				element.querySelector<HTMLElement>(".message-text")?.textContent ??
+				""
+			);
+		})
+		.filter(Boolean);
 }
 
 function makeLongChatMessages(total: number) {
-    return Array.from({ length: total }, (_, index) => {
-        const label = index.toString().padStart(3, "0");
-        return makeUserMessage(`Current long message ${label}`);
-    });
+	return Array.from({ length: total }, (_, index) => {
+		const label = index.toString().padStart(3, "0");
+		return makeUserMessage(`Current long message ${label}`);
+	});
 }
 
 async function loadServices() {
-    const dbService = await import("../../../src/services/Db.service");
-    const chatsService = await import("../../../src/services/Chats.service");
+	const dbService = await import("../../../src/services/Db.service");
+	const chatsService = await import("../../../src/services/Chats.service");
 
-    return {
-        db: dbService.db,
-        chatsService,
-    };
+	return {
+		db: dbService.db,
+		chatsService
+	};
 }
 
 async function createChat(args: {
-    chatsService: Awaited<ReturnType<typeof loadServices>>["chatsService"];
-    chatId: string;
-    title: string;
-    messageText: string;
+	chatsService: Awaited<ReturnType<typeof loadServices>>["chatsService"];
+	chatId: string;
+	title: string;
+	messageText: string;
 }): Promise<void> {
-    await args.chatsService.addChatRecord(makeChat({
-        id: args.chatId,
-        title: args.title,
-        content: [makeUserMessage(args.messageText)],
-    }));
+	await args.chatsService.addChatRecord(
+		makeChat({
+			id: args.chatId,
+			title: args.title,
+			content: [makeUserMessage(args.messageText)]
+		})
+	);
 }
 
 describe("chat deletion behavior", () => {
-    let db: Db | undefined;
+	let db: Db | undefined;
 
-    beforeEach(async () => {
-        vi.resetModules();
-        await resetIndexedDb();
-        bootstrapChatDom();
-    });
+	beforeEach(async () => {
+		vi.resetModules();
+		await resetIndexedDb();
+		bootstrapChatDom();
+	});
 
-    afterEach(async () => {
-        db?.close();
-        db = undefined;
-        await resetIndexedDb();
-    });
+	afterEach(async () => {
+		db?.close();
+		db = undefined;
+		await resetIndexedDb();
+	});
 
-    it("deletes the selected chat and returns to the new-chat state", async () => {
-        const { db: testDb, chatsService } = await loadServices();
-        db = testDb;
-        const pinningService = await import("../../../src/services/Pinning.service");
+	it("deletes the selected chat and returns to the new-chat state", async () => {
+		const { db: testDb, chatsService } = await loadServices();
+		db = testDb;
+		const pinningService = await import("../../../src/services/Pinning.service");
 
-        await createChat({
-            chatsService,
-            chatId: "chat-selected-delete",
-            title: "Selected Chat",
-            messageText: "Selected message",
-        });
-        await createChat({
-            chatsService,
-            chatId: "chat-neighbor-keep",
-            title: "Neighbor Chat",
-            messageText: "Neighbor message",
-        });
+		await createChat({
+			chatsService,
+			chatId: "chat-selected-delete",
+			title: "Selected Chat",
+			messageText: "Selected message"
+		});
+		await createChat({
+			chatsService,
+			chatId: "chat-neighbor-keep",
+			title: "Neighbor Chat",
+			messageText: "Neighbor message"
+		});
 
-        const selectedRadio = document.querySelector<HTMLInputElement>("#chatchat-selected-delete");
-        if (!selectedRadio) {
-            throw new Error("Missing selected chat radio");
-        }
+		const selectedRadio = document.querySelector<HTMLInputElement>("#chatchat-selected-delete");
+		if (!selectedRadio) {
+			throw new Error("Missing selected chat radio");
+		}
 
-        selectedRadio.click();
-        await chatsService.loadChat("chat-selected-delete");
+		selectedRadio.click();
+		await chatsService.loadChat("chat-selected-delete");
 
-        expect(chatsService.getCurrentChatId()).toBe("chat-selected-delete");
-        expect((await chatsService.getCurrentChat())?.id).toBe("chat-selected-delete");
-        expect(document.querySelector("#chat-title")?.textContent).toBe("Selected Chat");
-        expect(getVisibleMessageTexts()).toEqual(["Selected message"]);
+		expect(chatsService.getCurrentChatId()).toBe("chat-selected-delete");
+		expect((await chatsService.getCurrentChat())?.id).toBe("chat-selected-delete");
+		expect(document.querySelector("#chat-title")?.textContent).toBe("Selected Chat");
+		expect(getVisibleMessageTexts()).toEqual(["Selected message"]);
 
-        await chatsService.deleteChat("chat-selected-delete", testDb);
+		await chatsService.deleteChat("chat-selected-delete", testDb);
 
-        expect(await testDb.chats.get("chat-selected-delete")).toBeUndefined();
-        expect(await testDb.chats.get("chat-neighbor-keep")).toMatchObject({
-            id: "chat-neighbor-keep",
-            title: "Neighbor Chat",
-        });
+		expect(await testDb.chats.get("chat-selected-delete")).toBeUndefined();
+		expect(await testDb.chats.get("chat-neighbor-keep")).toMatchObject({
+			id: "chat-neighbor-keep",
+			title: "Neighbor Chat"
+		});
 
-        expect(chatsService.getCurrentChatId()).toBeNull();
-        expect(await chatsService.getCurrentChat()).toBeNull();
+		expect(chatsService.getCurrentChatId()).toBeNull();
+		expect(await chatsService.getCurrentChat()).toBeNull();
 
-        expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")).toBeNull();
-        expect(document.querySelector("#chat-title")?.textContent).toBe("");
-        expect(document.querySelectorAll(".message")).toHaveLength(0);
-        expect(getVisibleMessageTexts()).toEqual([]);
+		expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")).toBeNull();
+		expect(document.querySelector("#chat-title")?.textContent).toBe("");
+		expect(document.querySelectorAll(".message")).toHaveLength(0);
+		expect(getVisibleMessageTexts()).toEqual([]);
 
-        expect(document.querySelector("#chatchat-selected-delete")).toBeNull();
-        expect(document.querySelector("label[for='chatchat-selected-delete']")).toBeNull();
-        expect(document.querySelector("#chatchat-neighbor-keep")).not.toBeNull();
-        expect(document.querySelector("label[for='chatchat-neighbor-keep']")?.textContent).toContain("Neighbor Chat");
-        expect(vi.mocked(pinningService.removeChatPin)).toHaveBeenCalledWith("chat-selected-delete");
-    });
+		expect(document.querySelector("#chatchat-selected-delete")).toBeNull();
+		expect(document.querySelector("label[for='chatchat-selected-delete']")).toBeNull();
+		expect(document.querySelector("#chatchat-neighbor-keep")).not.toBeNull();
+		expect(document.querySelector("label[for='chatchat-neighbor-keep']")?.textContent).toContain("Neighbor Chat");
+		expect(vi.mocked(pinningService.removeChatPin)).toHaveBeenCalledWith("chat-selected-delete");
+	});
 
-    it("deletes an unselected chat without changing the current chat", async () => {
-        const { db: testDb, chatsService } = await loadServices();
-        db = testDb;
+	it("deletes an unselected chat without changing the current chat", async () => {
+		const { db: testDb, chatsService } = await loadServices();
+		db = testDb;
 
-        await createChat({
-            chatsService,
-            chatId: "chat-current-keep",
-            title: "Current Chat",
-            messageText: "Current message",
-        });
-        await createChat({
-            chatsService,
-            chatId: "chat-unselected-delete",
-            title: "Delete Me",
-            messageText: "Delete me message",
-        });
+		await createChat({
+			chatsService,
+			chatId: "chat-current-keep",
+			title: "Current Chat",
+			messageText: "Current message"
+		});
+		await createChat({
+			chatsService,
+			chatId: "chat-unselected-delete",
+			title: "Delete Me",
+			messageText: "Delete me message"
+		});
 
-        const currentRadio = document.querySelector<HTMLInputElement>("#chatchat-current-keep");
-        if (!currentRadio) {
-            throw new Error("Missing current chat radio");
-        }
+		const currentRadio = document.querySelector<HTMLInputElement>("#chatchat-current-keep");
+		if (!currentRadio) {
+			throw new Error("Missing current chat radio");
+		}
 
-        currentRadio.click();
-        await chatsService.loadChat("chat-current-keep");
+		currentRadio.click();
+		await chatsService.loadChat("chat-current-keep");
 
-        expect(chatsService.getCurrentChatId()).toBe("chat-current-keep");
-        expect((await chatsService.getCurrentChat())?.id).toBe("chat-current-keep");
-        expect(document.querySelector("#chat-title")?.textContent).toBe("Current Chat");
-        expect(getVisibleMessageTexts()).toEqual(["Current message"]);
+		expect(chatsService.getCurrentChatId()).toBe("chat-current-keep");
+		expect((await chatsService.getCurrentChat())?.id).toBe("chat-current-keep");
+		expect(document.querySelector("#chat-title")?.textContent).toBe("Current Chat");
+		expect(getVisibleMessageTexts()).toEqual(["Current message"]);
 
-        await chatsService.deleteChat("chat-unselected-delete", testDb);
+		await chatsService.deleteChat("chat-unselected-delete", testDb);
 
-        expect(await testDb.chats.get("chat-unselected-delete")).toBeUndefined();
-        expect(await testDb.chats.get("chat-current-keep")).toMatchObject({
-            id: "chat-current-keep",
-            title: "Current Chat",
-        });
+		expect(await testDb.chats.get("chat-unselected-delete")).toBeUndefined();
+		expect(await testDb.chats.get("chat-current-keep")).toMatchObject({
+			id: "chat-current-keep",
+			title: "Current Chat"
+		});
 
-        expect(chatsService.getCurrentChatId()).toBe("chat-current-keep");
-        expect((await chatsService.getCurrentChat())?.id).toBe("chat-current-keep");
-        expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")?.id).toBe(
-            "chatchat-current-keep",
-        );
-        expect(document.querySelector("#chat-title")?.textContent).toBe("Current Chat");
-        expect(getVisibleMessageTexts()).toEqual(["Current message"]);
+		expect(chatsService.getCurrentChatId()).toBe("chat-current-keep");
+		expect((await chatsService.getCurrentChat())?.id).toBe("chat-current-keep");
+		expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")?.id).toBe(
+			"chatchat-current-keep"
+		);
+		expect(document.querySelector("#chat-title")?.textContent).toBe("Current Chat");
+		expect(getVisibleMessageTexts()).toEqual(["Current message"]);
 
-        expect(document.querySelector("#chatchat-unselected-delete")).toBeNull();
-        expect(document.querySelector("label[for='chatchat-unselected-delete']")).toBeNull();
-        expect(document.querySelector("#chatchat-current-keep")).not.toBeNull();
-        expect(document.querySelector("label[for='chatchat-current-keep']")?.textContent).toContain("Current Chat");
-    });
+		expect(document.querySelector("#chatchat-unselected-delete")).toBeNull();
+		expect(document.querySelector("label[for='chatchat-unselected-delete']")).toBeNull();
+		expect(document.querySelector("#chatchat-current-keep")).not.toBeNull();
+		expect(document.querySelector("label[for='chatchat-current-keep']")?.textContent).toContain("Current Chat");
+	});
 
-    it("deletes an unselected synced chat without changing the current synced chat", async () => {
-        const syncService = await import("../../../src/services/Sync.service");
-        const { db: testDb, chatsService } = await loadServices();
-        db = testDb;
+	it("deletes an unselected synced chat without changing the current synced chat", async () => {
+		const syncService = await import("../../../src/services/Sync.service");
+		const { db: testDb, chatsService } = await loadServices();
+		db = testDb;
 
-        const syncedCurrentChatMetadata = makeChat({
-            id: "chat-synced-current-keep",
-            title: "Current Synced Chat",
-            content: [],
-        });
-        const syncedDeletedChatMetadata = makeChat({
-            id: "chat-synced-delete-me",
-            title: "Delete Synced Chat",
-            content: [],
-        });
-        const syncedCurrentMessages = [makeUserMessage("Current synced message")];
-        const syncedChatsById = new Map([
-            [syncedCurrentChatMetadata.id, syncedCurrentChatMetadata],
-            [syncedDeletedChatMetadata.id, syncedDeletedChatMetadata],
-        ]);
+		const syncedCurrentChatMetadata = makeChat({
+			id: "chat-synced-current-keep",
+			title: "Current Synced Chat",
+			content: []
+		});
+		const syncedDeletedChatMetadata = makeChat({
+			id: "chat-synced-delete-me",
+			title: "Delete Synced Chat",
+			content: []
+		});
+		const syncedCurrentMessages = [makeUserMessage("Current synced message")];
+		const syncedChatsById = new Map([
+			[syncedCurrentChatMetadata.id, syncedCurrentChatMetadata],
+			[syncedDeletedChatMetadata.id, syncedDeletedChatMetadata]
+		]);
 
-        vi.mocked(syncService.isOnlineSyncEnabled).mockReturnValue(true);
-        vi.mocked(syncService.isSyncActive).mockReturnValue(true);
-        vi.mocked(syncService.upsertSyncedChat).mockImplementation(async (chat) => {
-            syncedChatsById.set(chat.id, {
-                ...chat,
-                content: [],
-            });
+		vi.mocked(syncService.isOnlineSyncEnabled).mockReturnValue(true);
+		vi.mocked(syncService.isSyncActive).mockReturnValue(true);
+		vi.mocked(syncService.upsertSyncedChat).mockImplementation(async (chat) => {
+			syncedChatsById.set(chat.id, {
+				...chat,
+				content: []
+			});
 
-            return true;
-        });
-        vi.mocked(syncService.fetchSyncedChatsMetadata).mockImplementation(async () => {
-            return Array.from(syncedChatsById.values()).map((chat) => structuredClone(chat));
-        });
-        vi.mocked(syncService.fetchSyncedChatMetadata).mockImplementation(async (chatId: string) => {
-            const chat = syncedChatsById.get(chatId);
-            return chat ? structuredClone(chat) : null;
-        });
-        vi.mocked(syncService.hydrateLatestChatMessagesWindow).mockImplementation(async (chatId: string) => {
-            if (chatId !== syncedCurrentChatMetadata.id) {
-                return null;
-            }
+			return true;
+		});
+		vi.mocked(syncService.fetchSyncedChatsMetadata).mockImplementation(async () => {
+			return Array.from(syncedChatsById.values()).map((chat) => structuredClone(chat));
+		});
+		vi.mocked(syncService.fetchSyncedChatMetadata).mockImplementation(async (chatId: string) => {
+			const chat = syncedChatsById.get(chatId);
+			return chat ? structuredClone(chat) : null;
+		});
+		vi.mocked(syncService.hydrateLatestChatMessagesWindow).mockImplementation(async (chatId: string) => {
+			if (chatId !== syncedCurrentChatMetadata.id) {
+				return null;
+			}
 
-            return {
-                messages: structuredClone(syncedCurrentMessages),
-                startIndex: 0,
-                endExclusive: syncedCurrentMessages.length,
-                totalCount: syncedCurrentMessages.length,
-                hasMoreOlder: false,
-            };
-        });
-        vi.mocked(syncService.deleteSyncedChat).mockImplementation(async (chatId: string) => {
-            return syncedChatsById.delete(chatId);
-        });
+			return {
+				messages: structuredClone(syncedCurrentMessages),
+				startIndex: 0,
+				endExclusive: syncedCurrentMessages.length,
+				totalCount: syncedCurrentMessages.length,
+				hasMoreOlder: false
+			};
+		});
+		vi.mocked(syncService.deleteSyncedChat).mockImplementation(async (chatId: string) => {
+			return syncedChatsById.delete(chatId);
+		});
 
-        await chatsService.addChatRecord(makeChat({
-            id: syncedCurrentChatMetadata.id,
-            title: syncedCurrentChatMetadata.title,
-            content: syncedCurrentMessages,
-        }));
-        await chatsService.addChatRecord(makeChat({
-            id: syncedDeletedChatMetadata.id,
-            title: syncedDeletedChatMetadata.title,
-            content: [makeUserMessage("Delete synced message")],
-        }));
+		await chatsService.addChatRecord(
+			makeChat({
+				id: syncedCurrentChatMetadata.id,
+				title: syncedCurrentChatMetadata.title,
+				content: syncedCurrentMessages
+			})
+		);
+		await chatsService.addChatRecord(
+			makeChat({
+				id: syncedDeletedChatMetadata.id,
+				title: syncedDeletedChatMetadata.title,
+				content: [makeUserMessage("Delete synced message")]
+			})
+		);
 
-        const currentRadio = document.querySelector<HTMLInputElement>(`#chat${syncedCurrentChatMetadata.id}`);
-        if (!currentRadio) {
-            throw new Error("Missing current synced chat radio");
-        }
+		const currentRadio = document.querySelector<HTMLInputElement>(`#chat${syncedCurrentChatMetadata.id}`);
+		if (!currentRadio) {
+			throw new Error("Missing current synced chat radio");
+		}
 
-        currentRadio.click();
-        await chatsService.loadChat(syncedCurrentChatMetadata.id);
+		currentRadio.click();
+		await chatsService.loadChat(syncedCurrentChatMetadata.id);
 
-        expect(chatsService.getCurrentChatId()).toBe(syncedCurrentChatMetadata.id);
-        expect((await chatsService.getCurrentChat())?.title).toBe("Current Synced Chat");
-        expect((await chatsService.getCurrentChat())?.content.map((message) => message.parts[0]?.text ?? "")).toEqual([
-            "Current synced message",
-        ]);
-        expect(document.querySelector("#chat-title")?.textContent).toBe("Current Synced Chat");
-        expect(getVisibleMessageTexts()).toEqual(["Current synced message"]);
+		expect(chatsService.getCurrentChatId()).toBe(syncedCurrentChatMetadata.id);
+		expect((await chatsService.getCurrentChat())?.title).toBe("Current Synced Chat");
+		expect((await chatsService.getCurrentChat())?.content.map((message) => message.parts[0]?.text ?? "")).toEqual([
+			"Current synced message"
+		]);
+		expect(document.querySelector("#chat-title")?.textContent).toBe("Current Synced Chat");
+		expect(getVisibleMessageTexts()).toEqual(["Current synced message"]);
 
-        await chatsService.deleteChat(syncedDeletedChatMetadata.id, testDb);
+		await chatsService.deleteChat(syncedDeletedChatMetadata.id, testDb);
 
-        const currentChat = await chatsService.getCurrentChat();
+		const currentChat = await chatsService.getCurrentChat();
 
-        expect(syncService.deleteSyncedChat).toHaveBeenCalledWith(syncedDeletedChatMetadata.id);
-        expect(await testDb.chats.toArray()).toEqual([]);
-        expect(chatsService.getCurrentChatId()).toBe(syncedCurrentChatMetadata.id);
-        expect(currentChat).toMatchObject({
-            id: syncedCurrentChatMetadata.id,
-            title: "Current Synced Chat",
-        });
-        expect(currentChat?.content.map((message) => message.parts[0]?.text ?? "")).toEqual([
-            "Current synced message",
-        ]);
-        expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")?.id).toBe(
-            `chat${syncedCurrentChatMetadata.id}`,
-        );
-        expect(document.querySelector("#chat-title")?.textContent).toBe("Current Synced Chat");
-        expect(getVisibleMessageTexts()).toEqual(["Current synced message"]);
-        expect(document.querySelector(`#chat${syncedDeletedChatMetadata.id}`)).toBeNull();
-        expect(document.querySelector(`label[for='chat${syncedDeletedChatMetadata.id}']`)).toBeNull();
-        expect(document.querySelector(`#chat${syncedCurrentChatMetadata.id}`)).not.toBeNull();
-        expect(document.querySelector(`label[for='chat${syncedCurrentChatMetadata.id}']`)?.textContent).toContain(
-            "Current Synced Chat",
-        );
-    });
+		expect(syncService.deleteSyncedChat).toHaveBeenCalledWith(syncedDeletedChatMetadata.id);
+		expect(await testDb.chats.toArray()).toEqual([]);
+		expect(chatsService.getCurrentChatId()).toBe(syncedCurrentChatMetadata.id);
+		expect(currentChat).toMatchObject({
+			id: syncedCurrentChatMetadata.id,
+			title: "Current Synced Chat"
+		});
+		expect(currentChat?.content.map((message) => message.parts[0]?.text ?? "")).toEqual(["Current synced message"]);
+		expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")?.id).toBe(
+			`chat${syncedCurrentChatMetadata.id}`
+		);
+		expect(document.querySelector("#chat-title")?.textContent).toBe("Current Synced Chat");
+		expect(getVisibleMessageTexts()).toEqual(["Current synced message"]);
+		expect(document.querySelector(`#chat${syncedDeletedChatMetadata.id}`)).toBeNull();
+		expect(document.querySelector(`label[for='chat${syncedDeletedChatMetadata.id}']`)).toBeNull();
+		expect(document.querySelector(`#chat${syncedCurrentChatMetadata.id}`)).not.toBeNull();
+		expect(document.querySelector(`label[for='chat${syncedCurrentChatMetadata.id}']`)?.textContent).toContain(
+			"Current Synced Chat"
+		);
+	});
 
-    it("deletes the selected synced chat and returns to the new-chat state", async () => {
-        const syncService = await import("../../../src/services/Sync.service");
-        const { db: testDb, chatsService } = await loadServices();
-        db = testDb;
+	it("deletes the selected synced chat and returns to the new-chat state", async () => {
+		const syncService = await import("../../../src/services/Sync.service");
+		const { db: testDb, chatsService } = await loadServices();
+		db = testDb;
 
-        const syncedSelectedChatMetadata = makeChat({
-            id: "chat-synced-selected-delete",
-            title: "Selected Synced Chat",
-            content: [],
-        });
-        const syncedNeighborChatMetadata = makeChat({
-            id: "chat-synced-neighbor-keep",
-            title: "Neighbor Synced Chat",
-            content: [],
-        });
-        const syncedSelectedMessages = [makeUserMessage("Selected synced message")];
-        const syncedChatsById = new Map([
-            [syncedSelectedChatMetadata.id, syncedSelectedChatMetadata],
-            [syncedNeighborChatMetadata.id, syncedNeighborChatMetadata],
-        ]);
+		const syncedSelectedChatMetadata = makeChat({
+			id: "chat-synced-selected-delete",
+			title: "Selected Synced Chat",
+			content: []
+		});
+		const syncedNeighborChatMetadata = makeChat({
+			id: "chat-synced-neighbor-keep",
+			title: "Neighbor Synced Chat",
+			content: []
+		});
+		const syncedSelectedMessages = [makeUserMessage("Selected synced message")];
+		const syncedChatsById = new Map([
+			[syncedSelectedChatMetadata.id, syncedSelectedChatMetadata],
+			[syncedNeighborChatMetadata.id, syncedNeighborChatMetadata]
+		]);
 
-        vi.mocked(syncService.isOnlineSyncEnabled).mockReturnValue(true);
-        vi.mocked(syncService.isSyncActive).mockReturnValue(true);
-        vi.mocked(syncService.upsertSyncedChat).mockImplementation(async (chat) => {
-            syncedChatsById.set(chat.id, {
-                ...chat,
-                content: [],
-            });
+		vi.mocked(syncService.isOnlineSyncEnabled).mockReturnValue(true);
+		vi.mocked(syncService.isSyncActive).mockReturnValue(true);
+		vi.mocked(syncService.upsertSyncedChat).mockImplementation(async (chat) => {
+			syncedChatsById.set(chat.id, {
+				...chat,
+				content: []
+			});
 
-            return true;
-        });
-        vi.mocked(syncService.fetchSyncedChatsMetadata).mockImplementation(async () => {
-            return Array.from(syncedChatsById.values()).map((chat) => structuredClone(chat));
-        });
-        vi.mocked(syncService.fetchSyncedChatMetadata).mockImplementation(async (chatId: string) => {
-            const chat = syncedChatsById.get(chatId);
-            return chat ? structuredClone(chat) : null;
-        });
-        vi.mocked(syncService.hydrateLatestChatMessagesWindow).mockImplementation(async (chatId: string) => {
-            if (chatId !== syncedSelectedChatMetadata.id) {
-                return null;
-            }
+			return true;
+		});
+		vi.mocked(syncService.fetchSyncedChatsMetadata).mockImplementation(async () => {
+			return Array.from(syncedChatsById.values()).map((chat) => structuredClone(chat));
+		});
+		vi.mocked(syncService.fetchSyncedChatMetadata).mockImplementation(async (chatId: string) => {
+			const chat = syncedChatsById.get(chatId);
+			return chat ? structuredClone(chat) : null;
+		});
+		vi.mocked(syncService.hydrateLatestChatMessagesWindow).mockImplementation(async (chatId: string) => {
+			if (chatId !== syncedSelectedChatMetadata.id) {
+				return null;
+			}
 
-            return {
-                messages: structuredClone(syncedSelectedMessages),
-                startIndex: 0,
-                endExclusive: syncedSelectedMessages.length,
-                totalCount: syncedSelectedMessages.length,
-                hasMoreOlder: false,
-            };
-        });
-        vi.mocked(syncService.deleteSyncedChat).mockImplementation(async (chatId: string) => {
-            return syncedChatsById.delete(chatId);
-        });
+			return {
+				messages: structuredClone(syncedSelectedMessages),
+				startIndex: 0,
+				endExclusive: syncedSelectedMessages.length,
+				totalCount: syncedSelectedMessages.length,
+				hasMoreOlder: false
+			};
+		});
+		vi.mocked(syncService.deleteSyncedChat).mockImplementation(async (chatId: string) => {
+			return syncedChatsById.delete(chatId);
+		});
 
-        await chatsService.addChatRecord(makeChat({
-            id: syncedSelectedChatMetadata.id,
-            title: syncedSelectedChatMetadata.title,
-            content: syncedSelectedMessages,
-        }));
-        await chatsService.addChatRecord(makeChat({
-            id: syncedNeighborChatMetadata.id,
-            title: syncedNeighborChatMetadata.title,
-            content: [makeUserMessage("Neighbor synced message")],
-        }));
+		await chatsService.addChatRecord(
+			makeChat({
+				id: syncedSelectedChatMetadata.id,
+				title: syncedSelectedChatMetadata.title,
+				content: syncedSelectedMessages
+			})
+		);
+		await chatsService.addChatRecord(
+			makeChat({
+				id: syncedNeighborChatMetadata.id,
+				title: syncedNeighborChatMetadata.title,
+				content: [makeUserMessage("Neighbor synced message")]
+			})
+		);
 
-        const selectedRadio = document.querySelector<HTMLInputElement>(`#chat${syncedSelectedChatMetadata.id}`);
-        if (!selectedRadio) {
-            throw new Error("Missing selected synced chat radio");
-        }
+		const selectedRadio = document.querySelector<HTMLInputElement>(`#chat${syncedSelectedChatMetadata.id}`);
+		if (!selectedRadio) {
+			throw new Error("Missing selected synced chat radio");
+		}
 
-        selectedRadio.click();
-        await chatsService.loadChat(syncedSelectedChatMetadata.id);
+		selectedRadio.click();
+		await chatsService.loadChat(syncedSelectedChatMetadata.id);
 
-        expect(chatsService.getCurrentChatId()).toBe(syncedSelectedChatMetadata.id);
-        expect((await chatsService.getCurrentChat())?.id).toBe(syncedSelectedChatMetadata.id);
-        expect(document.querySelector("#chat-title")?.textContent).toBe("Selected Synced Chat");
-        expect(getVisibleMessageTexts()).toEqual(["Selected synced message"]);
+		expect(chatsService.getCurrentChatId()).toBe(syncedSelectedChatMetadata.id);
+		expect((await chatsService.getCurrentChat())?.id).toBe(syncedSelectedChatMetadata.id);
+		expect(document.querySelector("#chat-title")?.textContent).toBe("Selected Synced Chat");
+		expect(getVisibleMessageTexts()).toEqual(["Selected synced message"]);
 
-        await chatsService.deleteChat(syncedSelectedChatMetadata.id, testDb);
+		await chatsService.deleteChat(syncedSelectedChatMetadata.id, testDb);
 
-        expect(syncService.deleteSyncedChat).toHaveBeenCalledWith(syncedSelectedChatMetadata.id);
-        expect(await testDb.chats.toArray()).toEqual([]);
-        expect(chatsService.getCurrentChatId()).toBeNull();
-        expect(await chatsService.getCurrentChat()).toBeNull();
+		expect(syncService.deleteSyncedChat).toHaveBeenCalledWith(syncedSelectedChatMetadata.id);
+		expect(await testDb.chats.toArray()).toEqual([]);
+		expect(chatsService.getCurrentChatId()).toBeNull();
+		expect(await chatsService.getCurrentChat()).toBeNull();
 
-        expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")).toBeNull();
-        expect(document.querySelector("#chat-title")?.textContent).toBe("");
-        expect(document.querySelectorAll(".message")).toHaveLength(0);
-        expect(getVisibleMessageTexts()).toEqual([]);
+		expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")).toBeNull();
+		expect(document.querySelector("#chat-title")?.textContent).toBe("");
+		expect(document.querySelectorAll(".message")).toHaveLength(0);
+		expect(getVisibleMessageTexts()).toEqual([]);
 
-        expect(document.querySelector(`#chat${syncedSelectedChatMetadata.id}`)).toBeNull();
-        expect(document.querySelector(`label[for='chat${syncedSelectedChatMetadata.id}']`)).toBeNull();
-        expect(document.querySelector(`#chat${syncedNeighborChatMetadata.id}`)).not.toBeNull();
-        expect(document.querySelector(`label[for='chat${syncedNeighborChatMetadata.id}']`)?.textContent).toContain(
-            "Neighbor Synced Chat",
-        );
-    });
+		expect(document.querySelector(`#chat${syncedSelectedChatMetadata.id}`)).toBeNull();
+		expect(document.querySelector(`label[for='chat${syncedSelectedChatMetadata.id}']`)).toBeNull();
+		expect(document.querySelector(`#chat${syncedNeighborChatMetadata.id}`)).not.toBeNull();
+		expect(document.querySelector(`label[for='chat${syncedNeighborChatMetadata.id}']`)?.textContent).toContain(
+			"Neighbor Synced Chat"
+		);
+	});
 
-    it("deletes the only existing chat and leaves no records or selection behind", async () => {
-        const { db: testDb, chatsService } = await loadServices();
-        db = testDb;
+	it("deletes the only existing chat and leaves no records or selection behind", async () => {
+		const { db: testDb, chatsService } = await loadServices();
+		db = testDb;
 
-        await createChat({
-            chatsService,
-            chatId: "chat-only-delete",
-            title: "Only Chat",
-            messageText: "Lonely message",
-        });
+		await createChat({
+			chatsService,
+			chatId: "chat-only-delete",
+			title: "Only Chat",
+			messageText: "Lonely message"
+		});
 
-        const onlyRadio = document.querySelector<HTMLInputElement>("#chatchat-only-delete");
-        if (!onlyRadio) {
-            throw new Error("Missing only chat radio");
-        }
+		const onlyRadio = document.querySelector<HTMLInputElement>("#chatchat-only-delete");
+		if (!onlyRadio) {
+			throw new Error("Missing only chat radio");
+		}
 
-        onlyRadio.click();
-        await chatsService.loadChat("chat-only-delete");
+		onlyRadio.click();
+		await chatsService.loadChat("chat-only-delete");
 
-        await chatsService.deleteChat("chat-only-delete", testDb);
+		await chatsService.deleteChat("chat-only-delete", testDb);
 
-        expect(await testDb.chats.toArray()).toEqual([]);
-        expect(chatsService.getCurrentChatId()).toBeNull();
-        expect(await chatsService.getCurrentChat()).toBeNull();
+		expect(await testDb.chats.toArray()).toEqual([]);
+		expect(chatsService.getCurrentChatId()).toBeNull();
+		expect(await chatsService.getCurrentChat()).toBeNull();
 
-        expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")).toBeNull();
-        expect(document.querySelectorAll("input[name='currentChat']")).toHaveLength(0);
-        expect(document.querySelectorAll("label.label-currentchat")).toHaveLength(0);
-        expect(document.querySelector("#chat-title")?.textContent).toBe("");
-        expect(document.querySelectorAll(".message")).toHaveLength(0);
-        expect(getVisibleMessageTexts()).toEqual([]);
-    });
+		expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")).toBeNull();
+		expect(document.querySelectorAll("input[name='currentChat']")).toHaveLength(0);
+		expect(document.querySelectorAll("label.label-currentchat")).toHaveLength(0);
+		expect(document.querySelector("#chat-title")?.textContent).toBe("");
+		expect(document.querySelectorAll(".message")).toHaveLength(0);
+		expect(getVisibleMessageTexts()).toEqual([]);
+	});
 
-    it("deletes an unselected chat without mutating the active long chat content", async () => {
-        const { db: testDb, chatsService } = await loadServices();
-        db = testDb;
+	it("deletes an unselected chat without mutating the active long chat content", async () => {
+		const { db: testDb, chatsService } = await loadServices();
+		db = testDb;
 
-        await chatsService.addChatRecord(makeChat({
-            id: "chat-current-long-keep",
-            title: "Current Long Chat",
-            content: makeLongChatMessages(120),
-        }));
-        await createChat({
-            chatsService,
-            chatId: "chat-delete-short",
-            title: "Delete Short Chat",
-            messageText: "Delete me",
-        });
+		await chatsService.addChatRecord(
+			makeChat({
+				id: "chat-current-long-keep",
+				title: "Current Long Chat",
+				content: makeLongChatMessages(120)
+			})
+		);
+		await createChat({
+			chatsService,
+			chatId: "chat-delete-short",
+			title: "Delete Short Chat",
+			messageText: "Delete me"
+		});
 
-        const currentRadio = document.querySelector<HTMLInputElement>("#chatchat-current-long-keep");
-        if (!currentRadio) {
-            throw new Error("Missing current long chat radio");
-        }
+		const currentRadio = document.querySelector<HTMLInputElement>("#chatchat-current-long-keep");
+		if (!currentRadio) {
+			throw new Error("Missing current long chat radio");
+		}
 
-        currentRadio.click();
-        await chatsService.loadChat("chat-current-long-keep");
+		currentRadio.click();
+		await chatsService.loadChat("chat-current-long-keep");
 
-        const expectedCurrentTexts = makeLongChatMessages(120).map((message) => message.parts[0]?.text ?? "");
+		const expectedCurrentTexts = makeLongChatMessages(120).map((message) => message.parts[0]?.text ?? "");
 
-        await chatsService.deleteChat("chat-delete-short", testDb);
+		await chatsService.deleteChat("chat-delete-short", testDb);
 
-        const currentChat = await chatsService.getCurrentChat();
-        const persistedCurrentChat = await testDb.chats.get("chat-current-long-keep");
+		const currentChat = await chatsService.getCurrentChat();
+		const persistedCurrentChat = await testDb.chats.get("chat-current-long-keep");
 
-        expect(await testDb.chats.get("chat-delete-short")).toBeUndefined();
-        expect((await testDb.chats.toArray()).map((chat) => chat.id)).toEqual(["chat-current-long-keep"]);
-        expect(chatsService.getCurrentChatId()).toBe("chat-current-long-keep");
-        expect(currentChat?.content.map((message) => message.parts[0]?.text ?? "")).toEqual(expectedCurrentTexts);
-        expect(persistedCurrentChat?.content.map((message) => message.parts[0]?.text ?? "")).toEqual(expectedCurrentTexts);
+		expect(await testDb.chats.get("chat-delete-short")).toBeUndefined();
+		expect((await testDb.chats.toArray()).map((chat) => chat.id)).toEqual(["chat-current-long-keep"]);
+		expect(chatsService.getCurrentChatId()).toBe("chat-current-long-keep");
+		expect(currentChat?.content.map((message) => message.parts[0]?.text ?? "")).toEqual(expectedCurrentTexts);
+		expect(persistedCurrentChat?.content.map((message) => message.parts[0]?.text ?? "")).toEqual(
+			expectedCurrentTexts
+		);
 
-        expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")?.id).toBe(
-            "chatchat-current-long-keep",
-        );
-        expect(document.querySelector("#chat-title")?.textContent).toBe("Current Long Chat");
-        expect(getVisibleMessageTexts()).toHaveLength(50);
-        expect(getVisibleMessageTexts()[0]).toBe("Current long message 070");
-        expect(getVisibleMessageTexts()[49]).toBe("Current long message 119");
-        expect(document.querySelector("#chatchat-delete-short")).toBeNull();
-        expect(document.querySelector("label[for='chatchat-delete-short']")).toBeNull();
-    });
+		expect(document.querySelector<HTMLInputElement>("input[name='currentChat']:checked")?.id).toBe(
+			"chatchat-current-long-keep"
+		);
+		expect(document.querySelector("#chat-title")?.textContent).toBe("Current Long Chat");
+		expect(getVisibleMessageTexts()).toHaveLength(50);
+		expect(getVisibleMessageTexts()[0]).toBe("Current long message 070");
+		expect(getVisibleMessageTexts()[49]).toBe("Current long message 119");
+		expect(document.querySelector("#chatchat-delete-short")).toBeNull();
+		expect(document.querySelector("label[for='chatchat-delete-short']")).toBeNull();
+	});
 });

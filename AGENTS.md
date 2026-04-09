@@ -9,12 +9,12 @@ Github repo: faetalize/zodiac
 ## Architecture Overview
 
 ### Core Structure
+
 - **Entry point**: [src/main.ts](src/main.ts) bootstraps services and eager-loads all static components
 - **Data layer**: Dexie (IndexedDB) in [src/services/Db.service.ts](src/services/Db.service.ts) - local-first with Supabase sync
 - **Two component types**:
-  - `components/static/*.component.ts` - DOM-bound singletons, auto-loaded at startup via `import.meta.glob`
-  - `components/dynamic/*.ts` - Template factories returning HTMLElements (e.g., `messageElement()`)
-
+    - `components/static/*.component.ts` - DOM-bound singletons, auto-loaded at startup via `import.meta.glob`
+    - `components/dynamic/*.ts` - Template factories returning HTMLElements (e.g., `messageElement()`)
 
 ## Development
 
@@ -26,6 +26,7 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 ```
 
 ### Agent worktree workflow
+
 - Use `npm run create-worktree -- <branch> [worktree-path] [options]` to create a sibling worktree without interactive prompts.
 - For issue-driven work, prefer `npm run create-worktree -- --issue <number> --publish --open`.
 - The script can create or reuse a local branch, run `npm install`, push with `-u` to the remote, and open a new Alacritty window running `opencode` in the new worktree.
@@ -34,6 +35,7 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 ## Release Cycle
 
 ### Branching and deployment flow
+
 - Production deploys are published from a dedicated release branch because Cloudflare Pages is configured to deploy a specific branch for releases.
 - `main` is the ongoing development branch.
 - A release branch is created from `main` after the intended features/fixes have already been merged there.
@@ -41,6 +43,7 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - After the release is deployed, the release branch must be backmerged into `main` so `main` also contains the final version string and in-app changelog for that release.
 
 ### Preparing a new release
+
 - Identify the last release backmerge commit on `main`, then inspect all mainline commits after that point up to `HEAD`.
 - Use those commits to determine what actually shipped in the new release.
 - Update the user-facing changelog in [src/index.html](src/index.html) under the `#whats-new` section.
@@ -48,6 +51,7 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - Keep the release branch and deployed artifact aligned before any tag is created.
 
 ### How to build the changelog well
+
 - The in-app changelog is user-facing marketing/product copy, not a technical document.
 - Summarize released value, not implementation details. Prefer feature outcomes and user benefits over commit-level mechanics.
 - Do not mention developer-only infrastructure or internal workflow changes unless they directly affect Zodiac users.
@@ -56,6 +60,7 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - Good entries should feel like release notes written for users: concise, readable, and slightly polished rather than deeply technical.
 
 ### Tagging guidance
+
 - If tags are meant to represent what is on `main`, create the tag after the release branch has been backmerged into `main`.
 - If tags are meant to represent the exact commit deployed by Cloudflare Pages, tag the release branch commit that was actually deployed.
 - Do not tag `main` before the backmerge if `main` does not yet contain the final release changelog/version bump.
@@ -63,41 +68,60 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 ## Conventions
 
 ### Component Pattern
+
 Static components query DOM elements at module load and throw if missing:
+
 ```typescript
 // src/components/static/Example.component.ts
 const element = document.querySelector<HTMLButtonElement>("#my-button");
 if (!element) throw new Error("Missing DOM element: #my-button");
 
-element.addEventListener("click", () => { /* handler */ });
+element.addEventListener("click", () => {
+	/* handler */
+});
 export { element };
 ```
 
 ### Cross-Component Communication
+
 Use `CustomEvent` on `window` or `document` for decoupled messaging:
+
 ```typescript
 // Emit
-window.dispatchEvent(new CustomEvent('generation-state-changed', { detail: { isGenerating: true } }));
+window.dispatchEvent(new CustomEvent("generation-state-changed", { detail: { isGenerating: true } }));
 
-// Listen  
-window.addEventListener('generation-state-changed', (e) => { /* handle */ });
+// Listen
+window.addEventListener("generation-state-changed", (e) => {
+	/* handle */
+});
 ```
 
 Key events: `auth-state-changed`, `generation-state-changed`, `chat-model-changed`, `subscription-updated`, `round-state-changed`
 
 ### Service Initialization
+
 Services export an `initialize()` function called from `main.ts` in dependency order. Avoid circular imports by using event-based communication.
 
 ### Database Migrations
+
 Dexie schema versions in `Db.service.ts` are additive. Use `.upgrade()` for data migrations:
+
 ```typescript
-db.version(N).stores({ /* schema */ }).upgrade(async (tx) => { /* migrate */ });
+db.version(N)
+	.stores({
+		/* schema */
+	})
+	.upgrade(async (tx) => {
+		/* migrate */
+	});
 ```
 
 ### Settings Persistence
+
 User preferences use `localStorage` with service-level get/set wrappers. See [src/services/Settings.service.ts](src/services/Settings.service.ts).
 
 ### Test Scope And Failure Mapping
+
 - Treat tests as three explicit layers:
 - Type 1: pure logic/unit tests. These can mock freely and should not make UI behavior claims.
 - Type 2: service/state integration tests. Use these for app-owned rules and invariants without claiming real browser behavior. Good examples: deleting the correct chat record, editing message `content[231]` without shifting other indices, pruning the correct tail on regenerate, or building the correct final payload at the cloud-sync boundary.
@@ -133,15 +157,18 @@ User preferences use `localStorage` with service-level get/set wrappers. See [sr
 - When adding cloud-sync variants of tests, prefer exercising the remote-aware app path with clear contract-shaped fixtures or mocks at the sync boundary rather than duplicating the full backend implementation in tests.
 
 ### Workflow Notes
+
 - After every code or file change, end the final response with a short `Should we commit this?` section that considers the full current worktree, including any earlier uncommitted changes, and answers yes or no with a brief reason.
 
 ### Styling
+
 - **Custom CSS** - Hand-written styles in `src/styles/main.css`, `src/styles/dark.css`, `src/styles/light.css`
 - **Tailwind base reset** - `@import "tailwindcss"` in main.css for normalization only (no utility classes used)
 - **Dynamic theming** - CSS custom properties in `src/styles/themes/{color}-{mode}.css` (e.g., `blue-dark.css`)
 - **No utility classes** - HTML uses semantic class names, not Tailwind utilities
 
 ## External Dependencies
+
 - **@google/genai** - Gemini SDK for chat and image generation
 - **@supabase/supabase-js** - Auth, database, realtime subscriptions
 - **Dexie** - IndexedDB wrapper with migrations
@@ -151,21 +178,25 @@ User preferences use `localStorage` with service-level get/set wrappers. See [sr
 ## Common Patterns
 
 ### Adding a New Static Component
+
 1. Create `src/components/static/MyComponent.component.ts`
 2. Query required DOM elements, throw on missing
 3. Export any needed functions/state
 4. Add corresponding HTML element to `src/index.html`
 5. Component auto-loads via glob import in `main.ts`
 
-### Adding a Model Message Type  
+### Adding a Model Message Type
+
 1. Extend `Message` interface in [src/types/Message.ts](src/types/Message.ts)
 2. Update rendering in [src/components/dynamic/message.ts](src/components/dynamic/message.ts)
 3. Handle in API processing in `Message.service.ts`
 
 ### Supabase Types
+
 After schema changes, run `npm run sync-db-types` to regenerate [src/types/database.types.ts](src/types/database.types.ts).
 
 ### Supabase Dashboard Edge Function Quirk
+
 - The current deployment flow uses the Supabase Dashboard for individual edge functions in `zozo-edge/functions/`.
 - Do not rely on shared sibling folders like `functions/_shared/` or cross-function relative imports for deployable code.
 - Keep any required helpers/constants inside each deployed function file unless the user explicitly confirms a bundling/deploy process that supports shared files.

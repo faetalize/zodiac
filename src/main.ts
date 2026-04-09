@@ -1,16 +1,15 @@
-
-import { themeService } from './services/Theme.service';
+import { themeService } from "./services/Theme.service";
 import * as personalityService from "./services/Personality.service";
 import * as settingsService from "./services/Settings.service";
-import * as overlayService from './services/Overlay.service';
-import * as chatsService from './services/Chats.service';
-import * as onboardingService from './services/Onboarding.service';
-import * as supabaseService from './services/Supabase.service';
-import * as syncService from './services/Sync.service';
+import * as overlayService from "./services/Overlay.service";
+import * as chatsService from "./services/Chats.service";
+import * as onboardingService from "./services/Onboarding.service";
+import * as supabaseService from "./services/Supabase.service";
+import * as syncService from "./services/Sync.service";
 
 //load all component code
 //eager ensures the modules execute at startup (no async race / ordering surprises)
-const components = import.meta.glob('./components/static/*.ts', { eager: true });
+const components = import.meta.glob("./components/static/*.ts", { eager: true });
 void components;
 
 // Initialize theme service first (before DOM is fully rendered)
@@ -34,5 +33,5 @@ hideOverlayButton?.addEventListener("click", () => overlayService.closeOverlay()
 
 // Check if onboarding should show on first run
 if (await onboardingService.shouldShowOnboarding()) {
-    onboardingService.show();
+	onboardingService.show();
 }
