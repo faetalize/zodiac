@@ -1,5 +1,5 @@
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
-import { createClient, RealtimeChannel } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type { User } from "../types/User";
 import { SubscriptionPriceIDs, SubscriptionPriceIDsOld } from "../types/Price";
 import type { ImageGenerationPermitted } from "../types/ImageGenerationTypes";
