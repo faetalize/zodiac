@@ -263,7 +263,6 @@ async function triggerResponses(args: {
 
 	for (const persona of participantPersonas) {
 		const personaId = String(persona.id);
-		const personaName = String(persona.name || "Unknown");
 		if (personaId === args.senderId) continue;
 		if (!participants.includes(personaId)) continue;
 		if (inFlight.has(personaId)) continue;

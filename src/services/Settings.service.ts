@@ -1,4 +1,4 @@
-import type { Content} from "@google/genai";
+import type { Content } from "@google/genai";
 import { HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
 import type { User } from "../types/User";
@@ -435,7 +435,7 @@ export async function getSystemPrompt(mode: SystemPromptMode = "chat"): Promise<
 	let userProfile: User;
 	try {
 		userProfile = await supabaseService.getUserProfile();
-	} catch (error) {
+	} catch {
 		userProfile = { systemPromptAddition: "", preferredName: "User" };
 	}
 

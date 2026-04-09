@@ -274,7 +274,7 @@ export function modelRequiresThinking(model: string | null | undefined): boolean
 	return getChatModelDefinition(model)?.requiresThinking === true;
 }
 
-export function modelSupportsTemperature(model: string | null | undefined): boolean {
+export function modelSupportsTemperature(_model: string | null | undefined): boolean {
 	return true;
 }
 

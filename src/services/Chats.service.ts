@@ -1,7 +1,7 @@
 import * as messageService from "./Message.service";
 import { messageElement } from "../components/dynamic/message";
 import * as helpers from "../utils/helpers";
-import type { Db} from "./Db.service";
+import type { Db } from "./Db.service";
 import { db } from "./Db.service";
 import type { Chat, ChatSortMode, DbChat } from "../types/Chat";
 import type { Message } from "../types/Message";
@@ -527,7 +527,7 @@ async function reorderChatListInDom() {
 
 // Rebuild the chat list according to the current sort mode after data changes
 // (e.g., when messages are persisted and lastModified is updated).
-export async function refreshChatListAfterActivity(dbArg: Db = db): Promise<void> {
+export async function refreshChatListAfterActivity(_dbArg: Db = db): Promise<void> {
 	try {
 		const mode = getChatSortMode();
 
@@ -1590,7 +1590,7 @@ export async function exportAllChats(): Promise<void> {
 	const blob = new Blob(
 		[
 			JSON.stringify(
-				chatsForExport.map(({ id, ...rest }) => rest),
+				chatsForExport.map(({ id: _id, ...rest }) => rest),
 				null,
 				2
 			)

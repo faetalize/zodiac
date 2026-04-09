@@ -5,13 +5,12 @@
  * This is an internal module used by Message.service.ts - not a standalone service.
  */
 
-import type { Content, GenerateContentConfig, GenerateContentResponse} from "@google/genai";
+import type { Content, GenerateContentConfig, GenerateContentResponse } from "@google/genai";
 import { GoogleGenAI } from "@google/genai";
 import hljs from "highlight.js";
 
 import type { Message } from "../types/Message";
 import type { DbChat } from "../types/Chat";
-import type { DbPersonality } from "../types/Personality";
 import {
 	ChatModel,
 	getPreferredNarratorLocalModel,
@@ -33,7 +32,6 @@ import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
 import * as helpers from "../utils/helpers";
-import { db } from "./Db.service";
 import { SUPABASE_URL, getAuthHeaders, getUserProfile } from "./Supabase.service";
 import { parseMarkdownToHtml } from "./Parser.service";
 import { messageElement } from "../components/dynamic/message";
@@ -1471,7 +1469,6 @@ async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<Na
 
 	try {
 		let raw = "";
-		let thinking = "";
 		let requestSlug: string | undefined;
 
 		if (isPremiumEndpointPreferred) {
@@ -1484,7 +1481,6 @@ async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<Na
 				signal
 			});
 			raw = result.text;
-			thinking = result.thinking;
 			requestSlug = result.requestSlug;
 		} else {
 			const result = await generateNarratorLocalSdk({
@@ -1496,7 +1492,6 @@ async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<Na
 				signal
 			});
 			raw = result.text;
-			thinking = result.thinking;
 		}
 
 		const trimmed = raw.trim();

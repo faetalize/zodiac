@@ -118,7 +118,7 @@ splitButtons.forEach((splitButton) => {
 
 	// Also support keyboard navigation on menu items directly
 	menuItems.forEach((item, index) => {
-		item.addEventListener("keydown", (e) => {
+		item.addEventListener("keydown", () => {
 			currentFocusIndex = index;
 			// Let the menu handler above deal with it
 		});

@@ -1,14 +1,11 @@
 import { Dexie } from "dexie";
 import { v4 as uuidv4 } from "uuid";
-import { DbChat } from "../types/Chat";
-import { DbPersonality } from "../types/Personality";
 import type { Db } from "../types/Db";
 
 export type { Db };
 
 export async function setupDB() {
-	let db: Db;
-	db = new Dexie("chatDB") as Db;
+	const db = new Dexie("chatDB") as Db;
 	db.version(3).stores({
 		chats: `
             ++id,
@@ -280,6 +277,6 @@ try {
 	if (typeof window !== "undefined") {
 		(window as any).zodiac_db = db;
 	}
-} catch (e) {
+} catch {
 	// ignore
 }

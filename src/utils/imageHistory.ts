@@ -1,6 +1,5 @@
 import type { Chat } from "../types/Chat";
 import type { Message } from "../types/Message";
-import { GeneratedImage } from "../types/Message";
 import { resolveGeneratedImageSrc } from "./blobResolver";
 
 export interface EditableImage {

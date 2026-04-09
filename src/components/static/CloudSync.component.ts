@@ -21,8 +21,8 @@ import { dispatchEmptyAppEvent } from "../../events";
 import { onAppEvent } from "../../events";
 import type { SyncStatus } from "../../events";
 import { info, danger } from "../../services/Toast.service";
-import { showElement, hideElement, confirmDialog, confirmDialogDanger } from "../../utils/helpers";
-import { getSubscriptionTier, getUserSubscription } from "../../services/Supabase.service";
+import { confirmDialog, confirmDialogDanger } from "../../utils/helpers";
+import { getSubscriptionTier } from "../../services/Supabase.service";
 
 // ── DOM Elements ───────────────────────────────────────────────────────────
 

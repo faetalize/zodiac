@@ -62,7 +62,7 @@ export async function createRpgGroupChat(options: {
 
 	try {
 		const id = await chatsService.addChatRecord(chat);
-		const loaded = await chatsService.loadChat(id);
+		await chatsService.loadChat(id);
 		const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
 		if (chatInput) {
 			chatInput.checked = true;
@@ -128,7 +128,7 @@ export async function createDynamicGroupChat(options: {
 
 	try {
 		const id = await chatsService.addChatRecord(chat);
-		const loaded = await chatsService.loadChat(id);
+		await chatsService.loadChat(id);
 		const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
 		if (chatInput) {
 			chatInput.checked = true;

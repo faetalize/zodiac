@@ -1,10 +1,5 @@
 import * as helpers from "../../utils/helpers";
 
-interface SettingsPageConfig {
-	id: string;
-	key: SettingsPageKey;
-}
-
 type SettingsPageKey = "home" | "api" | "chat" | "groupchat" | "image" | "personalisation" | "data";
 
 const SETTINGS_SECTION_SELECTOR = "#settings-section";

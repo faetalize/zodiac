@@ -4,7 +4,6 @@ import * as settingsService from "./services/Settings.service";
 import * as overlayService from "./services/Overlay.service";
 import * as chatsService from "./services/Chats.service";
 import * as onboardingService from "./services/Onboarding.service";
-import * as supabaseService from "./services/Supabase.service";
 import * as syncService from "./services/Sync.service";
 
 //load all component code

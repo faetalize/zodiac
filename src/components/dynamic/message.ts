@@ -1,4 +1,4 @@
-import type { Message, GeneratedImage} from "../../types/Message";
+import type { Message, GeneratedImage } from "../../types/Message";
 import { type MessageDebugInfo } from "../../types/Message";
 import type { Personality } from "../../types/Personality";
 import hljs from "highlight.js";
@@ -941,9 +941,6 @@ function setupGeneratedImageInteractions(root: HTMLElement) {
 					document.removeEventListener("keydown", escListener);
 				}
 			});
-
-			// Dynamically adjust sizing to ensure containment within viewport preserving aspect
-			const lightboxImg = overlay.querySelector<HTMLImageElement>(".lightbox-image");
 		};
 
 		expandBtn?.addEventListener("click", (e) => {

@@ -298,14 +298,12 @@ function renderTurnOrder(): void {
 		});
 
 		// Mobile Touch Support
-		let touchStartY = 0;
 		row.addEventListener(
 			"touchstart",
 			(e) => {
 				// Only trigger if touching the handle
 				if (!(e.target as HTMLElement).classList.contains("group-chat-turn-order-handle")) return;
 
-				touchStartY = e.touches[0].clientY;
 				draggedIndex = index;
 				row.classList.add("dragging");
 				turnOrderContainer.classList.add("is-dragging");

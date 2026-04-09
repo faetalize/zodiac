@@ -4,7 +4,7 @@
 
 import { OnboardingPath, OnboardingStep } from "../../types/Onboarding";
 import { SubscriptionPriceIDs } from "../../types/Price";
-import type { ColorTheme, ThemeMode, ThemePreference } from "../../types/Theme";
+import type { ColorTheme, ThemeMode } from "../../types/Theme";
 import * as onboardingService from "../../services/Onboarding.service";
 import * as supabaseService from "../../services/Supabase.service";
 import * as syncService from "../../services/Sync.service";
@@ -1472,22 +1472,6 @@ function setupCloudSyncSetup(): void {
 
 	applyCloudSyncModeUi(onboardingCloudSyncMode);
 	updateCloudSyncInputState();
-}
-
-async function shouldShowCloudSyncSetupInOnboarding(): Promise<boolean> {
-	const user = await supabaseService.getCurrentUser();
-	if (!user) {
-		return false;
-	}
-
-	const subscription = await supabaseService.getUserSubscription();
-	const tier = supabaseService.getSubscriptionTier(subscription);
-	if (tier !== "pro") {
-		return false;
-	}
-
-	const preferences = await syncService.fetchSyncPreferences();
-	return preferences?.syncEnabled !== true;
 }
 
 function applyCloudSyncModeUi(mode: OnboardingCloudSyncMode): void {

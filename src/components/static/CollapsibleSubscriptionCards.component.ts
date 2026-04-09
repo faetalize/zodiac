@@ -78,7 +78,7 @@ function toggleCard(collapsibleCard: CollapsibleCard): void {
  * Update visual state of card
  */
 function updateCardState(collapsibleCard: CollapsibleCard): void {
-	const { card, body, button, isExpanded } = collapsibleCard;
+	const { card, isExpanded } = collapsibleCard;
 	const indicator = card.querySelector(".subscription-expand-indicator") as HTMLElement;
 
 	if (window.innerWidth <= MOBILE_BREAKPOINT) {

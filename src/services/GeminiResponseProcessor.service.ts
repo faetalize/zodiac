@@ -1,12 +1,7 @@
 import type { GenerateContentResponse } from "@google/genai";
 import { BlockedReason, FinishReason } from "@google/genai";
 import type { GeneratedImage } from "../types/Message";
-import type {
-	GeminiAbortMode,
-	GeminiLocalSdkCallbacks,
-	GeminiLocalSdkProcessArgs,
-	GeminiLocalSdkProcessResult
-} from "../types/GeminiResponseProcessor";
+import type { GeminiLocalSdkProcessArgs, GeminiLocalSdkProcessResult } from "../types/GeminiResponseProcessor";
 
 export function isGeminiBlockedFinishReason(finishReason: unknown): boolean {
 	return (
@@ -69,11 +64,10 @@ export async function processGeminiLocalSdkResponse(args: {
 	let text = "";
 	let thinking = "";
 	let textSignature: string | undefined;
-	let finishReason: unknown;
+	const finishReason = getFinishReason(response);
 	let groundingContent = "";
 	const images: GeneratedImage[] = [];
 
-	finishReason = getFinishReason(response);
 	if (process.throwOnBlocked && isGeminiBlockedFinishReason(finishReason)) {
 		throwGeminiBlocked({ finishReason, finishMessage: getFinishMessage(response) });
 	}

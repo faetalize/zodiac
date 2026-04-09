@@ -599,7 +599,6 @@ export async function updateSubscriptionUI(
 
 		// Toggle Settings section based on subscription tier
 		const apiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
-		const noNeedMsg = document.querySelector<HTMLElement>("#apiKeyNoNeedMsg");
 		const orDivider = document.querySelector<HTMLElement>("#or-divider");
 		const upgradeBtn = document.querySelector<HTMLButtonElement>("#btn-show-subscription-options");
 		const apiKeyError = document.querySelector<HTMLElement>(".api-key-error");

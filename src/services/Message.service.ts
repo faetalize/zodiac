@@ -13,15 +13,8 @@
  * - createPersonalityMarkerMessage(personalityId): Create a personality marker
  */
 
-import type {
-	Content,
-	GenerateContentConfig} from "@google/genai";
-import {
-	GoogleGenAI,
-	createPartFromUri,
-	BlockedReason,
-	FinishReason
-} from "@google/genai";
+import type { Content, GenerateContentConfig } from "@google/genai";
+import { GoogleGenAI, createPartFromUri, BlockedReason, FinishReason } from "@google/genai";
 import hljs from "highlight.js";
 
 import type { Message, GeneratedImage, MessageDebugInfo, MessageDebugMode } from "../types/Message";
@@ -69,7 +62,6 @@ import { resolveThoughtSignature } from "../utils/blobResolver";
 import { dispatchAppEvent } from "../events";
 import { MODEL_IMAGE_LIMITS } from "../constants/ImageModels";
 import {
-	PERSONALITY_MARKER_PREFIX,
 	NARRATOR_PERSONALITY_ID,
 	createPersonalityMarkerMessage,
 	isPersonalityMarker,
@@ -87,8 +79,7 @@ import {
 	ensureThinkingUi,
 	createThinkingUiElements,
 	createErrorMessage,
-	UNRESTRICTED_SAFETY_SETTINGS,
-	extractTextAndThinkingFromResponse
+	UNRESTRICTED_SAFETY_SETTINGS
 } from "../utils/chatHistoryBuilder";
 
 import { sendGroupChatRpg, type RpgInputArgs } from "./RpgGroupChat";
@@ -198,10 +189,6 @@ async function ensureChatFullyHydratedForWrite(chatId?: string | null): Promise<
 	} finally {
 		hydrateForWriteInFlightByChatId.delete(targetChatId);
 	}
-}
-
-async function ensureCurrentChatFullyHydratedForWrite(): Promise<void> {
-	await ensureChatFullyHydratedForWrite();
 }
 
 function startGeneration(chatId: string): AbortController {
@@ -503,10 +490,6 @@ export async function appendRequestSlugToStoredMessage(args: {
 		chat.lastModified = new Date();
 		return true;
 	});
-}
-
-async function persistUserAndModel(user: Message, model: Message): Promise<void> {
-	await persistMessages([user, model]);
 }
 
 export async function getChatForWrite(chatId: string): Promise<DbChat | undefined> {

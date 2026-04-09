@@ -10,7 +10,6 @@
  */
 
 import type { Message, GeneratedImage } from "../types/Message";
-import type { Chat, DbChat } from "../types/Chat";
 import * as helpers from "./helpers";
 import { resolveAttachmentFile, resolveGeneratedImageSrc, resolveThoughtSignature } from "./blobResolver";
 

@@ -3,7 +3,7 @@ import type { MessageDebugInfo } from "../types/Message";
 import { showElement, hideElement } from "../utils/helpers";
 import * as stepperService from "./Stepper.service";
 import * as toastService from "./Toast.service";
-import { dispatchElementEvent, createEmptyEvent, createEvent } from "../events";
+import { dispatchElementEvent, createEmptyEvent } from "../events";
 
 const overlay = document.querySelector<HTMLElement>(".overlay")!;
 const overlayItems = overlay.querySelector<HTMLElement>(".overlay-content")!.children;

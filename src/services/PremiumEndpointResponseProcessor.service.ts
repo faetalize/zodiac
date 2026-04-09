@@ -2,8 +2,6 @@ import type { GenerateContentResponse } from "@google/genai";
 import type { Response as OpenRouterResponse, StreamingChoice } from "../types/OpenRouterTypes";
 import type { GeneratedImage } from "../types/Message";
 import type {
-	PremiumEndpointAbortMode,
-	PremiumEndpointCallbacks,
 	PremiumEndpointProcessArgs,
 	PremiumEndpointProcessResult
 } from "../types/PremiumEndpointResponseProcessor";

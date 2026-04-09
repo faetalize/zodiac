@@ -1,4 +1,3 @@
-import * as overlayService from "../services/Overlay.service";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { getSettings } from "../services/Settings.service";

@@ -1,7 +1,7 @@
 import * as messageService from "../../services/Message.service";
 import * as helpers from "../../utils/helpers";
 import * as personalityService from "../../services/Personality.service";
-import { attachmentPreviewElement, getAttachmentCount } from "./AttachmentPreview.component";
+import { attachmentPreviewElement } from "./AttachmentPreview.component";
 import * as toastService from "../../services/Toast.service";
 import {
 	formatFileListForToast,
@@ -14,9 +14,6 @@ import {
 } from "../../utils/attachments";
 import * as settingsService from "../../services/Settings.service";
 import * as chatsService from "../../services/Chats.service";
-import { db } from "../../services/Db.service";
-import { findLastEditableImage, EditableImage } from "../../utils/imageHistory";
-import { historyImagePreviewElement } from "../dynamic/HistoryImagePreview";
 import { getSelectedEditingModel } from "./ImageEditModelSelector.component";
 import { updateImageCreditsLabelVisibility } from "./ImageCreditsLabel.component";
 import { MODEL_IMAGE_LIMITS } from "../../constants/ImageModels";
@@ -72,7 +69,6 @@ let isInternetSearchEnabled = false;
 let dragDepth = 0;
 let currentHistoryImagePreview: HTMLElement | null = null;
 let isImageEditingActive = false;
-let isImageModeActive = false;
 let isComposerAllowanceBlocked = false;
 let composerAllowanceBlockTitle = "Request unavailable";
 let composerAllowanceBlockText = "This request is currently unavailable.";
@@ -649,7 +645,7 @@ window.addEventListener("round-state-changed", (event: any) => {
 	const currentChatId = chatsService.getCurrentChatId();
 	if (!currentChatId || event.detail?.chatId !== currentChatId) return;
 
-	const { isUserTurn, roundComplete, nextRoundNumber, startsNewRound, nextSpeakerId } = event.detail;
+	const { isUserTurn, nextRoundNumber, startsNewRound, nextSpeakerId } = event.detail;
 
 	void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
 
@@ -939,8 +935,7 @@ window.addEventListener("image-editing-toggled", async (event: any) => {
 });
 
 // Listen for image generation toggle events
-window.addEventListener("image-generation-toggled", (event: any) => {
-	isImageModeActive = !!event.detail?.enabled;
+window.addEventListener("image-generation-toggled", () => {
 	updateImageCreditsLabelVisibility();
 });
 
@@ -979,8 +974,7 @@ window.addEventListener("attach-image-from-chat", (event: any) => {
 });
 
 // Listen for edit model changes (model-specific image limit)
-window.addEventListener("edit-model-changed", (event: any) => {
-	const model = event.detail.model;
+window.addEventListener("edit-model-changed", () => {
 	if (isImageEditingActive) {
 		enforceImageLimitForModel();
 	}
@@ -1228,33 +1222,6 @@ function getDisplayName(file: File): string {
 /**
  * Updates or creates the history image preview based on current chat state
  */
-async function updateHistoryPreview(): Promise<void> {
-	// Don't show if there are attachments
-	if (getAttachmentCount() > 0) {
-		clearHistoryPreview();
-		return;
-	}
-
-	const currentChat = await chatsService.getCurrentChat();
-	if (!currentChat) {
-		clearHistoryPreview();
-		return;
-	}
-
-	const editableImage = await findLastEditableImage(currentChat);
-	if (!editableImage) {
-		clearHistoryPreview();
-		return;
-	}
-
-	// Remove existing preview if any
-	clearHistoryPreview();
-
-	// Create and add new preview
-	currentHistoryImagePreview = historyImagePreviewElement(editableImage);
-	attachmentPreview!.appendChild(currentHistoryImagePreview);
-}
-
 /**
  * Clears the history image preview
  */

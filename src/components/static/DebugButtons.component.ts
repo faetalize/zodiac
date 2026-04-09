@@ -309,14 +309,14 @@ if (isLocalhost && testToastActionsButton)
 			actions: [
 				{
 					label: "Confirm",
-					onClick: (dismiss) => {
+					onClick: () => {
 						console.log("Confirm clicked!");
 						// dismiss() is called automatically after onClick
 					}
 				},
 				{
 					label: "Cancel",
-					onClick: (dismiss) => {
+					onClick: () => {
 						console.log("Cancel clicked!");
 					}
 				}
