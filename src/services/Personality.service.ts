@@ -693,16 +693,18 @@ export function generateCard(personality: Personality, id: string, syncInfo?: Sy
 	updatePinButtonUi();
 
 	if (pinButton && id) {
-		pinButton.addEventListener("click", async (e) => {
-			e.preventDefault();
-			e.stopPropagation();
-			const wasSelected = !!input?.checked;
-			await pinningService.togglePersonaPinned(id);
-			updatePinButtonUi();
-			await reloadFromDb();
-			if (wasSelected) {
-				document.querySelector<HTMLInputElement>(`#personality-${id} input[name='personality']`)?.click();
-			}
+		pinButton.addEventListener("click", (e) => {
+			void (async () => {
+				e.preventDefault();
+				e.stopPropagation();
+				const wasSelected = !!input?.checked;
+				await pinningService.togglePersonaPinned(id);
+				updatePinButtonUi();
+				await reloadFromDb();
+				if (wasSelected) {
+					document.querySelector<HTMLInputElement>(`#personality-${id} input[name='personality']`)?.click();
+				}
+			})();
 		});
 	}
 
@@ -720,14 +722,16 @@ export function generateCard(personality: Personality, id: string, syncInfo?: Sy
 					?.click();
 			}
 			if (id && id != "-1") {
-				remove(id);
+				void remove(id);
 			}
 			card.remove();
 		});
 	}
 	if (editButton) {
-		editButton.addEventListener("click", async () => {
-			overlayService.showEditPersonalityForm(personality, id);
+		editButton.addEventListener("click", () => {
+			void (async () => {
+				overlayService.showEditPersonalityForm(personality, id);
+			})();
 		});
 	}
 	//handle outdated badge click - show update modal
@@ -869,42 +873,46 @@ export function initSyncModalHandlers() {
 	const updateBtn = modal.querySelector<HTMLButtonElement>(".sync-update-btn");
 	const duplicateBtn = modal.querySelector<HTMLButtonElement>(".sync-duplicate-btn");
 
-	updateBtn?.addEventListener("click", async () => {
-		const localId = modal.dataset.localId;
-		const remoteId = modal.dataset.remoteId;
-		if (!localId || !remoteId) return;
+	updateBtn?.addEventListener("click", () => {
+		void (async () => {
+			const localId = modal.dataset.localId;
+			const remoteId = modal.dataset.remoteId;
+			if (!localId || !remoteId) return;
 
-		updateBtn.disabled = true;
-		duplicateBtn!.disabled = true;
+			updateBtn.disabled = true;
+			duplicateBtn!.disabled = true;
 
-		const success = await updateFromMarketplace(localId, remoteId);
-		if (success) {
-			//refresh the card in the list
-			await refreshCard(localId);
-		}
+			const success = await updateFromMarketplace(localId, remoteId);
+			if (success) {
+				//refresh the card in the list
+				await refreshCard(localId);
+			}
 
-		overlayService.closeOverlay();
-		updateBtn.disabled = false;
-		duplicateBtn!.disabled = false;
+			overlayService.closeOverlay();
+			updateBtn.disabled = false;
+			duplicateBtn!.disabled = false;
+		})();
 	});
 
-	duplicateBtn?.addEventListener("click", async () => {
-		const localId = modal.dataset.localId;
-		const remoteId = modal.dataset.remoteId;
-		if (!localId || !remoteId) return;
+	duplicateBtn?.addEventListener("click", () => {
+		void (async () => {
+			const localId = modal.dataset.localId;
+			const remoteId = modal.dataset.remoteId;
+			if (!localId || !remoteId) return;
 
-		updateBtn!.disabled = true;
-		duplicateBtn.disabled = true;
+			updateBtn!.disabled = true;
+			duplicateBtn.disabled = true;
 
-		const success = await duplicateAndUpdate(localId, remoteId);
-		if (success) {
-			//refresh the updated card
-			await refreshCard(localId);
-		}
+			const success = await duplicateAndUpdate(localId, remoteId);
+			if (success) {
+				//refresh the updated card
+				await refreshCard(localId);
+			}
 
-		overlayService.closeOverlay();
-		updateBtn!.disabled = false;
-		duplicateBtn.disabled = false;
+			overlayService.closeOverlay();
+			updateBtn!.disabled = false;
+			duplicateBtn.disabled = false;
+		})();
 	});
 }
 

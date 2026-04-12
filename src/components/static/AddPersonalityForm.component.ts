@@ -231,9 +231,11 @@ async function handleFormSubmit() {
 	overlayService.closeOverlay();
 }
 
-formEl.addEventListener("submit", async (e) => {
-	e.preventDefault();
-	await handleFormSubmit();
+formEl.addEventListener("submit", (e) => {
+	void (async () => {
+		e.preventDefault();
+		await handleFormSubmit();
+	})();
 });
 
 //fallback for any programmatic submit calls that bypass the submit event

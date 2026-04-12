@@ -8,14 +8,16 @@ if (!button) {
 	throw new Error("Show Subscription Options button not found");
 }
 
-button.addEventListener("click", async () => {
-	const user = await getCurrentUser();
+button.addEventListener("click", () => {
+	void (async () => {
+		const user = await getCurrentUser();
 
-	if (user) {
-		// User is logged in, show subscription options
-		overlayService.show("form-subscription");
-	} else {
-		// User is not logged in, show login overlay
-		overlayService.show("login-register-tabs");
-	}
+		if (user) {
+			// User is logged in, show subscription options
+			overlayService.show("form-subscription");
+		} else {
+			// User is not logged in, show login overlay
+			overlayService.show("login-register-tabs");
+		}
+	})();
 });

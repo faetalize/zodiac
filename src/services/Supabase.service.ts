@@ -84,7 +84,7 @@ supabase.auth.onAuthStateChange((event, session) => {
 			(el as HTMLElement).classList.add("hidden");
 		});
 		//initial profile load
-		getUserProfile().then((profile) => {
+		void getUserProfile().then((profile) => {
 			if (profile.avatar) {
 				document.querySelector("#profile-pfp")?.setAttribute("src", profile.avatar);
 				document.querySelector("#user-profile")?.setAttribute("src", profile.avatar);
@@ -92,10 +92,10 @@ supabase.auth.onAuthStateChange((event, session) => {
 			document.querySelector<HTMLInputElement>("#profile-preferred-name")!.value = profile.preferredName;
 			document.querySelector<HTMLTextAreaElement>("#profile-system-prompt")!.defaultValue =
 				profile.systemPromptAddition;
-			getUserSubscription(session).then((sub) => {
+			void getUserSubscription(session).then((sub) => {
 				// notify listeners
-				getImageGenerationRecord().then((imageGenRecord) => {
-					updateSubscriptionUI(session, sub, imageGenRecord);
+				void getImageGenerationRecord().then((imageGenRecord) => {
+					void updateSubscriptionUI(session, sub, imageGenRecord);
 					try {
 						dispatchAppEvent("auth-state-changed", {
 							loggedIn: true,
@@ -642,9 +642,9 @@ export async function isImageGenerationAvailable(): Promise<ImageGenerationPermi
 }
 
 export async function refreshAll() {
-	refreshProfile();
-	refreshSubscription();
-	refreshImageGenerationRecord();
+	void refreshProfile();
+	void refreshSubscription();
+	void refreshImageGenerationRecord();
 }
 
 export async function refreshProfile() {

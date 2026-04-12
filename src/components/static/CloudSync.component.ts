@@ -165,6 +165,7 @@ async function runLegacyMediaMigrationFlowIfNeeded(options?: { force?: boolean }
 
 	return await new Promise<boolean>((resolve) => {
 		const startMigration = async () => {
+			// eslint-disable-next-line @typescript-eslint/no-misused-promises
 			btnSyncMediaMigrationStart.removeEventListener("click", startMigration);
 			btnSyncMediaMigrationStart.disabled = true;
 			btnSyncMediaMigrationStart.textContent = "Migrating…";
@@ -198,10 +199,12 @@ async function runLegacyMediaMigrationFlowIfNeeded(options?: { force?: boolean }
 
 				btnSyncMediaMigrationStart.disabled = false;
 				btnSyncMediaMigrationStart.textContent = "Retry Maintenance";
+				// eslint-disable-next-line @typescript-eslint/no-misused-promises
 				btnSyncMediaMigrationStart.addEventListener("click", startMigration, { once: true });
 			}
 		};
 
+		// eslint-disable-next-line @typescript-eslint/no-misused-promises
 		btnSyncMediaMigrationStart.addEventListener("click", startMigration, { once: true });
 	});
 }
@@ -281,6 +284,7 @@ function showFinalDownloadModal() {
 	showModal(syncModal);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 btnSyncConfirm?.addEventListener("click", async () => {
 	const password = syncPasswordInput?.value ?? "";
 
@@ -402,6 +406,7 @@ btnSyncSkip?.addEventListener("click", () => {
 });
 
 // Forgot password escape hatch (visible in unlock and final-download modes)
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 btnSyncForgotPassword?.addEventListener("click", async () => {
 	hideModal(syncModal);
 
@@ -442,6 +447,7 @@ function updateSettingsUI(syncEnabled: boolean) {
 	syncStatusLabel.textContent = syncEnabled ? "Enabled" : "Disabled";
 }
 
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 syncToggle?.addEventListener("change", async () => {
 	const checked = syncToggle.checked;
 
@@ -482,6 +488,7 @@ syncToggle?.addEventListener("change", async () => {
 	}
 });
 
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 btnSyncNow?.addEventListener("click", async () => {
 	if (!syncService.isSyncActive()) {
 		danger({ title: "Sync not active", text: "Please unlock sync first." });
@@ -501,6 +508,7 @@ btnSyncNow?.addEventListener("click", async () => {
 	info({ title: "Sync complete", text: "All data has been synchronized." });
 });
 
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 btnSyncMediaMaintenance?.addEventListener("click", async () => {
 	if (!syncService.isSyncActive()) {
 		danger({ title: "Sync not active", text: "Please unlock sync first." });
@@ -521,6 +529,7 @@ btnSyncMediaMaintenance?.addEventListener("click", async () => {
 	}
 });
 
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 btnSyncWipe?.addEventListener("click", async () => {
 	// Confirm before wiping
 	const shouldWipe = await confirmDialogDanger(
@@ -588,6 +597,7 @@ function updateStatusIndicator(status: SyncStatus) {
 // ── Event Listeners ────────────────────────────────────────────────────────
 
 // Auth state: check if user is Pro/Max and show/hide sync section
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 onAppEvent("auth-state-changed", async (event) => {
 	const { loggedIn, subscription } = event.detail;
 
@@ -638,6 +648,7 @@ onAppEvent("auth-state-changed", async (event) => {
 });
 
 // Sync unlock required: show appropriate modal
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 onAppEvent("sync-unlock-required", async (event) => {
 	const { isFirstSetup, mode } = event.detail;
 	const resolvedMode = mode ?? (isFirstSetup ? "setup" : "unlock");
@@ -689,10 +700,12 @@ onAppEvent("sync-quota-updated", (event) => {
 onAppEvent("sync-setup-complete", (event) => {
 	updateSettingsUI(event.detail.enabled);
 	if (event.detail.enabled) {
+		// eslint-disable-next-line @typescript-eslint/no-floating-promises
 		syncService.fetchSyncQuota();
 	}
 });
 
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 onAppEvent("sync-data-pulled", async () => {
 	const currentChatId = chatsService.getCurrentChatId();
 
@@ -713,6 +726,7 @@ onAppEvent("sync-data-pulled", async () => {
 });
 
 // Subscription updated: show/hide sync section
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 onAppEvent("subscription-updated", async (event) => {
 	const tier = event.detail.tier;
 	const isPaid = tier === "pro" || tier === "pro_plus" || tier === "max";

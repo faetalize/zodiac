@@ -594,44 +594,46 @@ function syncGenerationUiForCurrentChat(): void {
 	});
 }
 
-sendMessageButton.addEventListener("click", async () => {
-	//if generating, abort instead of send
-	if (isCurrentlyGenerating) {
-		messageService.abortGeneration(chatsService.getCurrentChatId() ?? undefined);
-		return;
-	}
+sendMessageButton.addEventListener("click", () => {
+	void (async () => {
+		//if generating, abort instead of send
+		if (isCurrentlyGenerating) {
+			messageService.abortGeneration(chatsService.getCurrentChatId() ?? undefined);
+			return;
+		}
 
-	// In RPG group chats, only allow sending during the user's turn.
-	if (isRpgGroupChatContext && !isUserTurnInRpg) {
-		toastService.warn({
-			title: "Not your turn",
-			text: "Wait for your turn, then send your message."
-		});
-		return;
-	}
+		// In RPG group chats, only allow sending during the user's turn.
+		if (isRpgGroupChatContext && !isUserTurnInRpg) {
+			toastService.warn({
+				title: "Not your turn",
+				text: "Wait for your turn, then send your message."
+			});
+			return;
+		}
 
-	// Check for insufficient credits before sending
-	if (isComposerAllowanceBlocked) {
-		toastService.warn({
-			title: composerAllowanceBlockTitle,
-			text: composerAllowanceBlockText
-		});
-		return;
-	}
+		// Check for insufficient credits before sending
+		if (isComposerAllowanceBlocked) {
+			toastService.warn({
+				title: composerAllowanceBlockTitle,
+				text: composerAllowanceBlockText
+			});
+			return;
+		}
 
-	try {
-		const message = serializeMessageInput();
-		messageInput.innerHTML = "";
-		closeMentionMenu();
-		await messageService.send(message);
-	} catch (error: any) {
-		toastService.danger({
-			title: "Error sending message",
-			text: JSON.stringify(error.message || error)
-		});
-		console.error(error);
-		return;
-	}
+		try {
+			const message = serializeMessageInput();
+			messageInput.innerHTML = "";
+			closeMentionMenu();
+			await messageService.send(message);
+		} catch (error: any) {
+			toastService.danger({
+				title: "Error sending message",
+				text: JSON.stringify(error.message || error)
+			});
+			console.error(error);
+			return;
+		}
+	})();
 });
 
 //listen for generation state changes to toggle send/stop button
@@ -683,204 +685,215 @@ window.addEventListener("round-state-changed", (event: any) => {
 });
 
 //skip turn button - skips user's turn and triggers next round
-skipTurnBtn?.addEventListener("click", async () => {
-	if (isCurrentlyGenerating) return;
+skipTurnBtn?.addEventListener("click", () => {
+	void (async () => {
+		if (isCurrentlyGenerating) return;
 
-	try {
-		await messageService.skipRpgTurn();
-	} catch (error: any) {
-		toastService.danger({
-			title: "Error skipping turn",
-			text: JSON.stringify(error.message || error)
-		});
-	}
+		try {
+			await messageService.skipRpgTurn();
+		} catch (error: any) {
+			toastService.danger({
+				title: "Error skipping turn",
+				text: JSON.stringify(error.message || error)
+			});
+		}
+	})();
 });
 
 //start turn button - triggers AI participants before user's turn
-startTurnBtn?.addEventListener("click", async () => {
-	if (isCurrentlyGenerating) return;
+startTurnBtn?.addEventListener("click", () => {
+	void (async () => {
+		if (isCurrentlyGenerating) return;
 
-	try {
-		// send empty message to trigger AI turn (participants before user will respond)
-		await messageService.send("");
-	} catch (error: any) {
-		toastService.danger({
-			title: "Error starting turn",
-			text: JSON.stringify(error.message || error)
-		});
-	}
-});
-
-rpgSettingsButton?.addEventListener("click", async () => {
-	const chat = await chatsService.getCurrentChat();
-	if (!chat?.groupChat) return;
-
-	// Ensure sidebar is visible
-	const sidebar = document.querySelector<HTMLElement>(".sidebar");
-	if (sidebar) {
-		sidebar.style.display = "flex";
-		helpers.showElement(sidebar, false);
-	}
-
-	// Switch to the Settings tab (3rd tab)
-	const navbar = document.querySelector<HTMLElement>('.navbar[data-target-id="sidebar-content"]');
-	const settingsTab = navbar?.querySelector<HTMLElement>(".navbar-tab:nth-child(3)");
-	settingsTab?.click();
-
-	// Open the Group chat Settings page
-	const settingsSection = document.querySelector<HTMLElement>("#settings-section");
-	const groupChatSettingsButton = settingsSection?.querySelector<HTMLElement>('[data-settings-target="groupchat"]');
-
-	// If we're already in settings home, clicking this will navigate to the groupchat page.
-	// If we're already inside another settings page, the click will still work because
-	// SettingsNavigation attaches handlers directly to the home list items.
-	groupChatSettingsButton?.click();
-});
-
-window.addEventListener("chat-loaded", async (e: any) => {
-	const chat = e.detail.chat;
-
-	isGroupChatContext = !!chat?.groupChat;
-	isRpgGroupChatContext = chat?.groupChat?.mode === "rpg";
-	isDynamicGroupChatContext = chat?.groupChat?.mode === "dynamic";
-	allowDynamicPings = !!chat?.groupChat?.dynamic?.allowPings && !settingsService.getSettings().disallowPersonaPinging;
-
-	if (isDynamicGroupChatContext) {
-		const participantIds: string[] = Array.isArray(chat.groupChat?.participantIds)
-			? chat.groupChat.participantIds
-			: [];
-		const nextOptions: MentionOption[] = [];
-		for (const id of participantIds) {
-			const persona = await personalityService.get(String(id));
-			const resolved = persona || personalityService.getDefault();
-			if (!resolved) continue;
-			nextOptions.push({ id: String(id), name: String(resolved.name || "Unknown"), image: resolved.image });
+		try {
+			// send empty message to trigger AI turn (participants before user will respond)
+			await messageService.send("");
+		} catch (error: any) {
+			toastService.danger({
+				title: "Error starting turn",
+				text: JSON.stringify(error.message || error)
+			});
 		}
-		mentionOptions = nextOptions;
-	} else {
-		mentionOptions = [];
-		closeMentionMenu();
-	}
+	})();
+});
 
-	if (isGroupChatContext) {
-		messageInput?.setAttribute("placeholder", "Send a message");
-		internetSearchToggle?.classList.add("hidden");
-		roleplayActionsMenu?.classList.add("hidden");
-	} else {
-		await setupBottomBar();
-	}
+rpgSettingsButton?.addEventListener("click", () => {
+	void (async () => {
+		const chat = await chatsService.getCurrentChat();
+		if (!chat?.groupChat) return;
 
-	const imageBtn = document.querySelector<HTMLButtonElement>("#btn-image");
-	const editBtn = document.querySelector<HTMLButtonElement>("#btn-edit");
-	imageBtn?.classList.toggle("hidden", isGroupChatContext);
-	editBtn?.classList.toggle("hidden", isGroupChatContext);
+		// Ensure sidebar is visible
+		const sidebar = document.querySelector<HTMLElement>(".sidebar");
+		if (sidebar) {
+			sidebar.style.display = "flex";
+			helpers.showElement(sidebar, false);
+		}
 
-	if (isRpgGroupChatContext) {
-		turnControlPanel?.classList.remove("hidden");
+		// Switch to the Settings tab (3rd tab)
+		const navbar = document.querySelector<HTMLElement>('.navbar[data-target-id="sidebar-content"]');
+		const settingsTab = navbar?.querySelector<HTMLElement>(".navbar-tab:nth-child(3)");
+		settingsTab?.click();
 
-		//determine turn state from chat content
-		const rpg = chat.groupChat?.rpg;
-		const turnOrder: string[] = Array.isArray(rpg?.turnOrder) ? rpg.turnOrder : [];
-		const participants: string[] = Array.isArray(chat.groupChat?.participantIds)
-			? chat.groupChat.participantIds
-			: [];
-		const effectiveOrder = turnOrder.length > 0 ? turnOrder : [...participants, "user"];
-		const userIndex = effectiveOrder.indexOf("user");
+		// Open the Group chat Settings page
+		const settingsSection = document.querySelector<HTMLElement>("#settings-section");
+		const groupChatSettingsButton = settingsSection?.querySelector<HTMLElement>(
+			'[data-settings-target="groupchat"]'
+		);
 
-		const allMessages = (chat.content || []) as any[];
-		const isUserSkipTurnMarker = (m: any): boolean => {
-			if (!m || m.role !== "user" || !m.hidden) return false;
-			const parts = Array.isArray(m.parts) ? m.parts : [];
-			return parts.some((p: any) => (p?.text ?? "").toString() === messageService.USER_SKIP_TURN_MARKER_TEXT);
-		};
-		const isAiSkipTurnMarker = (m: any): boolean => {
-			if (!m || m.role !== "model" || !m.hidden) return false;
-			const parts = Array.isArray(m.parts) ? m.parts : [];
-			return parts.some((p: any) => (p?.text ?? "").toString() === "__ai_skip_turn__");
-		};
-		const isSkipTurnMarker = (m: any): boolean => isUserSkipTurnMarker(m) || isAiSkipTurnMarker(m);
+		// If we're already in settings home, clicking this will navigate to the groupchat page.
+		// If we're already inside another settings page, the click will still work because
+		// SettingsNavigation attaches handlers directly to the home list items.
+		groupChatSettingsButton?.click();
+	})();
+});
 
-		//use "turn relevant" messages to determine current state
-		//this includes the hidden skip-turn marker (counts as user completing their turn)
-		const turnRelevantMessages = allMessages.filter((m: any) => !m.hidden || isSkipTurnMarker(m));
-		const lastMessage = turnRelevantMessages[turnRelevantMessages.length - 1];
+window.addEventListener("chat-loaded", (e: any) => {
+	void (async () => {
+		const chat = e.detail.chat;
 
-		let isUserTurn = false;
-		let startsNewRound = false;
-		let nextSpeakerId: string | undefined;
+		isGroupChatContext = !!chat?.groupChat;
+		isRpgGroupChatContext = chat?.groupChat?.mode === "rpg";
+		isDynamicGroupChatContext = chat?.groupChat?.mode === "dynamic";
+		allowDynamicPings =
+			!!chat?.groupChat?.dynamic?.allowPings && !settingsService.getSettings().disallowPersonaPinging;
 
-		//calculate next round number from existing messages
-		const roundIndices = (chat.content || [])
-			.filter((m: any) => typeof m.roundIndex === "number")
-			.map((m: any) => m.roundIndex as number);
-		const maxRoundIndex = roundIndices.length > 0 ? Math.max(...roundIndices) : 0;
-
-		if (turnRelevantMessages.length === 0) {
-			// Empty chat: next speaker is the first in the order.
-			const nextSpeaker = effectiveOrder[0];
-			nextSpeakerId = nextSpeaker;
-			startsNewRound = true;
-			isUserTurn = nextSpeaker === "user" || userIndex === 0 || userIndex === -1;
+		if (isDynamicGroupChatContext) {
+			const participantIds: string[] = Array.isArray(chat.groupChat?.participantIds)
+				? chat.groupChat.participantIds
+				: [];
+			const nextOptions: MentionOption[] = [];
+			for (const id of participantIds) {
+				const persona = await personalityService.get(String(id));
+				const resolved = persona || personalityService.getDefault();
+				if (!resolved) continue;
+				nextOptions.push({ id: String(id), name: String(resolved.name || "Unknown"), image: resolved.image });
+			}
+			mentionOptions = nextOptions;
 		} else {
-			// Determine whose turn is next based on last speaker
-			const lastSpeakerId = isUserSkipTurnMarker(lastMessage)
-				? "user"
-				: lastMessage.role === "user"
-					? "user"
-					: lastMessage.personalityid;
+			mentionOptions = [];
+			closeMentionMenu();
+		}
 
-			// Skip narrator messages when determining turn
-			let effectiveLastSpeaker = lastSpeakerId;
-			if (lastSpeakerId === "__narrator__") {
-				// Look backwards for non-narrator message
-				for (let i = turnRelevantMessages.length - 2; i >= 0; i--) {
-					const msg = turnRelevantMessages[i];
-					const speakerId = msg.role === "user" ? "user" : msg.personalityid;
-					if (speakerId !== "__narrator__") {
-						effectiveLastSpeaker = speakerId;
-						break;
+		if (isGroupChatContext) {
+			messageInput?.setAttribute("placeholder", "Send a message");
+			internetSearchToggle?.classList.add("hidden");
+			roleplayActionsMenu?.classList.add("hidden");
+		} else {
+			await setupBottomBar();
+		}
+
+		const imageBtn = document.querySelector<HTMLButtonElement>("#btn-image");
+		const editBtn = document.querySelector<HTMLButtonElement>("#btn-edit");
+		imageBtn?.classList.toggle("hidden", isGroupChatContext);
+		editBtn?.classList.toggle("hidden", isGroupChatContext);
+
+		if (isRpgGroupChatContext) {
+			turnControlPanel?.classList.remove("hidden");
+
+			//determine turn state from chat content
+			const rpg = chat.groupChat?.rpg;
+			const turnOrder: string[] = Array.isArray(rpg?.turnOrder) ? rpg.turnOrder : [];
+			const participants: string[] = Array.isArray(chat.groupChat?.participantIds)
+				? chat.groupChat.participantIds
+				: [];
+			const effectiveOrder = turnOrder.length > 0 ? turnOrder : [...participants, "user"];
+			const userIndex = effectiveOrder.indexOf("user");
+
+			const allMessages = (chat.content || []) as any[];
+			const isUserSkipTurnMarker = (m: any): boolean => {
+				if (!m || m.role !== "user" || !m.hidden) return false;
+				const parts = Array.isArray(m.parts) ? m.parts : [];
+				return parts.some((p: any) => (p?.text ?? "").toString() === messageService.USER_SKIP_TURN_MARKER_TEXT);
+			};
+			const isAiSkipTurnMarker = (m: any): boolean => {
+				if (!m || m.role !== "model" || !m.hidden) return false;
+				const parts = Array.isArray(m.parts) ? m.parts : [];
+				return parts.some((p: any) => (p?.text ?? "").toString() === "__ai_skip_turn__");
+			};
+			const isSkipTurnMarker = (m: any): boolean => isUserSkipTurnMarker(m) || isAiSkipTurnMarker(m);
+
+			//use "turn relevant" messages to determine current state
+			//this includes the hidden skip-turn marker (counts as user completing their turn)
+			const turnRelevantMessages = allMessages.filter((m: any) => !m.hidden || isSkipTurnMarker(m));
+			const lastMessage = turnRelevantMessages[turnRelevantMessages.length - 1];
+
+			let isUserTurn = false;
+			let startsNewRound = false;
+			let nextSpeakerId: string | undefined;
+
+			//calculate next round number from existing messages
+			const roundIndices = (chat.content || [])
+				.filter((m: any) => typeof m.roundIndex === "number")
+				.map((m: any) => m.roundIndex as number);
+			const maxRoundIndex = roundIndices.length > 0 ? Math.max(...roundIndices) : 0;
+
+			if (turnRelevantMessages.length === 0) {
+				// Empty chat: next speaker is the first in the order.
+				const nextSpeaker = effectiveOrder[0];
+				nextSpeakerId = nextSpeaker;
+				startsNewRound = true;
+				isUserTurn = nextSpeaker === "user" || userIndex === 0 || userIndex === -1;
+			} else {
+				// Determine whose turn is next based on last speaker
+				const lastSpeakerId = isUserSkipTurnMarker(lastMessage)
+					? "user"
+					: lastMessage.role === "user"
+						? "user"
+						: lastMessage.personalityid;
+
+				// Skip narrator messages when determining turn
+				let effectiveLastSpeaker = lastSpeakerId;
+				if (lastSpeakerId === "__narrator__") {
+					// Look backwards for non-narrator message
+					for (let i = turnRelevantMessages.length - 2; i >= 0; i--) {
+						const msg = turnRelevantMessages[i];
+						const speakerId = msg.role === "user" ? "user" : msg.personalityid;
+						if (speakerId !== "__narrator__") {
+							effectiveLastSpeaker = speakerId;
+							break;
+						}
 					}
+				}
+
+				const lastSpeakerIndex = effectiveOrder.indexOf(String(effectiveLastSpeaker));
+				if (lastSpeakerIndex === -1) {
+					// Unknown speaker, default to user's turn
+					isUserTurn = true;
+					startsNewRound = false;
+				} else {
+					// Next speaker is the one after lastSpeaker in the order
+					const nextIndex = (lastSpeakerIndex + 1) % effectiveOrder.length;
+					const nextSpeaker = effectiveOrder[nextIndex];
+					nextSpeakerId = nextSpeaker;
+					isUserTurn = nextSpeaker === "user";
+					startsNewRound = nextSpeaker === effectiveOrder[0];
 				}
 			}
 
-			const lastSpeakerIndex = effectiveOrder.indexOf(String(effectiveLastSpeaker));
-			if (lastSpeakerIndex === -1) {
-				// Unknown speaker, default to user's turn
-				isUserTurn = true;
-				startsNewRound = false;
-			} else {
-				// Next speaker is the one after lastSpeaker in the order
-				const nextIndex = (lastSpeakerIndex + 1) % effectiveOrder.length;
-				const nextSpeaker = effectiveOrder[nextIndex];
-				nextSpeakerId = nextSpeaker;
-				isUserTurn = nextSpeaker === "user";
-				startsNewRound = nextSpeaker === effectiveOrder[0];
+			const nextRoundNumber = startsNewRound ? maxRoundIndex + 1 : Math.max(1, maxRoundIndex);
+
+			void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
+
+			//auto-progress when loading into a state that requires starting the next round
+			if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
+				//avoid double-triggers during initial load
+				syncGenerationUiForCurrentChat();
+				if (!isCurrentlyGenerating) {
+					void messageService.send("");
+				}
 			}
+		} else if (chat?.groupChat) {
+			// Dynamic group chat
+			turnControlPanel?.classList.add("hidden");
+			syncComposerInteractivity();
+		} else {
+			//Normal chat or empty
+			turnControlPanel?.classList.add("hidden");
+			syncComposerInteractivity();
 		}
 
-		const nextRoundNumber = startsNewRound ? maxRoundIndex + 1 : Math.max(1, maxRoundIndex);
-
-		void updateRpgTurnControlUi({ isUserTurn, startsNewRound, nextRoundNumber, nextSpeakerId });
-
-		//auto-progress when loading into a state that requires starting the next round
-		if (!isUserTurn && settingsService.getSettings().rpgGroupChatsProgressAutomatically) {
-			//avoid double-triggers during initial load
-			syncGenerationUiForCurrentChat();
-			if (!isCurrentlyGenerating) {
-				void messageService.send("");
-			}
-		}
-	} else if (chat?.groupChat) {
-		// Dynamic group chat
-		turnControlPanel?.classList.add("hidden");
-		syncComposerInteractivity();
-	} else {
-		//Normal chat or empty
-		turnControlPanel?.classList.add("hidden");
-		syncComposerInteractivity();
-	}
-
-	syncGenerationUiForCurrentChat();
+		syncGenerationUiForCurrentChat();
+	})();
 });
 
 window.addEventListener("composer-state-reset", () => {
@@ -911,27 +924,31 @@ const setupBottomBar = async () => {
 	}
 };
 
-document.querySelector<HTMLDivElement>("#personalitiesDiv")!.addEventListener("change", async (e: Event) => {
-	if ((e.target as HTMLSelectElement).name === "personality") {
-		await setupBottomBar();
-	}
+document.querySelector<HTMLDivElement>("#personalitiesDiv")!.addEventListener("change", (e: Event) => {
+	void (async () => {
+		if ((e.target as HTMLSelectElement).name === "personality") {
+			await setupBottomBar();
+		}
+	})();
 });
 
 await setupBottomBar();
 
 // Listen for image editing toggle events
-window.addEventListener("image-editing-toggled", async (event: any) => {
-	isImageEditingActive = event.detail.enabled;
+window.addEventListener("image-editing-toggled", (event: any) => {
+	void (async () => {
+		isImageEditingActive = event.detail.enabled;
 
-	if (!isImageEditingActive) {
-		// Clear history preview when editing is disabled
-		clearHistoryPreview();
-	} else {
-		// If toggled ON, enforce model-specific image limit
-		enforceImageLimitForModel();
-	}
+		if (!isImageEditingActive) {
+			// Clear history preview when editing is disabled
+			clearHistoryPreview();
+		} else {
+			// If toggled ON, enforce model-specific image limit
+			enforceImageLimitForModel();
+		}
 
-	updateImageCreditsLabelVisibility();
+		updateImageCreditsLabelVisibility();
+	})();
 });
 
 // Listen for image generation toggle events
@@ -940,12 +957,14 @@ window.addEventListener("image-generation-toggled", () => {
 });
 
 // Listen for attachment changes
-window.addEventListener("attachment-added", async () => {
-	// Hide history preview when attachments are added
-	if (isImageEditingActive) {
-		clearHistoryPreview();
-		enforceImageLimitForModel();
-	}
+window.addEventListener("attachment-added", () => {
+	void (async () => {
+		// Hide history preview when attachments are added
+		if (isImageEditingActive) {
+			clearHistoryPreview();
+			enforceImageLimitForModel();
+		}
+	})();
 });
 
 // Listen for history image removal

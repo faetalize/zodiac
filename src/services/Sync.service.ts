@@ -2615,10 +2615,12 @@ export function initialize(): void {
 	loadOfflineQueue();
 
 	// Online/offline listeners
-	window.addEventListener("online", async () => {
-		if (isSyncActive()) {
-			await flushOfflineQueue();
-		}
+	window.addEventListener("online", () => {
+		void (async () => {
+			if (isSyncActive()) {
+				await flushOfflineQueue();
+			}
+		})();
 	});
 
 	window.addEventListener("offline", () => {

@@ -1,4 +1,4 @@
-import type { ToastInstance} from "../../types/Toast";
+import type { ToastInstance } from "../../types/Toast";
 import { ToastSeverity } from "../../types/Toast";
 
 const TOAST_CONTAINER_ID = "toast-container";
@@ -61,17 +61,21 @@ export function mountToast(instance: ToastInstance, onDismissed: DismissCallback
 			actionButton.type = "button";
 			actionButton.classList.add("toast-action");
 			actionButton.textContent = action.label;
-			actionButton.addEventListener("click", async () => {
-				if (isDismissed) {
-					return;
-				}
-				try {
-					await action.onClick(triggerDismiss);
-				} catch (error) {
-					console.error("Toast action handler failed", error);
-				} finally {
-					triggerDismiss();
-				}
+			actionButton.addEventListener("click", () => {
+				void (async () => {
+					void (async () => {
+						if (isDismissed) {
+							return;
+						}
+						try {
+							await action.onClick(triggerDismiss);
+						} catch (error) {
+							console.error("Toast action handler failed", error);
+						} finally {
+							triggerDismiss();
+						}
+					})();
+				})();
 			});
 			footer.appendChild(actionButton);
 		}

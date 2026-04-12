@@ -62,13 +62,15 @@ function buildMenu() {
 			btn.classList.add("active");
 		}
 
-		btn.addEventListener("click", async (event) => {
-			event.stopPropagation();
-			if (mode !== getPersonaSortMode()) {
-				await setPersonaSortMode(mode);
-				updateSortLabel(mode);
-			}
-			closeMenu();
+		btn.addEventListener("click", (event) => {
+			void (async () => {
+				event.stopPropagation();
+				if (mode !== getPersonaSortMode()) {
+					await setPersonaSortMode(mode);
+					updateSortLabel(mode);
+				}
+				closeMenu();
+			})();
 		});
 
 		menu!.appendChild(btn);
