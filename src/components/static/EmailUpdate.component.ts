@@ -93,7 +93,6 @@ async function handleSubmit(event: SubmitEvent) {
 	}
 }
 
-// eslint-disable-next-line @typescript-eslint/no-misused-promises
 emailUpdateFormEl.addEventListener("submit", handleSubmit);
 
 cancelButtonEl.addEventListener("click", () => {

@@ -59,31 +59,27 @@ document.addEventListener("keydown", (e) => {
 });
 
 // Listen for auth state changes
-window.addEventListener("auth-state-changed", (event: any) => {
-	void (async () => {
-		const imageGenRecord = event.detail?.imageGenerationRecord;
-		if (imageGenRecord) {
-			imageCredits = imageGenRecord.remaining_image_generations;
-		} else {
-			imageCredits = undefined;
-		}
-		imageGenStatus = await isImageGenerationAvailable();
-		await refreshSupplementalAllowanceState();
-	})();
+window.addEventListener("auth-state-changed", async (event: any) => {
+	const imageGenRecord = event.detail?.imageGenerationRecord;
+	if (imageGenRecord) {
+		imageCredits = imageGenRecord.remaining_image_generations;
+	} else {
+		imageCredits = undefined;
+	}
+	imageGenStatus = await isImageGenerationAvailable();
+	await refreshSupplementalAllowanceState();
 });
 
 // Listen for explicit image generation record refreshes
-window.addEventListener("image-generation-record-refreshed", (event: any) => {
-	void (async () => {
-		const imageGenRecord = event.detail?.imageGenerationRecord;
-		if (!imageGenRecord) {
-			imageCredits = undefined;
-		} else {
-			imageCredits = imageGenRecord.remaining_image_generations;
-		}
-		imageGenStatus = await isImageGenerationAvailable();
-		renderLabel();
-	})();
+window.addEventListener("image-generation-record-refreshed", async (event: any) => {
+	const imageGenRecord = event.detail?.imageGenerationRecord;
+	if (!imageGenRecord) {
+		imageCredits = undefined;
+	} else {
+		imageCredits = imageGenRecord.remaining_image_generations;
+	}
+	imageGenStatus = await isImageGenerationAvailable();
+	renderLabel();
 });
 
 // Listen for image mode toggles
@@ -107,20 +103,16 @@ window.addEventListener("chat-model-changed", () => {
 	renderLabel();
 });
 
-window.addEventListener("subscription-updated", () => {
-	void (async () => {
-		imageGenStatus = await isImageGenerationAvailable();
-		await refreshSupplementalAllowanceState();
-	})();
+window.addEventListener("subscription-updated", async () => {
+	imageGenStatus = await isImageGenerationAvailable();
+	await refreshSupplementalAllowanceState();
 });
 
-window.addEventListener("generation-state-changed", (event: any) => {
-	void (async () => {
-		if (event.detail?.anyGenerating === false) {
-			imageGenStatus = await isImageGenerationAvailable();
-			await refreshSupplementalAllowanceState();
-		}
-	})();
+window.addEventListener("generation-state-changed", async (event: any) => {
+	if (event.detail?.anyGenerating === false) {
+		imageGenStatus = await isImageGenerationAvailable();
+		await refreshSupplementalAllowanceState();
+	}
 });
 
 // Listen for image model changes
@@ -556,38 +548,34 @@ function bindPopoverButtons(): void {
 
 	// Add buy credits button handler for insufficient credits (if present)
 	const buyCreditsButton = imageCreditsPopover.querySelector<HTMLButtonElement>("#insufficient-credits-buy-button");
-	buyCreditsButton?.addEventListener("click", (e) => {
-		void (async () => {
-			e.stopPropagation();
-			hidePopover();
+	buyCreditsButton?.addEventListener("click", async (e) => {
+		e.stopPropagation();
+		hidePopover();
 
-			const user = await getCurrentUser();
-			if (!user) {
-				// User is not logged in, show login overlay
-				overlayService.show("login-register-tabs");
-			} else {
-				// User is logged in, show buy credits overlay
-				overlayService.show("form-top-up-imagecredits");
-			}
-		})();
+		const user = await getCurrentUser();
+		if (!user) {
+			// User is not logged in, show login overlay
+			overlayService.show("login-register-tabs");
+		} else {
+			// User is logged in, show buy credits overlay
+			overlayService.show("form-top-up-imagecredits");
+		}
 	});
 
 	// Add buy credits button handler for google_only mode (if present)
 	const googleOnlyBuyButton = imageCreditsPopover.querySelector<HTMLButtonElement>("#google-only-buy-button");
-	googleOnlyBuyButton?.addEventListener("click", (e) => {
-		void (async () => {
-			e.stopPropagation();
-			hidePopover();
+	googleOnlyBuyButton?.addEventListener("click", async (e) => {
+		e.stopPropagation();
+		hidePopover();
 
-			const user = await getCurrentUser();
-			if (!user) {
-				// User is not logged in, show login overlay
-				overlayService.show("login-register-tabs");
-			} else {
-				// User is logged in, show buy credits overlay
-				overlayService.show("form-top-up-imagecredits");
-			}
-		})();
+		const user = await getCurrentUser();
+		if (!user) {
+			// User is not logged in, show login overlay
+			overlayService.show("login-register-tabs");
+		} else {
+			// User is logged in, show buy credits overlay
+			overlayService.show("form-top-up-imagecredits");
+		}
 	});
 
 	// Add setup API key button handler for google_only mode (if present)
@@ -682,7 +670,7 @@ function positionPopover(): void {
 }
 
 // Initialize and render
-void (async () => {
+(async () => {
 	imageGenStatus = await isImageGenerationAvailable();
 	await refreshSupplementalAllowanceState();
 })();

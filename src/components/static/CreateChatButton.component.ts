@@ -24,10 +24,8 @@ newChatButton.addEventListener("click", () => {
 importChat.addEventListener("click", () => {
 	const fileInput = document.createElement("input");
 	fileInput.type = "file";
-	fileInput.addEventListener("change", () => {
-		void (async () => {
-			await chatsService.importChats(fileInput.files!);
-		})();
+	fileInput.addEventListener("change", async () => {
+		await chatsService.importChats(fileInput.files!);
 	});
 	fileInput.click();
 	fileInput.remove();

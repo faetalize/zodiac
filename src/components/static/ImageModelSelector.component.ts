@@ -49,12 +49,12 @@ async function updateImageModelSelectorState() {
 }
 
 // Update state on initialization
-void updateImageModelSelectorState();
+updateImageModelSelectorState();
 
 // Listen for auth and subscription changes
 window.addEventListener("auth-state-changed", () => {
-	void updateImageModelSelectorState();
+	updateImageModelSelectorState();
 });
 window.addEventListener("subscription-updated", () => {
-	void updateImageModelSelectorState();
+	updateImageModelSelectorState();
 });

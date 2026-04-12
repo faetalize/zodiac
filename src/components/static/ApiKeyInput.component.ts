@@ -65,11 +65,9 @@ function attachValidation(args: {
 			return;
 		}
 
-		debounceTimer = setTimeout(() => {
-			void (async () => {
-				const isValid = await args.validator(value);
-				setValidationState({ input: args.input, errorElement: args.errorElement, isValid });
-			})();
+		debounceTimer = setTimeout(async () => {
+			const isValid = await args.validator(value);
+			setValidationState({ input: args.input, errorElement: args.errorElement, isValid });
 		}, 750);
 	});
 }

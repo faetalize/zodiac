@@ -149,10 +149,8 @@ async function startCheckout(plan: PlanType, button: HTMLButtonElement): Promise
 }
 
 subscriptionButtons.forEach(({ plan, button }) => {
-	button.addEventListener("click", () => {
-		void (async () => {
-			await startCheckout(plan, button);
-		})();
+	button.addEventListener("click", async () => {
+		await startCheckout(plan, button);
 	});
 });
 

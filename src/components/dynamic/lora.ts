@@ -25,28 +25,24 @@ const buildTriggers = (words: string[] | undefined): HTMLDivElement => {
 		button.setAttribute("title", `Copy "${word}" to clipboard`);
 		button.setAttribute("aria-label", `Copy trigger word "${word}" to clipboard`);
 
-		button.addEventListener("click", () => {
-			void (async () => {
-				void (async () => {
-					const clipboard = navigator.clipboard;
-					if (!clipboard || !clipboard.writeText) {
-						console.warn("[LoRA] Clipboard API unavailable in this browser.");
-						return;
-					}
-					try {
-						await clipboard.writeText(word);
-						button.dataset.copied = "true";
-						button.setAttribute("aria-label", `Copied "${word}" to clipboard`);
-					} catch (error) {
-						console.error("[LoRA] Failed to copy trigger word:", word, error);
-					} finally {
-						window.setTimeout(() => {
-							button.removeAttribute("data-copied");
-							button.setAttribute("aria-label", `Copy trigger word "${word}" to clipboard`);
-						}, 500);
-					}
-				})();
-			})();
+		button.addEventListener("click", async () => {
+			const clipboard = navigator.clipboard;
+			if (!clipboard || !clipboard.writeText) {
+				console.warn("[LoRA] Clipboard API unavailable in this browser.");
+				return;
+			}
+			try {
+				await clipboard.writeText(word);
+				button.dataset.copied = "true";
+				button.setAttribute("aria-label", `Copied "${word}" to clipboard`);
+			} catch (error) {
+				console.error("[LoRA] Failed to copy trigger word:", word, error);
+			} finally {
+				window.setTimeout(() => {
+					button.removeAttribute("data-copied");
+					button.setAttribute("aria-label", `Copy trigger word "${word}" to clipboard`);
+				}, 500);
+			}
 		});
 
 		wrapper.appendChild(button);

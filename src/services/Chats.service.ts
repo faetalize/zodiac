@@ -659,14 +659,12 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 		document.execCommand("selectAll", false);
 		chatLabelText.addEventListener(
 			"blur",
-			() => {
-				void (async () => {
-					chatLabelText.removeAttribute("contenteditable");
-					const newTitle = chatLabelText.textContent?.trim() || "";
-					if (newTitle && newTitle !== chat.title) {
-						await editChat(chat.id, newTitle);
-					}
-				})();
+			async () => {
+				chatLabelText.removeAttribute("contenteditable");
+				const newTitle = chatLabelText.textContent?.trim() || "";
+				if (newTitle && newTitle !== chat.title) {
+					await editChat(chat.id, newTitle);
+				}
 			},
 			{ once: true }
 		);
@@ -682,37 +680,35 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 	deleteItem.classList.add("chat-actions-item");
 	deleteItem.setAttribute("role", "menuitem");
 	deleteItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">delete</span><span>Delete</span>`;
-	deleteItem.addEventListener("click", (e) => {
-		void (async () => {
-			e.stopPropagation();
-			closeMenu();
+	deleteItem.addEventListener("click", async (e) => {
+		e.stopPropagation();
+		closeMenu();
 
-			const originalMarkup = deleteItem.innerHTML;
-			deleteItem.disabled = true;
-			deleteItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">hourglass_top</span><span>Deleting…</span>`;
+		const originalMarkup = deleteItem.innerHTML;
+		deleteItem.disabled = true;
+		deleteItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">hourglass_top</span><span>Deleting…</span>`;
 
+		toastService.info({
+			title: "Deleting chat",
+			text: "Deleting chat. This can take a while for long chats."
+		});
+
+		try {
+			await deleteChat(chat.id, db);
 			toastService.info({
-				title: "Deleting chat",
-				text: "Deleting chat. This can take a while for long chats."
+				title: "Chat deleted",
+				text: "Chat deleted successfully."
 			});
-
-			try {
-				await deleteChat(chat.id, db);
-				toastService.info({
-					title: "Chat deleted",
-					text: "Chat deleted successfully."
-				});
-			} catch (error) {
-				console.error("Failed to delete chat", error);
-				toastService.danger({
-					title: "Delete failed",
-					text: "Could not delete chat. Please try again."
-				});
-			} finally {
-				deleteItem.disabled = false;
-				deleteItem.innerHTML = originalMarkup;
-			}
-		})();
+		} catch (error) {
+			console.error("Failed to delete chat", error);
+			toastService.danger({
+				title: "Delete failed",
+				text: "Could not delete chat. Please try again."
+			});
+		} finally {
+			deleteItem.disabled = false;
+			deleteItem.innerHTML = originalMarkup;
+		}
 	});
 
 	// Group settings (only for group chats)
@@ -735,12 +731,10 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 	exportItem.classList.add("chat-actions-item");
 	exportItem.setAttribute("role", "menuitem");
 	exportItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">share</span><span>Export</span>`;
-	exportItem.addEventListener("click", (e) => {
-		void (async () => {
-			e.stopPropagation();
-			closeMenu();
-			await exportChat(chat.id);
-		})();
+	exportItem.addEventListener("click", async (e) => {
+		e.stopPropagation();
+		closeMenu();
+		await exportChat(chat.id);
 	});
 
 	const pinItem = document.createElement("button");
@@ -757,14 +751,12 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 
 	updatePinMenuUi();
 
-	pinItem.addEventListener("click", (e) => {
-		void (async () => {
-			e.stopPropagation();
-			closeMenu();
-			isPinned = await pinningService.toggleChatPinned(chat.id);
-			updatePinMenuUi();
-			await reorderChatListInDom();
-		})();
+	pinItem.addEventListener("click", async (e) => {
+		e.stopPropagation();
+		closeMenu();
+		isPinned = await pinningService.toggleChatPinned(chat.id);
+		updatePinMenuUi();
+		await reorderChatListInDom();
 	});
 
 	if (groupSettingsItem) {
@@ -813,13 +805,11 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 	chatLabel.append(pinnedIndicator);
 	chatLabel.append(actionsWrapper);
 
-	chatRadioButton.addEventListener("change", () => {
-		void (async () => {
-			await loadChat(chat.id, db);
-			if (window.innerWidth < 1032 && sidebar) {
-				helpers.hideElement(sidebar);
-			}
-		})();
+	chatRadioButton.addEventListener("change", async () => {
+		await loadChat(chat.id, db);
+		if (window.innerWidth < 1032 && sidebar) {
+			helpers.hideElement(sidebar);
+		}
 	});
 	if (chatHistorySection) {
 		if (position === "append") {
@@ -1205,17 +1195,15 @@ function attachScrollListener() {
 		return;
 	}
 
-	const onScroll = () => {
-		void (async () => {
-			if (!hasMoreOlder || isLoadingOlder) {
-				return;
-			}
-			// When the user scrolls near the top of the scrollable container, load older messages
-			const threshold = 200; // px
-			if (scrollContainer.scrollTop <= threshold) {
-				await loadOlderMessages();
-			}
-		})();
+	const onScroll = async () => {
+		if (!hasMoreOlder || isLoadingOlder) {
+			return;
+		}
+		// When the user scrolls near the top of the scrollable container, load older messages
+		const threshold = 200; // px
+		if (scrollContainer.scrollTop <= threshold) {
+			await loadOlderMessages();
+		}
 	};
 
 	scrollContainer.addEventListener("scroll", onScroll);

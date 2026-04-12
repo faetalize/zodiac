@@ -480,103 +480,99 @@ async function loadPersonas(): Promise<void> {
 	allPersonas = Array.from(byId.values());
 }
 
-openButton.addEventListener("click", () => {
-	void (async () => {
-		await loadPersonas();
+openButton.addEventListener("click", async () => {
+	await loadPersonas();
 
-		overlayService.show("form-create-group-chat");
+	overlayService.show("form-create-group-chat");
 
-		// Reset local state
-		editingChatId = null;
-		editingMode = null;
-		selectedIds = [];
-		turnOrder = [];
-		searchInput.value = "";
-		scenarioInput.value = "";
-		narratorToggle.checked = false;
-		allowPingsToggle.checked = false;
-		maxMessageGuardById = {};
-		guardApplyAll.value = "5";
-		guardApplyAllValue.textContent = "5";
+	// Reset local state
+	editingChatId = null;
+	editingMode = null;
+	selectedIds = [];
+	turnOrder = [];
+	searchInput.value = "";
+	scenarioInput.value = "";
+	narratorToggle.checked = false;
+	allowPingsToggle.checked = false;
+	maxMessageGuardById = {};
+	guardApplyAll.value = "5";
+	guardApplyAllValue.textContent = "5";
 
-		const rpgMode = form.querySelector<HTMLInputElement>("input[name='group-chat-mode'][value='rpg']");
-		if (rpgMode) rpgMode.checked = true;
-		setModeStepState(false);
-		updateModeSettingsVisibility();
+	const rpgMode = form.querySelector<HTMLInputElement>("input[name='group-chat-mode'][value='rpg']");
+	if (rpgMode) rpgMode.checked = true;
+	setModeStepState(false);
+	updateModeSettingsVisibility();
 
-		updateLabels();
-		renderPersonaList();
-		renderGuardSliders();
+	updateLabels();
+	renderPersonaList();
+	renderGuardSliders();
 
-		// Ensure stepper resets to first step
-		stepper.step = 0;
-		stepperService.update(stepper);
-	})();
+	// Ensure stepper resets to first step
+	stepper.step = 0;
+	stepperService.update(stepper);
 });
 
-window.addEventListener("open-group-chat-editor", (e: any) => {
-	void (async () => {
-		const chatId = e.detail.chatId;
-		const chat = await chatsService.getChatById(chatId);
-		if (!chat || !chat.groupChat) return;
+window.addEventListener("open-group-chat-editor", async (e: any) => {
+	const chatId = e.detail.chatId;
+	const chat = await chatsService.getChatById(chatId);
+	if (!chat || !chat.groupChat) return;
 
-		await loadPersonas();
+	await loadPersonas();
 
-		// Show overlay FIRST to avoid resetOverlayItems clearing our values
-		overlayService.show("form-create-group-chat");
+	// Show overlay FIRST to avoid resetOverlayItems clearing our values
+	overlayService.show("form-create-group-chat");
 
-		editingChatId = chatId;
-		setModeStepState(true);
+	editingChatId = chatId;
+	setModeStepState(true);
 
-		// Set mode selection
-		const mode = (chat.groupChat.mode || "rpg") as "dynamic" | "rpg";
-		editingMode = mode;
-		const modeRadio = form.querySelector<HTMLInputElement>(`input[name='group-chat-mode'][value='${mode}']`);
-		if (modeRadio) modeRadio.checked = true;
-		updateModeSettingsVisibility();
-		// Ensure IDs are strings and exist in current persona list
-		selectedIds = chat.groupChat.participantIds
-			.map((id) => String(id))
-			.filter((id) => allPersonas.some((p) => p.id === id));
+	// Set mode selection
+	const mode = (chat.groupChat.mode || "rpg") as "dynamic" | "rpg";
+	editingMode = mode;
+	const modeRadio = form.querySelector<HTMLInputElement>(`input[name='group-chat-mode'][value='${mode}']`);
+	if (modeRadio) modeRadio.checked = true;
+	updateModeSettingsVisibility();
+	// Ensure IDs are strings and exist in current persona list
+	selectedIds = chat.groupChat.participantIds
+		.map((id) => String(id))
+		.filter((id) => allPersonas.some((p) => p.id === id));
 
-		const savedOrder = (chat.groupChat.rpg?.turnOrder || chat.groupChat.participantIds).map((id) => String(id));
-		turnOrder = savedOrder.filter((id) => id === "user" || allPersonas.some((p) => p.id === id));
+	const savedOrder = (chat.groupChat.rpg?.turnOrder || chat.groupChat.participantIds).map((id) => String(id));
+	turnOrder = savedOrder.filter((id) => id === "user" || allPersonas.some((p) => p.id === id));
 
-		// Ensure "user" is in the turn order even if it wasn't saved before
-		if (!turnOrder.includes("user")) {
-			turnOrder.push("user");
-		}
+	// Ensure "user" is in the turn order even if it wasn't saved before
+	if (!turnOrder.includes("user")) {
+		turnOrder.push("user");
+	}
 
-		scenarioInput.value = mode === "rpg" ? chat.groupChat.rpg?.scenarioPrompt || "" : "";
-		narratorToggle.checked = mode === "rpg" ? !!chat.groupChat.rpg?.narratorEnabled : false;
-		allowPingsToggle.checked = !!chat.groupChat.dynamic?.allowPings;
+	scenarioInput.value = mode === "rpg" ? chat.groupChat.rpg?.scenarioPrompt || "" : "";
+	narratorToggle.checked = mode === "rpg" ? !!chat.groupChat.rpg?.narratorEnabled : false;
+	allowPingsToggle.checked = !!chat.groupChat.dynamic?.allowPings;
 
-		const legacyGuard = chat.groupChat.dynamic?.maxMessageGuard;
-		const existingMap = chat.groupChat.dynamic?.maxMessageGuardById;
-		const defaultsById: Record<string, number> = {};
-		for (const id of selectedIds) {
-			const persona = allPersonas.find((p) => p.id === id);
-			defaultsById[id] = persona ? defaultGuardFromIndependence(persona.independence) : 5;
-		}
+	const legacyGuard = chat.groupChat.dynamic?.maxMessageGuard;
+	const existingMap = chat.groupChat.dynamic?.maxMessageGuardById;
+	const defaultsById: Record<string, number> = {};
+	for (const id of selectedIds) {
+		const persona = allPersonas.find((p) => p.id === id);
+		defaultsById[id] = persona ? defaultGuardFromIndependence(persona.independence) : 5;
+	}
 
-		maxMessageGuardById = normalizeGuardMap({
-			participantIds: selectedIds,
-			existing: existingMap,
-			legacyFallback: legacyGuard,
-			defaultForId: (id) => defaultsById[id] ?? 5
-		});
+	maxMessageGuardById = normalizeGuardMap({
+		participantIds: selectedIds,
+		existing: existingMap,
+		legacyFallback: legacyGuard,
+		defaultForId: (id) => defaultsById[id] ?? 5
+	});
 
-		guardApplyAll.value = String(legacyGuard ?? 5);
-		guardApplyAllValue.textContent = guardApplyAll.value;
-		renderGuardSliders();
-		searchInput.value = "";
+	guardApplyAll.value = String(legacyGuard ?? 5);
+	guardApplyAllValue.textContent = guardApplyAll.value;
+	renderGuardSliders();
+	searchInput.value = "";
 
-		updateLabels();
-		renderPersonaList();
+	updateLabels();
+	renderPersonaList();
 
-		stepper.step = 0;
-		stepperService.update(stepper);
-	})();
+	stepper.step = 0;
+	stepperService.update(stepper);
 });
 
 searchInput.addEventListener("input", () => {
@@ -624,72 +620,70 @@ if (nextButton) {
 	});
 }
 
-form.addEventListener("submit", (e) => {
-	void (async () => {
-		e.preventDefault();
+form.addEventListener("submit", async (e) => {
+	e.preventDefault();
 
-		if (selectedIds.length < 2) {
-			warn({ title: "Select participants", text: "Pick at least 2 participants to create a group chat." });
-			stepper.step = 0;
-			stepperService.update(stepper);
+	if (selectedIds.length < 2) {
+		warn({ title: "Select participants", text: "Pick at least 2 participants to create a group chat." });
+		stepper.step = 0;
+		stepperService.update(stepper);
+		return;
+	}
+
+	const mode = editingChatId && editingMode ? editingMode : getSelectedMode();
+
+	if (mode === "dynamic") {
+		const defaultsById: Record<string, number> = {};
+		for (const id of selectedIds) {
+			const persona = allPersonas.find((p) => p.id === id);
+			defaultsById[id] = persona ? defaultGuardFromIndependence(persona.independence) : 5;
+		}
+		maxMessageGuardById = normalizeGuardMap({
+			participantIds: selectedIds,
+			existing: maxMessageGuardById,
+			defaultForId: (id) => defaultsById[id] ?? 5
+		});
+	}
+
+	if (editingChatId) {
+		const success =
+			mode === "rpg"
+				? await groupChatService.updateRpgGroupChat(editingChatId, {
+						participantIds: selectedIds,
+						turnOrder,
+						scenarioPrompt: scenarioInput.value,
+						narratorEnabled: narratorToggle.checked
+					})
+				: await groupChatService.updateDynamicGroupChat(editingChatId, {
+						participantIds: selectedIds,
+						maxMessageGuardById,
+						allowPings: allowPingsToggle.checked
+					});
+
+		if (!success) {
+			danger({ title: "Failed to update", text: "Unable to update group chat settings." });
 			return;
 		}
+	} else {
+		const id =
+			mode === "rpg"
+				? await groupChatService.createRpgGroupChat({
+						participantIds: selectedIds,
+						turnOrder,
+						scenarioPrompt: scenarioInput.value,
+						narratorEnabled: narratorToggle.checked
+					})
+				: await groupChatService.createDynamicGroupChat({
+						participantIds: selectedIds,
+						maxMessageGuardById,
+						allowPings: allowPingsToggle.checked
+					});
 
-		const mode = editingChatId && editingMode ? editingMode : getSelectedMode();
-
-		if (mode === "dynamic") {
-			const defaultsById: Record<string, number> = {};
-			for (const id of selectedIds) {
-				const persona = allPersonas.find((p) => p.id === id);
-				defaultsById[id] = persona ? defaultGuardFromIndependence(persona.independence) : 5;
-			}
-			maxMessageGuardById = normalizeGuardMap({
-				participantIds: selectedIds,
-				existing: maxMessageGuardById,
-				defaultForId: (id) => defaultsById[id] ?? 5
-			});
+		if (!id) {
+			danger({ title: "Failed to create", text: "Unable to create group chat." });
+			return;
 		}
+	}
 
-		if (editingChatId) {
-			const success =
-				mode === "rpg"
-					? await groupChatService.updateRpgGroupChat(editingChatId, {
-							participantIds: selectedIds,
-							turnOrder,
-							scenarioPrompt: scenarioInput.value,
-							narratorEnabled: narratorToggle.checked
-						})
-					: await groupChatService.updateDynamicGroupChat(editingChatId, {
-							participantIds: selectedIds,
-							maxMessageGuardById,
-							allowPings: allowPingsToggle.checked
-						});
-
-			if (!success) {
-				danger({ title: "Failed to update", text: "Unable to update group chat settings." });
-				return;
-			}
-		} else {
-			const id =
-				mode === "rpg"
-					? await groupChatService.createRpgGroupChat({
-							participantIds: selectedIds,
-							turnOrder,
-							scenarioPrompt: scenarioInput.value,
-							narratorEnabled: narratorToggle.checked
-						})
-					: await groupChatService.createDynamicGroupChat({
-							participantIds: selectedIds,
-							maxMessageGuardById,
-							allowPings: allowPingsToggle.checked
-						});
-
-			if (!id) {
-				danger({ title: "Failed to create", text: "Unable to create group chat." });
-				return;
-			}
-		}
-
-		overlayService.closeOverlay();
-	})();
+	overlayService.closeOverlay();
 });

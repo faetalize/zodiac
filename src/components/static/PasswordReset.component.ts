@@ -180,14 +180,12 @@ async function handleRequestSubmit(event: SubmitEvent) {
 	}
 }
 
-// eslint-disable-next-line @typescript-eslint/no-misused-promises
 requestFormEl.addEventListener("submit", handleRequestSubmit);
 
 requestCancelButtonEl.addEventListener("click", () => {
 	overlayService.show("login-register-tabs");
 });
 
-// eslint-disable-next-line @typescript-eslint/no-misused-promises
 passwordResetFormEl.addEventListener("submit", handleSubmit);
 
 cancelButtonEl.addEventListener("click", () => {

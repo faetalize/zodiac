@@ -50,13 +50,13 @@ async function updateImageEditModelSelectorState() {
 }
 
 // Initial check
-void updateImageEditModelSelectorState();
+updateImageEditModelSelectorState();
 
 onAppEvent("auth-state-changed", () => {
-	void updateImageEditModelSelectorState();
+	updateImageEditModelSelectorState();
 });
 onAppEvent("subscription-updated", () => {
-	void updateImageEditModelSelectorState();
+	updateImageEditModelSelectorState();
 });
 
 /**

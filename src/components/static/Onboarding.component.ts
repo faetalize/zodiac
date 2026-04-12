@@ -355,18 +355,14 @@ export function initialize(): void {
  * Path selection step handlers
  */
 function setupPathSelection(): void {
-	easyPathButton!.addEventListener("click", () => {
-		void (async () => {
-			onboardingService.setPath(OnboardingPath.EASY);
-			onboardingService.goToStep(OnboardingStep.THEME_SELECTION);
-		})();
+	easyPathButton!.addEventListener("click", async () => {
+		onboardingService.setPath(OnboardingPath.EASY);
+		onboardingService.goToStep(OnboardingStep.THEME_SELECTION);
 	});
 
-	powerPathButton!.addEventListener("click", () => {
-		void (async () => {
-			onboardingService.setPath(OnboardingPath.POWER);
-			onboardingService.goToStep(OnboardingStep.THEME_SELECTION);
-		})();
+	powerPathButton!.addEventListener("click", async () => {
+		onboardingService.setPath(OnboardingPath.POWER);
+		onboardingService.goToStep(OnboardingStep.THEME_SELECTION);
 	});
 
 	skipOnboardingButton!.addEventListener("click", () => {
@@ -414,25 +410,23 @@ function setupThemeSelection(): void {
 	});
 
 	// Continue button - route to account selector or API/subscription based on auth
-	themeContinueButton!.addEventListener("click", () => {
-		void (async () => {
-			// Check if user is logged in and determine routing
-			const user = await supabaseService.getCurrentUser();
-			if (user) {
-				const subscription = await supabaseService.getUserSubscription();
-				const tier = supabaseService.getSubscriptionTier(subscription);
+	themeContinueButton!.addEventListener("click", async () => {
+		// Check if user is logged in and determine routing
+		const user = await supabaseService.getCurrentUser();
+		if (user) {
+			const subscription = await supabaseService.getUserSubscription();
+			const tier = supabaseService.getSubscriptionTier(subscription);
 
-				// If user has a paid subscription, show account selector
-				if (tier === "pro" || tier === "pro_plus" || tier === "max") {
-					await prepareAccountSelector(user, subscription, tier);
-					onboardingService.goToStep(OnboardingStep.ACCOUNT_SELECTOR);
-					return;
-				}
+			// If user has a paid subscription, show account selector
+			if (tier === "pro" || tier === "pro_plus" || tier === "max") {
+				await prepareAccountSelector(user, subscription, tier);
+				onboardingService.goToStep(OnboardingStep.ACCOUNT_SELECTOR);
+				return;
 			}
+		}
 
-			// Otherwise, show normal API or Subscription choice
-			onboardingService.goToStep(OnboardingStep.API_OR_SUBSCRIPTION);
-		})();
+		// Otherwise, show normal API or Subscription choice
+		onboardingService.goToStep(OnboardingStep.API_OR_SUBSCRIPTION);
 	});
 }
 
@@ -440,24 +434,20 @@ function setupThemeSelection(): void {
  * Account selector step handlers (for logged-in Pro/Max users)
  */
 function setupAccountSelector(): void {
-	continueWithAccountButton!.addEventListener("click", () => {
-		void (async () => {
-			// Mark setup as subscription (since they're already subscribed)
-			onboardingService.setSetupOption("subscription");
+	continueWithAccountButton!.addEventListener("click", async () => {
+		// Mark setup as subscription (since they're already subscribed)
+		onboardingService.setSetupOption("subscription");
 
-			// Route based on selected path (Easy or Power)
-			await routeToCloudSyncOrSettings();
-		})();
+		// Route based on selected path (Easy or Power)
+		await routeToCloudSyncOrSettings();
 	});
 
-	useDifferentAccountButton!.addEventListener("click", () => {
-		void (async () => {
-			// Clear any pending credentials since user is switching accounts
-			onboardingService.setPendingCredentials(null);
-			// Logout and go back to API_OR_SUBSCRIPTION
-			await supabaseService.logout();
-			onboardingService.goToStep(OnboardingStep.API_OR_SUBSCRIPTION);
-		})();
+	useDifferentAccountButton!.addEventListener("click", async () => {
+		// Clear any pending credentials since user is switching accounts
+		onboardingService.setPendingCredentials(null);
+		// Logout and go back to API_OR_SUBSCRIPTION
+		await supabaseService.logout();
+		onboardingService.goToStep(OnboardingStep.API_OR_SUBSCRIPTION);
 	});
 }
 
@@ -466,29 +456,25 @@ function setupAccountSelector(): void {
  * This is dynamic and changes behavior based on setup option
  */
 function setupAccountConfirmation(): void {
-	confirmContinueButton!.addEventListener("click", () => {
-		void (async () => {
-			const setupOption = onboardingService.getState().setupOption;
+	confirmContinueButton!.addEventListener("click", async () => {
+		const setupOption = onboardingService.getState().setupOption;
 
-			if (setupOption === "subscription") {
-				// Continue to plan selection for subscription flow
-				onboardingService.goToStep(OnboardingStep.PLAN_SELECTION);
-			} else if (setupOption === "api-key") {
-				// Continue to settings or summary based on path
-				await routeToCloudSyncOrSettings();
-			}
-		})();
+		if (setupOption === "subscription") {
+			// Continue to plan selection for subscription flow
+			onboardingService.goToStep(OnboardingStep.PLAN_SELECTION);
+		} else if (setupOption === "api-key") {
+			// Continue to settings or summary based on path
+			await routeToCloudSyncOrSettings();
+		}
 	});
 
-	confirmDifferentAccountButton!.addEventListener("click", () => {
-		void (async () => {
-			// Clear any pending credentials since user is switching accounts
-			onboardingService.setPendingCredentials(null);
-			// Logout and show registration/login dialogs
-			await supabaseService.logout();
-			onboardingService.goToStep(OnboardingStep.REGISTRATION);
-			prepareRegistrationStep("login", { focus: true });
-		})();
+	confirmDifferentAccountButton!.addEventListener("click", async () => {
+		// Clear any pending credentials since user is switching accounts
+		onboardingService.setPendingCredentials(null);
+		// Logout and show registration/login dialogs
+		await supabaseService.logout();
+		onboardingService.goToStep(OnboardingStep.REGISTRATION);
+		prepareRegistrationStep("login", { focus: true });
 	});
 }
 
@@ -572,38 +558,34 @@ async function prepareAccountConfirmation(options?: { title?: string; subtitle?:
  * API vs Subscription choice step handlers
  */
 function setupApiOrSubscriptionChoice(): void {
-	chooseApiKeyButton!.addEventListener("click", () => {
-		void (async () => {
-			onboardingService.setSetupOption("api-key");
-			onboardingService.setPendingCredentials(null);
+	chooseApiKeyButton!.addEventListener("click", async () => {
+		onboardingService.setSetupOption("api-key");
+		onboardingService.setPendingCredentials(null);
 
-			apiKeyInput!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
-			openRouterApiKeyInput!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "";
+		apiKeyInput!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
+		openRouterApiKeyInput!.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "";
 
-			onboardingService.goToStep(OnboardingStep.API_KEY_SETUP);
-		})();
+		onboardingService.goToStep(OnboardingStep.API_KEY_SETUP);
 	});
 
-	chooseSubscriptionButton!.addEventListener("click", () => {
-		void (async () => {
-			onboardingService.setSetupOption("subscription");
-			onboardingService.setPendingCredentials(null);
+	chooseSubscriptionButton!.addEventListener("click", async () => {
+		onboardingService.setSetupOption("subscription");
+		onboardingService.setPendingCredentials(null);
 
-			// Check if user is logged in
-			const user = await supabaseService.getCurrentUser();
-			if (user) {
-				// User is logged in (Free tier), show account confirmation
-				await prepareAccountConfirmation({
-					title: "Continue with Your Account",
-					subtitle: "You're logged in. Continue to select a subscription plan."
-				});
-				onboardingService.goToStep(OnboardingStep.ACCOUNT_CONFIRMATION);
-			} else {
-				// User not logged in, show registration
-				onboardingService.goToStep(OnboardingStep.REGISTRATION);
-				prepareRegistrationStep("register", { focus: true });
-			}
-		})();
+		// Check if user is logged in
+		const user = await supabaseService.getCurrentUser();
+		if (user) {
+			// User is logged in (Free tier), show account confirmation
+			await prepareAccountConfirmation({
+				title: "Continue with Your Account",
+				subtitle: "You're logged in. Continue to select a subscription plan."
+			});
+			onboardingService.goToStep(OnboardingStep.ACCOUNT_CONFIRMATION);
+		} else {
+			// User not logged in, show registration
+			onboardingService.goToStep(OnboardingStep.REGISTRATION);
+			prepareRegistrationStep("register", { focus: true });
+		}
 	});
 }
 
@@ -677,62 +659,56 @@ function setupApiKeySetup(): void {
 		}
 	};
 
-	validateApiKeyButton!.addEventListener("click", () => {
-		void (async () => {
-			await runValidation({
-				input: apiKeyInput!,
-				button: validateApiKeyButton!,
-				statusElement: apiKeyStatus!,
-				storageKey: SETTINGS_STORAGE_KEYS.API_KEY,
-				validator: validateGeminiApiKey,
-				loadingMessage: "Testing your Gemini key...",
-				successMessage: "✓ Gemini key is valid!",
-				errorMessage: "✗ Invalid Gemini key. Please check and try again.",
-				idleLabel: "Validate Gemini Key"
-			});
-		})();
+	validateApiKeyButton!.addEventListener("click", async () => {
+		await runValidation({
+			input: apiKeyInput!,
+			button: validateApiKeyButton!,
+			statusElement: apiKeyStatus!,
+			storageKey: SETTINGS_STORAGE_KEYS.API_KEY,
+			validator: validateGeminiApiKey,
+			loadingMessage: "Testing your Gemini key...",
+			successMessage: "✓ Gemini key is valid!",
+			errorMessage: "✗ Invalid Gemini key. Please check and try again.",
+			idleLabel: "Validate Gemini Key"
+		});
 	});
 
-	validateOpenRouterApiKeyButton!.addEventListener("click", () => {
-		void (async () => {
-			await runValidation({
-				input: openRouterApiKeyInput!,
-				button: validateOpenRouterApiKeyButton!,
-				statusElement: openRouterApiKeyStatus!,
-				storageKey: SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY,
-				validator: validateOpenRouterApiKey,
-				loadingMessage: "Testing your OpenRouter key...",
-				successMessage: "✓ OpenRouter key is valid!",
-				errorMessage: "✗ Invalid OpenRouter key. Please check and try again.",
-				idleLabel: "Validate OpenRouter Key"
-			});
-		})();
+	validateOpenRouterApiKeyButton!.addEventListener("click", async () => {
+		await runValidation({
+			input: openRouterApiKeyInput!,
+			button: validateOpenRouterApiKeyButton!,
+			statusElement: openRouterApiKeyStatus!,
+			storageKey: SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY,
+			validator: validateOpenRouterApiKey,
+			loadingMessage: "Testing your OpenRouter key...",
+			successMessage: "✓ OpenRouter key is valid!",
+			errorMessage: "✗ Invalid OpenRouter key. Please check and try again.",
+			idleLabel: "Validate OpenRouter Key"
+		});
 	});
 
-	apiKeyNextButton!.addEventListener("click", () => {
-		void (async () => {
-			if (!hasAnyValidatedApiKey()) {
-				return;
-			}
+	apiKeyNextButton!.addEventListener("click", async () => {
+		if (!hasAnyValidatedApiKey()) {
+			return;
+		}
 
-			onboardingService.setSetupOption("api-key");
-			onboardingService.setPendingCredentials(null);
+		onboardingService.setSetupOption("api-key");
+		onboardingService.setPendingCredentials(null);
 
-			// Check if user is logged in
-			const user = await supabaseService.getCurrentUser();
-			if (user) {
-				// User is logged in, show account confirmation
-				await prepareAccountConfirmation({
-					title: "Continue with Your Account",
-					subtitle: "Choose an account to continue to finish onboarding."
-				});
-				onboardingService.goToStep(OnboardingStep.ACCOUNT_CONFIRMATION);
-			} else {
-				// User not logged in, show registration
-				onboardingService.goToStep(OnboardingStep.REGISTRATION);
-				prepareRegistrationStep("register", { focus: true });
-			}
-		})();
+		// Check if user is logged in
+		const user = await supabaseService.getCurrentUser();
+		if (user) {
+			// User is logged in, show account confirmation
+			await prepareAccountConfirmation({
+				title: "Continue with Your Account",
+				subtitle: "Choose an account to continue to finish onboarding."
+			});
+			onboardingService.goToStep(OnboardingStep.ACCOUNT_CONFIRMATION);
+		} else {
+			// User not logged in, show registration
+			onboardingService.goToStep(OnboardingStep.REGISTRATION);
+			prepareRegistrationStep("register", { focus: true });
+		}
 	});
 
 	// Reset next button state when input changes
@@ -869,17 +845,15 @@ function initializeOnboardingPricing(): void {
 
 		button.addEventListener(
 			"click",
-			(event) => {
-				void (async () => {
-					if (onboardingPlanSelection.classList.contains("hidden")) {
-						return;
-					}
+			async (event) => {
+				if (onboardingPlanSelection.classList.contains("hidden")) {
+					return;
+				}
 
-					event.preventDefault();
-					event.stopImmediatePropagation();
-					onboardingService.setSelectedPriceId(getSelectedPriceIdForPlan(plan, getOnboardingBillingMode()));
-					await routeToCloudSyncOrSettings();
-				})();
+				event.preventDefault();
+				event.stopImmediatePropagation();
+				onboardingService.setSelectedPriceId(getSelectedPriceIdForPlan(plan, getOnboardingBillingMode()));
+				await routeToCloudSyncOrSettings();
 			},
 			{ capture: true }
 		);
@@ -964,127 +938,121 @@ function setupRegistration(): void {
 		}
 	});
 
-	registerPanel!.addEventListener("submit", (e) => {
-		void (async () => {
-			e.preventDefault();
+	registerPanel!.addEventListener("submit", async (e) => {
+		e.preventDefault();
 
-			const email = registerEmailInput!.value.trim();
-			const password = registerPasswordInput!.value;
-			const passwordConfirm = registerPasswordConfirmInput!.value;
-			const termsAccepted = registerTermsCheckbox!.checked;
+		const email = registerEmailInput!.value.trim();
+		const password = registerPasswordInput!.value;
+		const passwordConfirm = registerPasswordConfirmInput!.value;
+		const termsAccepted = registerTermsCheckbox!.checked;
 
-			resetRegistrationFeedback();
+		resetRegistrationFeedback();
 
-			// Validation
-			if (!email || !password) {
-				showRegisterError("Email and password are required");
-				return;
-			}
+		// Validation
+		if (!email || !password) {
+			showRegisterError("Email and password are required");
+			return;
+		}
 
-			if (password !== passwordConfirm) {
-				showRegisterError("Passwords do not match");
-				return;
-			}
+		if (password !== passwordConfirm) {
+			showRegisterError("Passwords do not match");
+			return;
+		}
 
-			if (!termsAccepted) {
-				showRegisterError("You must accept the terms and conditions");
-				return;
-			}
+		if (!termsAccepted) {
+			showRegisterError("You must accept the terms and conditions");
+			return;
+		}
 
-			// Disable button and show loading
-			registerSubmitButton!.disabled = true;
-			const originalText = registerSubmitButton!.textContent ?? "Register";
-			registerSubmitButton!.textContent = "Creating Account...";
+		// Disable button and show loading
+		registerSubmitButton!.disabled = true;
+		const originalText = registerSubmitButton!.textContent ?? "Register";
+		registerSubmitButton!.textContent = "Creating Account...";
 
-			try {
-				await supabaseService.createAccount(email, password);
+		try {
+			await supabaseService.createAccount(email, password);
 
-				toastService.info({
-					title: "Check Your Email",
-					text: "Please check your email for a verification link to activate your account."
-				});
+			toastService.info({
+				title: "Check Your Email",
+				text: "Please check your email for a verification link to activate your account."
+			});
 
-				onboardingService.setRegistrationCompleted(true);
-				onboardingService.setPendingCredentials({ email, password });
+			onboardingService.setRegistrationCompleted(true);
+			onboardingService.setPendingCredentials({ email, password });
 
-				// Both flows require email confirmation
-				onboardingService.goToStep(OnboardingStep.SUBSCRIPTION_SETUP);
-				prepareSubscriptionConfirmation();
-			} catch (error) {
-				console.error("Registration failed:", error);
-				showRegisterError((error as Error).message || "Registration failed, please try again");
-			} finally {
-				registerSubmitButton!.disabled = false;
-				registerSubmitButton!.textContent = originalText;
-			}
-		})();
+			// Both flows require email confirmation
+			onboardingService.goToStep(OnboardingStep.SUBSCRIPTION_SETUP);
+			prepareSubscriptionConfirmation();
+		} catch (error) {
+			console.error("Registration failed:", error);
+			showRegisterError((error as Error).message || "Registration failed, please try again");
+		} finally {
+			registerSubmitButton!.disabled = false;
+			registerSubmitButton!.textContent = originalText;
+		}
 	});
 
-	registerSkipButton!.addEventListener("click", () => {
-		void (async () => {
-			if (registerSkipButton!.disabled) {
-				return;
-			}
+	registerSkipButton!.addEventListener("click", async () => {
+		if (registerSkipButton!.disabled) {
+			return;
+		}
 
-			onboardingService.setRegistrationCompleted(false);
+		onboardingService.setRegistrationCompleted(false);
+		onboardingService.setPendingCredentials(null);
+		await routeToCloudSyncOrSettings();
+	});
+
+	loginPanel!.addEventListener("submit", async (event) => {
+		event.preventDefault();
+
+		const email = registerLoginEmailInput!.value.trim();
+		const password = registerLoginPasswordInput!.value;
+
+		resetLoginError();
+
+		if (!email || !password) {
+			showLoginError("Email and password are required");
+			return;
+		}
+
+		const originalText = registerLoginButton!.textContent ?? "Log In";
+		registerLoginButton!.disabled = true;
+		registerLoginButton!.textContent = "Signing In...";
+
+		try {
+			await supabaseService.login(email, password);
+			onboardingService.setRegistrationCompleted(true);
 			onboardingService.setPendingCredentials(null);
-			await routeToCloudSyncOrSettings();
-		})();
-	});
 
-	loginPanel!.addEventListener("submit", (event) => {
-		void (async () => {
-			event.preventDefault();
+			toastService.info({
+				title: "Signed in",
+				text: "Welcome back! You're ready to continue."
+			});
 
-			const email = registerLoginEmailInput!.value.trim();
-			const password = registerLoginPasswordInput!.value;
+			if (isSubscriptionFlow()) {
+				// Check if user already has a Pro/Max subscription
+				const user = await supabaseService.getCurrentUser();
+				const subscription = await supabaseService.getUserSubscription();
+				const tier = supabaseService.getSubscriptionTier(subscription);
 
-			resetLoginError();
-
-			if (!email || !password) {
-				showLoginError("Email and password are required");
-				return;
-			}
-
-			const originalText = registerLoginButton!.textContent ?? "Log In";
-			registerLoginButton!.disabled = true;
-			registerLoginButton!.textContent = "Signing In...";
-
-			try {
-				await supabaseService.login(email, password);
-				onboardingService.setRegistrationCompleted(true);
-				onboardingService.setPendingCredentials(null);
-
-				toastService.info({
-					title: "Signed in",
-					text: "Welcome back! You're ready to continue."
-				});
-
-				if (isSubscriptionFlow()) {
-					// Check if user already has a Pro/Max subscription
-					const user = await supabaseService.getCurrentUser();
-					const subscription = await supabaseService.getUserSubscription();
-					const tier = supabaseService.getSubscriptionTier(subscription);
-
-					if (tier === "pro" || tier === "pro_plus" || tier === "max") {
-						// User already has subscription, show account selector
-						await prepareAccountSelector(user, subscription, tier);
-						onboardingService.goToStep(OnboardingStep.ACCOUNT_SELECTOR);
-					} else {
-						// User is Free tier, continue to plan selection
-						onboardingService.goToStep(OnboardingStep.PLAN_SELECTION);
-					}
+				if (tier === "pro" || tier === "pro_plus" || tier === "max") {
+					// User already has subscription, show account selector
+					await prepareAccountSelector(user, subscription, tier);
+					onboardingService.goToStep(OnboardingStep.ACCOUNT_SELECTOR);
 				} else {
-					await routeToCloudSyncOrSettings();
+					// User is Free tier, continue to plan selection
+					onboardingService.goToStep(OnboardingStep.PLAN_SELECTION);
 				}
-			} catch (error) {
-				console.error("Login failed:", error);
-				showLoginError((error as Error).message || "Login failed, please try again");
-			} finally {
-				registerLoginButton!.disabled = false;
-				registerLoginButton!.textContent = originalText;
+			} else {
+				await routeToCloudSyncOrSettings();
 			}
-		})();
+		} catch (error) {
+			console.error("Login failed:", error);
+			showLoginError((error as Error).message || "Login failed, please try again");
+		} finally {
+			registerLoginButton!.disabled = false;
+			registerLoginButton!.textContent = originalText;
+		}
 	});
 
 	setAuthMode(activeAuthMode);
@@ -1109,74 +1077,72 @@ function getPurchaseTypeFromPriceId(priceId: string): string | null {
  * Summary step handlers
  */
 function setupSummary(): void {
-	summaryFinishButton!.addEventListener("click", () => {
-		void (async () => {
-			const selectedPriceId = onboardingService.getSelectedPriceId();
+	summaryFinishButton!.addEventListener("click", async () => {
+		const selectedPriceId = onboardingService.getSelectedPriceId();
 
-			// Apply theme settings from onboarding state before everything else
-			applyThemeSettings();
+		// Apply theme settings from onboarding state before everything else
+		applyThemeSettings();
 
-			// Apply Easy path settings for ALL outcomes
-			const selectedPath = onboardingService.getState().selectedPath;
-			if (selectedPath === OnboardingPath.EASY && !hasCloudSyncEnabledForCurrentUser) {
-				await applyEasyPathSettings();
-			}
+		// Apply Easy path settings for ALL outcomes
+		const selectedPath = onboardingService.getState().selectedPath;
+		if (selectedPath === OnboardingPath.EASY && !hasCloudSyncEnabledForCurrentUser) {
+			await applyEasyPathSettings();
+		}
 
-			// Subscription flow - redirect to Stripe checkout
-			if (selectedPriceId) {
-				try {
-					summaryFinishButton!.disabled = true;
-					summaryFinishButton!.textContent = "Redirecting...";
+		// Subscription flow - redirect to Stripe checkout
+		if (selectedPriceId) {
+			try {
+				summaryFinishButton!.disabled = true;
+				summaryFinishButton!.textContent = "Redirecting...";
 
-					// Determine purchase type based on price ID
-					const purchaseType = getPurchaseTypeFromPriceId(selectedPriceId);
-					if (!purchaseType) {
-						throw new Error("Invalid price ID");
-					}
-
-					const { data, error } = await supabaseService.supabase.functions.invoke("stripe", {
-						method: "POST",
-						body: JSON.stringify({ purchaseType })
-					});
-
-					if (error) {
-						console.error("Stripe checkout creation failed:", error);
-						throw new Error(error.message || "Stripe checkout failed");
-					}
-
-					const url = data.url;
-					if (!url) {
-						console.error("Stripe returned no URL", data);
-						throw new Error("No checkout URL returned");
-					}
-
-					onboardingService.markCompleted();
-
-					// Redirect to Stripe checkout
-					window.location.href = url;
-				} catch (error) {
-					console.error("Checkout error:", error);
-					summaryFinishButton!.disabled = false;
-					summaryFinishButton!.textContent = "Continue to Checkout";
-					toastService.danger({
-						title: "Checkout Failed",
-						text: "Unable to start checkout. Please try again."
-					});
+				// Determine purchase type based on price ID
+				const purchaseType = getPurchaseTypeFromPriceId(selectedPriceId);
+				if (!purchaseType) {
+					throw new Error("Invalid price ID");
 				}
-			} else {
-				// API key flow - normal completion
-				onboardingService.setPendingCredentials(null);
 
-				// Navigate to Chats tab
-				navigateToChatTab();
+				const { data, error } = await supabaseService.supabase.functions.invoke("stripe", {
+					method: "POST",
+					body: JSON.stringify({ purchaseType })
+				});
 
-				onboardingService.hide();
-				toastService.info({
-					title: "Welcome to Zodiac!",
-					text: "You're all set~"
+				if (error) {
+					console.error("Stripe checkout creation failed:", error);
+					throw new Error(error.message || "Stripe checkout failed");
+				}
+
+				const url = data.url;
+				if (!url) {
+					console.error("Stripe returned no URL", data);
+					throw new Error("No checkout URL returned");
+				}
+
+				onboardingService.markCompleted();
+
+				// Redirect to Stripe checkout
+				window.location.href = url;
+			} catch (error) {
+				console.error("Checkout error:", error);
+				summaryFinishButton!.disabled = false;
+				summaryFinishButton!.textContent = "Continue to Checkout";
+				toastService.danger({
+					title: "Checkout Failed",
+					text: "Unable to start checkout. Please try again."
 				});
 			}
-		})();
+		} else {
+			// API key flow - normal completion
+			onboardingService.setPendingCredentials(null);
+
+			// Navigate to Chats tab
+			navigateToChatTab();
+
+			onboardingService.hide();
+			toastService.info({
+				title: "Welcome to Zodiac!",
+				text: "You're all set~"
+			});
+		}
 	});
 }
 
@@ -1263,71 +1229,69 @@ function renderSummary(): void {
 }
 
 function setupSubscriptionConfirmation(): void {
-	subscriptionAutoLoginButton!.addEventListener("click", () => {
-		void (async () => {
-			const credentials = onboardingService.getPendingCredentials();
+	subscriptionAutoLoginButton!.addEventListener("click", async () => {
+		const credentials = onboardingService.getPendingCredentials();
 
-			if (!credentials) {
-				showSubscriptionStatus(
-					"We couldn't find your saved credentials. Use a different account to continue.",
-					"error"
-				);
-				return;
-			}
+		if (!credentials) {
+			showSubscriptionStatus(
+				"We couldn't find your saved credentials. Use a different account to continue.",
+				"error"
+			);
+			return;
+		}
 
-			const originalText = subscriptionAutoLoginButton!.textContent ?? "I've confirmed my email";
-			subscriptionAutoLoginButton!.disabled = true;
-			subscriptionAutoLoginButton!.textContent = "Signing in...";
-			showSubscriptionStatus("Signing you in...", "loading");
+		const originalText = subscriptionAutoLoginButton!.textContent ?? "I've confirmed my email";
+		subscriptionAutoLoginButton!.disabled = true;
+		subscriptionAutoLoginButton!.textContent = "Signing in...";
+		showSubscriptionStatus("Signing you in...", "loading");
 
-			try {
-				await supabaseService.login(credentials.email, credentials.password);
-				onboardingService.setRegistrationCompleted(true);
-				onboardingService.setPendingCredentials(null);
+		try {
+			await supabaseService.login(credentials.email, credentials.password);
+			onboardingService.setRegistrationCompleted(true);
+			onboardingService.setPendingCredentials(null);
 
-				showSubscriptionStatus("You're signed in! Redirecting...", "success");
+			showSubscriptionStatus("You're signed in! Redirecting...", "success");
 
-				// Check if user already has a paid subscription (edge case)
-				const user = await supabaseService.getCurrentUser();
-				const subscription = await supabaseService.getUserSubscription();
-				const tier = supabaseService.getSubscriptionTier(subscription);
+			// Check if user already has a paid subscription (edge case)
+			const user = await supabaseService.getCurrentUser();
+			const subscription = await supabaseService.getUserSubscription();
+			const tier = supabaseService.getSubscriptionTier(subscription);
 
-				if (tier === "pro" || tier === "pro_plus" || tier === "max") {
-					// User already has subscription, show account selector
+			if (tier === "pro" || tier === "pro_plus" || tier === "max") {
+				// User already has subscription, show account selector
+				toastService.info({
+					title: "Signed in",
+					text: "Welcome back! You're ready to continue."
+				});
+				await prepareAccountSelector(user, subscription, tier);
+				onboardingService.goToStep(OnboardingStep.ACCOUNT_SELECTOR);
+			} else {
+				// User is Free tier, route based on setup option
+				const setupOption = onboardingService.getState().setupOption;
+
+				if (setupOption === "subscription") {
+					// Subscription flow - go to plan selection
 					toastService.info({
 						title: "Signed in",
-						text: "Welcome back! You're ready to continue."
+						text: "You're ready to explore Zodiac Pro."
 					});
-					await prepareAccountSelector(user, subscription, tier);
-					onboardingService.goToStep(OnboardingStep.ACCOUNT_SELECTOR);
+					onboardingService.goToStep(OnboardingStep.PLAN_SELECTION);
 				} else {
-					// User is Free tier, route based on setup option
-					const setupOption = onboardingService.getState().setupOption;
-
-					if (setupOption === "subscription") {
-						// Subscription flow - go to plan selection
-						toastService.info({
-							title: "Signed in",
-							text: "You're ready to explore Zodiac Pro."
-						});
-						onboardingService.goToStep(OnboardingStep.PLAN_SELECTION);
-					} else {
-						// API key flow - go to summary
-						toastService.info({
-							title: "Signed in",
-							text: "Welcome! You're all set."
-						});
-						await routeToCloudSyncOrSettings();
-					}
+					// API key flow - go to summary
+					toastService.info({
+						title: "Signed in",
+						text: "Welcome! You're all set."
+					});
+					await routeToCloudSyncOrSettings();
 				}
-			} catch (error) {
-				console.error("Automatic login failed:", error);
-				showSubscriptionStatus((error as Error).message || "Login failed, please try again.", "error");
-			} finally {
-				subscriptionAutoLoginButton!.disabled = false;
-				subscriptionAutoLoginButton!.textContent = originalText;
 			}
-		})();
+		} catch (error) {
+			console.error("Automatic login failed:", error);
+			showSubscriptionStatus((error as Error).message || "Login failed, please try again.", "error");
+		} finally {
+			subscriptionAutoLoginButton!.disabled = false;
+			subscriptionAutoLoginButton!.textContent = originalText;
+		}
 	});
 
 	subscriptionReturnButton!.addEventListener("click", () => {
@@ -1378,136 +1342,132 @@ function setupCloudSyncSetup(): void {
 	cloudSyncPasswordInput!.addEventListener("input", resetCloudSyncStatus);
 	cloudSyncPasswordConfirmInput!.addEventListener("input", resetCloudSyncStatus);
 
-	cloudSyncSkipButton!.addEventListener("click", () => {
-		void (async () => {
-			if (onboardingCloudSyncMode === "setup") {
-				syncService.markSyncPromptSeen();
-			}
-			await routeToSettingsOrSummary();
-		})();
+	cloudSyncSkipButton!.addEventListener("click", async () => {
+		if (onboardingCloudSyncMode === "setup") {
+			syncService.markSyncPromptSeen();
+		}
+		await routeToSettingsOrSummary();
 	});
 
-	cloudSyncContinueButton!.addEventListener("click", () => {
-		void (async () => {
-			if (onboardingCloudSyncMode === "unlock") {
-				const password = cloudSyncPasswordInput!.value;
-				if (!password) {
-					showCloudSyncStatus("Password is required.", "error");
-					return;
-				}
-
-				cloudSyncContinueButton!.disabled = true;
-				cloudSyncContinueButton!.textContent = "Unlocking...";
-				showCloudSyncStatus("Unlocking cloud sync...", "loading");
-
-				try {
-					const unlockSuccess = await syncService.unlock(password);
-					if (!unlockSuccess) {
-						showCloudSyncStatus("Incorrect password. Please try again.", "error");
-						return;
-					}
-
-					const didApplySyncedSettings = await syncService.applySyncedSettingsToLocalStorage();
-					if (didApplySyncedSettings) {
-						settingsService.loadSettings();
-						themeService.reloadFromStorage();
-					}
-
-					await syncService.pullAll();
-					settingsService.loadSettings();
-					themeService.reloadFromStorage();
-
-					showCloudSyncStatus("Synced settings loaded.", "success");
-					await routeToSettingsOrSummary();
-				} finally {
-					cloudSyncContinueButton!.disabled = false;
-					cloudSyncContinueButton!.textContent = "Unlock and Continue";
-				}
-				return;
-			}
-
-			if (onboardingCloudSyncMode === "enable") {
-				const password = cloudSyncPasswordInput!.value;
-				if (!password) {
-					showCloudSyncStatus("Password is required.", "error");
-					return;
-				}
-
-				cloudSyncContinueButton!.disabled = true;
-				cloudSyncContinueButton!.textContent = "Re-enabling...";
-				showCloudSyncStatus("Re-enabling cloud sync...", "loading");
-
-				try {
-					const enableSuccess = await syncService.enableSync(password, { strategy: "pull-remote" });
-					if (!enableSuccess) {
-						showCloudSyncStatus("Incorrect password. Please try again.", "error");
-						return;
-					}
-
-					hasCloudSyncEnabledForCurrentUser = true;
-					const didApplySyncedSettings = await syncService.applySyncedSettingsToLocalStorage();
-					if (didApplySyncedSettings) {
-						settingsService.loadSettings();
-						themeService.reloadFromStorage();
-					}
-					settingsService.loadSettings();
-					themeService.reloadFromStorage();
-
-					showCloudSyncStatus("Cloud sync re-enabled.", "success");
-					await routeToSettingsOrSummary();
-				} finally {
-					cloudSyncContinueButton!.disabled = false;
-					cloudSyncContinueButton!.textContent = "Re-enable and Continue";
-				}
-				return;
-			}
-
-			if (!cloudSyncEnableCheckbox!.checked) {
-				syncService.markSyncPromptSeen();
-				await routeToSettingsOrSummary();
-				return;
-			}
-
+	cloudSyncContinueButton!.addEventListener("click", async () => {
+		if (onboardingCloudSyncMode === "unlock") {
 			const password = cloudSyncPasswordInput!.value;
-			const passwordConfirm = cloudSyncPasswordConfirmInput!.value;
-
 			if (!password) {
 				showCloudSyncStatus("Password is required.", "error");
 				return;
 			}
 
-			if (password.length < 8) {
-				showCloudSyncStatus("Password must be at least 8 characters.", "error");
-				return;
-			}
+			cloudSyncContinueButton!.disabled = true;
+			cloudSyncContinueButton!.textContent = "Unlocking...";
+			showCloudSyncStatus("Unlocking cloud sync...", "loading");
 
-			if (password !== passwordConfirm) {
-				showCloudSyncStatus("Passwords do not match.", "error");
+			try {
+				const unlockSuccess = await syncService.unlock(password);
+				if (!unlockSuccess) {
+					showCloudSyncStatus("Incorrect password. Please try again.", "error");
+					return;
+				}
+
+				const didApplySyncedSettings = await syncService.applySyncedSettingsToLocalStorage();
+				if (didApplySyncedSettings) {
+					settingsService.loadSettings();
+					themeService.reloadFromStorage();
+				}
+
+				await syncService.pullAll();
+				settingsService.loadSettings();
+				themeService.reloadFromStorage();
+
+				showCloudSyncStatus("Synced settings loaded.", "success");
+				await routeToSettingsOrSummary();
+			} finally {
+				cloudSyncContinueButton!.disabled = false;
+				cloudSyncContinueButton!.textContent = "Unlock and Continue";
+			}
+			return;
+		}
+
+		if (onboardingCloudSyncMode === "enable") {
+			const password = cloudSyncPasswordInput!.value;
+			if (!password) {
+				showCloudSyncStatus("Password is required.", "error");
 				return;
 			}
 
 			cloudSyncContinueButton!.disabled = true;
-			cloudSyncContinueButton!.textContent = "Setting up...";
-			showCloudSyncStatus("Setting up cloud sync...", "loading");
+			cloudSyncContinueButton!.textContent = "Re-enabling...";
+			showCloudSyncStatus("Re-enabling cloud sync...", "loading");
 
 			try {
-				const success = await syncService.setupSync(password);
-				if (!success) {
-					showCloudSyncStatus("Setup failed. Please try again.", "error");
+				const enableSuccess = await syncService.enableSync(password, { strategy: "pull-remote" });
+				if (!enableSuccess) {
+					showCloudSyncStatus("Incorrect password. Please try again.", "error");
 					return;
 				}
 
-				syncService.markSyncPromptSeen();
-				await syncService.pullAll();
+				hasCloudSyncEnabledForCurrentUser = true;
+				const didApplySyncedSettings = await syncService.applySyncedSettingsToLocalStorage();
+				if (didApplySyncedSettings) {
+					settingsService.loadSettings();
+					themeService.reloadFromStorage();
+				}
 				settingsService.loadSettings();
 				themeService.reloadFromStorage();
-				showCloudSyncStatus("Cloud sync enabled.", "success");
+
+				showCloudSyncStatus("Cloud sync re-enabled.", "success");
 				await routeToSettingsOrSummary();
 			} finally {
 				cloudSyncContinueButton!.disabled = false;
-				cloudSyncContinueButton!.textContent = "Continue";
+				cloudSyncContinueButton!.textContent = "Re-enable and Continue";
 			}
-		})();
+			return;
+		}
+
+		if (!cloudSyncEnableCheckbox!.checked) {
+			syncService.markSyncPromptSeen();
+			await routeToSettingsOrSummary();
+			return;
+		}
+
+		const password = cloudSyncPasswordInput!.value;
+		const passwordConfirm = cloudSyncPasswordConfirmInput!.value;
+
+		if (!password) {
+			showCloudSyncStatus("Password is required.", "error");
+			return;
+		}
+
+		if (password.length < 8) {
+			showCloudSyncStatus("Password must be at least 8 characters.", "error");
+			return;
+		}
+
+		if (password !== passwordConfirm) {
+			showCloudSyncStatus("Passwords do not match.", "error");
+			return;
+		}
+
+		cloudSyncContinueButton!.disabled = true;
+		cloudSyncContinueButton!.textContent = "Setting up...";
+		showCloudSyncStatus("Setting up cloud sync...", "loading");
+
+		try {
+			const success = await syncService.setupSync(password);
+			if (!success) {
+				showCloudSyncStatus("Setup failed. Please try again.", "error");
+				return;
+			}
+
+			syncService.markSyncPromptSeen();
+			await syncService.pullAll();
+			settingsService.loadSettings();
+			themeService.reloadFromStorage();
+			showCloudSyncStatus("Cloud sync enabled.", "success");
+			await routeToSettingsOrSummary();
+		} finally {
+			cloudSyncContinueButton!.disabled = false;
+			cloudSyncContinueButton!.textContent = "Continue";
+		}
 	});
 
 	applyCloudSyncModeUi(onboardingCloudSyncMode);

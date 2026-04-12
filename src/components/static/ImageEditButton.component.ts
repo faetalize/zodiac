@@ -38,10 +38,10 @@ onAppEvent("composer-state-reset", () => {
 
 // Listen for auth and subscription changes
 onAppEvent("auth-state-changed", () => {
-	void updateImageEditingState();
+	updateImageEditingState();
 });
 onAppEvent("subscription-updated", () => {
-	void updateImageEditingState();
+	updateImageEditingState();
 });
 
 async function updateImageEditingState() {
@@ -66,4 +66,4 @@ export function isImageEditingActive(): boolean {
 }
 
 // Update state on initialization
-void updateImageEditingState();
+updateImageEditingState();
