@@ -1,5 +1,3 @@
-NEVER FIX REGRESSIONS OR BUGS DISCOVERED BY TESTS, THEY ARE A POSITIVE THING BECAUSE IT MEANS THE TESTS ARE WORKING AS THEY SHOULD, THIS BRANCH'S PURPOSE IS THE INTRODUCTION OF TESTS, NOT FIXING BUGS
-
 # Zodiac AI Agent Instructions
 
 A Vite + TypeScript frontend for Google Gemini and OpenRouter APIs with local-first IndexedDB storage and optional Supabase cloud sync.
