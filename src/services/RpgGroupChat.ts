@@ -843,6 +843,14 @@ async function executeParticipantTurn(args: {
 		if (placeholderElm) {
 			const skipNotice = document.createElement("div");
 			skipNotice.className = "skip-notice";
+			// Carry over data attributes so DOM cleanup (e.g. regenerate) can
+			// identify and remove this notice by chat index, just like messages.
+			if (placeholderElm.dataset.chatIndex) {
+				skipNotice.dataset.chatIndex = placeholderElm.dataset.chatIndex;
+			}
+			if (placeholderElm.dataset.roundIndex) {
+				skipNotice.dataset.roundIndex = placeholderElm.dataset.roundIndex;
+			}
 			const safeName = helpers.getSanitized(meta.name || "Someone");
 			const reason = (decision.text ?? "").toString().trim();
 			const safeReasonSuffix = reason ? `: ${helpers.getSanitized(reason)}` : "";
