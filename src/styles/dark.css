@@ -1,413 +1,392 @@
 /* Dark mode base styles (applies to all themes in dark mode) */
 [data-mode="dark"] {
-    color-scheme: dark;
-    --input-text-border: #b6b6b62f;
-    --input-text-border-focus: #ffffff67;
-
-    --navbar-tab-hover-bg: #00000041;
-
-    --chat-actions-menu-fg: #e4e4e4;
-    --sidebar-chrome-bg: rgba(0, 0, 0, 0.089);
-    --sidebar-chrome-border: rgba(255, 255, 255, 0.11);
-
-    /* dropdown */
-    --dropdown-menu-bg: #131313a6;
-    --dropdown-menu-fg: #f5f5f5;
-    --dropdown-menu-border: 1px solid rgba(255, 255, 255, 0.192);
-    --dropdown-menu-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.25);
-    --dropdown-menu-item-hover-bg: rgba(255, 255, 255, 0.1);
-    --dropdown-menu-item-active-bg: rgba(255, 255, 255, 0.0685);
-
-
-
-    /* Dialog */
-    --dialog-bg: #461010db;
-    --dialog-shadow: 0 0 16px 5px rgb(0 0 0 / 25%);
-
-    /* Neutral Modal */
-    --modal-bg: var(--dropdown-menu-bg);
-    --modal-fg: var(--dropdown-menu-fg);
-    --modal-shadow: var(--dropdown-menu-shadow);
-
-    --turn-control-outline: 1px solid rgba(255, 255, 255, 0.55);
-
-    /* Navbar */
-    --navbar-bg: #00000054;
-
-
-    .message-text:focus-visible {
-        outline: 1px solid var(--focus-outline);
-    }
-
-
-    a {
-        color: var(--link-color);
-    }
-
-    .navbar {
-        background-color: var(--navbar-bg);
-    }
-
-
-
-    .tone-example-remove {
-        color: var(--tone-example-remove-fg);
-    }
-
-    .tone-example-remove:hover,
-    .tone-example-remove:focus-visible {
-        color: var(--tone-example-remove-hover-fg);
-    }
-
-    .toast {
-        box-shadow: var(--toast-shadow);
-    }
-
-    .toast--normal {
-        --toast-normal-bg: rgba(21, 35, 49, 0.8);
-        --toast-normal-border: rgba(136, 172, 227, 0.32);
-        --toast-normal-action-bg: rgba(136, 172, 227, 0.24);
-        --toast-normal-action-bg-hover: rgba(136, 172, 227, 0.34);
-        --toast-normal-close-hover: rgba(136, 172, 227, 0.22);
-    }
-
-    .toast--warning {
-        --toast-warning-bg: rgba(92, 61, 12, 0.8);
-        --toast-warning-border: rgba(255, 214, 132, 0.45);
-        --toast-warning-action-bg: rgba(255, 214, 132, 0.28);
-        --toast-warning-action-bg-hover: rgba(255, 214, 132, 0.37);
-        --toast-warning-close-hover: rgba(255, 214, 132, 0.26);
-    }
-
-    .toast--danger {
-        --toast-danger-bg: rgba(94, 18, 22, 0.8);
-        --toast-danger-border: rgba(255, 179, 189, 0.45);
-        --toast-danger-action-bg: rgba(255, 179, 189, 0.3);
-        --toast-danger-action-bg-hover: rgba(255, 179, 189, 0.4);
-        --toast-danger-close-hover: rgba(255, 179, 189, 0.28);
-    }
-
-    .btn-toggled {
-        background: var(--button-toggled-bg) !important;
-    }
-
-
-    .btn-textual {
-        color: var(--btn-textual-fg);
-        text-shadow: var(--btn-textual-shadow);
-    }
-
-    .btn-textual:hover {
-        text-shadow: var(--btn-textual-hover-shadow);
-    }
-
-
-    input[type="range"] {
-        accent-color: var(--lora-strength-slider);
-    }
-
-    input::placeholder,
-    textarea::placeholder {
-        color: var(--input-placeholder);
-    }
-
-
-    /* LoRA metadata cards (dark) */
-    .card-lora {
-        background-color: var(--card-add-lora-bg);
-        border: 1px solid var(--card-lora-border);
-        box-shadow: var(--card-lora-shadow);
-    }
-
-    .lora-card-meta,
-    .lora-card-section-title {
-        color: var(--lora-card-meta-fg);
-    }
-
-    .lora-card-toggle span,
-    .lora-strength-label,
-    .lora-strength-value {
-        color: var(--lora-card-toggle-fg);
-    }
-
-    .lora-card-trigger {
-        background-color: var(--lora-card-trigger-bg);
-        border-color: var(--lora-card-trigger-border);
-        color: var(--lora-card-trigger-fg);
-    }
-
-    .lora-card-trigger:hover {
-        background-color: var(--lora-card-trigger-hover-bg);
-    }
-
-    .lora-card-trigger[data-copied="true"] {
-        background-color: var(--lora-card-trigger-copied-bg);
-        border-color: var(--lora-card-trigger-copied-border);
-        color: var(--lora-card-trigger-copied-fg);
-    }
-
-    .lora-card-empty {
-        color: var(--lora-card-empty-fg);
-    }
-
-    .lora-card-delete {
-        background-color: var(--lora-card-delete-bg);
-        border-color: var(--lora-card-delete-border);
-        color: var(--lora-card-delete-fg);
-    }
-
-    .lora-card-delete:hover {
-        background-color: var(--lora-card-delete-hover-bg);
-    }
-
-    .lora-card-delete:active {
-        transform: translateY(1px);
-    }
-
-    .lora-strength-slider {
-        accent-color: var(--lora-strength-slider);
-    }
-
-
-
-    /* Keep subscription badge background unchanged on hover */
-    #subscription-badge.badge-tier-free:hover {
-        background-color: var(--badge-tier-free-bg) !important;
-    }
-
-    #subscription-badge.badge-tier-pro:hover {
-        background-color: var(--badge-tier-pro-bg) !important;
-    }
-
-    #subscription-badge.badge-tier-max:hover {
-        background-color: var(--badge-tier-max-bg) !important;
-    }
-
-    /* Subscription badge tiers */
-    .badge-tier-free {
-        background-color: var(--badge-tier-free-bg);
-        border-color: var(--badge-tier-free-border);
-        color: var(--badge-tier-free-fg);
-    }
-
-    .badge-tier-pro {
-        background-color: var(--badge-tier-pro-bg);
-        border-color: var(--badge-tier-pro-border);
-        color: var(--badge-tier-pro-fg);
-    }
-
-    .badge-tier-max {
-        background-color: var(--badge-tier-max-bg);
-        border-color: var(--badge-tier-max-border);
-        color: var(--badge-tier-max-fg);
-    }
-
-
-
-
-    .overlay {
-        background-color: var(--overlay-bg);
-    }
-
-    /* Subscription card theming (dark) */
-    #subscription-status-row {
-        background-color: var(--subscription-status-card-bg);
-        border-color: var(--subscription-status-card-border);
-    }
-
-    /* Info profile card (dark) */
-    #profile-info-card {
-        background-color: var(--profile-info-card-bg);
-        border-color: var(--profile-info-card-border);
-    }
-
-    /* Account card (dark) */
-    #account-info-card {
-        background-color: var(--account-info-card-bg);
-        border-color: var(--account-info-card-border);
-    }
-
-    .subscription-card-header {
-        background-color: transparent;
-    }
-
-    .subscription-card-body {
-        background-color: transparent;
-    }
-
-    .subscription-card-footer {
-        background-color: transparent;
-    }
-
-    #messageInput {
-        background-color: var(--message-input-bg);
-    }
-
-    #btn-add-tone-example {
-        background-color: var(--btn-add-tone-bg);
-        color: var(--btn-add-tone-fg);
-    }
-
-    #btn-add-tone-example:hover {
-        background-color: var(--btn-add-tone-hover-bg);
-    }
-
-    .api-key-valid {
-        border: var(--api-key-valid-border);
-    }
-
-    .api-key-invalid {
-        border: var(--api-key-invalid-border);
-    }
-
-    .api-key-error {
-        color: var(--api-key-error-fg);
-    }
-
-    .card-add-personality {
-        background-color: var(--card-add-personality-bg);
-        border: 1px dashed var(--card-add-personality-border);
-    }
-
-    .card-add-personality:hover {
-        background-color: var(--card-add-personality-hover-bg);
-        border-color: var(--card-add-personality-hover-border);
-    }
-
-    .card-add-personality .add-icon {
-        color: var(--card-add-personality-icon-fg);
-    }
-
-    .attachment-container {
-        background-color: var(--attachment-container-bg);
-        outline: 1px solid var(--attachment-container-outline);
-    }
-
-    /* LoRA add card (dark) */
-    .card-add-lora {
-        background-color: var(--card-add-lora-bg);
-        border: 1px solid var(--card-add-lora-border);
-    }
-
-
-    #profile-pfp {
-        filter: var(--profile-pfp-filter);
-    }
-
-    #profile-pfp[src]:not([src=""]):not([src="undefined"]):not([src="null"]):not([src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="]) {
-        filter: var(--profile-pfp-loaded-filter);
-    }
-
-
-
-
-    /* Modern subscription cards dark theme */
-    .subscription-card {
-        background: var(--subscription-card-bg);
-        border-color: var(--subscription-card-border);
-        color: var(--subscription-card-fg);
-    }
-
-    .subscription-card:hover {
-        box-shadow: var(--subscription-card-shadow);
-    }
-
-    .subscription-card-popular {
-        border-color: var(--subscription-card-popular-border);
-        box-shadow: var(--subscription-card-popular-shadow);
-    }
-
-    .subscription-card-popular:hover {
-        box-shadow: var(--subscription-card-popular-hover-shadow);
-    }
-
-    .subscription-header h1 {
-        background: var(--subscription-header-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    .tier-badge-free {
-        color: var(--tier-badge-free-fg);
-    }
-
-    .tier-badge-pro {
-        background: var(--tier-badge-pro-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    .tier-badge-max {
-        background: var(--tier-badge-max-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    /* Mobile collapsible subscription cards */
-    @media (max-width: 1032px) {
-        .subscription-card-header {
-            border-bottom-color: var(--subscription-card-header-border);
-        }
-    }
-
-
-
-
-    .message-thinking pre {
-        background: var(--thinking-bg);
-    }
-
-    /* Top-up buttons (dark theme) */
-    #form-top-up-imagecredits .btn-array-vertical>button {
-        background: var(--top-up-btn-bg);
-        border-color: var(--top-up-btn-border);
-        color: var(--top-up-btn-fg);
-        box-shadow: var(--top-up-btn-shadow);
-    }
-
-    #form-top-up-imagecredits .btn-array-vertical>button:hover {
-        box-shadow: var(--top-up-btn-hover-shadow);
-        transform: translateY(-1px);
-        background: var(--top-up-btn-hover-bg);
-        border-color: var(--top-up-btn-hover-border);
-    }
-
-    #form-top-up-imagecredits .btn-array-vertical>button:active {
-        transform: translateY(0);
-        box-shadow: var(--top-up-btn-active-shadow);
-        background: var(--top-up-btn-active-bg);
-    }
-
-    #form-top-up-imagecredits .top-up-price {
-        color: var(--top-up-price-fg);
-    }
-
-    #form-top-up-imagecredits .top-up-credits {
-        color: var(--top-up-credits-fg);
-    }
-
-    #form-top-up-imagecredits .top-up-subtitle {
-        color: var(--top-up-subtitle-fg);
-    }
-
-    /* Mode selector buttons */
-    .mode-selector .mode-btn {
-        background: rgba(255, 255, 255, 0.05);
-        color: inherit;
-    }
-
-    .mode-selector .mode-btn:hover {
-        background: rgba(255, 255, 255, 0.1);
-        color: inherit;
-    }
-
-    .mode-selector .mode-btn.active {
-        border-color: currentColor;
-        background: rgba(255, 255, 255, 0.15);
-        color: inherit;
-    }
-
+	color-scheme: dark;
+	--input-text-border: #b6b6b62f;
+	--input-text-border-focus: #ffffff67;
+
+	--navbar-tab-hover-bg: #00000041;
+
+	--chat-actions-menu-fg: #e4e4e4;
+	--sidebar-chrome-bg: rgba(0, 0, 0, 0.089);
+	--sidebar-chrome-border: rgba(255, 255, 255, 0.11);
+
+	/* dropdown */
+	--dropdown-menu-bg: #131313a6;
+	--dropdown-menu-fg: #f5f5f5;
+	--dropdown-menu-border: 1px solid rgba(255, 255, 255, 0.192);
+	--dropdown-menu-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.25);
+	--dropdown-menu-item-hover-bg: rgba(255, 255, 255, 0.1);
+	--dropdown-menu-item-active-bg: rgba(255, 255, 255, 0.0685);
+
+	/* Dialog */
+	--dialog-bg: #461010db;
+	--dialog-shadow: 0 0 16px 5px rgb(0 0 0 / 25%);
+
+	/* Neutral Modal */
+	--modal-bg: var(--dropdown-menu-bg);
+	--modal-fg: var(--dropdown-menu-fg);
+	--modal-shadow: var(--dropdown-menu-shadow);
+
+	--turn-control-outline: 1px solid rgba(255, 255, 255, 0.55);
+
+	/* Navbar */
+	--navbar-bg: #00000054;
+
+	.message-text:focus-visible {
+		outline: 1px solid var(--focus-outline);
+	}
+
+	a {
+		color: var(--link-color);
+	}
+
+	.navbar {
+		background-color: var(--navbar-bg);
+	}
+
+	.tone-example-remove {
+		color: var(--tone-example-remove-fg);
+	}
+
+	.tone-example-remove:hover,
+	.tone-example-remove:focus-visible {
+		color: var(--tone-example-remove-hover-fg);
+	}
+
+	.toast {
+		box-shadow: var(--toast-shadow);
+	}
+
+	.toast--normal {
+		--toast-normal-bg: rgba(21, 35, 49, 0.8);
+		--toast-normal-border: rgba(136, 172, 227, 0.32);
+		--toast-normal-action-bg: rgba(136, 172, 227, 0.24);
+		--toast-normal-action-bg-hover: rgba(136, 172, 227, 0.34);
+		--toast-normal-close-hover: rgba(136, 172, 227, 0.22);
+	}
+
+	.toast--warning {
+		--toast-warning-bg: rgba(92, 61, 12, 0.8);
+		--toast-warning-border: rgba(255, 214, 132, 0.45);
+		--toast-warning-action-bg: rgba(255, 214, 132, 0.28);
+		--toast-warning-action-bg-hover: rgba(255, 214, 132, 0.37);
+		--toast-warning-close-hover: rgba(255, 214, 132, 0.26);
+	}
+
+	.toast--danger {
+		--toast-danger-bg: rgba(94, 18, 22, 0.8);
+		--toast-danger-border: rgba(255, 179, 189, 0.45);
+		--toast-danger-action-bg: rgba(255, 179, 189, 0.3);
+		--toast-danger-action-bg-hover: rgba(255, 179, 189, 0.4);
+		--toast-danger-close-hover: rgba(255, 179, 189, 0.28);
+	}
+
+	.btn-toggled {
+		background: var(--button-toggled-bg) !important;
+	}
+
+	.btn-textual {
+		color: var(--btn-textual-fg);
+		text-shadow: var(--btn-textual-shadow);
+	}
+
+	.btn-textual:hover {
+		text-shadow: var(--btn-textual-hover-shadow);
+	}
+
+	input[type="range"] {
+		accent-color: var(--lora-strength-slider);
+	}
+
+	input::placeholder,
+	textarea::placeholder {
+		color: var(--input-placeholder);
+	}
+
+	/* LoRA metadata cards (dark) */
+	.card-lora {
+		background-color: var(--card-add-lora-bg);
+		border: 1px solid var(--card-lora-border);
+		box-shadow: var(--card-lora-shadow);
+	}
+
+	.lora-card-meta,
+	.lora-card-section-title {
+		color: var(--lora-card-meta-fg);
+	}
+
+	.lora-card-toggle span,
+	.lora-strength-label,
+	.lora-strength-value {
+		color: var(--lora-card-toggle-fg);
+	}
+
+	.lora-card-trigger {
+		background-color: var(--lora-card-trigger-bg);
+		border-color: var(--lora-card-trigger-border);
+		color: var(--lora-card-trigger-fg);
+	}
+
+	.lora-card-trigger:hover {
+		background-color: var(--lora-card-trigger-hover-bg);
+	}
+
+	.lora-card-trigger[data-copied="true"] {
+		background-color: var(--lora-card-trigger-copied-bg);
+		border-color: var(--lora-card-trigger-copied-border);
+		color: var(--lora-card-trigger-copied-fg);
+	}
+
+	.lora-card-empty {
+		color: var(--lora-card-empty-fg);
+	}
+
+	.lora-card-delete {
+		background-color: var(--lora-card-delete-bg);
+		border-color: var(--lora-card-delete-border);
+		color: var(--lora-card-delete-fg);
+	}
+
+	.lora-card-delete:hover {
+		background-color: var(--lora-card-delete-hover-bg);
+	}
+
+	.lora-card-delete:active {
+		transform: translateY(1px);
+	}
+
+	.lora-strength-slider {
+		accent-color: var(--lora-strength-slider);
+	}
+
+	/* Keep subscription badge background unchanged on hover */
+	#subscription-badge.badge-tier-free:hover {
+		background-color: var(--badge-tier-free-bg) !important;
+	}
+
+	#subscription-badge.badge-tier-pro:hover {
+		background-color: var(--badge-tier-pro-bg) !important;
+	}
+
+	#subscription-badge.badge-tier-max:hover {
+		background-color: var(--badge-tier-max-bg) !important;
+	}
+
+	/* Subscription badge tiers */
+	.badge-tier-free {
+		background-color: var(--badge-tier-free-bg);
+		border-color: var(--badge-tier-free-border);
+		color: var(--badge-tier-free-fg);
+	}
+
+	.badge-tier-pro {
+		background-color: var(--badge-tier-pro-bg);
+		border-color: var(--badge-tier-pro-border);
+		color: var(--badge-tier-pro-fg);
+	}
+
+	.badge-tier-max {
+		background-color: var(--badge-tier-max-bg);
+		border-color: var(--badge-tier-max-border);
+		color: var(--badge-tier-max-fg);
+	}
+
+	.overlay {
+		background-color: var(--overlay-bg);
+	}
+
+	/* Subscription card theming (dark) */
+	#subscription-status-row {
+		background-color: var(--subscription-status-card-bg);
+		border-color: var(--subscription-status-card-border);
+	}
+
+	/* Info profile card (dark) */
+	#profile-info-card {
+		background-color: var(--profile-info-card-bg);
+		border-color: var(--profile-info-card-border);
+	}
+
+	/* Account card (dark) */
+	#account-info-card {
+		background-color: var(--account-info-card-bg);
+		border-color: var(--account-info-card-border);
+	}
+
+	.subscription-card-header {
+		background-color: transparent;
+	}
+
+	.subscription-card-body {
+		background-color: transparent;
+	}
+
+	.subscription-card-footer {
+		background-color: transparent;
+	}
+
+	#messageInput {
+		background-color: var(--message-input-bg);
+	}
+
+	#btn-add-tone-example {
+		background-color: var(--btn-add-tone-bg);
+		color: var(--btn-add-tone-fg);
+	}
+
+	#btn-add-tone-example:hover {
+		background-color: var(--btn-add-tone-hover-bg);
+	}
+
+	.api-key-valid {
+		border: var(--api-key-valid-border);
+	}
+
+	.api-key-invalid {
+		border: var(--api-key-invalid-border);
+	}
+
+	.api-key-error {
+		color: var(--api-key-error-fg);
+	}
+
+	.card-add-personality {
+		background-color: var(--card-add-personality-bg);
+		border: 1px dashed var(--card-add-personality-border);
+	}
+
+	.card-add-personality:hover {
+		background-color: var(--card-add-personality-hover-bg);
+		border-color: var(--card-add-personality-hover-border);
+	}
+
+	.card-add-personality .add-icon {
+		color: var(--card-add-personality-icon-fg);
+	}
+
+	.attachment-container {
+		background-color: var(--attachment-container-bg);
+		outline: 1px solid var(--attachment-container-outline);
+	}
+
+	/* LoRA add card (dark) */
+	.card-add-lora {
+		background-color: var(--card-add-lora-bg);
+		border: 1px solid var(--card-add-lora-border);
+	}
+
+	#profile-pfp {
+		filter: var(--profile-pfp-filter);
+	}
+
+	#profile-pfp[src]:not([src=""]):not([src="undefined"]):not([src="null"]):not([src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="])
+	{
+		filter: var(--profile-pfp-loaded-filter);
+	}
+
+	/* Modern subscription cards dark theme */
+	.subscription-card {
+		background: var(--subscription-card-bg);
+		border-color: var(--subscription-card-border);
+		color: var(--subscription-card-fg);
+	}
+
+	.subscription-card:hover {
+		box-shadow: var(--subscription-card-shadow);
+	}
+
+	.subscription-card-popular {
+		border-color: var(--subscription-card-popular-border);
+		box-shadow: var(--subscription-card-popular-shadow);
+	}
+
+	.subscription-card-popular:hover {
+		box-shadow: var(--subscription-card-popular-hover-shadow);
+	}
+
+	.subscription-header h1 {
+		background: var(--subscription-header-gradient);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
+
+	.tier-badge-free {
+		color: var(--tier-badge-free-fg);
+	}
+
+	.tier-badge-pro {
+		background: var(--tier-badge-pro-gradient);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
+
+	.tier-badge-max {
+		background: var(--tier-badge-max-gradient);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
+
+	/* Mobile collapsible subscription cards */
+	@media (max-width: 1032px) {
+		.subscription-card-header {
+			border-bottom-color: var(--subscription-card-header-border);
+		}
+	}
+
+	.message-thinking pre {
+		background: var(--thinking-bg);
+	}
+
+	/* Top-up buttons (dark theme) */
+	#form-top-up-imagecredits .btn-array-vertical > button {
+		background: var(--top-up-btn-bg);
+		border-color: var(--top-up-btn-border);
+		color: var(--top-up-btn-fg);
+		box-shadow: var(--top-up-btn-shadow);
+	}
+
+	#form-top-up-imagecredits .btn-array-vertical > button:hover {
+		box-shadow: var(--top-up-btn-hover-shadow);
+		transform: translateY(-1px);
+		background: var(--top-up-btn-hover-bg);
+		border-color: var(--top-up-btn-hover-border);
+	}
+
+	#form-top-up-imagecredits .btn-array-vertical > button:active {
+		transform: translateY(0);
+		box-shadow: var(--top-up-btn-active-shadow);
+		background: var(--top-up-btn-active-bg);
+	}
+
+	#form-top-up-imagecredits .top-up-price {
+		color: var(--top-up-price-fg);
+	}
+
+	#form-top-up-imagecredits .top-up-credits {
+		color: var(--top-up-credits-fg);
+	}
+
+	#form-top-up-imagecredits .top-up-subtitle {
+		color: var(--top-up-subtitle-fg);
+	}
+
+	/* Mode selector buttons */
+	.mode-selector .mode-btn {
+		background: rgba(255, 255, 255, 0.05);
+		color: inherit;
+	}
+
+	.mode-selector .mode-btn:hover {
+		background: rgba(255, 255, 255, 0.1);
+		color: inherit;
+	}
+
+	.mode-selector .mode-btn.active {
+		border-color: currentColor;
+		background: rgba(255, 255, 255, 0.15);
+		color: inherit;
+	}
 }

@@ -12,10 +12,18 @@ const submitButton = document.querySelector<HTMLButtonElement>("#btn-email-updat
 const cancelButton = document.querySelector<HTMLButtonElement>("#btn-email-update-cancel");
 const hideOverlayButton = document.querySelector<HTMLButtonElement>("#btn-hide-overlay");
 
-if (!emailUpdateForm || !newEmailInput || !confirmEmailInput || !errorContainer || !errorMessage || !submitButton || !cancelButton || !hideOverlayButton) {
-    console.error("Email update form elements are missing.");
-    console.log({ emailUpdateForm, newEmailInput, confirmEmailInput, errorContainer, errorMessage, submitButton, cancelButton, hideOverlayButton });
-    throw new Error("Email update initialization failed.");
+if (
+	!emailUpdateForm ||
+	!newEmailInput ||
+	!confirmEmailInput ||
+	!errorContainer ||
+	!errorMessage ||
+	!submitButton ||
+	!cancelButton ||
+	!hideOverlayButton
+) {
+	console.error("Email update form elements are missing.");
+	throw new Error("Email update initialization failed.");
 }
 
 const emailUpdateFormEl = emailUpdateForm as HTMLFormElement;
@@ -28,77 +36,77 @@ const cancelButtonEl = cancelButton as HTMLButtonElement;
 const hideOverlayButtonEl = hideOverlayButton as HTMLButtonElement;
 
 function showError(message: string) {
-    errorMessageEl.textContent = message;
-    errorContainerEl.classList.remove("hidden");
+	errorMessageEl.textContent = message;
+	errorContainerEl.classList.remove("hidden");
 }
 
 function hideError() {
-    errorMessageEl.textContent = "";
-    errorContainerEl.classList.add("hidden");
+	errorMessageEl.textContent = "";
+	errorContainerEl.classList.add("hidden");
 }
 
 function resetForm() {
-    emailUpdateFormEl.reset();
-    hideError();
+	emailUpdateFormEl.reset();
+	hideError();
 }
 
 function openEmailUpdateForm(currentEmail?: string | null) {
-    resetForm();
-    if (currentEmail && currentEmail !== "—") {
-        newEmailInputEl.value = currentEmail;
-        confirmEmailInputEl.value = currentEmail;
-    }
-    overlayService.show("form-email-update");
-    requestAnimationFrame(() => newEmailInputEl.focus());
+	resetForm();
+	if (currentEmail && currentEmail !== "—") {
+		newEmailInputEl.value = currentEmail;
+		confirmEmailInputEl.value = currentEmail;
+	}
+	overlayService.show("form-email-update");
+	requestAnimationFrame(() => newEmailInputEl.focus());
 }
 
 async function handleSubmit(event: SubmitEvent) {
-    event.preventDefault();
-    hideError();
+	event.preventDefault();
+	hideError();
 
-    const newEmail = newEmailInputEl.value.trim();
-    const confirmEmail = confirmEmailInputEl.value.trim();
+	const newEmail = newEmailInputEl.value.trim();
+	const confirmEmail = confirmEmailInputEl.value.trim();
 
-    if (!newEmail || !confirmEmail) {
-        showError("Please enter and confirm your new email address.");
-        return;
-    }
-    if (newEmail !== confirmEmail) {
-        showError("Emails do not match.");
-        return;
-    }
+	if (!newEmail || !confirmEmail) {
+		showError("Please enter and confirm your new email address.");
+		return;
+	}
+	if (newEmail !== confirmEmail) {
+		showError("Emails do not match.");
+		return;
+	}
 
-    submitButtonEl.disabled = true;
-    try {
-        await supabaseService.updateCurrentUserEmail(newEmail);
-        toastService.info({
-            title: "Email Update Requested",
-            text: "Check your inbox to confirm the new email address."
-        });
-        dispatchAppEvent('account-email-changed', { email: newEmail });
-        overlayService.closeOverlay();
-    } catch (error) {
-        const message = error instanceof Error ? error.message : "Unable to update email address.";
-        showError(message);
-    } finally {
-        submitButtonEl.disabled = false;
-    }
+	submitButtonEl.disabled = true;
+	try {
+		await supabaseService.updateCurrentUserEmail(newEmail);
+		toastService.info({
+			title: "Email Update Requested",
+			text: "Check your inbox to confirm the new email address."
+		});
+		dispatchAppEvent("account-email-changed", { email: newEmail });
+		overlayService.closeOverlay();
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Unable to update email address.";
+		showError(message);
+	} finally {
+		submitButtonEl.disabled = false;
+	}
 }
 
-emailUpdateFormEl.addEventListener("submit", handleSubmit);
+emailUpdateFormEl.addEventListener("submit", (e) => void handleSubmit(e));
 
 cancelButtonEl.addEventListener("click", () => {
-    resetForm();
-    overlayService.closeOverlay();
+	resetForm();
+	overlayService.closeOverlay();
 });
 
 hideOverlayButtonEl.addEventListener("click", () => {
-    if (!emailUpdateFormEl.classList.contains("hidden")) {
-        resetForm();
-    }
+	if (!emailUpdateFormEl.classList.contains("hidden")) {
+		resetForm();
+	}
 });
 
-onAppEvent('open-email-update', (event) => {
-    const { currentEmail } = event.detail;
-    openEmailUpdateForm(currentEmail ?? null);
+onAppEvent("open-email-update", (event) => {
+	const { currentEmail } = event.detail;
+	openEmailUpdateForm(currentEmail ?? null);
 });
