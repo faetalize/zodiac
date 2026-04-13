@@ -24,6 +24,7 @@ interface AttachmentRemovedDetail {
 
 const messageInput = document.querySelector<HTMLDivElement>("#messageInput");
 const messageBox = document.querySelector<HTMLDivElement>("#message-box");
+const bottomUiContainer = document.querySelector<HTMLDivElement>("#bottom-ui-container");
 const attachmentsInput = document.querySelector<HTMLInputElement>("#attachments");
 const attachmentPreview = document.querySelector<HTMLDivElement>("#attachment-preview");
 const sendMessageButton = document.querySelector<HTMLButtonElement>("#btn-send");
@@ -41,6 +42,7 @@ const rpgSettingsButton = document.querySelector<HTMLButtonElement>("#btn-rpg-se
 if (
 	!messageInput ||
 	!messageBox ||
+	!bottomUiContainer ||
 	!attachmentsInput ||
 	!attachmentPreview ||
 	!sendMessageButton ||
@@ -78,6 +80,32 @@ let isGroupChatContext = false;
 let isRpgGroupChatContext = false;
 let isDynamicGroupChatContext = false;
 let allowDynamicPings = false;
+
+function syncBottomUiHeight(): void {
+	const height = Math.ceil(bottomUiContainer!.getBoundingClientRect().height);
+	const prevHeightStr = document.documentElement.style.getPropertyValue("--bottom-ui-height");
+
+	if (prevHeightStr === `${height}px`) return;
+
+	const scrollContainer = document.querySelector<HTMLDivElement>("#scrollable-chat-container");
+	const isAtBottom = scrollContainer
+		? scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 50
+		: false;
+
+	document.documentElement.style.setProperty("--bottom-ui-height", `${height}px`);
+
+	if (isAtBottom && scrollContainer) {
+		helpers.messageContainerScrollToBottom(true);
+	}
+}
+
+syncBottomUiHeight();
+
+const bottomUiResizeObserver = new ResizeObserver(() => {
+	syncBottomUiHeight();
+});
+
+bottomUiResizeObserver.observe(bottomUiContainer);
 
 function syncComposerInteractivity(): void {
 	const canEdit = !isRpgGroupChatContext || (!isCurrentlyGenerating && isUserTurnInRpg);

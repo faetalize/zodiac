@@ -3138,7 +3138,7 @@ body.full-width-chat .message-container {
 	scroll-behavior: auto;
 	width: 100%;
 	flex-grow: 1;
-	padding-bottom: 7rem;
+	padding-bottom: calc(var(--bottom-ui-height, 6rem) + 1rem);
 	padding-top: 1rem;
 }
 
@@ -3167,13 +3167,6 @@ body.full-width-chat .message-container {
 
 .chat-loading-indicator.hidden {
 	display: none;
-}
-
-/* when an image is attached we should increase the padding of scrollable-chat-container by an extra 4 rem */
-/* we check if #attachment-preview has more than 2 elements */
-
-body:has(#attachment-preview > :nth-child(2)) #scrollable-chat-container {
-	padding-bottom: 11rem;
 }
 
 .message-text {

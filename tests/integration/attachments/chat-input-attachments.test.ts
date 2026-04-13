@@ -14,7 +14,8 @@ vi.mock("../../../src/services/Message.service", () => ({
 
 vi.mock("../../../src/utils/helpers", () => ({
 	getClientScrollbarWidth: vi.fn(() => 0),
-	showElement: vi.fn()
+	showElement: vi.fn(),
+	messageContainerScrollToBottom: vi.fn()
 }));
 
 vi.mock("../../../src/services/Personality.service", () => ({
@@ -72,9 +73,12 @@ vi.mock("../../../src/components/static/ImageCreditsLabel.component", () => ({
 function bootstrapAttachmentDom(): void {
 	bootstrapDom(`
         <div id="personalitiesDiv"></div>
-        <div id="message-box">
-            <div id="messageInput" contenteditable="true"></div>
-            <div id="attachment-preview"></div>
+        <div id="scrollable-chat-container"></div>
+        <div id="bottom-ui-container">
+            <div id="message-box">
+                <div id="messageInput" contenteditable="true"></div>
+                <div id="attachment-preview"></div>
+            </div>
         </div>
         <input id="attachments" type="file">
         <button id="btn-send" type="button"></button>
@@ -158,6 +162,14 @@ describe("ChatInput attachment drop workflow", () => {
 		bootstrapAttachmentDom();
 		Object.defineProperty(globalThis, "DataTransfer", {
 			value: MockDataTransfer,
+			configurable: true
+		});
+		Object.defineProperty(globalThis, "ResizeObserver", {
+			value: class {
+				observe() {}
+				unobserve() {}
+				disconnect() {}
+			},
 			configurable: true
 		});
 
