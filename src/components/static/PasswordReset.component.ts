@@ -180,13 +180,13 @@ async function handleRequestSubmit(event: SubmitEvent) {
 	}
 }
 
-requestFormEl.addEventListener("submit", handleRequestSubmit);
+requestFormEl.addEventListener("submit", (e) => void handleRequestSubmit(e));
 
 requestCancelButtonEl.addEventListener("click", () => {
 	overlayService.show("login-register-tabs");
 });
 
-passwordResetFormEl.addEventListener("submit", handleSubmit);
+passwordResetFormEl.addEventListener("submit", (e) => void handleSubmit(e));
 
 cancelButtonEl.addEventListener("click", () => {
 	clearRecoveryUrl();

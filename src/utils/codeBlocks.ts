@@ -70,27 +70,31 @@ function deriveLanguageLabel(codeElement: HTMLElement): string {
 }
 
 function attachCopyHandler(button: HTMLButtonElement, codeElement: HTMLElement): void {
-	button.addEventListener("click", async () => {
-		if (button.disabled) {
-			return;
-		}
+	button.addEventListener(
+		"click",
+		() =>
+			void (async () => {
+				if (button.disabled) {
+					return;
+				}
 
-		try {
-			await navigator.clipboard.writeText(codeElement.textContent ?? "");
-			button.disabled = true;
-			button.classList.add("is-success");
-			button.textContent = ICON_CHECK;
+				try {
+					await navigator.clipboard.writeText(codeElement.textContent ?? "");
+					button.disabled = true;
+					button.classList.add("is-success");
+					button.textContent = ICON_CHECK;
 
-			setTimeout(() => {
-				button.disabled = false;
-				button.classList.remove("is-success");
-				button.textContent = ICON_COPY;
-			}, COPY_TIMEOUT_MS);
-		} catch (error) {
-			console.error("Failed to copy code block", error);
-			button.disabled = false;
-		}
-	});
+					setTimeout(() => {
+						button.disabled = false;
+						button.classList.remove("is-success");
+						button.textContent = ICON_COPY;
+					}, COPY_TIMEOUT_MS);
+				} catch (error) {
+					console.error("Failed to copy code block", error);
+					button.disabled = false;
+				}
+			})()
+	);
 }
 
 function wrapPreElement(preElement: HTMLPreElement): void {

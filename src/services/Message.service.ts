@@ -270,36 +270,40 @@ export function ensureRoundBlockUi(block: HTMLDivElement, roundIndex: number): v
 	regenBtn.textContent = "refresh";
 	regenBtn.title = "Regenerate from this round";
 	regenBtn.setAttribute("aria-label", "Regenerate from this round");
-	regenBtn.addEventListener("click", async (e) => {
-		e.preventDefault();
-		e.stopPropagation();
-		const ok = await helpers.confirmDialogDanger(
-			`Regenerate from Round ${roundIndex}? This will delete Round ${roundIndex} and any later rounds, then re-run the AI from this point.`
-		);
-		if (!ok) return;
-		const originalText = regenBtn.textContent || "refresh";
-		regenBtn.disabled = true;
-		deleteBtn.disabled = true;
-		regenBtn.textContent = "hourglass_top";
-		statusText.textContent = "Regenerating…";
-		statusText.classList.remove("hidden");
-		info({
-			title: "Regenerating round",
-			text: `Round ${roundIndex} is being regenerated. This can take a while for long chats.`
-		});
-		try {
-			await regenerateRound(roundIndex);
-		} catch (error: any) {
-			console.error(error);
-			danger({ title: "Error regenerating round", text: JSON.stringify(error?.message || error) });
-		} finally {
-			regenBtn.disabled = false;
-			deleteBtn.disabled = false;
-			regenBtn.textContent = originalText;
-			statusText.textContent = "";
-			statusText.classList.add("hidden");
-		}
-	});
+	regenBtn.addEventListener(
+		"click",
+		(e) =>
+			void (async () => {
+				e.preventDefault();
+				e.stopPropagation();
+				const ok = await helpers.confirmDialogDanger(
+					`Regenerate from Round ${roundIndex}? This will delete Round ${roundIndex} and any later rounds, then re-run the AI from this point.`
+				);
+				if (!ok) return;
+				const originalText = regenBtn.textContent || "refresh";
+				regenBtn.disabled = true;
+				deleteBtn.disabled = true;
+				regenBtn.textContent = "hourglass_top";
+				statusText.textContent = "Regenerating…";
+				statusText.classList.remove("hidden");
+				info({
+					title: "Regenerating round",
+					text: `Round ${roundIndex} is being regenerated. This can take a while for long chats.`
+				});
+				try {
+					await regenerateRound(roundIndex);
+				} catch (error: any) {
+					console.error(error);
+					danger({ title: "Error regenerating round", text: JSON.stringify(error?.message || error) });
+				} finally {
+					regenBtn.disabled = false;
+					deleteBtn.disabled = false;
+					regenBtn.textContent = originalText;
+					statusText.textContent = "";
+					statusText.classList.add("hidden");
+				}
+			})()
+	);
 
 	const deleteBtn = document.createElement("button");
 	deleteBtn.className = "btn-textual material-symbols-outlined round-action-btn";
@@ -307,36 +311,40 @@ export function ensureRoundBlockUi(block: HTMLDivElement, roundIndex: number): v
 	deleteBtn.textContent = "delete";
 	deleteBtn.title = "Delete this round";
 	deleteBtn.setAttribute("aria-label", "Delete this round");
-	deleteBtn.addEventListener("click", async (e) => {
-		e.preventDefault();
-		e.stopPropagation();
-		const ok = await helpers.confirmDialogDanger(
-			`Delete Round ${roundIndex}? This will permanently remove all messages in this round.`
-		);
-		if (!ok) return;
-		const originalText = deleteBtn.textContent || "delete";
-		regenBtn.disabled = true;
-		deleteBtn.disabled = true;
-		deleteBtn.textContent = "hourglass_top";
-		statusText.textContent = "Deleting…";
-		statusText.classList.remove("hidden");
-		info({
-			title: "Deleting round",
-			text: `Round ${roundIndex} is being deleted. This can take a while for long chats.`
-		});
-		try {
-			await deleteRound(roundIndex);
-		} catch (error: any) {
-			console.error(error);
-			danger({ title: "Error deleting round", text: JSON.stringify(error?.message || error) });
-		} finally {
-			regenBtn.disabled = false;
-			deleteBtn.disabled = false;
-			deleteBtn.textContent = originalText;
-			statusText.textContent = "";
-			statusText.classList.add("hidden");
-		}
-	});
+	deleteBtn.addEventListener(
+		"click",
+		(e) =>
+			void (async () => {
+				e.preventDefault();
+				e.stopPropagation();
+				const ok = await helpers.confirmDialogDanger(
+					`Delete Round ${roundIndex}? This will permanently remove all messages in this round.`
+				);
+				if (!ok) return;
+				const originalText = deleteBtn.textContent || "delete";
+				regenBtn.disabled = true;
+				deleteBtn.disabled = true;
+				deleteBtn.textContent = "hourglass_top";
+				statusText.textContent = "Deleting…";
+				statusText.classList.remove("hidden");
+				info({
+					title: "Deleting round",
+					text: `Round ${roundIndex} is being deleted. This can take a while for long chats.`
+				});
+				try {
+					await deleteRound(roundIndex);
+				} catch (error: any) {
+					console.error(error);
+					danger({ title: "Error deleting round", text: JSON.stringify(error?.message || error) });
+				} finally {
+					regenBtn.disabled = false;
+					deleteBtn.disabled = false;
+					deleteBtn.textContent = originalText;
+					statusText.textContent = "";
+					statusText.classList.add("hidden");
+				}
+			})()
+	);
 
 	actions.append(statusText, regenBtn, deleteBtn);
 	header.append(badge, actions);
@@ -1916,14 +1924,15 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
 					throw new Error("Blocked");
 				},
 				callbacks: {
-					onRequestId: async (requestId) => {
-						setUserMessageRequestSlug(ctx.userMessage, requestId);
-						await appendRequestSlugToStoredMessage({
-							chatId: ctx.chatId,
-							messageIndex: ctx.userIndex,
-							requestSlug: requestId
-						});
-					},
+					onRequestId: (requestId) =>
+						void (async () => {
+							setUserMessageRequestSlug(ctx.userMessage, requestId);
+							await appendRequestSlugToStoredMessage({
+								chatId: ctx.chatId,
+								messageIndex: ctx.userIndex,
+								requestSlug: requestId
+							});
+						})(),
 					onFallbackStart: () => {
 						state.finishReason = undefined;
 						state.groundingContent = "";
@@ -2266,7 +2275,7 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
 		responseElement: ctx.responseElement,
 		message: modelMessage
 	});
-	supabaseService.refreshImageGenerationRecord();
+	void supabaseService.refreshImageGenerationRecord();
 	endGeneration(ctx.chatId);
 	return ctx.userMessageElement;
 }
@@ -2383,7 +2392,7 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
 			responseElement: ctx.responseElement,
 			message: modelMessage
 		});
-		supabaseService.refreshImageGenerationRecord();
+		void supabaseService.refreshImageGenerationRecord();
 		endGeneration(ctx.chatId);
 		return ctx.userMessageElement;
 	} catch (error: any) {

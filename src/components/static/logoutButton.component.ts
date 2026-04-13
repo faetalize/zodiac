@@ -8,7 +8,11 @@ if (!logoutButton) {
 	throw new Error("Logout button not found in the document");
 }
 
-logoutButton.addEventListener("click", async () => {
-	await supabaseService.logout();
-	overlayService.closeOverlay();
-});
+logoutButton.addEventListener(
+	"click",
+	() =>
+		void (async () => {
+			await supabaseService.logout();
+			overlayService.closeOverlay();
+		})()
+);

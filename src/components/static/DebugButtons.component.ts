@@ -104,29 +104,33 @@ const modelMessages = [
 
 // Register listeners only in localhost
 if (isLocalhost && generateRandomChatsButton)
-	generateRandomChatsButton.addEventListener("click", async () => {
-		titles.forEach((title) => {
-			const randomConversation: Message[] = [];
+	generateRandomChatsButton.addEventListener(
+		"click",
+		() =>
+			void (async () => {
+				titles.forEach((title) => {
+					const randomConversation: Message[] = [];
 
-			for (let i = 0; i < 10; i++) {
-				// User message
-				const userText = userMessages[Math.floor(Math.random() * userMessages.length)];
-				randomConversation.push({
-					role: "user",
-					parts: [{ text: userText }]
-				});
+					for (let i = 0; i < 10; i++) {
+						// User message
+						const userText = userMessages[Math.floor(Math.random() * userMessages.length)];
+						randomConversation.push({
+							role: "user",
+							parts: [{ text: userText }]
+						});
 
-				// Model response
-				const modelText = modelMessages[Math.floor(Math.random() * modelMessages.length)];
-				randomConversation.push({
-					role: "model",
-					parts: [{ text: modelText }],
-					personalityid: "-1"
+						// Model response
+						const modelText = modelMessages[Math.floor(Math.random() * modelMessages.length)];
+						randomConversation.push({
+							role: "model",
+							parts: [{ text: modelText }],
+							personalityid: "-1"
+						});
+					}
+					void chatService.addChat(title, randomConversation);
 				});
-			}
-			chatService.addChat(title, randomConversation);
-		});
-	});
+			})()
+	);
 
 // Random personality data arrays
 const personalityNames = [
@@ -216,64 +220,77 @@ const toneExampleSets = [
 ];
 
 if (isLocalhost && generateRandomPersonalitiesButton)
-	generateRandomPersonalitiesButton.addEventListener("click", async () => {
-		// Generate 10 random personalities
-		for (let i = 0; i < 10; i++) {
-			const randomPersonality: Personality = {
-				name:
-					personalityNames[Math.floor(Math.random() * personalityNames.length)] +
-					` ${Math.floor(Math.random() * 1000)}`,
-				image: personalityImages[Math.floor(Math.random() * personalityImages.length)],
-				description: personalityDescriptions[Math.floor(Math.random() * personalityDescriptions.length)],
-				prompt: personalityPrompts[Math.floor(Math.random() * personalityPrompts.length)],
-				aggressiveness: Math.floor(Math.random() * 6), // 0-5
-				sensuality: Math.floor(Math.random() * 6), // 0-5
-				internetEnabled: Math.random() > 0.5,
-				roleplayEnabled: Math.random() > 0.7,
-				toneExamples: toneExampleSets[Math.floor(Math.random() * toneExampleSets.length)],
-				independence: 0,
-				nsfw: false,
-				tags: [],
-				category: "character"
-			};
+	generateRandomPersonalitiesButton.addEventListener(
+		"click",
+		() =>
+			void (async () => {
+				// Generate 10 random personalities
+				for (let i = 0; i < 10; i++) {
+					const randomPersonality: Personality = {
+						name:
+							personalityNames[Math.floor(Math.random() * personalityNames.length)] +
+							` ${Math.floor(Math.random() * 1000)}`,
+						image: personalityImages[Math.floor(Math.random() * personalityImages.length)],
+						description:
+							personalityDescriptions[Math.floor(Math.random() * personalityDescriptions.length)],
+						prompt: personalityPrompts[Math.floor(Math.random() * personalityPrompts.length)],
+						aggressiveness: Math.floor(Math.random() * 6), // 0-5
+						sensuality: Math.floor(Math.random() * 6), // 0-5
+						internetEnabled: Math.random() > 0.5,
+						roleplayEnabled: Math.random() > 0.7,
+						toneExamples: toneExampleSets[Math.floor(Math.random() * toneExampleSets.length)],
+						independence: 0,
+						nsfw: false,
+						tags: [],
+						category: "character"
+					};
 
-			await personalityService.add(randomPersonality);
-		}
-	});
+					await personalityService.add(randomPersonality);
+				}
+			})()
+	);
 
 if (isLocalhost && generateLongChatButton)
-	generateLongChatButton.addEventListener("click", async () => {
-		const longConversation: Message[] = [createPersonalityMarkerMessage("-1")];
-		for (let i = 0; i < 5000; i++) {
-			longConversation.push({
-				role: "user",
-				parts: [{ text: `User message number ${i + 1}` }]
-			});
-			longConversation.push({
-				role: "model",
-				personalityid: "-1",
-				parts: [{ text: `Model response number ${i + 1}` }]
-			});
-		}
-		await chatService.addChat("Long Chat Test", longConversation);
-	});
+	generateLongChatButton.addEventListener(
+		"click",
+		() =>
+			void (async () => {
+				const longConversation: Message[] = [createPersonalityMarkerMessage("-1")];
+				for (let i = 0; i < 5000; i++) {
+					longConversation.push({
+						role: "user",
+						parts: [{ text: `User message number ${i + 1}` }]
+					});
+					longConversation.push({
+						role: "model",
+						personalityid: "-1",
+						parts: [{ text: `Model response number ${i + 1}` }]
+					});
+				}
+				await chatService.addChat("Long Chat Test", longConversation);
+			})()
+	);
 
 if (isLocalhost && generateMediumChatButton)
-	generateMediumChatButton.addEventListener("click", async () => {
-		const mediumConversation: Message[] = [createPersonalityMarkerMessage("-1")];
-		for (let i = 0; i < 100; i++) {
-			mediumConversation.push({
-				role: "user",
-				parts: [{ text: `User message number ${i + 1}` }]
-			});
-			mediumConversation.push({
-				role: "model",
-				personalityid: "-1",
-				parts: [{ text: `Model response number ${i + 1}` }]
-			});
-		}
-		await chatService.addChat("Medium Chat Test", mediumConversation);
-	});
+	generateMediumChatButton.addEventListener(
+		"click",
+		() =>
+			void (async () => {
+				const mediumConversation: Message[] = [createPersonalityMarkerMessage("-1")];
+				for (let i = 0; i < 100; i++) {
+					mediumConversation.push({
+						role: "user",
+						parts: [{ text: `User message number ${i + 1}` }]
+					});
+					mediumConversation.push({
+						role: "model",
+						personalityid: "-1",
+						parts: [{ text: `Model response number ${i + 1}` }]
+					});
+				}
+				await chatService.addChat("Medium Chat Test", mediumConversation);
+			})()
+	);
 
 // Toast testing buttons
 if (isLocalhost && testToastNormalButton)

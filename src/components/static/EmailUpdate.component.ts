@@ -93,7 +93,7 @@ async function handleSubmit(event: SubmitEvent) {
 	}
 }
 
-emailUpdateFormEl.addEventListener("submit", handleSubmit);
+emailUpdateFormEl.addEventListener("submit", (e) => void handleSubmit(e));
 
 cancelButtonEl.addEventListener("click", () => {
 	resetForm();

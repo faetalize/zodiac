@@ -14,18 +14,18 @@ if (!input || !addBtn || !container || !loraContainerList) {
 }
 
 addBtn?.addEventListener("click", () => {
-	addLoraFromInput();
+	void addLoraFromInput();
 });
 
 input?.addEventListener("keydown", (e) => {
 	if (e.key === "Enter") {
 		e.preventDefault();
-		addLoraFromInput();
+		void addLoraFromInput();
 	}
 });
 
 //populate LoRAs
-initializeLoras();
+void initializeLoras();
 
 async function initializeLoras() {
 	await loraService.initialize();

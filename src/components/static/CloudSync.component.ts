@@ -164,43 +164,44 @@ async function runLegacyMediaMigrationFlowIfNeeded(options?: { force?: boolean }
 	showModal(syncMediaMigrationModal);
 
 	return await new Promise<boolean>((resolve) => {
-		const startMigration = async () => {
-			btnSyncMediaMigrationStart.removeEventListener("click", startMigration);
-			btnSyncMediaMigrationStart.disabled = true;
-			btnSyncMediaMigrationStart.textContent = "Migrating…";
-			syncMediaMigrationProgressWrapper?.classList.remove("hidden");
+		const startMigration = () =>
+			void (async () => {
+				btnSyncMediaMigrationStart.removeEventListener("click", startMigration);
+				btnSyncMediaMigrationStart.disabled = true;
+				btnSyncMediaMigrationStart.textContent = "Migrating…";
+				syncMediaMigrationProgressWrapper?.classList.remove("hidden");
 
-			try {
-				await syncService.migrateLegacySyncedMediaToBlobs((progress) => {
-					updateMediaMigrationProgress(progress);
-				});
+				try {
+					await syncService.migrateLegacySyncedMediaToBlobs((progress) => {
+						updateMediaMigrationProgress(progress);
+					});
 
-				if (syncMediaMigrationProgressFill) {
-					syncMediaMigrationProgressFill.style.width = "100%";
-				}
-				if (syncMediaMigrationProgressLabel) {
-					syncMediaMigrationProgressLabel.textContent = "Maintenance complete.";
-				}
-				if (syncMediaMigrationDescription) {
-					syncMediaMigrationDescription.textContent =
-						"All done. Your synced media now uses the optimized storage layout.";
-				}
+					if (syncMediaMigrationProgressFill) {
+						syncMediaMigrationProgressFill.style.width = "100%";
+					}
+					if (syncMediaMigrationProgressLabel) {
+						syncMediaMigrationProgressLabel.textContent = "Maintenance complete.";
+					}
+					if (syncMediaMigrationDescription) {
+						syncMediaMigrationDescription.textContent =
+							"All done. Your synced media now uses the optimized storage layout.";
+					}
 
-				window.setTimeout(() => {
-					hideModal(syncMediaMigrationModal);
-					resolve(true);
-				}, 500);
-			} catch (error) {
-				if (syncMediaMigrationError) {
-					syncMediaMigrationError.textContent = `Maintenance failed: ${error instanceof Error ? error.message : "Unknown error"}`;
-					syncMediaMigrationError.classList.remove("hidden");
-				}
+					window.setTimeout(() => {
+						hideModal(syncMediaMigrationModal);
+						resolve(true);
+					}, 500);
+				} catch (error) {
+					if (syncMediaMigrationError) {
+						syncMediaMigrationError.textContent = `Maintenance failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+						syncMediaMigrationError.classList.remove("hidden");
+					}
 
-				btnSyncMediaMigrationStart.disabled = false;
-				btnSyncMediaMigrationStart.textContent = "Retry Maintenance";
-				btnSyncMediaMigrationStart.addEventListener("click", startMigration, { once: true });
-			}
-		};
+					btnSyncMediaMigrationStart.disabled = false;
+					btnSyncMediaMigrationStart.textContent = "Retry Maintenance";
+					btnSyncMediaMigrationStart.addEventListener("click", startMigration, { once: true });
+				}
+			})();
 
 		btnSyncMediaMigrationStart.addEventListener("click", startMigration, { once: true });
 	});
@@ -281,120 +282,124 @@ function showFinalDownloadModal() {
 	showModal(syncModal);
 }
 
-btnSyncConfirm?.addEventListener("click", async () => {
-	const password = syncPasswordInput?.value ?? "";
+btnSyncConfirm?.addEventListener(
+	"click",
+	() =>
+		void (async () => {
+			const password = syncPasswordInput?.value ?? "";
 
-	if (!password) {
-		showError("Password is required.");
-		return;
-	}
-
-	if (modalMode === "setup") {
-		const confirm = syncPasswordConfirm?.value ?? "";
-		if (password !== confirm) {
-			showError("Passwords do not match.");
-			return;
-		}
-		if (password.length < 8) {
-			showError("Password must be at least 8 characters.");
-			return;
-		}
-
-		btnSyncConfirm!.disabled = true;
-		btnSyncConfirm!.textContent = "Setting up…";
-
-		try {
-			const success = await syncService.setupSync(password);
-
-			if (success) {
-				hideModal(syncModal);
-				info({
-					title: "Cloud sync enabled",
-					text: "Migration complete. Local chat/persona data was deleted for maximum security; synced data now loads in-memory per session."
-				});
-				updateSettingsUI(true);
-			} else {
-				showError("Setup failed. Please try again.");
-			}
-		} finally {
-			btnSyncConfirm!.disabled = false;
-			btnSyncConfirm!.textContent = "Confirm";
-		}
-	} else if (modalMode === "unlock") {
-		btnSyncConfirm!.disabled = true;
-		btnSyncConfirm!.textContent = "Unlocking…";
-
-		try {
-			const success = await syncService.unlock(password);
-
-			if (success) {
-				hideModal(syncModal);
-				await syncService.applySyncedSettingsToLocalStorage();
-				await runLegacyMediaMigrationFlowIfNeeded();
-				settingsService.loadSettings();
-				themeService.reloadFromStorage();
-				await loraService.initialize();
-				dispatchEmptyAppEvent("lora-state-changed");
-				await chatsService.initialize();
-				await personalityService.reloadFromDb();
-				info({
-					title: "Sync unlocked",
-					text: "Your synced data is available for this session (in-memory only)."
-				});
-			} else {
-				showError("Incorrect password. Please try again.");
-			}
-		} finally {
-			btnSyncConfirm!.disabled = false;
-			btnSyncConfirm!.textContent = "Confirm";
-		}
-	} else if (modalMode === "enable") {
-		btnSyncConfirm!.disabled = true;
-		btnSyncConfirm!.textContent = "Enabling…";
-
-		try {
-			const success = await syncService.enableSync(password, { strategy: "pull-remote" });
-
-			if (success) {
-				hideModal(syncModal);
-				info({ title: "Cloud sync re-enabled", text: "Syncing your data now." });
-				updateSettingsUI(true);
-			} else {
-				showError("Incorrect password. Please try again.");
-			}
-		} finally {
-			btnSyncConfirm!.disabled = false;
-			btnSyncConfirm!.textContent = "Confirm";
-		}
-	} else if (modalMode === "final-download") {
-		btnSyncConfirm!.disabled = true;
-		btnSyncConfirm!.textContent = "Downloading…";
-
-		try {
-			const unlocked = await syncService.unlock(password, { skipFlush: true });
-			if (!unlocked) {
-				showError("Incorrect password. Please try again.");
+			if (!password) {
+				showError("Password is required.");
 				return;
 			}
 
-			const wiped = await syncService.wipeRemoteData({ keepLocalCopy: true });
-			if (!wiped) {
-				showError("Failed to restore your local copy. Please try again.");
-				return;
-			}
+			if (modalMode === "setup") {
+				const confirm = syncPasswordConfirm?.value ?? "";
+				if (password !== confirm) {
+					showError("Passwords do not match.");
+					return;
+				}
+				if (password.length < 8) {
+					showError("Password must be at least 8 characters.");
+					return;
+				}
 
-			hideModal(syncModal);
-			updateSettingsUI(false);
-			info({
-				title: "Local backup restored",
-				text: "Your synced data was downloaded to this device and removed from the cloud."
-			});
-		} finally {
-			btnSyncConfirm!.disabled = false;
-			btnSyncConfirm!.textContent = "Confirm";
-		}
-	}
-});
+				btnSyncConfirm!.disabled = true;
+				btnSyncConfirm!.textContent = "Setting up…";
+
+				try {
+					const success = await syncService.setupSync(password);
+
+					if (success) {
+						hideModal(syncModal);
+						info({
+							title: "Cloud sync enabled",
+							text: "Migration complete. Local chat/persona data was deleted for maximum security; synced data now loads in-memory per session."
+						});
+						updateSettingsUI(true);
+					} else {
+						showError("Setup failed. Please try again.");
+					}
+				} finally {
+					btnSyncConfirm!.disabled = false;
+					btnSyncConfirm!.textContent = "Confirm";
+				}
+			} else if (modalMode === "unlock") {
+				btnSyncConfirm!.disabled = true;
+				btnSyncConfirm!.textContent = "Unlocking…";
+
+				try {
+					const success = await syncService.unlock(password);
+
+					if (success) {
+						hideModal(syncModal);
+						await syncService.applySyncedSettingsToLocalStorage();
+						await runLegacyMediaMigrationFlowIfNeeded();
+						settingsService.loadSettings();
+						themeService.reloadFromStorage();
+						await loraService.initialize();
+						dispatchEmptyAppEvent("lora-state-changed");
+						await chatsService.initialize();
+						await personalityService.reloadFromDb();
+						info({
+							title: "Sync unlocked",
+							text: "Your synced data is available for this session (in-memory only)."
+						});
+					} else {
+						showError("Incorrect password. Please try again.");
+					}
+				} finally {
+					btnSyncConfirm!.disabled = false;
+					btnSyncConfirm!.textContent = "Confirm";
+				}
+			} else if (modalMode === "enable") {
+				btnSyncConfirm!.disabled = true;
+				btnSyncConfirm!.textContent = "Enabling…";
+
+				try {
+					const success = await syncService.enableSync(password, { strategy: "pull-remote" });
+
+					if (success) {
+						hideModal(syncModal);
+						info({ title: "Cloud sync re-enabled", text: "Syncing your data now." });
+						updateSettingsUI(true);
+					} else {
+						showError("Incorrect password. Please try again.");
+					}
+				} finally {
+					btnSyncConfirm!.disabled = false;
+					btnSyncConfirm!.textContent = "Confirm";
+				}
+			} else if (modalMode === "final-download") {
+				btnSyncConfirm!.disabled = true;
+				btnSyncConfirm!.textContent = "Downloading…";
+
+				try {
+					const unlocked = await syncService.unlock(password, { skipFlush: true });
+					if (!unlocked) {
+						showError("Incorrect password. Please try again.");
+						return;
+					}
+
+					const wiped = await syncService.wipeRemoteData({ keepLocalCopy: true });
+					if (!wiped) {
+						showError("Failed to restore your local copy. Please try again.");
+						return;
+					}
+
+					hideModal(syncModal);
+					updateSettingsUI(false);
+					info({
+						title: "Local backup restored",
+						text: "Your synced data was downloaded to this device and removed from the cloud."
+					});
+				} finally {
+					btnSyncConfirm!.disabled = false;
+					btnSyncConfirm!.textContent = "Confirm";
+				}
+			}
+		})()
+);
 
 btnSyncSkip?.addEventListener("click", () => {
 	hideModal(syncModal);
@@ -402,27 +407,31 @@ btnSyncSkip?.addEventListener("click", () => {
 });
 
 // Forgot password escape hatch (visible in unlock and final-download modes)
-btnSyncForgotPassword?.addEventListener("click", async () => {
-	hideModal(syncModal);
+btnSyncForgotPassword?.addEventListener(
+	"click",
+	() =>
+		void (async () => {
+			hideModal(syncModal);
 
-	const shouldWipe = await confirmDialogDanger(
-		"If you forgot your encryption password, you can permanently delete all your synced data from the cloud. This cannot be undone and your encrypted data will be lost. Continue?"
-	);
-	if (!shouldWipe) {
-		showModal(syncModal);
-		return;
-	}
+			const shouldWipe = await confirmDialogDanger(
+				"If you forgot your encryption password, you can permanently delete all your synced data from the cloud. This cannot be undone and your encrypted data will be lost. Continue?"
+			);
+			if (!shouldWipe) {
+				showModal(syncModal);
+				return;
+			}
 
-	resetModalFields();
+			resetModalFields();
 
-	const success = await syncService.wipeRemoteData({ keepLocalCopy: false });
-	if (success) {
-		updateSettingsUI(false);
-		info({ title: "Cloud data wiped", text: "All synced data has been removed from the server." });
-	} else {
-		danger({ title: "Error", text: "Failed to wipe cloud data. Please try again." });
-	}
-});
+			const success = await syncService.wipeRemoteData({ keepLocalCopy: false });
+			if (success) {
+				updateSettingsUI(false);
+				info({ title: "Cloud data wiped", text: "All synced data has been removed from the server." });
+			} else {
+				danger({ title: "Error", text: "Failed to wipe cloud data. Please try again." });
+			}
+		})()
+);
 
 // Allow Enter key to confirm
 syncPasswordInput?.addEventListener("keydown", (e) => {
@@ -442,114 +451,132 @@ function updateSettingsUI(syncEnabled: boolean) {
 	syncStatusLabel.textContent = syncEnabled ? "Enabled" : "Disabled";
 }
 
-syncToggle?.addEventListener("change", async () => {
-	const checked = syncToggle.checked;
+syncToggle?.addEventListener(
+	"change",
+	() =>
+		void (async () => {
+			const checked = syncToggle.checked;
 
-	if (checked) {
-		// Enabling sync
-		const prefs = await syncService.fetchSyncPreferences();
-		if (prefs?.encryptionSalt) {
-			// Has existing encryption material — re-enable with password
-			syncToggle.checked = false; // Reset until confirmed
-			showEnableModal();
-		} else {
-			// First time — full setup
-			syncToggle.checked = false; // Reset until confirmed
-			showSetupModal();
-		}
-	} else {
-		// Disabling sync
-		const keepLocalCopy = await confirmDialog(
-			"Cloud sync is online-only. Do you want to save an unencrypted local copy before disabling sync?",
-			{
-				okText: "Save Local Copy",
-				cancelText: "Disable Without Copy"
+			if (checked) {
+				// Enabling sync
+				const prefs = await syncService.fetchSyncPreferences();
+				if (prefs?.encryptionSalt) {
+					// Has existing encryption material — re-enable with password
+					syncToggle.checked = false; // Reset until confirmed
+					showEnableModal();
+				} else {
+					// First time — full setup
+					syncToggle.checked = false; // Reset until confirmed
+					showSetupModal();
+				}
+			} else {
+				// Disabling sync
+				const keepLocalCopy = await confirmDialog(
+					"Cloud sync is online-only. Do you want to save an unencrypted local copy before disabling sync?",
+					{
+						okText: "Save Local Copy",
+						cancelText: "Disable Without Copy"
+					}
+				);
+				const success = await syncService.disableSync({ keepLocalCopy });
+				if (success) {
+					updateSettingsUI(false);
+					info({
+						title: "Cloud sync disabled",
+						text: keepLocalCopy
+							? "Local unencrypted copy restored. Cloud sync is now off."
+							: "Cloud sync is now off. Data remains encrypted on the server."
+					});
+				} else {
+					syncToggle.checked = true; // Revert
+					danger({ title: "Error", text: "Failed to disable cloud sync." });
+				}
 			}
-		);
-		const success = await syncService.disableSync({ keepLocalCopy });
-		if (success) {
-			updateSettingsUI(false);
-			info({
-				title: "Cloud sync disabled",
-				text: keepLocalCopy
-					? "Local unencrypted copy restored. Cloud sync is now off."
-					: "Cloud sync is now off. Data remains encrypted on the server."
-			});
-		} else {
-			syncToggle.checked = true; // Revert
-			danger({ title: "Error", text: "Failed to disable cloud sync." });
-		}
-	}
-});
+		})()
+);
 
-btnSyncNow?.addEventListener("click", async () => {
-	if (!syncService.isSyncActive()) {
-		danger({ title: "Sync not active", text: "Please unlock sync first." });
-		return;
-	}
+btnSyncNow?.addEventListener(
+	"click",
+	() =>
+		void (async () => {
+			if (!syncService.isSyncActive()) {
+				danger({ title: "Sync not active", text: "Please unlock sync first." });
+				return;
+			}
 
-	btnSyncNow!.disabled = true;
-	btnSyncNow!.innerHTML = '<span class="material-symbols-outlined">sync</span> Syncing…';
+			btnSyncNow!.disabled = true;
+			btnSyncNow!.innerHTML = '<span class="material-symbols-outlined">sync</span> Syncing…';
 
-	await syncService.pushAll();
-	await chatsService.initialize();
-	await personalityService.reloadFromDb();
+			await syncService.pushAll();
+			await chatsService.initialize();
+			await personalityService.reloadFromDb();
 
-	btnSyncNow!.disabled = false;
-	btnSyncNow!.innerHTML = '<span class="material-symbols-outlined">sync</span> Sync Now';
+			btnSyncNow!.disabled = false;
+			btnSyncNow!.innerHTML = '<span class="material-symbols-outlined">sync</span> Sync Now';
 
-	info({ title: "Sync complete", text: "All data has been synchronized." });
-});
+			info({ title: "Sync complete", text: "All data has been synchronized." });
+		})()
+);
 
-btnSyncMediaMaintenance?.addEventListener("click", async () => {
-	if (!syncService.isSyncActive()) {
-		danger({ title: "Sync not active", text: "Please unlock sync first." });
-		return;
-	}
+btnSyncMediaMaintenance?.addEventListener(
+	"click",
+	() =>
+		void (async () => {
+			if (!syncService.isSyncActive()) {
+				danger({ title: "Sync not active", text: "Please unlock sync first." });
+				return;
+			}
 
-	btnSyncMediaMaintenance.disabled = true;
-	btnSyncMediaMaintenance.innerHTML = '<span class="material-symbols-outlined">hourglass_top</span> Maintenance…';
+			btnSyncMediaMaintenance.disabled = true;
+			btnSyncMediaMaintenance.innerHTML =
+				'<span class="material-symbols-outlined">hourglass_top</span> Maintenance…';
 
-	try {
-		const ok = await runLegacyMediaMigrationFlowIfNeeded({ force: true });
-		if (ok) {
-			info({ title: "Maintenance complete", text: "Media payloads were checked and optimized." });
-		}
-	} finally {
-		btnSyncMediaMaintenance.disabled = false;
-		btnSyncMediaMaintenance.innerHTML = '<span class="material-symbols-outlined">build</span> Media Maintenance';
-	}
-});
+			try {
+				const ok = await runLegacyMediaMigrationFlowIfNeeded({ force: true });
+				if (ok) {
+					info({ title: "Maintenance complete", text: "Media payloads were checked and optimized." });
+				}
+			} finally {
+				btnSyncMediaMaintenance.disabled = false;
+				btnSyncMediaMaintenance.innerHTML =
+					'<span class="material-symbols-outlined">build</span> Media Maintenance';
+			}
+		})()
+);
 
-btnSyncWipe?.addEventListener("click", async () => {
-	// Confirm before wiping
-	const shouldWipe = await confirmDialogDanger(
-		"This will permanently delete ALL your synced data from the cloud and reset your encryption password. This cannot be undone. Continue?"
-	);
-	if (!shouldWipe) {
-		return;
-	}
+btnSyncWipe?.addEventListener(
+	"click",
+	() =>
+		void (async () => {
+			// Confirm before wiping
+			const shouldWipe = await confirmDialogDanger(
+				"This will permanently delete ALL your synced data from the cloud and reset your encryption password. This cannot be undone. Continue?"
+			);
+			if (!shouldWipe) {
+				return;
+			}
 
-	const keepLocalCopy = await confirmDialog(
-		"Before wiping remote data, do you want to save an unencrypted local copy on this device?",
-		{
-			okText: "Save Local Copy",
-			cancelText: "Wipe Without Copy"
-		}
-	);
-	const success = await syncService.wipeRemoteData({ keepLocalCopy });
-	if (success) {
-		updateSettingsUI(false);
-		info({
-			title: "Cloud data wiped",
-			text: keepLocalCopy
-				? "Remote data deleted. Local unencrypted copy was restored."
-				: "All synced data has been removed from the server."
-		});
-	} else {
-		danger({ title: "Error", text: "Failed to wipe cloud data." });
-	}
-});
+			const keepLocalCopy = await confirmDialog(
+				"Before wiping remote data, do you want to save an unencrypted local copy on this device?",
+				{
+					okText: "Save Local Copy",
+					cancelText: "Wipe Without Copy"
+				}
+			);
+			const success = await syncService.wipeRemoteData({ keepLocalCopy });
+			if (success) {
+				updateSettingsUI(false);
+				info({
+					title: "Cloud data wiped",
+					text: keepLocalCopy
+						? "Remote data deleted. Local unencrypted copy was restored."
+						: "All synced data has been removed from the server."
+				});
+			} else {
+				danger({ title: "Error", text: "Failed to wipe cloud data." });
+			}
+		})()
+);
 
 // ── Quota display ──────────────────────────────────────────────────────────
 
@@ -588,92 +615,100 @@ function updateStatusIndicator(status: SyncStatus) {
 // ── Event Listeners ────────────────────────────────────────────────────────
 
 // Auth state: check if user is Pro/Max and show/hide sync section
-onAppEvent("auth-state-changed", async (event) => {
-	const { loggedIn, subscription } = event.detail;
+onAppEvent(
+	"auth-state-changed",
+	(event) =>
+		void (async () => {
+			const { loggedIn, subscription } = event.detail;
 
-	if (!loggedIn) {
-		// Hide sync section, reset state
-		cloudSyncSection?.classList.add("hidden");
-		cryptoService.clearCachedKey();
-		return;
-	}
+			if (!loggedIn) {
+				// Hide sync section, reset state
+				cloudSyncSection?.classList.add("hidden");
+				cryptoService.clearCachedKey();
+				return;
+			}
 
-	const tier = getSubscriptionTier(subscription ?? null);
-	const isPaid = tier === "pro" || tier === "pro_plus" || tier === "max";
+			const tier = getSubscriptionTier(subscription ?? null);
+			const isPaid = tier === "pro" || tier === "pro_plus" || tier === "max";
 
-	if (isPaid && cloudSyncSection) {
-		cloudSyncSection.classList.remove("hidden");
-		syncUpgradeHint?.classList.add("hidden");
-		syncToggle?.removeAttribute("disabled");
+			if (isPaid && cloudSyncSection) {
+				cloudSyncSection.classList.remove("hidden");
+				syncUpgradeHint?.classList.add("hidden");
+				syncToggle?.removeAttribute("disabled");
 
-		// Load current sync state
-		const prefs = await syncService.fetchSyncPreferences();
-		updateSettingsUI(prefs?.syncEnabled ?? false);
+				// Load current sync state
+				const prefs = await syncService.fetchSyncPreferences();
+				updateSettingsUI(prefs?.syncEnabled ?? false);
 
-		if (prefs?.syncEnabled) {
-			await syncService.fetchSyncQuota();
-		}
+				if (prefs?.syncEnabled) {
+					await syncService.fetchSyncQuota();
+				}
 
-		// During onboarding, cloud sync setup is handled inside onboarding flow.
-		// Avoid showing separate modals that occlude the onboarding UI.
-		const onboardingCompleted = localStorage.getItem("onboardingCompleted") === "true";
-		if (!onboardingCompleted) {
-			return;
-		}
+				// During onboarding, cloud sync setup is handled inside onboarding flow.
+				// Avoid showing separate modals that occlude the onboarding UI.
+				const onboardingCompleted = localStorage.getItem("onboardingCompleted") === "true";
+				if (!onboardingCompleted) {
+					return;
+				}
 
-		// Trigger unlock/setup prompt for paid users on login
-		await syncService.checkSyncOnLogin();
-	} else if (cloudSyncSection) {
-		cloudSyncSection.classList.remove("hidden");
-		syncUpgradeHint?.classList.remove("hidden");
-		syncToggle?.setAttribute("disabled", "true");
+				// Trigger unlock/setup prompt for paid users on login
+				await syncService.checkSyncOnLogin();
+			} else if (cloudSyncSection) {
+				cloudSyncSection.classList.remove("hidden");
+				syncUpgradeHint?.classList.remove("hidden");
+				syncToggle?.setAttribute("disabled", "true");
 
-		// Downgraded users may still have encrypted remote data.
-		// Offer one final restore-to-local flow and then revoke sync.
-		const onboardingCompleted = localStorage.getItem("onboardingCompleted") === "true";
-		if (onboardingCompleted) {
-			await syncService.checkSyncOnLogin();
-		}
-	}
-});
+				// Downgraded users may still have encrypted remote data.
+				// Offer one final restore-to-local flow and then revoke sync.
+				const onboardingCompleted = localStorage.getItem("onboardingCompleted") === "true";
+				if (onboardingCompleted) {
+					await syncService.checkSyncOnLogin();
+				}
+			}
+		})()
+);
 
 // Sync unlock required: show appropriate modal
-onAppEvent("sync-unlock-required", async (event) => {
-	const { isFirstSetup, mode } = event.detail;
-	const resolvedMode = mode ?? (isFirstSetup ? "setup" : "unlock");
+onAppEvent(
+	"sync-unlock-required",
+	(event) =>
+		void (async () => {
+			const { isFirstSetup, mode } = event.detail;
+			const resolvedMode = mode ?? (isFirstSetup ? "setup" : "unlock");
 
-	if (resolvedMode === "setup") {
-		showSyncPrompt();
-		return;
-	}
-
-	if (resolvedMode === "enable") {
-		const shouldEnable = await confirmDialog(
-			"Cloud sync is currently disabled, but encrypted cloud data exists. Do you want to re-enable cloud sync?",
-			{
-				okText: "Re-enable Sync",
-				cancelText: "Keep Disabled"
+			if (resolvedMode === "setup") {
+				showSyncPrompt();
+				return;
 			}
-		);
 
-		if (shouldEnable) {
-			showEnableModal();
-		} else {
-			info({
-				title: "Cloud sync remains disabled",
-				text: "You can re-enable it anytime from Settings → Data Management."
-			});
-		}
-		return;
-	}
+			if (resolvedMode === "enable") {
+				const shouldEnable = await confirmDialog(
+					"Cloud sync is currently disabled, but encrypted cloud data exists. Do you want to re-enable cloud sync?",
+					{
+						okText: "Re-enable Sync",
+						cancelText: "Keep Disabled"
+					}
+				);
 
-	if (resolvedMode === "final-download") {
-		showFinalDownloadModal();
-		return;
-	}
+				if (shouldEnable) {
+					showEnableModal();
+				} else {
+					info({
+						title: "Cloud sync remains disabled",
+						text: "You can re-enable it anytime from Settings → Data Management."
+					});
+				}
+				return;
+			}
 
-	showUnlockModal();
-});
+			if (resolvedMode === "final-download") {
+				showFinalDownloadModal();
+				return;
+			}
+
+			showUnlockModal();
+		})()
+);
 
 // Sync state changed: update indicator
 onAppEvent("sync-state-changed", (event) => {
@@ -689,45 +724,55 @@ onAppEvent("sync-quota-updated", (event) => {
 onAppEvent("sync-setup-complete", (event) => {
 	updateSettingsUI(event.detail.enabled);
 	if (event.detail.enabled) {
-		syncService.fetchSyncQuota();
+		void syncService.fetchSyncQuota();
 	}
 });
 
-onAppEvent("sync-data-pulled", async () => {
-	const currentChatId = chatsService.getCurrentChatId();
+onAppEvent(
+	"sync-data-pulled",
+	() =>
+		void (async () => {
+			const currentChatId = chatsService.getCurrentChatId();
 
-	settingsService.loadSettings();
-	themeService.reloadFromStorage();
-	await loraService.initialize();
-	dispatchEmptyAppEvent("lora-state-changed");
-	await chatsService.initialize();
-	await personalityService.reloadFromDb();
+			settingsService.loadSettings();
+			themeService.reloadFromStorage();
+			await loraService.initialize();
+			dispatchEmptyAppEvent("lora-state-changed");
+			await chatsService.initialize();
+			await personalityService.reloadFromDb();
 
-	if (currentChatId) {
-		const currentChatInput = document.querySelector<HTMLInputElement>(`input[value='chat${currentChatId}']`);
-		if (currentChatInput) {
-			currentChatInput.checked = true;
-			await chatsService.loadChat(currentChatId);
-		}
-	}
-});
+			if (currentChatId) {
+				const currentChatInput = document.querySelector<HTMLInputElement>(
+					`input[value='chat${currentChatId}']`
+				);
+				if (currentChatInput) {
+					currentChatInput.checked = true;
+					await chatsService.loadChat(currentChatId);
+				}
+			}
+		})()
+);
 
 // Subscription updated: show/hide sync section
-onAppEvent("subscription-updated", async (event) => {
-	const tier = event.detail.tier;
-	const isPaid = tier === "pro" || tier === "pro_plus" || tier === "max";
+onAppEvent(
+	"subscription-updated",
+	(event) =>
+		void (async () => {
+			const tier = event.detail.tier;
+			const isPaid = tier === "pro" || tier === "pro_plus" || tier === "max";
 
-	if (cloudSyncSection) {
-		cloudSyncSection.classList.remove("hidden");
-	}
+			if (cloudSyncSection) {
+				cloudSyncSection.classList.remove("hidden");
+			}
 
-	if (isPaid) {
-		syncUpgradeHint?.classList.add("hidden");
-		syncToggle?.removeAttribute("disabled");
-	} else {
-		syncUpgradeHint?.classList.remove("hidden");
-		syncToggle?.setAttribute("disabled", "true");
-		if (syncToggle) syncToggle.checked = false;
-		syncDetails?.classList.add("hidden");
-	}
-});
+			if (isPaid) {
+				syncUpgradeHint?.classList.add("hidden");
+				syncToggle?.removeAttribute("disabled");
+			} else {
+				syncUpgradeHint?.classList.remove("hidden");
+				syncToggle?.setAttribute("disabled", "true");
+				if (syncToggle) syncToggle.checked = false;
+				syncDetails?.classList.add("hidden");
+			}
+		})()
+);
