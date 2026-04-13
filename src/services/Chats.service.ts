@@ -638,6 +638,7 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 	}
 
 	actionsButton.addEventListener("click", (e) => {
+		e.preventDefault();
 		e.stopPropagation();
 		if (!actionsWrapper.classList.contains("open")) {
 			openMenu();
@@ -652,6 +653,7 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 	editItem.setAttribute("role", "menuitem");
 	editItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">edit</span><span>Edit title</span>`;
 	editItem.addEventListener("click", (e) => {
+		e.preventDefault();
 		e.stopPropagation();
 		closeMenu();
 		chatLabelText.setAttribute("contenteditable", "true");
@@ -685,6 +687,7 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 		"click",
 		(e) =>
 			void (async () => {
+				e.preventDefault();
 				e.stopPropagation();
 				closeMenu();
 
@@ -724,6 +727,7 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 		groupSettingsItem.setAttribute("role", "menuitem");
 		groupSettingsItem.innerHTML = `<span class="material-symbols-outlined chat-action-icon">settings</span><span>Group Settings</span>`;
 		groupSettingsItem.addEventListener("click", (e) => {
+			e.preventDefault();
 			e.stopPropagation();
 			closeMenu();
 			// Dispatch custom event to open group chat editor
@@ -740,6 +744,7 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 		"click",
 		(e) =>
 			void (async () => {
+				e.preventDefault();
 				e.stopPropagation();
 				closeMenu();
 				await exportChat(chat.id);
@@ -764,6 +769,7 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 		"click",
 		(e) =>
 			void (async () => {
+				e.preventDefault();
 				e.stopPropagation();
 				closeMenu();
 				isPinned = await pinningService.toggleChatPinned(chat.id);
@@ -791,8 +797,10 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 			closeMenu();
 			actionsButton.blur();
 		} else if ((e.key === "Enter" || e.key === " ") && !actionsWrapper.classList.contains("open")) {
+			e.preventDefault();
 			openMenu();
 		} else if (e.key === "ArrowDown") {
+			e.preventDefault();
 			openMenu();
 			(menu.querySelector("button") as HTMLButtonElement)?.focus();
 		}
