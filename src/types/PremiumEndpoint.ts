@@ -1,16 +1,17 @@
-import { Content, type GenerateContentConfig } from "@google/genai";
+import type { Content } from "@google/genai";
+import { type GenerateContentConfig } from "@google/genai";
 
 export namespace PremiumEndpoint {
-    export interface Request {
-        message: string;
-        settings: RequestSettings;
-        history: Content[];
-        pinnedHistoryIndices?: number[];
-    }
+	export interface Request {
+		message: string;
+		settings: RequestSettings;
+		history: Content[];
+		pinnedHistoryIndices?: number[];
+	}
 
-    export interface RequestSettings extends GenerateContentConfig {
-        model: string;
-        streamResponses: boolean;
-        generate?: boolean; // whether to generate a new response or just continue the chat
-    }
+	export interface RequestSettings extends GenerateContentConfig {
+		model: string;
+		streamResponses: boolean;
+		generate?: boolean; // whether to generate a new response or just continue the chat
+	}
 }

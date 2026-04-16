@@ -1,0 +1,7 @@
+coverage/
+dist/
+node_modules/
+.vite/
+playwright-report/
+test-results/
+TASK_PROGRESS.md

@@ -6,11 +6,11 @@
 const MOBILE_BREAKPOINT = 1032;
 
 interface CollapsibleCard {
-    card: HTMLElement;
-    header: HTMLElement;
-    body: HTMLElement;
-    button: HTMLElement;
-    isExpanded: boolean;
+	card: HTMLElement;
+	header: HTMLElement;
+	body: HTMLElement;
+	button: HTMLElement;
+	isExpanded: boolean;
 }
 
 const collapsibleCards: CollapsibleCard[] = [];
@@ -19,112 +19,111 @@ const collapsibleCards: CollapsibleCard[] = [];
  * Initialize collapsible subscription cards
  */
 function init(): void {
-    const profileFreeCard = document.getElementById("profile-free-card");
-    const profileProCard = document.getElementById("profile-pro-card");
-    const profileProPlusCard = document.getElementById("profile-pro-plus-card");
-    const profileMaxCard = document.getElementById("profile-max-card");
+	const profileFreeCard = document.getElementById("profile-free-card");
+	const profileProCard = document.getElementById("profile-pro-card");
+	const profileProPlusCard = document.getElementById("profile-pro-plus-card");
+	const profileMaxCard = document.getElementById("profile-max-card");
 
-    const cards = [
-        profileFreeCard,
-        profileProCard,
-        profileProPlusCard,
-        profileMaxCard,
-    ].filter((card): card is HTMLElement => card !== null);
+	const cards = [profileFreeCard, profileProCard, profileProPlusCard, profileMaxCard].filter(
+		(card): card is HTMLElement => card !== null
+	);
 
-    cards.forEach((card) => {
-        const header = card.querySelector(".subscription-card-header") as HTMLElement;
-        const body = card.querySelector(".subscription-card-body") as HTMLElement;
-        const button = card.querySelector(".subscription-cta") as HTMLElement;
+	cards.forEach((card) => {
+		const header = card.querySelector(".subscription-card-header") as HTMLElement;
+		const body = card.querySelector(".subscription-card-body") as HTMLElement;
+		const button = card.querySelector(".subscription-cta") as HTMLElement;
 
-        if (!header || !body) {
-            console.error("Subscription card missing required elements:", card.id);
-            return;
-        }
+		if (!header || !body) {
+			console.error("Subscription card missing required elements:", card.id);
+			return;
+		}
 
-        const collapsibleCard: CollapsibleCard = {
-            card,
-            header,
-            body,
-            button,
-            isExpanded: false
-        };
+		const collapsibleCard: CollapsibleCard = {
+			card,
+			header,
+			body,
+			button,
+			isExpanded: false
+		};
 
-        collapsibleCards.push(collapsibleCard);
+		collapsibleCards.push(collapsibleCard);
 
-        header.style.cursor = "pointer";
-        header.addEventListener("click", () => toggleCard(collapsibleCard));
+		header.style.cursor = "pointer";
+		header.addEventListener("click", () => toggleCard(collapsibleCard));
 
-        const expandIndicator = document.createElement("span");
-        expandIndicator.className = "material-symbols-outlined subscription-expand-indicator";
-        expandIndicator.textContent = "expand_more";
-        header.appendChild(expandIndicator);
-    });
+		const expandIndicator = document.createElement("span");
+		expandIndicator.className = "material-symbols-outlined subscription-expand-indicator";
+		expandIndicator.textContent = "expand_more";
+		header.appendChild(expandIndicator);
+	});
 
-    handleResize();
-    window.addEventListener("resize", handleResize);
+	handleResize();
+	window.addEventListener("resize", handleResize);
 }
 
 /**
  * Toggle card expanded/collapsed state
  */
 function toggleCard(collapsibleCard: CollapsibleCard): void {
-    // Only allow toggling on mobile
-    if (window.innerWidth > MOBILE_BREAKPOINT) {
-        return;
-    }
+	// Only allow toggling on mobile
+	if (window.innerWidth > MOBILE_BREAKPOINT) {
+		return;
+	}
 
-    collapsibleCard.isExpanded = !collapsibleCard.isExpanded;
-    updateCardState(collapsibleCard);
+	collapsibleCard.isExpanded = !collapsibleCard.isExpanded;
+	updateCardState(collapsibleCard);
 }
 
 /**
  * Update visual state of card
  */
 function updateCardState(collapsibleCard: CollapsibleCard): void {
-    const { card, body, button, isExpanded } = collapsibleCard;
-    const indicator = card.querySelector(".subscription-expand-indicator") as HTMLElement;
+	const { card, isExpanded } = collapsibleCard;
+	const indicator = card.querySelector(".subscription-expand-indicator") as HTMLElement;
 
-    if (window.innerWidth <= MOBILE_BREAKPOINT) {
-        if (isExpanded) {
-            card.classList.add("subscription-card-expanded");
-            card.classList.remove("subscription-card-collapsed");
-            if (indicator) indicator.textContent = "expand_less";
-        } else {
-            card.classList.add("subscription-card-collapsed");
-            card.classList.remove("subscription-card-expanded");
-            if (indicator) indicator.textContent = "expand_more";
-        }
-    } else {
-        // Desktop: always expanded
-        card.classList.remove("subscription-card-collapsed", "subscription-card-expanded");
-        if (indicator) indicator.style.display = "none";
-    }
+	if (window.innerWidth <= MOBILE_BREAKPOINT) {
+		if (isExpanded) {
+			card.classList.add("subscription-card-expanded");
+			card.classList.remove("subscription-card-collapsed");
+			if (indicator) indicator.textContent = "expand_less";
+		} else {
+			card.classList.add("subscription-card-collapsed");
+			card.classList.remove("subscription-card-expanded");
+			if (indicator) indicator.textContent = "expand_more";
+		}
+	} else {
+		// Desktop: always expanded
+		card.classList.remove("subscription-card-collapsed", "subscription-card-expanded");
+		if (indicator) indicator.style.display = "none";
+	}
 }
 
 /**
  * Handle window resize
  */
 function handleResize(): void {
-    const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+	const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
 
-    collapsibleCards.forEach(collapsibleCard => {
-        const indicator = collapsibleCard.card.querySelector(".subscription-expand-indicator") as HTMLElement;
-        
-        if (isMobile) {
-            // Collapse all cards on mobile by default
-            if (!collapsibleCard.card.classList.contains("subscription-card-collapsed") && 
-                !collapsibleCard.card.classList.contains("subscription-card-expanded")) {
-                collapsibleCard.isExpanded = false;
-            }
-            if (indicator) indicator.style.display = "block";
-        } else {
-            // Desktop: show all content, hide indicators
-            collapsibleCard.card.classList.remove("subscription-card-collapsed", "subscription-card-expanded");
-            if (indicator) indicator.style.display = "none";
-        }
-        
-        updateCardState(collapsibleCard);
-    });
+	collapsibleCards.forEach((collapsibleCard) => {
+		const indicator = collapsibleCard.card.querySelector(".subscription-expand-indicator") as HTMLElement;
+
+		if (isMobile) {
+			// Collapse all cards on mobile by default
+			if (
+				!collapsibleCard.card.classList.contains("subscription-card-collapsed") &&
+				!collapsibleCard.card.classList.contains("subscription-card-expanded")
+			) {
+				collapsibleCard.isExpanded = false;
+			}
+			if (indicator) indicator.style.display = "block";
+		} else {
+			// Desktop: show all content, hide indicators
+			collapsibleCard.card.classList.remove("subscription-card-collapsed", "subscription-card-expanded");
+			if (indicator) indicator.style.display = "none";
+		}
+
+		updateCardState(collapsibleCard);
+	});
 }
 
 // Initialize on module load

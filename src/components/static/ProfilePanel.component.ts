@@ -1,4 +1,4 @@
-import { User } from "../../types/User";
+import type { User } from "../../types/User";
 import * as supabaseService from "../../services/Supabase.service";
 import * as toastService from "../../services/Toast.service";
 import { dispatchAppEvent, onAppEvent } from "../../events";
@@ -23,10 +23,28 @@ const resetPasswordButton = document.querySelector<HTMLButtonElement>("#btn-rese
 const changeEmailButton = document.querySelector<HTMLButtonElement>("#btn-change-email");
 let image: File;
 
-if (!pfpChangeButton || !preferredNameInput || !systemPromptAddition || !saveButton || !subscriptionBadge || !manageSubscriptionBtn || !subscriptionCard || !subscriptionHeader || !infoCard || !infoHeader || !remainingImageGenerations || !remainingMegaCredits || !remainingNanoBanana || !accountCard || !accountHeader || !accountEmailEl || !resetPasswordButton || !changeEmailButton) {
-    console.error("One or more profile panel elements are missing.");
-    console.log({ pfpChangeButton, preferredNameInput, systemPromptAddition, saveButton, subscriptionBadge, manageSubscriptionBtn, subscriptionCard, subscriptionHeader, infoCard, infoHeader, remainingImageGenerations, remainingMegaCredits, remainingNanoBanana, accountCard, accountHeader, accountEmailEl, resetPasswordButton, changeEmailButton });
-    throw new Error("Profile panel initialization failed.");
+if (
+	!pfpChangeButton ||
+	!preferredNameInput ||
+	!systemPromptAddition ||
+	!saveButton ||
+	!subscriptionBadge ||
+	!manageSubscriptionBtn ||
+	!subscriptionCard ||
+	!subscriptionHeader ||
+	!infoCard ||
+	!infoHeader ||
+	!remainingImageGenerations ||
+	!remainingMegaCredits ||
+	!remainingNanoBanana ||
+	!accountCard ||
+	!accountHeader ||
+	!accountEmailEl ||
+	!resetPasswordButton ||
+	!changeEmailButton
+) {
+	console.error("One or more profile panel elements are missing.");
+	throw new Error("Profile panel initialization failed.");
 }
 
 const ensuredRemainingImageGenerations = remainingImageGenerations;
@@ -36,271 +54,292 @@ const ensuredRemainingNanoBanana = remainingNanoBanana;
 const PRO_NANO_BANANA_DAILY_LIMIT = 20;
 
 function getTodayIsoDate() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+	const now = new Date();
+	const year = now.getFullYear();
+	const month = String(now.getMonth() + 1).padStart(2, "0");
+	const day = String(now.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
 }
 
 function getEffectiveNanoUsageCount(record: supabaseService.NanoBananaDailyUsageRecord | null): number {
-    if (!record) return 0;
-    return record.usage_date === getTodayIsoDate() ? Number(record.usage_count ?? 0) : 0;
+	if (!record) return 0;
+	return record.usage_date === getTodayIsoDate() ? Number(record.usage_count ?? 0) : 0;
 }
 
 async function refreshSubscriptionAllowances(): Promise<void> {
-    const subscription = await supabaseService.getUserSubscription();
-    const tier = supabaseService.getSubscriptionTier(subscription);
-    const imageGenerationRecord = await supabaseService.getImageGenerationRecord();
+	const subscription = await supabaseService.getUserSubscription();
+	const tier = supabaseService.getSubscriptionTier(subscription);
+	const imageGenerationRecord = await supabaseService.getImageGenerationRecord();
 
-    ensuredRemainingImageGenerations.textContent = (imageGenerationRecord?.remaining_image_generations ?? 0).toString();
+	ensuredRemainingImageGenerations.textContent = (imageGenerationRecord?.remaining_image_generations ?? 0).toString();
 
-    if (tier === 'pro' || tier === 'pro_plus') {
-        const megaCreditsRecord = await supabaseService.getMegaCreditsRecord();
-        ensuredRemainingMegaCredits.textContent = (megaCreditsRecord?.remaining_mega_credits ?? 0).toString();
-    } else if (tier === 'max') {
-        ensuredRemainingMegaCredits.textContent = 'Unlimited';
-    } else {
-        ensuredRemainingMegaCredits.textContent = '—';
-    }
+	if (tier === "pro" || tier === "pro_plus") {
+		const megaCreditsRecord = await supabaseService.getMegaCreditsRecord();
+		ensuredRemainingMegaCredits.textContent = (megaCreditsRecord?.remaining_mega_credits ?? 0).toString();
+	} else if (tier === "max") {
+		ensuredRemainingMegaCredits.textContent = "Unlimited";
+	} else {
+		ensuredRemainingMegaCredits.textContent = "—";
+	}
 
-    if (tier === 'pro') {
-        const nanoUsageRecord = await supabaseService.getNanoBananaDailyUsageRecord();
-        const remaining = Math.max(PRO_NANO_BANANA_DAILY_LIMIT - getEffectiveNanoUsageCount(nanoUsageRecord), 0);
-        ensuredRemainingNanoBanana.textContent = `${remaining} left today`;
-    } else if (tier === 'pro_plus' || tier === 'max') {
-        ensuredRemainingNanoBanana.textContent = 'Unlimited';
-    } else {
-        ensuredRemainingNanoBanana.textContent = '—';
-    }
+	if (tier === "pro") {
+		const nanoUsageRecord = await supabaseService.getNanoBananaDailyUsageRecord();
+		const remaining = Math.max(PRO_NANO_BANANA_DAILY_LIMIT - getEffectiveNanoUsageCount(nanoUsageRecord), 0);
+		ensuredRemainingNanoBanana.textContent = `${remaining} left today`;
+	} else if (tier === "pro_plus" || tier === "max") {
+		ensuredRemainingNanoBanana.textContent = "Unlimited";
+	} else {
+		ensuredRemainingNanoBanana.textContent = "—";
+	}
 }
 
-onAppEvent('profile-updated', (event) => {
-    const { user: profile } = event.detail;
-    if (profile) {
-        (preferredNameInput as HTMLInputElement).value = profile.preferredName || "";
-        (systemPromptAddition as HTMLTextAreaElement).value = profile.systemPromptAddition || "";
-    }
+onAppEvent("profile-updated", (event) => {
+	const { user: profile } = event.detail;
+	if (profile) {
+		(preferredNameInput as HTMLInputElement).value = profile.preferredName || "";
+		(systemPromptAddition as HTMLTextAreaElement).value = profile.systemPromptAddition || "";
+	}
 });
 
-onAppEvent('image-generation-record-refreshed', (event) => {
-    const { imageGenerationRecord } = event.detail;
-    if (imageGenerationRecord) {
-        ensuredRemainingImageGenerations.textContent = (imageGenerationRecord.remaining_image_generations ?? 0).toString();
-    }
+onAppEvent("image-generation-record-refreshed", (event) => {
+	const { imageGenerationRecord } = event.detail;
+	if (imageGenerationRecord) {
+		ensuredRemainingImageGenerations.textContent = (
+			imageGenerationRecord.remaining_image_generations ?? 0
+		).toString();
+	}
 });
 
-onAppEvent('subscription-updated', () => {
-    refreshSubscriptionAllowances().catch((error) => console.error('Failed to refresh subscription allowances:', error));
+onAppEvent("subscription-updated", () => {
+	refreshSubscriptionAllowances().catch((error) =>
+		console.error("Failed to refresh subscription allowances:", error)
+	);
 });
 
-onAppEvent('generation-state-changed', (event) => {
-    if (!event.detail.isGenerating) {
-        refreshSubscriptionAllowances().catch((error) => console.error('Failed to refresh subscription allowances:', error));
-    }
+onAppEvent("generation-state-changed", (event) => {
+	if (!event.detail.anyGenerating) {
+		refreshSubscriptionAllowances().catch((error) =>
+			console.error("Failed to refresh subscription allowances:", error)
+		);
+	}
 });
 
 // Smooth expand/collapse helper
 function toggleCard(cardEl: HTMLElement, contentSelector: string) {
-    const content = document.querySelector<HTMLElement>(contentSelector);
-    if (!content) {
-        cardEl.classList.toggle('collapsed');
-        return;
-    }
+	const content = document.querySelector<HTMLElement>(contentSelector);
+	if (!content) {
+		cardEl.classList.toggle("collapsed");
+		return;
+	}
 
-    const isCollapsed = cardEl.classList.contains('collapsed');
-    if (isCollapsed) {
-        // Expand
-        content.style.height = '0px';
-        cardEl.classList.remove('collapsed');
-        requestAnimationFrame(() => {
-            content.style.height = content.scrollHeight + 'px';
-        });
-        const onEnd = () => {
-            content.style.height = 'auto';
-            content.removeEventListener('transitionend', onEnd);
-        };
-        content.addEventListener('transitionend', onEnd);
-    } else {
-        // Collapse
-        const currentHeight = content.scrollHeight;
-        content.style.height = currentHeight + 'px';
-        void content.offsetHeight; // force reflow
-        content.style.height = '0px';
-        const onEnd = () => {
-            cardEl.classList.add('collapsed');
-            content.removeEventListener('transitionend', onEnd);
-        };
-        content.addEventListener('transitionend', onEnd);
-    }
+	const isCollapsed = cardEl.classList.contains("collapsed");
+	if (isCollapsed) {
+		// Expand
+		content.style.height = "0px";
+		cardEl.classList.remove("collapsed");
+		requestAnimationFrame(() => {
+			content.style.height = content.scrollHeight + "px";
+		});
+		const onEnd = () => {
+			content.style.height = "auto";
+			content.removeEventListener("transitionend", onEnd);
+		};
+		content.addEventListener("transitionend", onEnd);
+	} else {
+		// Collapse
+		const currentHeight = content.scrollHeight;
+		content.style.height = currentHeight + "px";
+		void content.offsetHeight; // force reflow
+		content.style.height = "0px";
+		const onEnd = () => {
+			cardEl.classList.add("collapsed");
+			content.removeEventListener("transitionend", onEnd);
+		};
+		content.addEventListener("transitionend", onEnd);
+	}
 }
 
 const subHeaderEl = subscriptionHeader as HTMLElement;
-subHeaderEl.addEventListener('click', () => toggleCard(subscriptionCard as HTMLElement, '#subscription-card-content'));
+subHeaderEl.addEventListener("click", () => toggleCard(subscriptionCard as HTMLElement, "#subscription-card-content"));
 
 const infoHeaderEl = infoHeader as HTMLElement;
-infoHeaderEl.addEventListener('click', () => toggleCard(infoCard as HTMLElement, '#profile-info-content'));
+infoHeaderEl.addEventListener("click", () => toggleCard(infoCard as HTMLElement, "#profile-info-content"));
 
 const accountHeaderEl = accountHeader as HTMLElement;
-accountHeaderEl.addEventListener('click', () => toggleCard(accountCard as HTMLElement, '#account-info-content'));
+accountHeaderEl.addEventListener("click", () => toggleCard(accountCard as HTMLElement, "#account-info-content"));
 
 // Initialize collapsed states' inline heights to 0 to avoid flash
-const subContent = document.querySelector<HTMLElement>('#subscription-card-content');
-if ((subscriptionCard as HTMLElement).classList.contains('collapsed') && subContent) {
-    subContent.style.height = '0px';
+const subContent = document.querySelector<HTMLElement>("#subscription-card-content");
+if ((subscriptionCard as HTMLElement).classList.contains("collapsed") && subContent) {
+	subContent.style.height = "0px";
 }
-const infoContent = document.querySelector<HTMLElement>('#profile-info-content');
-if ((infoCard as HTMLElement).classList.contains('collapsed') && infoContent) {
-    infoContent.style.height = '0px';
+const infoContent = document.querySelector<HTMLElement>("#profile-info-content");
+if ((infoCard as HTMLElement).classList.contains("collapsed") && infoContent) {
+	infoContent.style.height = "0px";
 }
-const accountContent = document.querySelector<HTMLElement>('#account-info-content');
-if ((accountCard as HTMLElement).classList.contains('collapsed') && accountContent) {
-    accountContent.style.height = '0px';
+const accountContent = document.querySelector<HTMLElement>("#account-info-content");
+if ((accountCard as HTMLElement).classList.contains("collapsed") && accountContent) {
+	accountContent.style.height = "0px";
 }
 
 function setAccountEmail(email: string | null) {
-    const fallback = '—';
-    accountEmailEl!.textContent = email?.trim() || fallback;
+	const fallback = "—";
+	accountEmailEl!.textContent = email?.trim() || fallback;
 }
 
 async function hydrateAccountEmail() {
-    try {
-        const email = await supabaseService.getCurrentUserEmail();
-        setAccountEmail(email);
-    } catch (error) {
-        console.error('Failed to load account email:', error);
-        setAccountEmail(null);
-    }
+	try {
+		const email = await supabaseService.getCurrentUserEmail();
+		setAccountEmail(email);
+	} catch (error) {
+		console.error("Failed to load account email:", error);
+		setAccountEmail(null);
+	}
 }
 
-window.addEventListener('auth-state-changed', (event: Event) => {
-    const detail = (event as CustomEvent).detail ?? {};
-    if (detail.loggedIn) {
-        const email = detail.session?.user?.email ?? null;
-        if (email) {
-            setAccountEmail(email);
-        } else {
-            hydrateAccountEmail();
-        }
-    } else {
-        setAccountEmail(null);
-    }
+window.addEventListener("auth-state-changed", (event: Event) => {
+	const detail = (event as CustomEvent).detail ?? {};
+	if (detail.loggedIn) {
+		const email = detail.session?.user?.email ?? null;
+		if (email) {
+			setAccountEmail(email);
+		} else {
+			void hydrateAccountEmail();
+		}
+	} else {
+		setAccountEmail(null);
+	}
 });
 
-window.addEventListener('account-email-changed', (event: Event) => {
-    const detail = (event as CustomEvent).detail ?? {};
-    const email = typeof detail.email === 'string' ? detail.email : null;
-    if (email && email.trim()) {
-        setAccountEmail(email.trim());
-    } else {
-        hydrateAccountEmail();
-    }
+window.addEventListener("account-email-changed", (event: Event) => {
+	const detail = (event as CustomEvent).detail ?? {};
+	const email = typeof detail.email === "string" ? detail.email : null;
+	if (email && email.trim()) {
+		setAccountEmail(email.trim());
+	} else {
+		void hydrateAccountEmail();
+	}
 });
 
-resetPasswordButton.addEventListener('click', async () => {
-    const email = accountEmailEl!.textContent?.trim();
-    if (!email || email === '—') {
-        toastService.warn({
-            title: 'Reset Password',
-            text: 'No email is set for this account.'
-        });
-        return;
-    }
-    try {
-        await supabaseService.sendPasswordResetEmail(email);
-        toastService.info({
-            title: 'Reset Email Sent',
-            text: 'Follow the email link to finish updating your password in the app.'
-        });
-    } catch (error) {
-        toastService.danger({
-            title: 'Reset Failed',
-            text: error instanceof Error ? error.message : 'Unable to send reset email.'
-        });
-    }
+resetPasswordButton.addEventListener(
+	"click",
+	() =>
+		void (async () => {
+			const email = accountEmailEl!.textContent?.trim();
+			if (!email || email === "—") {
+				toastService.warn({
+					title: "Reset Password",
+					text: "No email is set for this account."
+				});
+				return;
+			}
+			try {
+				await supabaseService.sendPasswordResetEmail(email);
+				toastService.info({
+					title: "Reset Email Sent",
+					text: "Follow the email link to finish updating your password in the app."
+				});
+			} catch (error) {
+				toastService.danger({
+					title: "Reset Failed",
+					text: error instanceof Error ? error.message : "Unable to send reset email."
+				});
+			}
+		})()
+);
+
+changeEmailButton.addEventListener("click", () => {
+	const currentEmail = accountEmailEl!.textContent?.trim() || "";
+	const normalized = currentEmail === "—" ? "" : currentEmail;
+	dispatchAppEvent("open-email-update", { currentEmail: normalized });
 });
 
-changeEmailButton.addEventListener('click', () => {
-    const currentEmail = accountEmailEl!.textContent?.trim() || '';
-    const normalized = currentEmail === '—' ? '' : currentEmail;
-    dispatchAppEvent('open-email-update', { currentEmail: normalized });
-});
+void hydrateAccountEmail();
+refreshSubscriptionAllowances().catch((error) => console.error("Failed to hydrate subscription allowances:", error));
 
-hydrateAccountEmail();
-refreshSubscriptionAllowances().catch((error) => console.error('Failed to hydrate subscription allowances:', error));
+pfpChangeButton.addEventListener(
+	"click",
+	() =>
+		void (async () => {
+			const tempInput: HTMLInputElement = document.createElement("input");
+			tempInput.type = "file";
+			tempInput.accept = "image/*";
+			tempInput.multiple = false;
 
-pfpChangeButton.addEventListener("click", async () => {
-    const tempInput: HTMLInputElement = document.createElement("input");
-    tempInput.type = "file";
-    tempInput.accept = "image/*";
-    tempInput.multiple = false;
+			tempInput.addEventListener(
+				"change",
+				() =>
+					void (async () => {
+						const newPfp = tempInput.files?.[0];
+						if (newPfp) {
+							document.querySelector("#profile-pfp")?.setAttribute("src", URL.createObjectURL(newPfp));
+							image = newPfp;
+						}
+					})()
+			);
 
-    tempInput.addEventListener("change", async () => {
-        const newPfp = tempInput.files?.[0];
-        if (newPfp) {
-            document.querySelector("#profile-pfp")?.setAttribute("src", URL.createObjectURL(newPfp));
-            image = newPfp;
-        }
-    });
+			tempInput.click();
+		})()
+);
 
-    tempInput.click();
-});
-
-
-saveButton.addEventListener("click", async () => {
-    const preferredName = (preferredNameInput as HTMLInputElement).value;
-    const systemPrompt = (systemPromptAddition as HTMLTextAreaElement).value;
-    if (image) {
-        //resize image on client side to 200 x 200 max
-        const img = document.createElement("img");
-        img.src = URL.createObjectURL(image);
-        await img.decode();
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-            console.error("Failed to get canvas context");
-            return;
-        }
-        const maxSize = 200;
-        let width = img.width;
-        let height = img.height;
-        if (width > height) {
-            if (width > maxSize) {
-                height = Math.round((height *= maxSize / width));
-                width = maxSize;
-            }
-        } else {
-            if (height > maxSize) {
-                width = Math.round((width *= maxSize / height));
-                height = maxSize;
-            }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        ctx.drawImage(img, 0, 0, width, height);
-        const resizedBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-        const resizedFile = new File([resizedBlob!], "profile_picture.jpeg", { type: 'image/jpeg' });
-        let imageURL;
-        try {
-            imageURL = await supabaseService.uploadPfpToSupabase(resizedFile);
-            imageURL = "https://hglcltvwunzynnzduauy.supabase.co/storage/v1/object/public/" + imageURL;
-            const user: User = {
-                preferredName,
-                systemPromptAddition: systemPrompt,
-                avatar: imageURL
-            }
-            await supabaseService.updateUser(user);
-        } catch (error) {
-            console.error("Error uploading image:", error);
-            return;
-        }
-    }
-    else {
-        const user: User = {
-            preferredName,
-            systemPromptAddition: systemPrompt,
-        }
-        await supabaseService.updateUser(user);
-    }
-
-});
+saveButton.addEventListener(
+	"click",
+	() =>
+		void (async () => {
+			const preferredName = (preferredNameInput as HTMLInputElement).value;
+			const systemPrompt = (systemPromptAddition as HTMLTextAreaElement).value;
+			if (image) {
+				//resize image on client side to 200 x 200 max
+				const img = document.createElement("img");
+				img.src = URL.createObjectURL(image);
+				await img.decode();
+				const canvas = document.createElement("canvas");
+				const ctx = canvas.getContext("2d");
+				if (!ctx) {
+					console.error("Failed to get canvas context");
+					return;
+				}
+				const maxSize = 200;
+				let width = img.width;
+				let height = img.height;
+				if (width > height) {
+					if (width > maxSize) {
+						height = Math.round((height *= maxSize / width));
+						width = maxSize;
+					}
+				} else {
+					if (height > maxSize) {
+						width = Math.round((width *= maxSize / height));
+						height = maxSize;
+					}
+				}
+				canvas.width = width;
+				canvas.height = height;
+				ctx.drawImage(img, 0, 0, width, height);
+				const resizedBlob = await new Promise<Blob | null>((resolve) =>
+					canvas.toBlob(resolve, "image/jpeg", 0.8)
+				);
+				const resizedFile = new File([resizedBlob!], "profile_picture.jpeg", { type: "image/jpeg" });
+				let imageURL;
+				try {
+					imageURL = await supabaseService.uploadPfpToSupabase(resizedFile);
+					imageURL = "https://hglcltvwunzynnzduauy.supabase.co/storage/v1/object/public/" + imageURL;
+					const user: User = {
+						preferredName,
+						systemPromptAddition: systemPrompt,
+						avatar: imageURL
+					};
+					await supabaseService.updateUser(user);
+				} catch (error) {
+					console.error("Error uploading image:", error);
+					return;
+				}
+			} else {
+				const user: User = {
+					preferredName,
+					systemPromptAddition: systemPrompt
+				};
+				await supabaseService.updateUser(user);
+			}
+		})()
+);

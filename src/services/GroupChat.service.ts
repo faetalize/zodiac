@@ -4,272 +4,279 @@ import type { Chat, GroupChatConfig, GroupChatDynamicSettings, GroupChatRpgSetti
 import { defaultGuardFromIndependence, normalizeGuardMap } from "../utils/dynamicGroupChatGuards";
 
 function uniq(list: string[]): string[] {
-    return Array.from(new Set(list));
+	return Array.from(new Set(list));
 }
 
 export async function createRpgGroupChat(options: {
-    participantIds: string[];
-    turnOrder: string[];
-    scenarioPrompt?: string;
-    narratorEnabled?: boolean;
+	participantIds: string[];
+	turnOrder: string[];
+	scenarioPrompt?: string;
+	narratorEnabled?: boolean;
 }): Promise<string | null> {
-    const participantIds = uniq(options.participantIds).slice(0, 5);
-    if (participantIds.length < 2) {
-        return null;
-    }
+	const participantIds = uniq(options.participantIds).slice(0, 5);
+	if (participantIds.length < 2) {
+		return null;
+	}
 
-    const turnOrder = options.turnOrder.length > 0
-        ? options.turnOrder.filter(id => id === "user" || participantIds.includes(id))
-        : [...participantIds, "user"];
+	const turnOrder =
+		options.turnOrder.length > 0
+			? options.turnOrder.filter((id) => id === "user" || participantIds.includes(id))
+			: [...participantIds, "user"];
 
-    // Ensure everyone (including user) is in the final order
-    for (const id of participantIds) {
-        if (!turnOrder.includes(id)) {
-            turnOrder.push(id);
-        }
-    }
-    if (!turnOrder.includes("user")) {
-        turnOrder.push("user");
-    }
+	// Ensure everyone (including user) is in the final order
+	for (const id of participantIds) {
+		if (!turnOrder.includes(id)) {
+			turnOrder.push(id);
+		}
+	}
+	if (!turnOrder.includes("user")) {
+		turnOrder.push("user");
+	}
 
-    const rpg: GroupChatRpgSettings = {
-        turnOrder,
-        scenarioPrompt: options.scenarioPrompt?.trim() || undefined,
-        narratorEnabled: !!options.narratorEnabled,
-    };
+	const rpg: GroupChatRpgSettings = {
+		turnOrder,
+		scenarioPrompt: options.scenarioPrompt?.trim() || undefined,
+		narratorEnabled: !!options.narratorEnabled
+	};
 
-    const groupChat: GroupChatConfig = {
-        mode: "rpg",
-        participantIds,
-        rpg,
-    };
+	const groupChat: GroupChatConfig = {
+		mode: "rpg",
+		participantIds,
+		rpg
+	};
 
-    // Build a simple title based on participants
-    const names: string[] = [];
-    for (const id of participantIds) {
-        const persona = await personalityService.get(id);
-        names.push(persona?.name || "Unknown");
-    }
-    const title = `Group: ${names.join(", ")}`.slice(0, 60) || "New Group Chat";
+	// Build a simple title based on participants
+	const names: string[] = [];
+	for (const id of participantIds) {
+		const persona = await personalityService.get(id);
+		names.push(persona?.name || "Unknown");
+	}
+	const title = `Group: ${names.join(", ")}`.slice(0, 60) || "New Group Chat";
 
-    const chat: Chat = {
-        title,
-        timestamp: Date.now(),
-        content: [],
-        groupChat,
-    };
+	const chat: Chat = {
+		title,
+		timestamp: Date.now(),
+		content: [],
+		groupChat
+	};
 
-    try {
-        console.log("createRpgGroupChat: creating chat", chat);
-        const id = await chatsService.addChatRecord(chat);
-        console.log(`createRpgGroupChat: addChatRecord returned id=${id}`);
-        const loaded = await chatsService.loadChat(id);
-        console.log(`createRpgGroupChat: loadChat returned`, loaded);
-        const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
-        if (chatInput) {
-            chatInput.checked = true;
-        }
-        return id;
-    } catch (error) {
-        console.error("createRpgGroupChat: failed to create group chat", error);
-        return null;
-    }
+	try {
+		const id = await chatsService.addChatRecord(chat);
+		await chatsService.loadChat(id);
+		const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
+		if (chatInput) {
+			chatInput.checked = true;
+		}
+		return id;
+	} catch (error) {
+		console.error("createRpgGroupChat: failed to create group chat", error);
+		return null;
+	}
 }
 
 export async function createDynamicGroupChat(options: {
-    participantIds: string[];
-    maxMessageGuardById?: Record<string, number>;
-    allowPings?: boolean;
+	participantIds: string[];
+	maxMessageGuardById?: Record<string, number>;
+	allowPings?: boolean;
 }): Promise<string | null> {
-    const participantIds = uniq(options.participantIds).slice(0, 5);
-    if (participantIds.length < 2) {
-        return null;
-    }
+	const participantIds = uniq(options.participantIds).slice(0, 5);
+	if (participantIds.length < 2) {
+		return null;
+	}
 
-    const allowPings = !!options.allowPings;
+	const allowPings = !!options.allowPings;
 
-    const personaIndependenceById = new Map<string, number>();
-    for (const id of participantIds) {
-        const persona = await personalityService.get(id);
-        if (persona) {
-            personaIndependenceById.set(id, Number((persona as any)?.independence ?? 0));
-        }
-    }
+	const personaIndependenceById = new Map<string, number>();
+	for (const id of participantIds) {
+		const persona = await personalityService.get(id);
+		if (persona) {
+			personaIndependenceById.set(id, Number((persona as any)?.independence ?? 0));
+		}
+	}
 
-    const maxMessageGuardById = normalizeGuardMap({
-        participantIds,
-        existing: options.maxMessageGuardById,
-        defaultForId: (id) => defaultGuardFromIndependence(personaIndependenceById.get(id)),
-    });
+	const maxMessageGuardById = normalizeGuardMap({
+		participantIds,
+		existing: options.maxMessageGuardById,
+		defaultForId: (id) => defaultGuardFromIndependence(personaIndependenceById.get(id))
+	});
 
-    const dynamic: GroupChatDynamicSettings = {
-        maxMessageGuardById,
-        allowPings,
-    };
+	const dynamic: GroupChatDynamicSettings = {
+		maxMessageGuardById,
+		allowPings
+	};
 
-    const groupChat: GroupChatConfig = {
-        mode: "dynamic",
-        participantIds,
-        dynamic,
-    };
+	const groupChat: GroupChatConfig = {
+		mode: "dynamic",
+		participantIds,
+		dynamic
+	};
 
-    // Build a simple title based on participants
-    const names: string[] = [];
-    for (const id of participantIds) {
-        const persona = await personalityService.get(id);
-        names.push(persona?.name || "Unknown");
-    }
-    const title = `Group: ${names.join(", ")}`.slice(0, 60) || "New Group Chat";
+	// Build a simple title based on participants
+	const names: string[] = [];
+	for (const id of participantIds) {
+		const persona = await personalityService.get(id);
+		names.push(persona?.name || "Unknown");
+	}
+	const title = `Group: ${names.join(", ")}`.slice(0, 60) || "New Group Chat";
 
-    const chat: Chat = {
-        title,
-        timestamp: Date.now(),
-        content: [],
-        groupChat,
-    };
+	const chat: Chat = {
+		title,
+		timestamp: Date.now(),
+		content: [],
+		groupChat
+	};
 
-    try {
-        console.log("createDynamicGroupChat: creating chat", chat);
-        const id = await chatsService.addChatRecord(chat);
-        console.log(`createDynamicGroupChat: addChatRecord returned id=${id}`);
-        const loaded = await chatsService.loadChat(id);
-        console.log(`createDynamicGroupChat: loadChat returned`, loaded);
-        const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
-        if (chatInput) {
-            chatInput.checked = true;
-        }
-        return id;
-    } catch (error) {
-        console.error("createDynamicGroupChat: failed to create group chat", error);
-        return null;
-    }
+	try {
+		const id = await chatsService.addChatRecord(chat);
+		await chatsService.loadChat(id);
+		const chatInput = document.querySelector<HTMLInputElement>(`#chat${id}`);
+		if (chatInput) {
+			chatInput.checked = true;
+		}
+		return id;
+	} catch (error) {
+		console.error("createDynamicGroupChat: failed to create group chat", error);
+		return null;
+	}
 }
 
-export async function updateRpgGroupChat(chatId: string, options: {
-    participantIds: string[];
-    turnOrder: string[];
-    scenarioPrompt?: string;
-    narratorEnabled?: boolean;
-}): Promise<boolean> {
-    const chat = await chatsService.getChatById(chatId);
-    if (!chat || !chat.groupChat) {
-        return false;
-    }
+export async function updateRpgGroupChat(
+	chatId: string,
+	options: {
+		participantIds: string[];
+		turnOrder: string[];
+		scenarioPrompt?: string;
+		narratorEnabled?: boolean;
+	}
+): Promise<boolean> {
+	const participantIds = uniq(options.participantIds).slice(0, 5);
+	if (participantIds.length < 2) {
+		return false;
+	}
 
-    const participantIds = uniq(options.participantIds).slice(0, 5);
-    if (participantIds.length < 2) {
-        return false;
-    }
+	const turnOrder =
+		options.turnOrder.length > 0
+			? options.turnOrder.filter((id) => id === "user" || participantIds.includes(id))
+			: [...participantIds, "user"];
 
-    const turnOrder = options.turnOrder.length > 0
-        ? options.turnOrder.filter(id => id === "user" || participantIds.includes(id))
-        : [...participantIds, "user"];
+	for (const id of participantIds) {
+		if (!turnOrder.includes(id)) {
+			turnOrder.push(id);
+		}
+	}
+	if (!turnOrder.includes("user")) {
+		turnOrder.push("user");
+	}
 
-    for (const id of participantIds) {
-        if (!turnOrder.includes(id)) {
-            turnOrder.push(id);
-        }
-    }
-    if (!turnOrder.includes("user")) {
-        turnOrder.push("user");
-    }
+	const rpg: GroupChatRpgSettings = {
+		turnOrder,
+		scenarioPrompt: options.scenarioPrompt?.trim() || undefined,
+		narratorEnabled: !!options.narratorEnabled
+	};
+	const names: string[] = [];
+	for (const id of participantIds) {
+		const persona = await personalityService.get(id);
+		names.push(persona?.name || "Unknown");
+	}
 
-    const rpg: GroupChatRpgSettings = {
-        turnOrder,
-        scenarioPrompt: options.scenarioPrompt?.trim() || undefined,
-        narratorEnabled: !!options.narratorEnabled,
-    };
+	const didUpdate = await chatsService.mutateChat(chatId, (chat) => {
+		if (!chat.groupChat) return undefined;
 
-    chat.groupChat = {
-        ...chat.groupChat,
-        participantIds,
-        rpg,
-    };
+		chat.groupChat = {
+			...chat.groupChat,
+			participantIds,
+			rpg
+		};
 
-    // Update title if it was the default group title
-    if (chat.title.startsWith("Group: ")) {
-        const names: string[] = [];
-        for (const id of participantIds) {
-            const persona = await personalityService.get(id);
-            names.push(persona?.name || "Unknown");
-        }
-        chat.title = `Group: ${names.join(", ")}`.slice(0, 60);
-    }
+		if (chat.title.startsWith("Group: ")) {
+			chat.title = `Group: ${names.join(", ")}`.slice(0, 60);
+		}
+		return true;
+	});
+	if (!didUpdate) {
+		return false;
+	}
 
-    await chatsService.saveChat(chat);
-    
-    // If this is the current chat, reload it to reflect changes in UI
-    const currentId = chatsService.getCurrentChatId();
-    if (currentId === chatId) {
-        await chatsService.loadChat(chatId);
-    } else {
-        // Just refresh the sidebar entry
-        await chatsService.refreshChatListAfterActivity();
-    }
+	// If this is the current chat, reload it to reflect changes in UI
+	const currentId = chatsService.getCurrentChatId();
+	if (currentId === chatId) {
+		await chatsService.loadChat(chatId);
+	} else {
+		// Just refresh the sidebar entry
+		await chatsService.refreshChatListAfterActivity();
+	}
 
-    return true;
+	return true;
 }
 
-export async function updateDynamicGroupChat(chatId: string, options: {
-    participantIds: string[];
-    maxMessageGuardById?: Record<string, number>;
-    allowPings?: boolean;
-}): Promise<boolean> {
-    const chat = await chatsService.getChatById(chatId);
-    if (!chat || !chat.groupChat) {
-        return false;
-    }
+export async function updateDynamicGroupChat(
+	chatId: string,
+	options: {
+		participantIds: string[];
+		maxMessageGuardById?: Record<string, number>;
+		allowPings?: boolean;
+	}
+): Promise<boolean> {
+	const participantIds = uniq(options.participantIds).slice(0, 5);
+	if (participantIds.length < 2) {
+		return false;
+	}
 
-    const participantIds = uniq(options.participantIds).slice(0, 5);
-    if (participantIds.length < 2) {
-        return false;
-    }
+	const allowPings = !!options.allowPings;
 
-    const allowPings = !!options.allowPings;
+	const existingChat = await chatsService.getChatById(chatId);
+	if (!existingChat || !existingChat.groupChat) {
+		return false;
+	}
 
-    const personaIndependenceById = new Map<string, number>();
-    for (const id of participantIds) {
-        const persona = await personalityService.get(id);
-        if (persona) {
-            personaIndependenceById.set(id, Number((persona as any)?.independence ?? 0));
-        }
-    }
+	const personaIndependenceById = new Map<string, number>();
+	for (const id of participantIds) {
+		const persona = await personalityService.get(id);
+		if (persona) {
+			personaIndependenceById.set(id, Number((persona as any)?.independence ?? 0));
+		}
+	}
 
-    const maxMessageGuardById = normalizeGuardMap({
-        participantIds,
-        existing: options.maxMessageGuardById ?? chat.groupChat.dynamic?.maxMessageGuardById,
-        legacyFallback: chat.groupChat.dynamic?.maxMessageGuard,
-        defaultForId: (id) => defaultGuardFromIndependence(personaIndependenceById.get(id)),
-    });
+	const maxMessageGuardById = normalizeGuardMap({
+		participantIds,
+		existing: options.maxMessageGuardById ?? existingChat.groupChat.dynamic?.maxMessageGuardById,
+		legacyFallback: existingChat.groupChat.dynamic?.maxMessageGuard,
+		defaultForId: (id) => defaultGuardFromIndependence(personaIndependenceById.get(id))
+	});
+	const names: string[] = [];
+	for (const id of participantIds) {
+		const persona = await personalityService.get(id);
+		names.push(persona?.name || "Unknown");
+	}
 
-    chat.groupChat = {
-        ...chat.groupChat,
-        participantIds,
-        dynamic: {
-            maxMessageGuardById,
-            allowPings,
-        },
-    };
+	const didUpdate = await chatsService.mutateChat(chatId, (chat) => {
+		if (!chat.groupChat) return undefined;
 
-    // Update title if it was the default group title
-    if (chat.title.startsWith("Group: ")) {
-        const names: string[] = [];
-        for (const id of participantIds) {
-            const persona = await personalityService.get(id);
-            names.push(persona?.name || "Unknown");
-        }
-        chat.title = `Group: ${names.join(", ")}`.slice(0, 60);
-    }
+		chat.groupChat = {
+			...chat.groupChat,
+			participantIds,
+			dynamic: {
+				maxMessageGuardById,
+				allowPings
+			}
+		};
 
-    await chatsService.saveChat(chat);
+		if (chat.title.startsWith("Group: ")) {
+			chat.title = `Group: ${names.join(", ")}`.slice(0, 60);
+		}
+		return true;
+	});
+	if (!didUpdate) {
+		return false;
+	}
 
-    // If this is the current chat, reload it to reflect changes in UI
-    const currentId = chatsService.getCurrentChatId();
-    if (currentId === chatId) {
-        await chatsService.loadChat(chatId);
-    } else {
-        await chatsService.refreshChatListAfterActivity();
-    }
+	// If this is the current chat, reload it to reflect changes in UI
+	const currentId = chatsService.getCurrentChatId();
+	if (currentId === chatId) {
+		await chatsService.loadChat(chatId);
+	} else {
+		await chatsService.refreshChatListAfterActivity();
+	}
 
-    return true;
+	return true;
 }

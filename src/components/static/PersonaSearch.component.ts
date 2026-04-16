@@ -5,65 +5,65 @@ const personaSearchInput = document.querySelector<HTMLInputElement>("#persona-se
 let personaSearchDebounceTimer: number;
 
 if (!personaSearchInput) {
-    console.error("PersonaSearch component is missing the search input element. Please check the HTML structure.");
-    throw new Error("PersonaSearch component is not properly initialized.");
+	console.error("PersonaSearch component is missing the search input element. Please check the HTML structure.");
+	throw new Error("PersonaSearch component is not properly initialized.");
 }
 
 personaSearchInput.addEventListener("input", () => {
-    clearTimeout(personaSearchDebounceTimer);
+	clearTimeout(personaSearchDebounceTimer);
 
-    personaSearchDebounceTimer = window.setTimeout(() => {
-        performSearch();
-    }, 300);
+	personaSearchDebounceTimer = window.setTimeout(() => {
+		performSearch();
+	}, 300);
 });
 
 window.addEventListener("persona-list-updated", () => {
-    performSearch();
+	performSearch();
 });
 
 function performSearch(): void {
-    const personalitiesDiv = document.querySelector<HTMLElement>("#personalitiesDiv");
+	const personalitiesDiv = document.querySelector<HTMLElement>("#personalitiesDiv");
 
-    if (!personaSearchInput || !personalitiesDiv) {
-        return;
-    }
+	if (!personaSearchInput || !personalitiesDiv) {
+		return;
+	}
 
-    const searchTerm = personaSearchInput.value.trim();
-    const personalityCards = personalitiesDiv.querySelectorAll<HTMLElement>(".card-personality");
+	const searchTerm = personaSearchInput.value.trim();
+	const personalityCards = personalitiesDiv.querySelectorAll<HTMLElement>(".card-personality");
 
-    if (searchTerm === "") {
-        personalityCards.forEach((card) => {
-            helpers.showElement(card, true);
-        });
-        return;
-    }
+	if (searchTerm === "") {
+		personalityCards.forEach((card) => {
+			helpers.showElement(card, true);
+		});
+		return;
+	}
 
-    const cardsWithScores: Array<{ element: HTMLElement; score: number }> = [];
+	const cardsWithScores: Array<{ element: HTMLElement; score: number }> = [];
 
-    personalityCards.forEach((card) => {
-        if (card.id === "btn-add-personality") {
-            return;
-        }
+	personalityCards.forEach((card) => {
+		if (card.id === "btn-add-personality") {
+			return;
+		}
 
-        const personalityName = card.querySelector(".personality-title")?.textContent;
-        if (!personalityName) {
-            return;
-        }
+		const personalityName = card.querySelector(".personality-title")?.textContent;
+		if (!personalityName) {
+			return;
+		}
 
-        const score = helpers.fuzzySearch(searchTerm, personalityName);
-        if (score !== null && score > 0.1) {
-            cardsWithScores.push({ element: card, score });
-        }
-    });
+		const score = helpers.fuzzySearch(searchTerm, personalityName);
+		if (score !== null && score > 0.1) {
+			cardsWithScores.push({ element: card, score });
+		}
+	});
 
-    cardsWithScores.sort((a, b) => b.score - a.score);
-    const matchingCards = new Set(cardsWithScores.map((item) => item.element));
+	cardsWithScores.sort((a, b) => b.score - a.score);
+	const matchingCards = new Set(cardsWithScores.map((item) => item.element));
 
-    personalityCards.forEach((card) => {
-        if (card.id === "btn-add-personality" || matchingCards.has(card)) {
-            helpers.showElement(card, true);
-        } else {
-            helpers.hideElement(card);
-        }
-    });
+	personalityCards.forEach((card) => {
+		if (card.id === "btn-add-personality" || matchingCards.has(card)) {
+			helpers.showElement(card, true);
+		} else {
+			helpers.hideElement(card);
+		}
+	});
 }

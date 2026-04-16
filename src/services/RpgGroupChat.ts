@@ -5,20 +5,26 @@
  * This is an internal module used by Message.service.ts - not a standalone service.
  */
 
-import { Content, GenerateContentConfig, GenerateContentResponse, GoogleGenAI } from "@google/genai";
+import type { Content, GenerateContentConfig, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import hljs from "highlight.js";
 
 import type { Message } from "../types/Message";
 import type { DbChat } from "../types/Chat";
-import type { DbPersonality } from "../types/Personality";
-import { ChatModel, getPreferredNarratorLocalModel, isOpenRouterModel, modelSupportsTemperature, requiresThoughtSignaturesInHistory } from "../types/Models";
-import { PremiumEndpoint } from "../types/PremiumEndpoint";
+import {
+	ChatModel,
+	getPreferredNarratorLocalModel,
+	isOpenRouterModel,
+	modelSupportsTemperature,
+	requiresThoughtSignaturesInHistory
+} from "../types/Models";
+import type { PremiumEndpoint } from "../types/PremiumEndpoint";
 import type {
-    GroupChatParticipantPersona,
-    RpgContext,
-    ParticipantMeta,
-    NarratorMode,
-    GroupTurnDecision,
+	GroupChatParticipantPersona,
+	RpgContext,
+	ParticipantMeta,
+	NarratorMode,
+	GroupTurnDecision
 } from "../types/GroupChat";
 import type { TextAndThinking } from "../types/Message";
 
@@ -26,34 +32,38 @@ import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
 import * as helpers from "../utils/helpers";
-import { db } from "./Db.service";
 import { SUPABASE_URL, getAuthHeaders, getUserProfile } from "./Supabase.service";
 import { parseMarkdownToHtml } from "./Parser.service";
 import { messageElement } from "../components/dynamic/message";
 
-import { isGeminiBlockedFinishReason, throwGeminiBlocked, processGeminiLocalSdkStream, processGeminiLocalSdkResponse } from "./GeminiResponseProcessor.service";
+import {
+	isGeminiBlockedFinishReason,
+	throwGeminiBlocked,
+	processGeminiLocalSdkStream,
+	processGeminiLocalSdkResponse
+} from "./GeminiResponseProcessor.service";
 import { processPremiumEndpointSse } from "./PremiumEndpointResponseProcessor.service";
-import { buildOpenRouterRequest, buildOpenRouterRequestMessages, requestOpenRouterCompletion } from "./OpenRouter.service";
+import {
+	buildOpenRouterRequest,
+	buildOpenRouterRequestMessages,
+	requestOpenRouterCompletion
+} from "./OpenRouter.service";
+
+import { NARRATOR_PERSONALITY_ID, isPersonalityMarker, isLegacyPersonalityIntro } from "../utils/personalityMarkers";
 
 import {
-    NARRATOR_PERSONALITY_ID,
-    isPersonalityMarker,
-    isLegacyPersonalityIntro,
-} from "../utils/personalityMarkers";
-
-import {
-    buildGroupChatRosterSystemPrompt,
-    buildSpeakerToneExamplesSystemPrompt,
-    stripLeadingSpeakerPrefix,
-    maybePrefixSpeaker,
+	buildGroupChatRosterSystemPrompt,
+	buildSpeakerToneExamplesSystemPrompt,
+	stripLeadingSpeakerPrefix,
+	maybePrefixSpeaker
 } from "../utils/chatHistory";
 
 import {
-    findLastGeneratedImageIndex,
-    findLastAttachmentIndex,
-    processAttachmentsToParts,
-    processGeneratedImagesToParts,
-    extractTextAndThinkingFromResponse,
+	findLastGeneratedImageIndex,
+	findLastAttachmentIndex,
+	processAttachmentsToParts,
+	processGeneratedImagesToParts,
+	extractTextAndThinkingFromResponse
 } from "../utils/chatHistoryBuilder";
 import { resolveThoughtSignature } from "../utils/blobResolver";
 
@@ -61,16 +71,20 @@ import { throwAbortError } from "../utils/abort";
 import { dispatchAppEvent } from "../events";
 
 import {
-    startGeneration,
-    endGeneration,
-    insertMessage,
-    persistMessages,
-    createModelPlaceholderMessage,
-    createModelErrorMessage,
-    showGeminiProhibitedContentToast,
-    generateThinkingConfig,
-    ensureThinkingUiOnMessageElement,
-    SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+	startGeneration,
+	endGeneration,
+	insertMessage,
+	persistMessagesToChat,
+	appendRequestSlugToStoredMessage,
+	getChatForWrite,
+	createModelPlaceholderMessage,
+	createModelErrorMessage,
+	buildMessageDebugInfo,
+	buildUserMessageDebugInfo,
+	showGeminiProhibitedContentToast,
+	generateThinkingConfig,
+	ensureThinkingUiOnMessageElement,
+	SKIP_THOUGHT_SIGNATURE_VALIDATOR
 } from "./Message.service";
 
 // ================================================================================
@@ -81,20 +95,20 @@ export const USER_SKIP_TURN_MARKER_TEXT = "__user_skip_turn__";
 const AI_SKIP_TURN_MARKER_TEXT = "__ai_skip_turn__";
 
 const GROUP_TURN_DECISION_SCHEMA: any = {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-        kind: {
-            type: "string",
-            enum: ["reply", "skip"],
-            description: "Whether the participant replies this turn or skips."
-        },
-        text: {
-            type: ["string", "null"],
-            description: "If kind is 'reply', the message text to send. Otherwise null."
-        }
-    },
-    required: ["kind", "text"],
+	type: "object",
+	additionalProperties: false,
+	properties: {
+		kind: {
+			type: "string",
+			enum: ["reply", "skip"],
+			description: "Whether the participant replies this turn or skips."
+		},
+		text: {
+			type: ["string", "null"],
+			description: "If kind is 'reply', the message text to send. Otherwise null."
+		}
+	},
+	required: ["kind", "text"]
 };
 
 // ================================================================================
@@ -102,90 +116,103 @@ const GROUP_TURN_DECISION_SCHEMA: any = {
 // ================================================================================
 
 export interface RpgInputArgs {
-    msg: string;
-    attachmentFiles: FileList;
-    isInternetSearchEnabled: boolean;
-    isPremiumEndpointPreferred: boolean;
-    skipTurn: boolean;
+	msg: string;
+	attachmentFiles: FileList;
+	isInternetSearchEnabled: boolean;
+	isPremiumEndpointPreferred: boolean;
+	skipTurn: boolean;
+	targetChatId?: string;
 }
 
 export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement | undefined> {
-    const ctx = await buildRpgContext(args);
-    if (!ctx) return;
+	const ctx = await buildRpgContext(args);
+	if (!ctx) return;
 
-    const { abortController: currentAbortController, currentRoundIndex, narratorEnabled } = ctx;
+	const { abortController: currentAbortController, currentRoundIndex, narratorEnabled } = ctx;
 
-    // Narrator before first round
-    if (narratorEnabled && !currentAbortController?.signal.aborted) {
-        await handleNarratorBeforeFirst(ctx);
-    }
+	// Narrator before first round
+	if (narratorEnabled && !currentAbortController?.signal.aborted) {
+		await handleNarratorBeforeFirst(ctx);
+	}
 
-    // Refresh working chat
-    let workingChat = await chatsService.getCurrentChat();
-    if (!workingChat) {
-        endGeneration();
-        return;
-    }
-    ctx.workingChat = workingChat;
+	// Refresh working chat
+	const workingChat = await getChatForWrite(ctx.chatId);
+	if (!workingChat) {
+		endGeneration(ctx.chatId);
+		return;
+	}
+	ctx.workingChat = workingChat;
 
-    let userElm: HTMLElement | undefined = undefined;
+	let userElm: HTMLElement | undefined = undefined;
 
-    // Insert user message if provided
-    if (args.msg) {
-        userElm = await insertUserMessage(ctx);
-        if (!userElm) {
-            endGeneration();
-            return;
-        }
-    }
+	// Insert user message if provided
+	if (args.msg) {
+		userElm = await insertUserMessage(ctx);
+		if (!userElm) {
+			endGeneration(ctx.chatId);
+			return;
+		}
+	}
 
-    // Calculate next participants
-    const { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId } = calculateNextParticipants(ctx);
+	// Calculate next participants
+	const { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId } = calculateNextParticipants(ctx);
 
-    // Build metadata for participants
-    const participantMeta = await buildParticipantMeta(nextParticipants);
+	// Build metadata for participants
+	const participantMeta = await buildParticipantMeta(nextParticipants);
 
-    // Execute AI turns
-    let executedAiTurns = 0;
-    for (const meta of participantMeta) {
-        if (currentAbortController?.signal.aborted) {
-            endGeneration();
-            return userElm;
-        }
+	// Execute AI turns
+	let executedAiTurns = 0;
+	for (const meta of participantMeta) {
+		if (currentAbortController?.signal.aborted) {
+			endGeneration(ctx.chatId);
+			return userElm;
+		}
 
-        // 5% chance of mid-round narrator interjection
-        if (narratorEnabled && Math.random() < 0.05) {
-            await handleNarratorInterjection(ctx);
-        }
+		// 5% chance of mid-round narrator interjection
+		if (narratorEnabled && Math.random() < 0.05) {
+			await handleNarratorInterjection(ctx);
+		}
 
-        const result = await executeParticipantTurn({ ctx, meta, participantMeta });
+		const result = await executeParticipantTurn({ ctx, meta, participantMeta });
 
-        if (!result.continueLoop) {
-            endGeneration();
-            return userElm;
-        }
+		if (!result.continueLoop) {
+			endGeneration(ctx.chatId);
+			return userElm;
+		}
 
-        executedAiTurns += 1;
+		executedAiTurns += 1;
 
-        ctx.workingChat = (await chatsService.getCurrentChat())!;
-    }
+		const updatedChat = await getChatForWrite(ctx.chatId);
+		if (!updatedChat) {
+			endGeneration(ctx.chatId);
+			return userElm;
+		}
+		ctx.workingChat = updatedChat;
+	}
 
-    // Narrator after round: only when the round actually completes
-    // (i.e. after the last participant speaks and the next turn would start a new round).
-    const userCompletedTurn = !!args.msg || !!args.skipTurn;
-    const completedAiTurnThisCall = executedAiTurns > 0;
-    const roundHasAiTurns = hasAiTurnInRound(ctx.workingChat, currentRoundIndex);
-    const aiCycleCompleted = completedAiTurnThisCall && startsNewRound;
-    const userClosedRound = userCompletedTurn && startsNewRound && roundHasAiTurns;
-    if (narratorEnabled && (aiCycleCompleted || userClosedRound) && !currentAbortController?.signal.aborted) {
-        await handleNarratorAfterRound(ctx);
-    }
+	// Narrator after round: only when the round actually completes
+	// (i.e. after the last participant speaks and the next turn would start a new round).
+	const userCompletedTurn = !!args.msg || !!args.skipTurn;
+	const completedAiTurnThisCall = executedAiTurns > 0;
+	const roundHasAiTurns = hasAiTurnInRound(ctx.workingChat, currentRoundIndex);
+	const aiCycleCompleted = completedAiTurnThisCall && startsNewRound;
+	const userClosedRound = userCompletedTurn && startsNewRound && roundHasAiTurns;
+	if (narratorEnabled && (aiCycleCompleted || userClosedRound) && !currentAbortController?.signal.aborted) {
+		await handleNarratorAfterRound(ctx);
+	}
 
-    // Dispatch round state for UI
-    dispatchRoundState({ userCompletedTurn, currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId });
+	// Dispatch round state for UI
+	dispatchRoundState({
+		chatId: ctx.chatId,
+		userCompletedTurn,
+		currentRoundIndex,
+		stoppedForUser,
+		startsNewRound,
+		nextSpeakerId
+	});
 
-    endGeneration();
-    return userElm;
+	endGeneration(ctx.chatId);
+	return userElm;
 }
 
 // ================================================================================
@@ -193,201 +220,261 @@ export async function sendGroupChatRpg(args: RpgInputArgs): Promise<HTMLElement 
 // ================================================================================
 
 async function buildRpgContext(args: RpgInputArgs): Promise<RpgContext | null> {
-    const settings = settingsService.getSettings();
-    const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
+	const settings = settingsService.getSettings();
+	const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 
-    let workingChat = await chatsService.getCurrentChat();
-    if (!workingChat) {
-        console.error("Group chat send called without an active chat");
-        return null;
-    }
+	let workingChat = args.targetChatId
+		? await getChatForWrite(args.targetChatId)
+		: await chatsService.getCurrentChat();
+	if (!workingChat) {
+		console.error("Group chat send called without an active chat");
+		return null;
+	}
 
-    const groupChat = (workingChat as any).groupChat as any;
-    const rpg = groupChat?.rpg as any;
-    const turnOrder: string[] = Array.isArray(rpg?.turnOrder) ? rpg.turnOrder : [];
-    const scenarioPrompt: string = (rpg?.scenarioPrompt ?? "").toString();
-    const narratorEnabled: boolean = !!rpg?.narratorEnabled;
-    const participants: string[] = Array.isArray(groupChat?.participantIds) ? groupChat.participantIds : [];
+	const groupChat = (workingChat as any).groupChat as any;
+	const rpg = groupChat?.rpg as any;
+	const turnOrder: string[] = Array.isArray(rpg?.turnOrder) ? rpg.turnOrder : [];
+	const scenarioPrompt: string = (rpg?.scenarioPrompt ?? "").toString();
+	const narratorEnabled: boolean = !!rpg?.narratorEnabled;
+	const participants: string[] = Array.isArray(groupChat?.participantIds) ? groupChat.participantIds : [];
 
-    const effectiveOrder = buildEffectiveTurnOrder({ participants, turnOrder });
-    const currentRoundIndex = calculateCurrentRoundIndex(workingChat, effectiveOrder);
+	const effectiveOrder = buildEffectiveTurnOrder({ participants, turnOrder });
+	const currentRoundIndex = calculateCurrentRoundIndex(workingChat, effectiveOrder);
 
-    // Handle skip turn marker persistence
-    if (args.skipTurn && !args.msg) {
-        const updatedChat = await persistSkipTurnMarkerIfNeeded(workingChat, currentRoundIndex);
-        if (!updatedChat) return null;
-        workingChat = updatedChat;
-    }
+	// Handle skip turn marker persistence
+	if (args.skipTurn && !args.msg) {
+		const updatedChat = await persistSkipTurnMarkerIfNeeded(workingChat, currentRoundIndex);
+		if (!updatedChat) return null;
+		workingChat = updatedChat;
+	}
 
-    const abortController = startGeneration();
-    const userName = await getUserDisplayName();
-    const { participantPersonas, speakerNameById } = await buildParticipantData(participants);
-    const allParticipantNames = participantPersonas.map(p => p.name);
+	const chatId = workingChat.id;
+	const abortController = startGeneration(chatId);
+	const userName = await getUserDisplayName();
+	const { participantPersonas, speakerNameById } = await buildParticipantData(participants);
+	const allParticipantNames = participantPersonas.map((p) => p.name);
 
-    const rosterSystemPrompt = buildGroupChatRosterSystemPrompt({
-        participantPersonas,
-        userName,
-        scenarioPrompt,
-        narratorEnabled,
-    });
+	const rosterSystemPrompt = buildGroupChatRosterSystemPrompt({
+		participantPersonas,
+		userName,
+		scenarioPrompt,
+		narratorEnabled
+	});
 
-    return {
-        msg: args.msg,
-        attachmentFiles: args.attachmentFiles,
-        isInternetSearchEnabled: args.isInternetSearchEnabled,
-        isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
-        skipTurn: !!args.skipTurn,
-        settings,
-        shouldEnforceThoughtSignaturesInHistory,
-        workingChat,
-        currentRoundIndex,
-        turnOrder,
-        scenarioPrompt,
-        narratorEnabled,
-        participants,
-        participantPersonas,
-        speakerNameById,
-        allParticipantNames,
-        userName,
-        rosterSystemPrompt,
-        abortController,
-    };
+	return {
+		msg: args.msg,
+		chatId,
+		attachmentFiles: args.attachmentFiles,
+		isInternetSearchEnabled: args.isInternetSearchEnabled,
+		isPremiumEndpointPreferred: args.isPremiumEndpointPreferred,
+		skipTurn: !!args.skipTurn,
+		settings,
+		shouldEnforceThoughtSignaturesInHistory,
+		workingChat,
+		currentRoundIndex,
+		rootUserMessageIndex: undefined,
+		rootUserMessageRef: undefined,
+		turnOrder,
+		scenarioPrompt,
+		narratorEnabled,
+		participants,
+		participantPersonas,
+		speakerNameById,
+		allParticipantNames,
+		userName,
+		rosterSystemPrompt,
+		abortController
+	};
+}
+
+function isViewingChat(chatId: string): boolean {
+	return chatsService.getCurrentChatId() === chatId;
+}
+
+async function appendRequestSlugToChatMessage(args: {
+	chatId: string;
+	messageIndex?: number;
+	requestSlug?: string;
+}): Promise<void> {
+	if (typeof args.messageIndex !== "number" || !args.requestSlug) return;
+	await appendRequestSlugToStoredMessage({
+		chatId: args.chatId,
+		messageIndex: args.messageIndex,
+		requestSlug: args.requestSlug
+	});
+}
+
+async function replacePlaceholderWithPersistedMessage(args: {
+	chatId: string;
+	messageIndex: number;
+	message: Message;
+	placeholderElm?: HTMLElement;
+}): Promise<void> {
+	if (!isViewingChat(args.chatId)) return;
+
+	const connectedTarget = args.placeholderElm?.isConnected
+		? args.placeholderElm
+		: document.querySelector<HTMLElement>(`[data-chat-index="${args.messageIndex}"]`);
+
+	const newElm = await messageElement(args.message, args.messageIndex);
+	if (connectedTarget) {
+		connectedTarget.replaceWith(newElm);
+	} else {
+		await insertMessage(args.message, args.messageIndex);
+	}
+
+	hljs.highlightAll();
+	helpers.messageContainerScrollToBottom(true);
+}
+
+function appendRequestSlugToMessageRef(message: Message | undefined, requestSlug?: string): void {
+	if (!message?.debugInfo || !requestSlug) return;
+	message.debugInfo.requestSlug = message.debugInfo.requestSlug || requestSlug;
+	message.debugInfo.requestSlugs = Array.from(new Set([...(message.debugInfo.requestSlugs ?? []), requestSlug]));
 }
 
 function calculateCurrentRoundIndex(chat: DbChat, effectiveOrder: string[]): number {
-    const chatContent = chat?.content ?? [];
-    const roundIndices = chatContent
-        .filter(m => typeof m.roundIndex === "number")
-        .map(m => m.roundIndex as number);
+	const chatContent = chat?.content ?? [];
+	const roundIndices = chatContent.filter((m) => typeof m.roundIndex === "number").map((m) => m.roundIndex as number);
 
-    if (roundIndices.length === 0) return 1;
+	if (roundIndices.length === 0) return 1;
 
-    const maxRoundIndex = Math.max(...roundIndices);
+	const maxRoundIndex = Math.max(...roundIndices);
 
-    const anyNonNarratorTurnInMaxRound = chatContent.some(m => {
-        if (!m || m.roundIndex !== maxRoundIndex) return false;
-        if (isPersonalityMarker(m)) return false;
-        if (isLegacyPersonalityIntro(m)) return false;
+	const anyNonNarratorTurnInMaxRound = chatContent.some((m) => {
+		if (!m || m.roundIndex !== maxRoundIndex) return false;
+		if (isPersonalityMarker(m)) return false;
+		if (isLegacyPersonalityIntro(m)) return false;
 
-        if (isUserSkipTurnMarker(m as Message)) return true;
+		if (isUserSkipTurnMarker(m as Message)) return true;
 
-        if (m.hidden) return false;
+		if (m.hidden) return false;
 
-        if (m.role === "user") return true;
-        if (m.role === "model" && m.personalityid === NARRATOR_PERSONALITY_ID) return false;
-        return typeof m.personalityid === "string";
-    });
+		if (m.role === "user") return true;
+		if (m.role === "model" && m.personalityid === NARRATOR_PERSONALITY_ID) return false;
+		return typeof m.personalityid === "string";
+	});
 
-    if (!anyNonNarratorTurnInMaxRound) return maxRoundIndex;
+	if (!anyNonNarratorTurnInMaxRound) return maxRoundIndex;
 
-    const lastTurnMessageInMaxRound = (() => {
-        for (let i = chatContent.length - 1; i >= 0; i--) {
-            const candidate = chatContent[i];
-            if (!candidate || candidate.roundIndex !== maxRoundIndex) continue;
-            if (isPersonalityMarker(candidate)) continue;
-            if (isLegacyPersonalityIntro(candidate)) continue;
-            if (candidate.role === "model" && candidate.personalityid === NARRATOR_PERSONALITY_ID) continue;
-            if (candidate.hidden && !isUserSkipTurnMarker(candidate as Message) && !isAiSkipTurnMarker(candidate as Message)) continue;
-            return candidate;
-        }
-        return undefined;
-    })();
+	const lastTurnMessageInMaxRound = (() => {
+		for (let i = chatContent.length - 1; i >= 0; i--) {
+			const candidate = chatContent[i];
+			if (!candidate || candidate.roundIndex !== maxRoundIndex) continue;
+			if (isPersonalityMarker(candidate)) continue;
+			if (isLegacyPersonalityIntro(candidate)) continue;
+			if (candidate.role === "model" && candidate.personalityid === NARRATOR_PERSONALITY_ID) continue;
+			if (
+				candidate.hidden &&
+				!isUserSkipTurnMarker(candidate as Message) &&
+				!isAiSkipTurnMarker(candidate as Message)
+			)
+				continue;
+			return candidate;
+		}
+		return undefined;
+	})();
 
-    if (!lastTurnMessageInMaxRound) return maxRoundIndex;
+	if (!lastTurnMessageInMaxRound) return maxRoundIndex;
 
-    const lastSpeakerId = isUserSkipTurnMarker(lastTurnMessageInMaxRound as Message)
-        ? "user"
-        : lastTurnMessageInMaxRound.role === "user"
-            ? "user"
-            : lastTurnMessageInMaxRound.personalityid;
+	const lastSpeakerId = isUserSkipTurnMarker(lastTurnMessageInMaxRound as Message)
+		? "user"
+		: lastTurnMessageInMaxRound.role === "user"
+			? "user"
+			: lastTurnMessageInMaxRound.personalityid;
 
-    const lastSpeakerIndex = effectiveOrder.indexOf(String(lastSpeakerId));
-    if (lastSpeakerIndex === -1) return maxRoundIndex;
+	const lastSpeakerIndex = effectiveOrder.indexOf(String(lastSpeakerId));
+	if (lastSpeakerIndex === -1) return maxRoundIndex;
 
-    const userIndex = effectiveOrder.indexOf("user");
-    if (userIndex === -1) return maxRoundIndex;
+	const userIndex = effectiveOrder.indexOf("user");
+	if (userIndex === -1) return maxRoundIndex;
 
-    const nextIndex = (lastSpeakerIndex + 1) % effectiveOrder.length;
-    const nextSpeaker = effectiveOrder[nextIndex];
+	const nextIndex = (lastSpeakerIndex + 1) % effectiveOrder.length;
+	const nextSpeaker = effectiveOrder[nextIndex];
 
-    // A new round begins when the turn order cycles back to the start.
-    // This keeps the user's message and the following AI replies grouped
-    // under the same round, regardless of where "user" appears in the order.
-    return nextSpeaker === effectiveOrder[0] ? maxRoundIndex + 1 : maxRoundIndex;
+	// A new round begins when the turn order cycles back to the start.
+	// This keeps the user's message and the following AI replies grouped
+	// under the same round, regardless of where "user" appears in the order.
+	return nextSpeaker === effectiveOrder[0] ? maxRoundIndex + 1 : maxRoundIndex;
 }
 
 function buildEffectiveTurnOrder(args: { participants: string[]; turnOrder: string[] }): string[] {
-    // Important: ensure a stable, cycle-based order.
-    // If a turnOrder is explicitly configured, its first element is the
-    // canonical start-of-round marker (this supports placing the user first).
-    // Otherwise we fall back to args.participants[0].
-    const base = args.turnOrder.length > 0 ? args.turnOrder : [...args.participants, "user"];
-    const withUser = base.includes("user") ? base : [...base, "user"];
+	// Important: ensure a stable, cycle-based order.
+	// If a turnOrder is explicitly configured, its first element is the
+	// canonical start-of-round marker (this supports placing the user first).
+	// Otherwise we fall back to args.participants[0].
+	const base = args.turnOrder.length > 0 ? args.turnOrder : [...args.participants, "user"];
+	const withUser = base.includes("user") ? base : [...base, "user"];
 
-    const canonicalStart = args.turnOrder.length > 0 ? args.turnOrder[0] : args.participants[0];
-    if (!canonicalStart) return withUser;
+	const canonicalStart = args.turnOrder.length > 0 ? args.turnOrder[0] : args.participants[0];
+	if (!canonicalStart) return withUser;
 
-    const startIndex = withUser.indexOf(canonicalStart);
-    if (startIndex <= 0) return withUser;
+	const startIndex = withUser.indexOf(canonicalStart);
+	if (startIndex <= 0) return withUser;
 
-    return [...withUser.slice(startIndex), ...withUser.slice(0, startIndex)];
+	return [...withUser.slice(startIndex), ...withUser.slice(0, startIndex)];
 }
 
 async function persistSkipTurnMarkerIfNeeded(chat: DbChat, currentRoundIndex: number): Promise<DbChat | null> {
-    const chatContent = chat?.content ?? [];
-    const hasSkipMarkerForRound = chatContent.some((m: Message) => {
-        if (!m || m.role !== "user" || !m.hidden || m.roundIndex !== currentRoundIndex) return false;
-        const parts = Array.isArray(m.parts) ? m.parts : [];
-        return parts.some((p: any) => (p?.text ?? "").toString() === USER_SKIP_TURN_MARKER_TEXT);
-    });
+	const chatContent = chat?.content ?? [];
+	const hasSkipMarkerForRound = chatContent.some((m: Message) => {
+		if (!m || m.role !== "user" || !m.hidden || m.roundIndex !== currentRoundIndex) return false;
+		const parts = Array.isArray(m.parts) ? m.parts : [];
+		return parts.some((p: any) => (p?.text ?? "").toString() === USER_SKIP_TURN_MARKER_TEXT);
+	});
 
-    if (!hasSkipMarkerForRound) {
-        const skipMarker: Message = {
-            role: "user",
-            hidden: true,
-            roundIndex: currentRoundIndex,
-            parts: [{ text: USER_SKIP_TURN_MARKER_TEXT }],
-        };
-        await persistMessages([skipMarker]);
-        return (await chatsService.getCurrentChat()) ?? null;
-    }
+	if (!hasSkipMarkerForRound) {
+		const skipMarker: Message = {
+			role: "user",
+			hidden: true,
+			roundIndex: currentRoundIndex,
+			parts: [{ text: USER_SKIP_TURN_MARKER_TEXT }]
+		};
+		const persisted = await persistMessagesToChat(chat.id, [skipMarker]);
+		if (!persisted) return null;
+		if (isViewingChat(chat.id)) {
+			await insertMessage(skipMarker, persisted.startIndex);
+			helpers.messageContainerScrollToBottom(true);
+		}
+		return (await getChatForWrite(chat.id)) ?? null;
+	}
 
-    return chat;
+	return chat;
 }
 
 async function getUserDisplayName(): Promise<string> {
-    try {
-        const userProfile = await getUserProfile();
-        return userProfile?.preferredName || "User";
-    } catch {
-        return "User";
-    }
+	try {
+		const userProfile = await getUserProfile();
+		return userProfile?.preferredName || "User";
+	} catch {
+		return "User";
+	}
 }
 
 async function buildParticipantData(participants: string[]): Promise<{
-    participantPersonas: GroupChatParticipantPersona[];
-    speakerNameById: Map<string, string>;
+	participantPersonas: GroupChatParticipantPersona[];
+	speakerNameById: Map<string, string>;
 }> {
-    const participantPersonas: GroupChatParticipantPersona[] = [];
-    const speakerNameById = new Map<string, string>();
-    speakerNameById.set(NARRATOR_PERSONALITY_ID, "Narrator");
+	const participantPersonas: GroupChatParticipantPersona[] = [];
+	const speakerNameById = new Map<string, string>();
+	speakerNameById.set(NARRATOR_PERSONALITY_ID, "Narrator");
 
-    for (const personaId of participants) {
-        const persona = await personalityService.get(personaId);
-        const name = (persona?.name || "Unknown").toString();
-        speakerNameById.set(personaId, name);
-        participantPersonas.push({
-            id: personaId,
-            name,
-            description: (persona?.description ?? "").toString(),
-            prompt: (persona?.prompt ?? "").toString(),
-            aggressiveness: Number((persona as any)?.aggressiveness ?? 0),
-            sensuality: Number((persona as any)?.sensuality ?? 0),
-            independence: Number((persona as any)?.independence ?? 0),
-        });
-    }
+	for (const personaId of participants) {
+		const persona = await personalityService.get(personaId);
+		const name = (persona?.name || "Unknown").toString();
+		speakerNameById.set(personaId, name);
+		participantPersonas.push({
+			id: personaId,
+			name,
+			description: (persona?.description ?? "").toString(),
+			prompt: (persona?.prompt ?? "").toString(),
+			aggressiveness: Number((persona as any)?.aggressiveness ?? 0),
+			sensuality: Number((persona as any)?.sensuality ?? 0),
+			independence: Number((persona as any)?.independence ?? 0)
+		});
+	}
 
-    return { participantPersonas, speakerNameById };
+	return { participantPersonas, speakerNameById };
 }
 
 // ================================================================================
@@ -395,207 +482,190 @@ async function buildParticipantData(participants: string[]): Promise<{
 // ================================================================================
 
 function calculateNextParticipants(ctx: RpgContext): {
-    nextParticipants: string[];
-    stoppedForUser: boolean;
-    startsNewRound: boolean;
-    nextSpeakerId?: string;
+	nextParticipants: string[];
+	stoppedForUser: boolean;
+	startsNewRound: boolean;
+	nextSpeakerId?: string;
 } {
-    const effectiveOrder = buildEffectiveTurnOrder({ participants: ctx.participants, turnOrder: ctx.turnOrder });
-    const startIndex = calculateLastSpeakerIndex(ctx, effectiveOrder);
-    const shouldAutoProgress = !!ctx.settings?.rpgGroupChatsProgressAutomatically;
+	const effectiveOrder = buildEffectiveTurnOrder({ participants: ctx.participants, turnOrder: ctx.turnOrder });
+	const startIndex = calculateLastSpeakerIndex(ctx, effectiveOrder);
+	const shouldAutoProgress = !!ctx.settings?.rpgGroupChatsProgressAutomatically;
 
-    // Treat an AI skip as a completed turn when deciding who speaks next.
-    // Otherwise we keep scheduling the same participant again.
-    const lastTurnWasAiSkip = didLastTurnSkip(ctx, effectiveOrder);
+	const nextParticipants: string[] = [];
+	let stoppedForUser = false;
+	let startsNewRound = false;
 
-    const nextParticipants: string[] = [];
-    let stoppedForUser = false;
-    let startsNewRound = false;
+	if (effectiveOrder.length === 0) return { nextParticipants, stoppedForUser, startsNewRound };
 
-    if (effectiveOrder.length === 0) return { nextParticipants, stoppedForUser, startsNewRound };
+	// Manual mode: after the user acts, we pause immediately (no AI auto-run).
+	// The next speaker is the one immediately after the user's message/skip.
+	if (!shouldAutoProgress && (ctx.msg || ctx.skipTurn)) {
+		const nextIndex = (startIndex + 1 + effectiveOrder.length) % effectiveOrder.length;
+		const nextId = effectiveOrder[nextIndex];
 
-    // Manual mode: after the user acts, we pause immediately (no AI auto-run).
-    // The next speaker is the one immediately after the user's message/skip.
-    if (!shouldAutoProgress && (ctx.msg || ctx.skipTurn)) {
-        const nextIndex = (startIndex + 1 + effectiveOrder.length) % effectiveOrder.length;
-        const nextId = effectiveOrder[nextIndex];
+		stoppedForUser = nextId === "user";
+		startsNewRound = nextId === effectiveOrder[0];
+		return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: nextId };
+	}
 
-        stoppedForUser = nextId === "user";
-        startsNewRound = nextId === effectiveOrder[0];
-        return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: nextId };
-    }
+	// Auto-progress: run forward through the CURRENT round only.
+	if (shouldAutoProgress) {
+		const firstIndex = startIndex < 0 ? 0 : startIndex + 1;
+		for (let idx = firstIndex; idx < effectiveOrder.length; idx++) {
+			const id = effectiveOrder[idx];
+			if (id === "user") {
+				stoppedForUser = true;
+				break;
+			}
+			nextParticipants.push(id);
+		}
 
-    // Auto-progress: run forward through the CURRENT round only.
-    if (shouldAutoProgress) {
-        // If the last executed turn was a skip marker, start from that speaker,
-        // so we can correctly advance to the next participant.
-        const firstIndex = startIndex < 0 ? 0 : startIndex + (lastTurnWasAiSkip ? 2 : 1);
-        for (let idx = firstIndex; idx < effectiveOrder.length; idx++) {
-            const id = effectiveOrder[idx];
-            if (id === "user") {
-                stoppedForUser = true;
-                break;
-            }
-            nextParticipants.push(id);
-        }
+		// Calculate who is next AFTER the scheduled participants
+		const lastScheduledIndex =
+			nextParticipants.length > 0
+				? effectiveOrder.indexOf(nextParticipants[nextParticipants.length - 1])
+				: startIndex;
+		const nextIndex = (lastScheduledIndex + 1) % effectiveOrder.length;
+		const nextId = effectiveOrder[nextIndex];
 
-        // Calculate who is next AFTER the scheduled participants
-        const lastScheduledIndex = nextParticipants.length > 0 
-            ? effectiveOrder.indexOf(nextParticipants[nextParticipants.length - 1])
-            : startIndex;
-        const nextIndex = (lastScheduledIndex + 1) % effectiveOrder.length;
-        const nextId = effectiveOrder[nextIndex];
+		startsNewRound = !stoppedForUser;
+		return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: nextId };
+	}
 
-        startsNewRound = !stoppedForUser;
-        return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: nextId };
-    }
+	// Manual mode (continue pressed): execute exactly one AI turn, then pause.
+	const nextIndex = (startIndex + 1 + effectiveOrder.length) % effectiveOrder.length;
+	const nextId = effectiveOrder[nextIndex];
+	const afterNextIndex = (nextIndex + 1) % effectiveOrder.length;
+	const afterNextId = effectiveOrder[afterNextIndex];
 
-    // Manual mode (continue pressed): execute exactly one AI turn, then pause.
-    const startOffset = lastTurnWasAiSkip ? 2 : 1;
-    const nextIndex = (startIndex + startOffset + effectiveOrder.length) % effectiveOrder.length;
-    const nextId = effectiveOrder[nextIndex];
-    const afterNextIndex = (nextIndex + 1) % effectiveOrder.length;
-    const afterNextId = effectiveOrder[afterNextIndex];
-
-    if (nextId === "user") {
-        stoppedForUser = true;
-        startsNewRound = nextId === effectiveOrder[0];
-        return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: nextId };
-    } else {
-        nextParticipants.push(nextId);
-        stoppedForUser = afterNextId === "user";
-        startsNewRound = afterNextId === effectiveOrder[0];
-        return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: afterNextId };
-    }
-}
-
-function didLastTurnSkip(ctx: RpgContext, effectiveOrder: string[]): boolean {
-    const content = ctx.workingChat?.content ?? [];
-
-    for (let i = content.length - 1; i >= 0; i--) {
-        const candidate = content[i];
-        if (!candidate || candidate.roundIndex !== ctx.currentRoundIndex) continue;
-        if (isPersonalityMarker(candidate)) continue;
-        if (isLegacyPersonalityIntro(candidate)) continue;
-
-        // We only care about the AI skip marker here.
-        if (isAiSkipTurnMarker(candidate as Message)) return true;
-
-        // If we hit a normal (non-hidden) turn message first, then it's not a skip.
-        if (!candidate.hidden) return false;
-
-        // Ignore other hidden messages.
-        continue;
-    }
-
-    return false;
+	if (nextId === "user") {
+		stoppedForUser = true;
+		startsNewRound = nextId === effectiveOrder[0];
+		return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: nextId };
+	} else {
+		nextParticipants.push(nextId);
+		stoppedForUser = afterNextId === "user";
+		startsNewRound = afterNextId === effectiveOrder[0];
+		return { nextParticipants, stoppedForUser, startsNewRound, nextSpeakerId: afterNextId };
+	}
 }
 
 function calculateLastSpeakerIndex(ctx: RpgContext, effectiveOrder: string[]): number {
-    const content = ctx.workingChat?.content ?? [];
+	const content = ctx.workingChat?.content ?? [];
 
-    const currentRoundHasAnyTurnMessages = content.some(m => {
-        if (!m || m.roundIndex !== ctx.currentRoundIndex) return false;
-        if (isPersonalityMarker(m)) return false;
-        if (isLegacyPersonalityIntro(m)) return false;
-        if (isAnySkipTurnMarker(m as Message)) return true;
-        if (m.hidden) return false;
-        if (m.role === "user") return true;
-        return typeof m.personalityid === "string" && m.personalityid !== NARRATOR_PERSONALITY_ID;
-    });
+	const currentRoundHasAnyTurnMessages = content.some((m) => {
+		if (!m || m.roundIndex !== ctx.currentRoundIndex) return false;
+		if (isPersonalityMarker(m)) return false;
+		if (isLegacyPersonalityIntro(m)) return false;
+		if (isAnySkipTurnMarker(m as Message)) return true;
+		if (m.hidden) return false;
+		if (m.role === "user") return true;
+		return typeof m.personalityid === "string" && m.personalityid !== NARRATOR_PERSONALITY_ID;
+	});
 
-    if (!currentRoundHasAnyTurnMessages) return -1;
+	if (!currentRoundHasAnyTurnMessages) return -1;
 
-    const lastTurnMessageInRound = (() => {
-        for (let i = content.length - 1; i >= 0; i--) {
-            const candidate = content[i];
-            if (!candidate || candidate.roundIndex !== ctx.currentRoundIndex) continue;
-            if (isPersonalityMarker(candidate)) continue;
-            if (isLegacyPersonalityIntro(candidate)) continue;
-            if (candidate.role === "model" && candidate.personalityid === NARRATOR_PERSONALITY_ID) continue;
-            if (candidate.hidden && !isUserSkipTurnMarker(candidate as Message) && !isAiSkipTurnMarker(candidate as Message)) continue;
-            return candidate;
-        }
-        return undefined;
-    })();
+	const lastTurnMessageInRound = (() => {
+		for (let i = content.length - 1; i >= 0; i--) {
+			const candidate = content[i];
+			if (!candidate || candidate.roundIndex !== ctx.currentRoundIndex) continue;
+			if (isPersonalityMarker(candidate)) continue;
+			if (isLegacyPersonalityIntro(candidate)) continue;
+			if (candidate.role === "model" && candidate.personalityid === NARRATOR_PERSONALITY_ID) continue;
+			if (
+				candidate.hidden &&
+				!isUserSkipTurnMarker(candidate as Message) &&
+				!isAiSkipTurnMarker(candidate as Message)
+			)
+				continue;
+			return candidate;
+		}
+		return undefined;
+	})();
 
-    if (lastTurnMessageInRound) {
-        const lastSpeakerId = isAnySkipTurnMarker(lastTurnMessageInRound as Message)
-            ? (isUserSkipTurnMarker(lastTurnMessageInRound as Message) ? "user" : lastTurnMessageInRound.personalityid)
-            : lastTurnMessageInRound.role === "user"
-                ? "user"
-                : lastTurnMessageInRound.personalityid;
-        const lastSpeakerIndex = effectiveOrder.indexOf(String(lastSpeakerId));
-        return lastSpeakerIndex !== -1 ? lastSpeakerIndex : -1;
-    }
+	if (lastTurnMessageInRound) {
+		const lastSpeakerId = isAnySkipTurnMarker(lastTurnMessageInRound as Message)
+			? isUserSkipTurnMarker(lastTurnMessageInRound as Message)
+				? "user"
+				: lastTurnMessageInRound.personalityid
+			: lastTurnMessageInRound.role === "user"
+				? "user"
+				: lastTurnMessageInRound.personalityid;
+		const lastSpeakerIndex = effectiveOrder.indexOf(String(lastSpeakerId));
+		return lastSpeakerIndex !== -1 ? lastSpeakerIndex : -1;
+	}
 
-    return -1;
+	return -1;
 }
 
 function isUserSkipTurnMarker(message: Message): boolean {
-    if (!message || message.role !== "user" || !message.hidden) return false;
-    const parts = Array.isArray(message.parts) ? message.parts : [];
-    return parts.some((part: any) => (part?.text ?? "").toString() === USER_SKIP_TURN_MARKER_TEXT);
+	if (!message || message.role !== "user" || !message.hidden) return false;
+	const parts = Array.isArray(message.parts) ? message.parts : [];
+	return parts.some((part: any) => (part?.text ?? "").toString() === USER_SKIP_TURN_MARKER_TEXT);
 }
 
 function isAiSkipTurnMarker(message: Message): boolean {
-    if (!message || message.role !== "model" || !message.hidden) return false;
-    const parts = Array.isArray(message.parts) ? message.parts : [];
-    return parts.some((part: any) => (part?.text ?? "").toString() === AI_SKIP_TURN_MARKER_TEXT);
+	if (!message || message.role !== "model" || !message.hidden) return false;
+	const parts = Array.isArray(message.parts) ? message.parts : [];
+	return parts.some((part: any) => (part?.text ?? "").toString() === AI_SKIP_TURN_MARKER_TEXT);
 }
 
 function isAnySkipTurnMarker(message: Message): boolean {
-    return isUserSkipTurnMarker(message) || isAiSkipTurnMarker(message);
+	return isUserSkipTurnMarker(message) || isAiSkipTurnMarker(message);
 }
 
 function hasAiTurnInRound(chat: DbChat, roundIndex: number): boolean {
-    const content = chat?.content ?? [];
-    return content.some(m => {
-        if (!m || m.roundIndex !== roundIndex) return false;
-        if (isPersonalityMarker(m)) return false;
-        if (isLegacyPersonalityIntro(m)) return false;
-        if (m.role !== "model") return false;
-        if (m.personalityid === NARRATOR_PERSONALITY_ID) return false;
-        if (isAiSkipTurnMarker(m as Message)) return true;
-        return !m.hidden;
-    });
+	const content = chat?.content ?? [];
+	return content.some((m) => {
+		if (!m || m.roundIndex !== roundIndex) return false;
+		if (isPersonalityMarker(m)) return false;
+		if (isLegacyPersonalityIntro(m)) return false;
+		if (m.role !== "model") return false;
+		if (m.personalityid === NARRATOR_PERSONALITY_ID) return false;
+		if (isAiSkipTurnMarker(m as Message)) return true;
+		return !m.hidden;
+	});
 }
 
-async function persistAiSkipTurnMarker(args: { personaId: string; currentRoundIndex: number }): Promise<void> {
-    const chat = await chatsService.getCurrentChat();
-    const chatContent = chat?.content ?? [];
+async function persistAiSkipTurnMarker(args: {
+	chatId: string;
+	personaId: string;
+	currentRoundIndex: number;
+}): Promise<void> {
+	const chat = await getChatForWrite(args.chatId);
+	const chatContent = chat?.content ?? [];
 
-    const hasSkipMarkerForRound = chatContent.some((m: Message) => {
-        if (!m || m.role !== "model" || !m.hidden || m.roundIndex !== args.currentRoundIndex) return false;
-        if (m.personalityid !== args.personaId) return false;
-        const parts = Array.isArray(m.parts) ? m.parts : [];
-        return parts.some((p: any) => (p?.text ?? "").toString() === AI_SKIP_TURN_MARKER_TEXT);
-    });
+	const hasSkipMarkerForRound = chatContent.some((m: Message) => {
+		if (!m || m.role !== "model" || !m.hidden || m.roundIndex !== args.currentRoundIndex) return false;
+		if (m.personalityid !== args.personaId) return false;
+		const parts = Array.isArray(m.parts) ? m.parts : [];
+		return parts.some((p: any) => (p?.text ?? "").toString() === AI_SKIP_TURN_MARKER_TEXT);
+	});
 
-    if (hasSkipMarkerForRound) return;
+	if (hasSkipMarkerForRound) return;
 
-    const skipMarker: Message = {
-        role: "model",
-        personalityid: args.personaId,
-        hidden: true,
-        roundIndex: args.currentRoundIndex,
-        parts: [{ text: AI_SKIP_TURN_MARKER_TEXT }],
-    };
+	const skipMarker: Message = {
+		role: "model",
+		personalityid: args.personaId,
+		hidden: true,
+		roundIndex: args.currentRoundIndex,
+		parts: [{ text: AI_SKIP_TURN_MARKER_TEXT }]
+	};
 
-    await persistMessages([skipMarker]);
+	await persistMessagesToChat(args.chatId, [skipMarker]);
 }
 
 async function buildParticipantMeta(participantIds: string[]): Promise<ParticipantMeta[]> {
-    const meta: ParticipantMeta[] = [];
-    for (const personaId of participantIds) {
-        const persona = await personalityService.get(personaId);
-        meta.push({
-            id: personaId,
-            name: persona?.name || "Unknown",
-            independence: Math.max(0, Math.min(3, Number((persona as any)?.independence ?? 0))),
-        });
-    }
-    return meta;
+	const meta: ParticipantMeta[] = [];
+	for (const personaId of participantIds) {
+		const persona = await personalityService.get(personaId);
+		meta.push({
+			id: personaId,
+			name: persona?.name || "Unknown",
+			independence: Math.max(0, Math.min(3, Number((persona as any)?.independence ?? 0)))
+		});
+	}
+	return meta;
 }
 
 // ================================================================================
@@ -603,24 +673,34 @@ async function buildParticipantMeta(participantIds: string[]): Promise<Participa
 // ================================================================================
 
 async function insertUserMessage(ctx: RpgContext): Promise<HTMLElement | undefined> {
-    const userMessage: Message = {
-        role: "user",
-        parts: [{ text: ctx.msg, attachments: ctx.attachmentFiles }],
-        roundIndex: ctx.currentRoundIndex,
-    };
+	const userMessage: Message = {
+		role: "user",
+		parts: [{ text: ctx.msg, attachments: ctx.attachmentFiles }],
+		roundIndex: ctx.currentRoundIndex,
+		debugInfo: buildUserMessageDebugInfo({
+			settings: ctx.settings,
+			isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+			isImagePremiumEndpointPreferred: false
+		})
+	};
 
-    const userIndex = ctx.workingChat.content.length;
-    const userElm = await insertMessage(userMessage, userIndex);
-    await persistMessages([userMessage]);
+	const persisted = await persistMessagesToChat(ctx.chatId, [userMessage]);
+	if (!persisted) return undefined;
 
-    const updatedChat = await chatsService.getCurrentChat();
-    if (!updatedChat) return undefined;
-    ctx.workingChat = updatedChat;
+	ctx.rootUserMessageIndex = persisted.startIndex;
+	ctx.rootUserMessageRef = userMessage;
+	const userElm = isViewingChat(ctx.chatId) ? await insertMessage(userMessage, persisted.startIndex) : undefined;
 
-    hljs.highlightAll();
-    helpers.messageContainerScrollToBottom(true);
+	const updatedChat = await getChatForWrite(ctx.chatId);
+	if (!updatedChat) return undefined;
+	ctx.workingChat = updatedChat;
 
-    return userElm;
+	if (userElm) {
+		hljs.highlightAll();
+		helpers.messageContainerScrollToBottom(true);
+	}
+
+	return userElm;
 }
 
 // ================================================================================
@@ -628,138 +708,190 @@ async function insertUserMessage(ctx: RpgContext): Promise<HTMLElement | undefin
 // ================================================================================
 
 async function executeParticipantTurn(args: {
-    ctx: RpgContext;
-    meta: ParticipantMeta;
-    participantMeta: ParticipantMeta[];
+	ctx: RpgContext;
+	meta: ParticipantMeta;
+	participantMeta: ParticipantMeta[];
 }): Promise<{ continueLoop: boolean; error?: Error }> {
-    const { ctx, meta, participantMeta } = args;
-    const { settings, abortController: currentAbortController, currentRoundIndex } = ctx;
+	const { ctx, meta, participantMeta } = args;
+	const { settings, abortController: currentAbortController, currentRoundIndex } = ctx;
 
-    if (currentAbortController?.signal.aborted) {
-        return { continueLoop: false };
-    }
+	if (currentAbortController?.signal.aborted) {
+		return { continueLoop: false };
+	}
 
-    const persona = await personalityService.get(meta.id);
-    const toneExamplesForSpeaker = Array.isArray((persona as any)?.toneExamples)
-        ? ((persona as any).toneExamples as unknown[]).map(v => (v ?? "").toString()).filter(v => v.trim().length > 0)
-        : [];
-    const speakerToneSystemPrompt = buildSpeakerToneExamplesSystemPrompt({
-        speakerName: meta.name,
-        toneExamples: toneExamplesForSpeaker,
-    });
+	const persona = await personalityService.get(meta.id);
+	const toneExamplesForSpeaker = Array.isArray((persona as any)?.toneExamples)
+		? ((persona as any).toneExamples as unknown[])
+				.map((v) => (v ?? "").toString())
+				.filter((v) => v.trim().length > 0)
+		: [];
+	const speakerToneSystemPrompt = buildSpeakerToneExamplesSystemPrompt({
+		speakerName: meta.name,
+		toneExamples: toneExamplesForSpeaker
+	});
 
-    const chatSnapshot = await chatsService.getCurrentChat();
-    if (!chatSnapshot) return { continueLoop: false };
+	const chatSnapshot = await getChatForWrite(ctx.chatId);
+	if (!chatSnapshot) return { continueLoop: false };
+	ctx.workingChat = chatSnapshot;
 
-    const { history } = await constructGeminiChatHistoryForGroupChatRpg(
-        chatSnapshot,
-        {
-            speakerNameById: ctx.speakerNameById,
-            userName: ctx.userName,
-            enforceThoughtSignatures: ctx.shouldEnforceThoughtSignaturesInHistory,
-        }
-    );
+	const { history } = await constructGeminiChatHistoryForGroupChatRpg(chatSnapshot, {
+		speakerNameById: ctx.speakerNameById,
+		userName: ctx.userName,
+		enforceThoughtSignatures: ctx.shouldEnforceThoughtSignaturesInHistory
+	});
 
-    const useIndependentAction = shouldTriggerIndependentAction(meta.independence);
-    const participantsLine = participantMeta.map(p => `${p.name} (${p.id})`).join(", ");
-    const turnInstruction = buildTurnInstruction({ participantsLine, speakerName: meta.name, useIndependentAction });
+	const useIndependentAction = shouldTriggerIndependentAction(meta.independence);
+	const participantsLine = participantMeta.map((p) => `${p.name} (${p.id})`).join(", ");
+	const turnInstruction = buildTurnInstruction({ participantsLine, speakerName: meta.name, useIndependentAction });
 
-    const placeholderIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
-    const placeholderElm = placeholderIndex >= 0
-        ? await insertMessage(createModelPlaceholderMessage(meta.id, "", currentRoundIndex, settings.model), placeholderIndex)
-        : undefined;
-    helpers.messageContainerScrollToBottom(true);
+	const placeholderIndex = chatSnapshot.content.length;
+	const placeholderElm = isViewingChat(ctx.chatId)
+		? await insertMessage(
+				createModelPlaceholderMessage(meta.id, "", currentRoundIndex, settings.model),
+				placeholderIndex
+			)
+		: undefined;
+	if (placeholderElm) {
+		helpers.messageContainerScrollToBottom(true);
+	}
 
-    let raw = "";
-    let turnThinking = "";
+	let raw = "";
+	let turnThinking = "";
+	let requestSlug: string | undefined;
 
-    try {
-        if (ctx.isPremiumEndpointPreferred) {
-            const result = await executeTurnPremium({
-                ctx, meta, history, turnInstruction, speakerToneSystemPrompt, placeholderElm,
-                onRawUpdate: (text) => { raw = text; },
-                onThinkingUpdate: (thinking) => { turnThinking = thinking; },
-            });
-            raw = result.text;
-            turnThinking = result.thinking;
-        } else {
-            const result = await executeTurnLocalSdk({
-                ctx, meta, history, turnInstruction, speakerToneSystemPrompt, placeholderElm,
-                onRawUpdate: (text) => { raw = text; },
-                onThinkingUpdate: (thinking) => { turnThinking = thinking; },
-            });
-            raw = result.text;
-            turnThinking = result.thinking;
-        }
-    } catch (error: any) {
-        if (error?.name === "AbortError" || currentAbortController?.signal.aborted) {
-            placeholderElm?.remove();
-            return { continueLoop: false };
-        }
+	try {
+		if (ctx.isPremiumEndpointPreferred) {
+			const result = await executeTurnPremium({
+				ctx,
+				meta,
+				history,
+				turnInstruction,
+				speakerToneSystemPrompt,
+				placeholderElm,
+				onRawUpdate: (text) => {
+					raw = text;
+				},
+				onThinkingUpdate: (thinking) => {
+					turnThinking = thinking;
+				}
+			});
+			raw = result.text;
+			turnThinking = result.thinking;
+			requestSlug = result.requestSlug;
+		} else {
+			const result = await executeTurnLocalSdk({
+				ctx,
+				meta,
+				history,
+				turnInstruction,
+				speakerToneSystemPrompt,
+				placeholderElm,
+				onRawUpdate: (text) => {
+					raw = text;
+				},
+				onThinkingUpdate: (thinking) => {
+					turnThinking = thinking;
+				}
+			});
+			raw = result.text;
+			turnThinking = result.thinking;
+		}
+	} catch (error: any) {
+		if (error?.name === "AbortError" || currentAbortController?.signal.aborted) {
+			placeholderElm?.remove();
+			return { continueLoop: false };
+		}
 
-        if (error?.name === "GeminiBlocked" || error?.finishReason) {
-            showGeminiProhibitedContentToast({ finishReason: error?.finishReason, detail: error?.message });
-        }
-        console.error("Group chat Round generation failed", error);
+		if (error?.name === "GeminiBlocked" || error?.finishReason) {
+			showGeminiProhibitedContentToast({ finishReason: error?.finishReason, detail: error?.message });
+		}
+		console.error("Group chat Round generation failed", error);
 
-        const modelMessage: Message = {
-            ...createModelErrorMessage(meta.id),
-            thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
-            roundIndex: currentRoundIndex,
-            originModel: ctx.settings.model,
-        };
-        await persistMessages([modelMessage]);
-        await replacePlaceholderWithPersistedMessage(placeholderElm);
-        return { continueLoop: true };
-    }
+		const modelMessage: Message = {
+			...createModelErrorMessage(meta.id),
+			thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
+			roundIndex: currentRoundIndex,
+			originModel: ctx.settings.model,
+			debugInfo: buildMessageDebugInfo({
+				settings: ctx.settings,
+				mode: "normal",
+				isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+				isImagePremiumEndpointPreferred: false,
+				requestSlug
+			})
+		};
+		const persisted = await persistMessagesToChat(ctx.chatId, [modelMessage]);
+		if (!persisted) return { continueLoop: false };
+		await appendRequestSlugToChatMessage({
+			chatId: ctx.chatId,
+			messageIndex: ctx.rootUserMessageIndex,
+			requestSlug
+		});
+		appendRequestSlugToMessageRef(ctx.rootUserMessageRef, requestSlug);
+		await replacePlaceholderWithPersistedMessage({
+			chatId: ctx.chatId,
+			messageIndex: persisted.startIndex,
+			message: modelMessage,
+			placeholderElm
+		});
+		return { continueLoop: true };
+	}
 
-    const decision = await parseGroupTurnDecision(raw);
+	const decision = await parseGroupTurnDecision(raw);
 
-    if (decision.kind === "skip") {
-        if (placeholderElm) {
-            const skipNotice = document.createElement("div");
-            skipNotice.className = "skip-notice";
-            const safeName = helpers.getSanitized(meta.name || "Someone");
-            const reason = (decision.text ?? "").toString().trim();
-            const safeReasonSuffix = reason ? `: ${helpers.getSanitized(reason)}` : "";
-            skipNotice.innerHTML = `<span class="material-symbols-outlined">skip_next</span> ${safeName} skipped their turn${safeReasonSuffix}`;
-            placeholderElm.replaceWith(skipNotice);
-        }
+	if (decision.kind === "skip") {
+		if (placeholderElm) {
+			const skipNotice = document.createElement("div");
+			skipNotice.className = "skip-notice";
+			// Carry over data attributes so DOM cleanup (e.g. regenerate) can
+			// identify and remove this notice by chat index, just like messages.
+			if (placeholderElm.dataset.chatIndex) {
+				skipNotice.dataset.chatIndex = placeholderElm.dataset.chatIndex;
+			}
+			if (placeholderElm.dataset.roundIndex) {
+				skipNotice.dataset.roundIndex = placeholderElm.dataset.roundIndex;
+			}
+			const safeName = helpers.getSanitized(meta.name || "Someone");
+			const reason = (decision.text ?? "").toString().trim();
+			const safeReasonSuffix = reason ? `: ${helpers.getSanitized(reason)}` : "";
+			skipNotice.innerHTML = `<span class="material-symbols-outlined">skip_next</span> ${safeName} skipped their turn${safeReasonSuffix}`;
+			placeholderElm.replaceWith(skipNotice);
+		}
 
-        // Persist a hidden marker so future turn calculation can advance.
-        // Without this, a skip isn't represented in chat history, so "Continue" can loop.
-        await persistAiSkipTurnMarker({ personaId: meta.id, currentRoundIndex });
+		// Persist a hidden marker so future turn calculation can advance.
+		// Without this, a skip isn't represented in chat history, so "Continue" can loop.
+		await persistAiSkipTurnMarker({ chatId: ctx.chatId, personaId: meta.id, currentRoundIndex });
 
-        return { continueLoop: true };
-    }
+		return { continueLoop: true };
+	}
 
-    const finalText = stripLeadingSpeakerPrefix((decision.text || ""), meta.name);
-    const modelMessage: Message = {
-        role: "model",
-        personalityid: meta.id,
-        parts: [{ text: finalText }],
-        thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
-        roundIndex: currentRoundIndex,
-        originModel: ctx.settings.model,
-    };
-    await persistMessages([modelMessage]);
-    await replacePlaceholderWithPersistedMessage(placeholderElm);
-    return { continueLoop: true };
-}
-
-async function replacePlaceholderWithPersistedMessage(placeholderElm: HTMLElement | undefined): Promise<void> {
-    const updatedChat = await chatsService.getCurrentChat();
-    if (updatedChat) {
-        const modelIndex = updatedChat.content.length - 1;
-        const newElm = await messageElement(updatedChat.content[modelIndex], modelIndex);
-        if (placeholderElm) {
-            placeholderElm.replaceWith(newElm);
-        } else {
-            await insertMessage(updatedChat.content[modelIndex], modelIndex);
-        }
-    }
-    hljs.highlightAll();
-    helpers.messageContainerScrollToBottom(true);
+	const finalText = stripLeadingSpeakerPrefix(decision.text || "", meta.name);
+	const modelMessage: Message = {
+		role: "model",
+		personalityid: meta.id,
+		parts: [{ text: finalText }],
+		thinking: turnThinking?.trim() ? turnThinking.trim() : undefined,
+		roundIndex: currentRoundIndex,
+		originModel: ctx.settings.model,
+		debugInfo: buildMessageDebugInfo({
+			settings: ctx.settings,
+			mode: "normal",
+			isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+			isImagePremiumEndpointPreferred: false,
+			requestSlug
+		})
+	};
+	const persisted = await persistMessagesToChat(ctx.chatId, [modelMessage]);
+	if (!persisted) return { continueLoop: false };
+	await appendRequestSlugToChatMessage({ chatId: ctx.chatId, messageIndex: ctx.rootUserMessageIndex, requestSlug });
+	appendRequestSlugToMessageRef(ctx.rootUserMessageRef, requestSlug);
+	await replacePlaceholderWithPersistedMessage({
+		chatId: ctx.chatId,
+		messageIndex: persisted.startIndex,
+		message: modelMessage,
+		placeholderElm
+	});
+	return { continueLoop: true };
 }
 
 // ================================================================================
@@ -767,118 +899,148 @@ async function replacePlaceholderWithPersistedMessage(placeholderElm: HTMLElemen
 // ================================================================================
 
 async function executeTurnPremium(args: {
-    ctx: RpgContext;
-    meta: ParticipantMeta;
-    history: Content[];
-    turnInstruction: string;
-    speakerToneSystemPrompt: string;
-    placeholderElm: HTMLElement | undefined;
-    onRawUpdate: (text: string) => void;
-    onThinkingUpdate: (thinking: string) => void;
-}): Promise<{ text: string; thinking: string }> {
-    const { ctx, meta, history, turnInstruction, speakerToneSystemPrompt, placeholderElm, onRawUpdate, onThinkingUpdate } = args;
-    const { settings, rosterSystemPrompt, isInternetSearchEnabled, abortController } = ctx;
+	ctx: RpgContext;
+	meta: ParticipantMeta;
+	history: Content[];
+	turnInstruction: string;
+	speakerToneSystemPrompt: string;
+	placeholderElm: HTMLElement | undefined;
+	onRawUpdate: (text: string) => void;
+	onThinkingUpdate: (thinking: string) => void;
+}): Promise<{ text: string; thinking: string; requestSlug?: string }> {
+	const {
+		ctx,
+		meta,
+		history,
+		turnInstruction,
+		speakerToneSystemPrompt,
+		placeholderElm,
+		onRawUpdate,
+		onThinkingUpdate
+	} = args;
+	const { settings, rosterSystemPrompt, isInternetSearchEnabled, abortController } = ctx;
 
-    const payloadSettings: PremiumEndpoint.RequestSettings = {
-        model: settings.model,
-        streamResponses: settings.streamResponses,
-        generate: false,
-        maxOutputTokens: parseInt(settings.maxTokens),
-        temperature: parseInt(settings.temperature) / 100,
-        systemInstruction: ({
-            parts: [{ text: ((await settingsService.getSystemPrompt("rpg")).parts?.[0].text ?? "") + rosterSystemPrompt + speakerToneSystemPrompt }]
-        }) as Content,
-        safetySettings: settings.safetySettings,
-        responseMimeType: "application/json",
-        responseJsonSchema: GROUP_TURN_DECISION_SCHEMA,
-        tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
-        thinkingConfig: generateThinkingConfig(settings.model, settings.enableThinking, settings),
-    } as any;
+	const payloadSettings: PremiumEndpoint.RequestSettings = {
+		model: settings.model,
+		streamResponses: settings.streamResponses,
+		generate: false,
+		maxOutputTokens: parseInt(settings.maxTokens),
+		temperature: parseInt(settings.temperature) / 100,
+		systemInstruction: {
+			parts: [
+				{
+					text:
+						((await settingsService.getSystemPrompt("rpg")).parts?.[0].text ?? "") +
+						rosterSystemPrompt +
+						speakerToneSystemPrompt
+				}
+			]
+		} as Content,
+		safetySettings: settings.safetySettings,
+		responseMimeType: "application/json",
+		responseJsonSchema: GROUP_TURN_DECISION_SCHEMA,
+		tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
+		thinkingConfig: generateThinkingConfig(settings.model, settings.enableThinking, settings)
+	} as any;
 
-    const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
-    const resp = await fetch(endpoint, {
-        method: "POST",
-        headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
-        body: JSON.stringify({ message: turnInstruction, settings: payloadSettings, history } satisfies PremiumEndpoint.Request),
-        signal: abortController?.signal,
-    });
+	const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+	const resp = await fetch(endpoint, {
+		method: "POST",
+		headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
+		body: JSON.stringify({
+			message: turnInstruction,
+			settings: payloadSettings,
+			history
+		} satisfies PremiumEndpoint.Request),
+		signal: abortController?.signal
+	});
 
-    if (!resp.ok) throw new Error(`Edge function error: ${resp.status}`);
+	if (!resp.ok) throw new Error(`Edge function error: ${resp.status}`);
 
-    let raw = "";
-    let turnThinking = "";
+	let raw = "";
+	let turnThinking = "";
+	let requestSlug: string | undefined;
 
-    if (settings.streamResponses) {
-        let thinkingContentElm: HTMLDivElement | null = null;
-        let isJsonSchemaFallback = false;
-        let lastRenderedPreviewText = "";
+	if (settings.streamResponses) {
+		let thinkingContentElm: HTMLDivElement | null = null;
+		let isJsonSchemaFallback = false;
+		let lastRenderedPreviewText = "";
 
-        const result = await processPremiumEndpointSse({
-            res: resp,
-            process: {
-                signal: abortController?.signal ?? undefined,
-                abortMode: "throw",
-                includeThoughts: true,
-                useSkipThoughtSignature: false,
-                skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
-                throwOnBlocked: (finishReason) => isGeminiBlockedFinishReason(finishReason),
-                onBlocked: ({ finishReason, finishMessage }) => { throwGeminiBlocked({ finishReason, finishMessage }); },
-                callbacks: {
-                    onFallbackStart: (args) => {
-                        isJsonSchemaFallback = !!args?.hasJsonSchema;
-                        raw = "";
-                        lastRenderedPreviewText = "";
-                    },
-                    onText: async ({ text }) => {
-                        raw = text;
-                        onRawUpdate(raw);
-                        if (!placeholderElm) return;
+		const result = await processPremiumEndpointSse({
+			res: resp,
+			process: {
+				signal: abortController?.signal ?? undefined,
+				abortMode: "throw",
+				includeThoughts: true,
+				useSkipThoughtSignature: false,
+				skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+				throwOnBlocked: (finishReason) => isGeminiBlockedFinishReason(finishReason),
+				onBlocked: ({ finishReason, finishMessage }) => {
+					throwGeminiBlocked({ finishReason, finishMessage });
+				},
+				callbacks: {
+					onRequestId: (nextRequestSlug) => {
+						requestSlug = nextRequestSlug;
+					},
+					onFallbackStart: (args) => {
+						isJsonSchemaFallback = !!args?.hasJsonSchema;
+						raw = "";
+						lastRenderedPreviewText = "";
+					},
+					onText: async ({ text }) => {
+						raw = text;
+						onRawUpdate(raw);
+						if (!placeholderElm) return;
 
-                        let preview: string | null;
-                        if (isJsonSchemaFallback) {
-                            preview = raw;
-                        } else {
-                            preview = extractGroupTurnDecisionTextPreview(raw);
-                        }
-                        if (preview === null) return;
+						let preview: string | null;
+						if (isJsonSchemaFallback) {
+							preview = raw;
+						} else {
+							preview = extractGroupTurnDecisionTextPreview(raw);
+						}
+						if (preview === null) return;
 
-                        const finalPreview = stripLeadingSpeakerPrefix(preview, meta.name);
-                        if (finalPreview === lastRenderedPreviewText) return;
-                        lastRenderedPreviewText = finalPreview;
+						const finalPreview = stripLeadingSpeakerPrefix(preview, meta.name);
+						if (finalPreview === lastRenderedPreviewText) return;
+						lastRenderedPreviewText = finalPreview;
 
-                        placeholderElm.querySelector('.message-text')?.classList.remove('is-loading');
-                        const contentElm = placeholderElm.querySelector<HTMLElement>(".message-text .message-text-content");
-                        if (contentElm) {
-                            contentElm.innerHTML = await parseMarkdownToHtml(finalPreview);
-                            helpers.messageContainerScrollToBottom();
-                        }
-                    },
-                    onThinking: ({ thinking: thinkingSoFar }) => {
-                        turnThinking = thinkingSoFar;
-                        onThinkingUpdate(turnThinking);
-                        if (!placeholderElm) return;
-                        thinkingContentElm ??= ensureThinkingUiOnMessageElement(placeholderElm);
-                        if (thinkingContentElm) thinkingContentElm.textContent = turnThinking;
-                    },
-                },
-            },
-        });
+						placeholderElm.querySelector(".message-text")?.classList.remove("is-loading");
+						const contentElm = placeholderElm.querySelector<HTMLElement>(
+							".message-text .message-text-content"
+						);
+						if (contentElm) {
+							contentElm.innerHTML = await parseMarkdownToHtml(finalPreview);
+							helpers.messageContainerScrollToBottom();
+						}
+					},
+					onThinking: ({ thinking: thinkingSoFar }) => {
+						turnThinking = thinkingSoFar;
+						onThinkingUpdate(turnThinking);
+						if (!placeholderElm) return;
+						thinkingContentElm ??= ensureThinkingUiOnMessageElement(placeholderElm);
+						if (thinkingContentElm) thinkingContentElm.textContent = turnThinking;
+					}
+				}
+			}
+		});
 
-        raw = result.text;
-        turnThinking = result.thinking;
-    } else {
-        const json = await resp.json();
-        const finishReason = json?.candidates?.[0]?.finishReason || json?.promptFeedback?.blockReason;
-        if (isGeminiBlockedFinishReason(finishReason)) {
-            const finishMessage = (json?.candidates?.[0] as any)?.finishMessage;
-            throwGeminiBlocked({ finishReason, finishMessage });
-        }
-        const extracted = extractTextAndThinkingFromResponse(json);
-        raw = extracted.text;
-        turnThinking = extracted.thinking;
-    }
+		raw = result.text;
+		turnThinking = result.thinking;
+		requestSlug = result.requestId;
+	} else {
+		const json = await resp.json();
+		requestSlug = json?.requestId;
+		const finishReason = json?.candidates?.[0]?.finishReason || json?.promptFeedback?.blockReason;
+		if (isGeminiBlockedFinishReason(finishReason)) {
+			const finishMessage = (json?.candidates?.[0] as any)?.finishMessage;
+			throwGeminiBlocked({ finishReason, finishMessage });
+		}
+		const extracted = extractTextAndThinkingFromResponse(json);
+		raw = extracted.text;
+		turnThinking = extracted.thinking;
+	}
 
-    return { text: raw, thinking: turnThinking };
+	return { text: raw, thinking: turnThinking, requestSlug };
 }
 
 // ================================================================================
@@ -886,148 +1048,174 @@ async function executeTurnPremium(args: {
 // ================================================================================
 
 async function executeTurnLocalSdk(args: {
-    ctx: RpgContext;
-    meta: ParticipantMeta;
-    history: Content[];
-    turnInstruction: string;
-    speakerToneSystemPrompt: string;
-    placeholderElm: HTMLElement | undefined;
-    onRawUpdate: (text: string) => void;
-    onThinkingUpdate: (thinking: string) => void;
+	ctx: RpgContext;
+	meta: ParticipantMeta;
+	history: Content[];
+	turnInstruction: string;
+	speakerToneSystemPrompt: string;
+	placeholderElm: HTMLElement | undefined;
+	onRawUpdate: (text: string) => void;
+	onThinkingUpdate: (thinking: string) => void;
 }): Promise<{ text: string; thinking: string }> {
-    const { ctx, meta, history, turnInstruction, speakerToneSystemPrompt, placeholderElm, onRawUpdate, onThinkingUpdate } = args;
-    const { settings, rosterSystemPrompt, isInternetSearchEnabled, abortController } = ctx;
+	const {
+		ctx,
+		meta,
+		history,
+		turnInstruction,
+		speakerToneSystemPrompt,
+		placeholderElm,
+		onRawUpdate,
+		onThinkingUpdate
+	} = args;
+	const { settings, rosterSystemPrompt, isInternetSearchEnabled, abortController } = ctx;
 
-    const config: GenerateContentConfig = {
-        maxOutputTokens: parseInt(settings.maxTokens),
-        temperature: modelSupportsTemperature(settings.model) ? parseInt(settings.temperature) / 100 : undefined,
-        systemInstruction: ({
-            parts: [{ text: ((await settingsService.getSystemPrompt("rpg")).parts?.[0].text ?? "") + rosterSystemPrompt + speakerToneSystemPrompt }]
-        }) as Content,
-        safetySettings: settings.safetySettings,
-        responseMimeType: "application/json",
-        responseJsonSchema: GROUP_TURN_DECISION_SCHEMA,
-        tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
-        thinkingConfig: generateThinkingConfig(settings.model, settings.enableThinking, settings),
-    } as any;
+	const config: GenerateContentConfig = {
+		maxOutputTokens: parseInt(settings.maxTokens),
+		temperature: modelSupportsTemperature(settings.model) ? parseInt(settings.temperature) / 100 : undefined,
+		systemInstruction: {
+			parts: [
+				{
+					text:
+						((await settingsService.getSystemPrompt("rpg")).parts?.[0].text ?? "") +
+						rosterSystemPrompt +
+						speakerToneSystemPrompt
+				}
+			]
+		} as Content,
+		safetySettings: settings.safetySettings,
+		responseMimeType: "application/json",
+		responseJsonSchema: GROUP_TURN_DECISION_SCHEMA,
+		tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
+		thinkingConfig: generateThinkingConfig(settings.model, settings.enableThinking, settings)
+	} as any;
 
-    let thinkingContentElm: HTMLDivElement | null = null;
-    let lastRenderedPreviewText = "";
+	let thinkingContentElm: HTMLDivElement | null = null;
+	let lastRenderedPreviewText = "";
 
-    const extracted = await runLocalSdkRpgTurn({
-        settings,
-        history,
-        config,
-        turnInstruction,
-        signal: abortController?.signal,
-        onThinking: (thinkingSoFar) => {
-            onThinkingUpdate(thinkingSoFar);
-            if (!placeholderElm) return;
-            thinkingContentElm ??= ensureThinkingUiOnMessageElement(placeholderElm);
-            if (thinkingContentElm) thinkingContentElm.textContent = thinkingSoFar;
-        },
-        onText: async (textSoFar) => {
-            onRawUpdate(textSoFar);
-            if (!placeholderElm) return;
-            const preview = extractGroupTurnDecisionTextPreview(textSoFar);
-            if (preview === null) return;
+	const extracted = await runLocalSdkRpgTurn({
+		settings,
+		history,
+		config,
+		turnInstruction,
+		signal: abortController?.signal,
+		onThinking: (thinkingSoFar) => {
+			onThinkingUpdate(thinkingSoFar);
+			if (!placeholderElm) return;
+			thinkingContentElm ??= ensureThinkingUiOnMessageElement(placeholderElm);
+			if (thinkingContentElm) thinkingContentElm.textContent = thinkingSoFar;
+		},
+		onText: async (textSoFar) => {
+			onRawUpdate(textSoFar);
+			if (!placeholderElm) return;
+			const preview = extractGroupTurnDecisionTextPreview(textSoFar);
+			if (preview === null) return;
 
-            const finalPreview = stripLeadingSpeakerPrefix(preview, meta.name);
-            if (finalPreview === lastRenderedPreviewText) return;
-            lastRenderedPreviewText = finalPreview;
+			const finalPreview = stripLeadingSpeakerPrefix(preview, meta.name);
+			if (finalPreview === lastRenderedPreviewText) return;
+			lastRenderedPreviewText = finalPreview;
 
-            placeholderElm.querySelector('.message-text')?.classList.remove('is-loading');
-            const contentElm = placeholderElm.querySelector<HTMLElement>(".message-text .message-text-content");
-            if (contentElm) {
-                contentElm.innerHTML = await parseMarkdownToHtml(finalPreview);
-                helpers.messageContainerScrollToBottom();
-            }
-        },
-    });
+			placeholderElm.querySelector(".message-text")?.classList.remove("is-loading");
+			const contentElm = placeholderElm.querySelector<HTMLElement>(".message-text .message-text-content");
+			if (contentElm) {
+				contentElm.innerHTML = await parseMarkdownToHtml(finalPreview);
+				helpers.messageContainerScrollToBottom();
+			}
+		}
+	});
 
-    return { text: extracted.text, thinking: extracted.thinking };
+	return { text: extracted.text, thinking: extracted.thinking };
 }
 
 async function runLocalSdkRpgTurn(args: {
-    settings: ReturnType<typeof settingsService.getSettings>;
-    history: Content[];
-    config: GenerateContentConfig;
-    turnInstruction: string;
-    signal?: AbortSignal;
-    onThinking?: (thinkingSoFar: string) => void;
-    onText?: (textSoFar: string) => void | Promise<void>;
+	settings: ReturnType<typeof settingsService.getSettings>;
+	history: Content[];
+	config: GenerateContentConfig;
+	turnInstruction: string;
+	signal?: AbortSignal;
+	onThinking?: (thinkingSoFar: string) => void;
+	onText?: (textSoFar: string) => void | Promise<void>;
 }): Promise<TextAndThinking> {
-    const { settings, history, config, turnInstruction, signal, onThinking, onText } = args;
+	const { settings, history, config, turnInstruction, signal, onThinking, onText } = args;
 
-    if (isOpenRouterModel(settings.model)) {
-        const systemInstructionText = ((config.systemInstruction as Content | undefined)?.parts?.[0]?.text || "").toString();
-        return await requestOpenRouterCompletion({
-            apiKey: settings.openRouterApiKey,
-            request: buildOpenRouterRequest({
-                model: settings.model,
-                messages: await buildOpenRouterRequestMessages({
-                    history,
-                    systemInstructionText,
-                    userText: turnInstruction,
-                }),
-                stream: settings.streamResponses,
-                maxTokens: parseInt(settings.maxTokens),
-                temperature: parseInt(settings.temperature) / 100,
-                enableThinking: settings.enableThinking,
-                thinkingBudget: settings.thinkingBudget,
-                isInternetSearchEnabled: false,
-                responseFormat: {
-                    type: "json_schema",
-                    json_schema: {
-                        name: "group_turn_decision",
-                        strict: true,
-                        schema: GROUP_TURN_DECISION_SCHEMA,
-                    },
-                },
-            }),
-            signal,
-            onThinking: onThinking ? ({ thinking }) => onThinking(thinking) : undefined,
-            onText: onText ? async ({ text }) => { await onText(text); } : undefined,
-        });
-    }
+	if (isOpenRouterModel(settings.model)) {
+		const systemInstructionText = (
+			(config.systemInstruction as Content | undefined)?.parts?.[0]?.text || ""
+		).toString();
+		return await requestOpenRouterCompletion({
+			apiKey: settings.openRouterApiKey,
+			request: buildOpenRouterRequest({
+				model: settings.model,
+				messages: await buildOpenRouterRequestMessages({
+					history,
+					systemInstructionText,
+					userText: turnInstruction
+				}),
+				stream: settings.streamResponses,
+				maxTokens: parseInt(settings.maxTokens),
+				temperature: parseInt(settings.temperature) / 100,
+				enableThinking: settings.enableThinking,
+				thinkingBudget: settings.thinkingBudget,
+				isInternetSearchEnabled: false,
+				responseFormat: {
+					type: "json_schema",
+					json_schema: {
+						name: "group_turn_decision",
+						strict: true,
+						schema: GROUP_TURN_DECISION_SCHEMA
+					}
+				}
+			}),
+			signal,
+			onThinking: onThinking ? ({ thinking }) => onThinking(thinking) : undefined,
+			onText: onText
+				? async ({ text }) => {
+						await onText(text);
+					}
+				: undefined
+		});
+	}
 
-    const ai = new GoogleGenAI({ apiKey: settings.geminiApiKey || settings.apiKey });
-    const chat = ai.chats.create({ model: settings.model, history, config });
+	const ai = new GoogleGenAI({ apiKey: settings.geminiApiKey || settings.apiKey });
+	const chat = ai.chats.create({ model: settings.model, history, config });
 
-    if (settings.streamResponses) {
-        const result = await processGeminiLocalSdkStream({
-            stream: await chat.sendMessageStream({ message: [{ text: turnInstruction }] }),
-            process: {
-                includeThoughts: true,
-                useSkipThoughtSignature: false,
-                skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
-                signal,
-                abortMode: "throw",
-                throwOnBlocked: true,
-                callbacks: {
-                    onThinking: ({ thinking }) => { onThinking?.(thinking); },
-                    onText: async ({ text }) => { await onText?.(text); },
-                },
-            },
-        });
+	if (settings.streamResponses) {
+		const result = await processGeminiLocalSdkStream({
+			stream: await chat.sendMessageStream({ message: [{ text: turnInstruction }] }),
+			process: {
+				includeThoughts: true,
+				useSkipThoughtSignature: false,
+				skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+				signal,
+				abortMode: "throw",
+				throwOnBlocked: true,
+				callbacks: {
+					onThinking: ({ thinking }) => {
+						onThinking?.(thinking);
+					},
+					onText: async ({ text }) => {
+						await onText?.(text);
+					}
+				}
+			}
+		});
 
-        return { text: result.text, thinking: result.thinking };
-    }
+		return { text: result.text, thinking: result.thinking };
+	}
 
-    const response = await chat.sendMessage({ message: [{ text: turnInstruction }] });
-    const result = await processGeminiLocalSdkResponse({
-        response,
-        process: {
-            includeThoughts: true,
-            useSkipThoughtSignature: false,
-            skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
-            signal,
-            abortMode: "throw",
-            throwOnBlocked: true,
-        },
-    });
+	const response = await chat.sendMessage({ message: [{ text: turnInstruction }] });
+	const result = await processGeminiLocalSdkResponse({
+		response,
+		process: {
+			includeThoughts: true,
+			useSkipThoughtSignature: false,
+			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+			signal,
+			abortMode: "throw",
+			throwOnBlocked: true
+		}
+	});
 
-    return { text: result.text, thinking: result.thinking };
+	return { text: result.text, thinking: result.thinking };
 }
 
 // ================================================================================
@@ -1035,333 +1223,425 @@ async function runLocalSdkRpgTurn(args: {
 // ================================================================================
 
 async function handleNarratorBeforeFirst(ctx: RpgContext): Promise<void> {
-    const visibleAtStart = (ctx.workingChat?.content ?? []).filter(m => !m.hidden);
-    if (visibleAtStart.length === 0) {
-        const { history: beforeHistory } = await constructGeminiChatHistoryForGroupChatRpg(
-            ctx.workingChat,
-            { speakerNameById: ctx.speakerNameById, userName: ctx.userName, enforceThoughtSignatures: false }
-        );
+	const visibleAtStart = (ctx.workingChat?.content ?? []).filter((m) => !m.hidden);
+	if (visibleAtStart.length === 0) {
+		const { history: beforeHistory } = await constructGeminiChatHistoryForGroupChatRpg(ctx.workingChat, {
+			speakerNameById: ctx.speakerNameById,
+			userName: ctx.userName,
+			enforceThoughtSignatures: false
+		});
 
-        const before = await generateNarratorMessage({
-            mode: "before_first",
-            history: beforeHistory,
-            scenarioPrompt: ctx.scenarioPrompt,
-            participantNames: ctx.allParticipantNames,
-            userName: ctx.userName,
-            rosterSystemPrompt: ctx.rosterSystemPrompt,
-            settings: ctx.settings,
-            isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
-            signal: ctx.abortController?.signal,
-        });
+		const before = await generateNarratorMessage({
+			mode: "before_first",
+			history: beforeHistory,
+			scenarioPrompt: ctx.scenarioPrompt,
+			participantNames: ctx.allParticipantNames,
+			userName: ctx.userName,
+			rosterSystemPrompt: ctx.rosterSystemPrompt,
+			settings: ctx.settings,
+			isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+			signal: ctx.abortController?.signal
+		});
 
-        if (before && !ctx.abortController?.signal.aborted) {
-            const narratorMessage: Message = {
-                role: "model",
-                personalityid: NARRATOR_PERSONALITY_ID,
-                parts: [{ text: before.text }],
-                roundIndex: ctx.currentRoundIndex,
-                originModel: before.originModel,
-            };
+		if (before && !ctx.abortController?.signal.aborted) {
+			const narratorMessage: Message = {
+				role: "model",
+				personalityid: NARRATOR_PERSONALITY_ID,
+				parts: [{ text: before.text }],
+				roundIndex: ctx.currentRoundIndex,
+				originModel: before.originModel,
+				debugInfo: buildMessageDebugInfo({
+					settings: ctx.settings,
+					mode: "normal",
+					isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+					isImagePremiumEndpointPreferred: false,
+					requestSlug: before.requestSlug
+				})
+			};
 
-            const narratorIndex = ctx.workingChat.content.length;
-            await insertMessage(narratorMessage, narratorIndex);
-            await persistMessages([narratorMessage]);
-            hljs.highlightAll();
-            helpers.messageContainerScrollToBottom(true);
-        }
-    }
+			const persisted = await persistMessagesToChat(ctx.chatId, [narratorMessage]);
+			if (!persisted) return;
+			if (isViewingChat(ctx.chatId)) {
+				await insertMessage(narratorMessage, persisted.startIndex);
+				hljs.highlightAll();
+				helpers.messageContainerScrollToBottom(true);
+			}
+			await appendRequestSlugToChatMessage({
+				chatId: ctx.chatId,
+				messageIndex: ctx.rootUserMessageIndex,
+				requestSlug: before.requestSlug
+			});
+			appendRequestSlugToMessageRef(ctx.rootUserMessageRef, before.requestSlug);
+			const updatedChat = await getChatForWrite(ctx.chatId);
+			if (updatedChat) {
+				ctx.workingChat = updatedChat;
+			}
+		}
+	}
 }
 
 async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
-    const chatForInterjection = await chatsService.getCurrentChat();
-    if (!chatForInterjection) return;
+	const chatForInterjection = await getChatForWrite(ctx.chatId);
+	if (!chatForInterjection) return;
+	ctx.workingChat = chatForInterjection;
 
-    const { history: interjectionHistory } = await constructGeminiChatHistoryForGroupChatRpg(
-        chatForInterjection,
-        { speakerNameById: ctx.speakerNameById, userName: ctx.userName, enforceThoughtSignatures: false }
-    );
+	const { history: interjectionHistory } = await constructGeminiChatHistoryForGroupChatRpg(chatForInterjection, {
+		speakerNameById: ctx.speakerNameById,
+		userName: ctx.userName,
+		enforceThoughtSignatures: false
+	});
 
-    const interjection = await generateNarratorMessage({
-        mode: "interjection",
-        history: interjectionHistory,
-        scenarioPrompt: ctx.scenarioPrompt,
-        participantNames: ctx.allParticipantNames,
-        userName: ctx.userName,
-        rosterSystemPrompt: ctx.rosterSystemPrompt,
-        settings: ctx.settings,
-        isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
-        signal: ctx.abortController?.signal,
-    });
+	const interjection = await generateNarratorMessage({
+		mode: "interjection",
+		history: interjectionHistory,
+		scenarioPrompt: ctx.scenarioPrompt,
+		participantNames: ctx.allParticipantNames,
+		userName: ctx.userName,
+		rosterSystemPrompt: ctx.rosterSystemPrompt,
+		settings: ctx.settings,
+		isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+		signal: ctx.abortController?.signal
+	});
 
-    if (interjection && !ctx.abortController?.signal.aborted) {
-        const interjectionMessage: Message = {
-            role: "model",
-            personalityid: NARRATOR_PERSONALITY_ID,
-            parts: [{ text: interjection.text }],
-            roundIndex: ctx.currentRoundIndex,
-            originModel: interjection.originModel,
-        };
+	if (interjection && !ctx.abortController?.signal.aborted) {
+		const interjectionMessage: Message = {
+			role: "model",
+			personalityid: NARRATOR_PERSONALITY_ID,
+			parts: [{ text: interjection.text }],
+			roundIndex: ctx.currentRoundIndex,
+			originModel: interjection.originModel,
+			debugInfo: buildMessageDebugInfo({
+				settings: ctx.settings,
+				mode: "normal",
+				isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+				isImagePremiumEndpointPreferred: false,
+				requestSlug: interjection.requestSlug
+			})
+		};
 
-        const interjectionIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
-        if (interjectionIndex >= 0) {
-            await insertMessage(interjectionMessage, interjectionIndex);
-            await persistMessages([interjectionMessage]);
-            hljs.highlightAll();
-            helpers.messageContainerScrollToBottom(true);
-        }
-    }
+		const persisted = await persistMessagesToChat(ctx.chatId, [interjectionMessage]);
+		if (!persisted) return;
+		if (isViewingChat(ctx.chatId)) {
+			await insertMessage(interjectionMessage, persisted.startIndex);
+			hljs.highlightAll();
+			helpers.messageContainerScrollToBottom(true);
+		}
+		await appendRequestSlugToChatMessage({
+			chatId: ctx.chatId,
+			messageIndex: ctx.rootUserMessageIndex,
+			requestSlug: interjection.requestSlug
+		});
+		appendRequestSlugToMessageRef(ctx.rootUserMessageRef, interjection.requestSlug);
+		const updatedChat = await getChatForWrite(ctx.chatId);
+		if (updatedChat) {
+			ctx.workingChat = updatedChat;
+		}
+	}
 }
 
 async function handleNarratorAfterRound(ctx: RpgContext): Promise<void> {
-    const chatForAfter = await chatsService.getCurrentChat();
-    if (!chatForAfter) return;
+	const chatForAfter = await getChatForWrite(ctx.chatId);
+	if (!chatForAfter) return;
+	ctx.workingChat = chatForAfter;
 
-    const lastInRound = [...(chatForAfter.content || [])]
-        .reverse()
-        .find(m => !m.hidden && m.roundIndex === ctx.currentRoundIndex);
+	const lastInRound = [...(chatForAfter.content || [])]
+		.reverse()
+		.find((m) => !m.hidden && m.roundIndex === ctx.currentRoundIndex);
 
-    const lastInRoundIsNarrator = !!lastInRound &&
-        lastInRound.role === "model" &&
-        lastInRound.personalityid === NARRATOR_PERSONALITY_ID;
+	const lastInRoundIsNarrator =
+		!!lastInRound && lastInRound.role === "model" && lastInRound.personalityid === NARRATOR_PERSONALITY_ID;
 
-    if (!lastInRoundIsNarrator) {
-        const { history: afterHistory } = await constructGeminiChatHistoryForGroupChatRpg(
-            chatForAfter,
-            { speakerNameById: ctx.speakerNameById, userName: ctx.userName, enforceThoughtSignatures: false }
-        );
+	if (!lastInRoundIsNarrator) {
+		const { history: afterHistory } = await constructGeminiChatHistoryForGroupChatRpg(chatForAfter, {
+			speakerNameById: ctx.speakerNameById,
+			userName: ctx.userName,
+			enforceThoughtSignatures: false
+		});
 
-        const after = await generateNarratorMessageResilient({
-            mode: "after",
-            history: afterHistory,
-            scenarioPrompt: ctx.scenarioPrompt,
-            participantNames: ctx.allParticipantNames,
-            userName: ctx.userName,
-            rosterSystemPrompt: ctx.rosterSystemPrompt,
-            settings: ctx.settings,
-            isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
-            signal: ctx.abortController?.signal,
-        });
+		const after = await generateNarratorMessageResilient({
+			mode: "after",
+			history: afterHistory,
+			scenarioPrompt: ctx.scenarioPrompt,
+			participantNames: ctx.allParticipantNames,
+			userName: ctx.userName,
+			rosterSystemPrompt: ctx.rosterSystemPrompt,
+			settings: ctx.settings,
+			isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+			signal: ctx.abortController?.signal
+		});
 
-        if (!after || ctx.abortController?.signal.aborted) {
-            return;
-        }
+		if (!after || ctx.abortController?.signal.aborted) {
+			return;
+		}
 
-        const afterText = after.text.trim();
-        if (afterText) {
-            const afterMessage: Message = {
-                role: "model",
-                personalityid: NARRATOR_PERSONALITY_ID,
-                parts: [{ text: afterText }],
-                roundIndex: ctx.currentRoundIndex,
-                originModel: after.originModel,
-            };
+		const afterText = after.text.trim();
+		if (afterText) {
+			const afterMessage: Message = {
+				role: "model",
+				personalityid: NARRATOR_PERSONALITY_ID,
+				parts: [{ text: afterText }],
+				roundIndex: ctx.currentRoundIndex,
+				originModel: after.originModel,
+				debugInfo: buildMessageDebugInfo({
+					settings: ctx.settings,
+					mode: "normal",
+					isPremiumEndpointPreferred: ctx.isPremiumEndpointPreferred,
+					isImagePremiumEndpointPreferred: false,
+					requestSlug: after.requestSlug
+				})
+			};
 
-            const afterIndex = (await chatsService.getCurrentChat())?.content.length ?? -1;
-            if (afterIndex >= 0) {
-                await insertMessage(afterMessage, afterIndex);
-                await persistMessages([afterMessage]);
-                hljs.highlightAll();
-                helpers.messageContainerScrollToBottom(true);
-            }
-        }
-    }
+			const persisted = await persistMessagesToChat(ctx.chatId, [afterMessage]);
+			if (!persisted) return;
+			if (isViewingChat(ctx.chatId)) {
+				await insertMessage(afterMessage, persisted.startIndex);
+				hljs.highlightAll();
+				helpers.messageContainerScrollToBottom(true);
+			}
+			await appendRequestSlugToChatMessage({
+				chatId: ctx.chatId,
+				messageIndex: ctx.rootUserMessageIndex,
+				requestSlug: after.requestSlug
+			});
+			appendRequestSlugToMessageRef(ctx.rootUserMessageRef, after.requestSlug);
+			const updatedChat = await getChatForWrite(ctx.chatId);
+			if (updatedChat) {
+				ctx.workingChat = updatedChat;
+			}
+		}
+	}
 }
 
 interface NarratorGenerationArgs {
-    mode: NarratorMode;
-    history: Content[];
-    scenarioPrompt: string;
-    participantNames: string[];
-    userName: string;
-    rosterSystemPrompt: string;
-    settings: ReturnType<typeof settingsService.getSettings>;
-    isPremiumEndpointPreferred: boolean;
-    signal?: AbortSignal;
+	mode: NarratorMode;
+	history: Content[];
+	scenarioPrompt: string;
+	participantNames: string[];
+	userName: string;
+	rosterSystemPrompt: string;
+	settings: ReturnType<typeof settingsService.getSettings>;
+	isPremiumEndpointPreferred: boolean;
+	signal?: AbortSignal;
 }
 
 interface NarratorGenerationResult extends TextAndThinking {
-    originModel: string;
+	originModel: string;
+	requestSlug?: string;
 }
 
-async function generateNarratorMessageResilient(args: NarratorGenerationArgs): Promise<NarratorGenerationResult | null> {
-    const primary = await generateNarratorMessage(args);
-    if (primary?.text?.trim()) {
-        return { ...primary, text: primary.text.trim(), thinking: "" };
-    }
-    if (args.signal?.aborted) return null;
+async function generateNarratorMessageResilient(
+	args: NarratorGenerationArgs
+): Promise<NarratorGenerationResult | null> {
+	const primary = await generateNarratorMessage(args);
+	if (primary?.text?.trim()) {
+		return { ...primary, text: primary.text.trim(), thinking: "" };
+	}
+	if (args.signal?.aborted) return null;
 
-    try {
-        const retry = await generateNarratorMessage({ ...args, history: [] });
-        if (retry?.text?.trim()) {
-            return { ...retry, text: retry.text.trim(), thinking: "" };
-        }
-    } catch {
-        // Ignore
-    }
+	try {
+		const retry = await generateNarratorMessage({ ...args, history: [] });
+		if (retry?.text?.trim()) {
+			return { ...retry, text: retry.text.trim(), thinking: "" };
+		}
+	} catch {
+		// Ignore
+	}
 
-    return null;
+	return null;
 }
 
 async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<NarratorGenerationResult | null> {
-    const { mode, history, scenarioPrompt, participantNames, userName, rosterSystemPrompt, settings, isPremiumEndpointPreferred, signal } = args;
+	const {
+		mode,
+		history,
+		scenarioPrompt,
+		participantNames,
+		userName,
+		rosterSystemPrompt,
+		settings,
+		isPremiumEndpointPreferred,
+		signal
+	} = args;
 
-    const narratorSystemInstructionText = (
-        "You are a creative narrator for a roleplay." +
-        (rosterSystemPrompt?.trim() ? `\n${rosterSystemPrompt}` : "")
-    ).trim();
+	const narratorSystemInstructionText = (
+		"You are a creative narrator for a roleplay." + (rosterSystemPrompt?.trim() ? `\n${rosterSystemPrompt}` : "")
+	).trim();
 
-    const narratorModel = isPremiumEndpointPreferred
-        ? ChatModel.FLASH
-        : getPreferredNarratorLocalModel({
-            geminiApiKey: settings.geminiApiKey || settings.apiKey,
-            openRouterApiKey: settings.openRouterApiKey,
-        });
-    const narratorPrompt = buildNarratorPrompt(mode, scenarioPrompt, userName, participantNames);
+	const narratorModel = isPremiumEndpointPreferred
+		? ChatModel.FLASH
+		: getPreferredNarratorLocalModel({
+				geminiApiKey: settings.geminiApiKey || settings.apiKey,
+				openRouterApiKey: settings.openRouterApiKey
+			});
+	const narratorPrompt = buildNarratorPrompt(mode, scenarioPrompt, userName, participantNames);
 
-    try {
-        let raw = "";
-        let thinking = "";
+	try {
+		let raw = "";
+		let requestSlug: string | undefined;
 
-        if (isPremiumEndpointPreferred) {
-            const result = await generateNarratorPremium({ narratorModel, narratorSystemInstructionText, narratorPrompt, history, settings, signal });
-            raw = result.text;
-            thinking = result.thinking;
-        } else {
-            const result = await generateNarratorLocalSdk({ narratorModel, narratorSystemInstructionText, narratorPrompt, history, settings, signal });
-            raw = result.text;
-            thinking = result.thinking;
-        }
+		if (isPremiumEndpointPreferred) {
+			const result = await generateNarratorPremium({
+				narratorModel,
+				narratorSystemInstructionText,
+				narratorPrompt,
+				history,
+				settings,
+				signal
+			});
+			raw = result.text;
+			requestSlug = result.requestSlug;
+		} else {
+			const result = await generateNarratorLocalSdk({
+				narratorModel,
+				narratorSystemInstructionText,
+				narratorPrompt,
+				history,
+				settings,
+				signal
+			});
+			raw = result.text;
+		}
 
-        const trimmed = raw.trim();
-        if (!trimmed) return null;
+		const trimmed = raw.trim();
+		if (!trimmed) return null;
 
-        return { text: trimmed, thinking: "", originModel: narratorModel };
-
-    } catch (err: any) {
-        if (err?.name === "AbortError") return null;
-        console.error("[Narrator] Generation error:", err);
-        return null;
-    }
+		return { text: trimmed, thinking: "", originModel: narratorModel, requestSlug };
+	} catch (err: any) {
+		if (err?.name === "AbortError") return null;
+		console.error("[Narrator] Generation error:", err);
+		return null;
+	}
 }
 
-function buildNarratorPrompt(mode: NarratorMode, scenarioPrompt: string, userName: string, participantNames: string[]): string {
-    const allNames = [userName, ...participantNames].join(", ");
+function buildNarratorPrompt(
+	mode: NarratorMode,
+	scenarioPrompt: string,
+	userName: string,
+	participantNames: string[]
+): string {
+	const allNames = [userName, ...participantNames].join(", ");
 
-    switch (mode) {
-        case "before_first":
-            if (scenarioPrompt.trim()) {
-                return `<system>You are the narrator. Set the scene and expand on this scenario: "${scenarioPrompt}". Introduce the characters present: ${allNames}. Write in second or third person. Be evocative but concise (2-4 sentences).</system>`;
-            }
-            return `<system>You are the narrator. A fateful meeting brings together: ${allNames}. Describe the setting where they meet and set the tone for their interaction. Write in second or third person. Be evocative but concise (2-4 sentences).</system>`;
-        case "before":
-            return `<system>You are the narrator. Provide brief scene narration before the next round of conversation. You may describe the atmosphere, advance time, note environmental changes, or create tension. Be brief (1-3 sentences). Do not speak for the characters.</system>`;
-        case "after":
-            return `<system>You are the narrator. The characters have just finished speaking. Provide closing narration for this turn: emphasize key moments, create tension, advance the plot, or describe reactions and atmosphere. Be brief (1-3 sentences). Do not speak for the characters.</system>`;
-        case "interjection":
-            return `<system>You are the narrator. Something unexpected happens! Generate a brief special event: a sudden change in scenery, someone trips or does something by accident, an interruption, a twist, or inject some spice into the scene. Be brief and impactful (1-2 sentences). This should create an interesting moment for the characters to react to.</system>`;
-    }
+	switch (mode) {
+		case "before_first":
+			if (scenarioPrompt.trim()) {
+				return `<system>You are the narrator. Set the scene and expand on this scenario: "${scenarioPrompt}". Introduce the characters present: ${allNames}. Write in second or third person. Be evocative but concise (2-4 sentences).</system>`;
+			}
+			return `<system>You are the narrator. A fateful meeting brings together: ${allNames}. Describe the setting where they meet and set the tone for their interaction. Write in second or third person. Be evocative but concise (2-4 sentences).</system>`;
+		case "before":
+			return `<system>You are the narrator. Provide brief scene narration before the next round of conversation. You may describe the atmosphere, advance time, note environmental changes, or create tension. Be brief (1-3 sentences). Do not speak for the characters.</system>`;
+		case "after":
+			return `<system>You are the narrator. The characters have just finished speaking. Provide closing narration for this turn: emphasize key moments, create tension, advance the plot, or describe reactions and atmosphere. Be brief (1-3 sentences). Do not speak for the characters.</system>`;
+		case "interjection":
+			return `<system>You are the narrator. Something unexpected happens! Generate a brief special event: a sudden change in scenery, someone trips or does something by accident, an interruption, a twist, or inject some spice into the scene. Be brief and impactful (1-2 sentences). This should create an interesting moment for the characters to react to.</system>`;
+	}
 }
 
 async function generateNarratorPremium(args: {
-    narratorModel: string;
-    narratorSystemInstructionText: string;
-    narratorPrompt: string;
-    history: Content[];
-    settings: ReturnType<typeof settingsService.getSettings>;
-    signal?: AbortSignal;
-}): Promise<TextAndThinking> {
-    const { narratorModel, narratorSystemInstructionText, narratorPrompt, history, settings, signal } = args;
+	narratorModel: string;
+	narratorSystemInstructionText: string;
+	narratorPrompt: string;
+	history: Content[];
+	settings: ReturnType<typeof settingsService.getSettings>;
+	signal?: AbortSignal;
+}): Promise<TextAndThinking & { requestSlug?: string }> {
+	const { narratorModel, narratorSystemInstructionText, narratorPrompt, history, settings, signal } = args;
 
-    const payloadSettings: PremiumEndpoint.RequestSettings = {
-        model: narratorModel,
-        streamResponses: settings.streamResponses,
-        generate: false,
-        maxOutputTokens: parseInt(settings.maxTokens),
-        temperature: 1.0,
-        systemInstruction: { parts: [{ text: narratorSystemInstructionText }] } as Content,
-        safetySettings: settings.safetySettings,
-        thinkingConfig: generateThinkingConfig(narratorModel, false, settings),
-    } as any;
+	const payloadSettings: PremiumEndpoint.RequestSettings = {
+		model: narratorModel,
+		streamResponses: settings.streamResponses,
+		generate: false,
+		maxOutputTokens: parseInt(settings.maxTokens),
+		temperature: 1.0,
+		systemInstruction: { parts: [{ text: narratorSystemInstructionText }] } as Content,
+		safetySettings: settings.safetySettings,
+		thinkingConfig: generateThinkingConfig(narratorModel, false, settings)
+	} as any;
 
-    const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
-    const resp = await fetch(endpoint, {
-        method: "POST",
-        headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
-        body: JSON.stringify({ message: narratorPrompt, settings: payloadSettings, history } satisfies PremiumEndpoint.Request),
-        signal,
-    });
+	const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+	const resp = await fetch(endpoint, {
+		method: "POST",
+		headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
+		body: JSON.stringify({
+			message: narratorPrompt,
+			settings: payloadSettings,
+			history
+		} satisfies PremiumEndpoint.Request),
+		signal
+	});
 
-    if (!resp.ok) return { text: "", thinking: "" };
+	if (!resp.ok) return { text: "", thinking: "" };
 
-    if (settings.streamResponses) {
-        const streamed = await readPremiumEndpointTextAndThinkingFromSse({ res: resp, signal });
-        return { text: streamed.text, thinking: "" };
-    }
+	if (settings.streamResponses) {
+		const streamed = await readPremiumEndpointTextAndThinkingFromSse({ res: resp, signal });
+		return { text: streamed.text, thinking: "", requestSlug: streamed.requestId };
+	}
 
-    const json = await resp.json();
-    const extracted = extractTextAndThinkingFromResponse(json);
-    return { text: extracted.text, thinking: "" };
+	const json = await resp.json();
+	const extracted = extractTextAndThinkingFromResponse(json);
+	return { text: extracted.text, thinking: "", requestSlug: json?.requestId };
 }
 
 async function generateNarratorLocalSdk(args: {
-    narratorModel: string;
-    narratorSystemInstructionText: string;
-    narratorPrompt: string;
-    history: Content[];
-    settings: ReturnType<typeof settingsService.getSettings>;
-    signal?: AbortSignal;
+	narratorModel: string;
+	narratorSystemInstructionText: string;
+	narratorPrompt: string;
+	history: Content[];
+	settings: ReturnType<typeof settingsService.getSettings>;
+	signal?: AbortSignal;
 }): Promise<TextAndThinking> {
-    const { narratorModel, narratorSystemInstructionText, narratorPrompt, history, settings, signal } = args;
+	const { narratorModel, narratorSystemInstructionText, narratorPrompt, history, settings, signal } = args;
 
-    if (isOpenRouterModel(narratorModel)) {
-        return await requestOpenRouterCompletion({
-            apiKey: settings.openRouterApiKey,
-            request: buildOpenRouterRequest({
-                model: narratorModel,
-                messages: await buildOpenRouterRequestMessages({
-                    history,
-                    systemInstructionText: narratorSystemInstructionText,
-                    userText: narratorPrompt,
-                }),
-                stream: settings.streamResponses,
-                maxTokens: parseInt(settings.maxTokens),
-                temperature: 1.0,
-                enableThinking: false,
-                thinkingBudget: 0,
-                isInternetSearchEnabled: false,
-            }),
-            signal,
-        });
-    }
+	if (isOpenRouterModel(narratorModel)) {
+		return await requestOpenRouterCompletion({
+			apiKey: settings.openRouterApiKey,
+			request: buildOpenRouterRequest({
+				model: narratorModel,
+				messages: await buildOpenRouterRequestMessages({
+					history,
+					systemInstructionText: narratorSystemInstructionText,
+					userText: narratorPrompt
+				}),
+				stream: settings.streamResponses,
+				maxTokens: parseInt(settings.maxTokens),
+				temperature: 1.0,
+				enableThinking: false,
+				thinkingBudget: 0,
+				isInternetSearchEnabled: false
+			}),
+			signal
+		});
+	}
 
-    const ai = new GoogleGenAI({ apiKey: settings.geminiApiKey || settings.apiKey });
-    const config: GenerateContentConfig = {
-        maxOutputTokens: parseInt(settings.maxTokens),
-        temperature: 1.0,
-        systemInstruction: { parts: [{ text: narratorSystemInstructionText }] } as Content,
-        safetySettings: settings.safetySettings,
-        thinkingConfig: generateThinkingConfig(narratorModel, false, settings),
-    };
+	const ai = new GoogleGenAI({ apiKey: settings.geminiApiKey || settings.apiKey });
+	const config: GenerateContentConfig = {
+		maxOutputTokens: parseInt(settings.maxTokens),
+		temperature: 1.0,
+		systemInstruction: { parts: [{ text: narratorSystemInstructionText }] } as Content,
+		safetySettings: settings.safetySettings,
+		thinkingConfig: generateThinkingConfig(narratorModel, false, settings)
+	};
 
-    const chat = ai.chats.create({ model: narratorModel, history, config });
-    let raw = "";
+	const chat = ai.chats.create({ model: narratorModel, history, config });
+	let raw = "";
 
-    if (settings.streamResponses) {
-        const stream: AsyncGenerator<GenerateContentResponse> = await chat.sendMessageStream({ message: [{ text: narratorPrompt }] });
-        for await (const chunk of stream) {
-            if (signal?.aborted) {
-                throwAbortError();
-            }
-            const extracted = extractTextAndThinkingFromResponse(chunk);
-            raw += extracted.text;
-        }
-    } else {
-        const response = await chat.sendMessage({ message: [{ text: narratorPrompt }] });
-        const extracted = extractTextAndThinkingFromResponse(response);
-        raw = extracted.text;
-    }
+	if (settings.streamResponses) {
+		const stream: AsyncGenerator<GenerateContentResponse> = await chat.sendMessageStream({
+			message: [{ text: narratorPrompt }]
+		});
+		for await (const chunk of stream) {
+			if (signal?.aborted) {
+				throwAbortError();
+			}
+			const extracted = extractTextAndThinkingFromResponse(chunk);
+			raw += extracted.text;
+		}
+	} else {
+		const response = await chat.sendMessage({ message: [{ text: narratorPrompt }] });
+		const extracted = extractTextAndThinkingFromResponse(response);
+		raw = extracted.text;
+	}
 
-    return { text: raw, thinking: "" };
+	return { text: raw, thinking: "" };
 }
 
 // ================================================================================
@@ -1369,17 +1649,21 @@ async function generateNarratorLocalSdk(args: {
 // ================================================================================
 
 function shouldTriggerIndependentAction(independence: number): boolean {
-    const thresholds: Record<number, number> = { 0: 0.00, 1: 0.15, 2: 0.35, 3: 0.50 };
-    const clampedIndependence = Math.max(0, Math.min(3, Math.trunc(independence)));
-    const threshold = thresholds[clampedIndependence] ?? 0;
-    return Math.random() < threshold;
+	const thresholds: Record<number, number> = { 0: 0.0, 1: 0.15, 2: 0.35, 3: 0.5 };
+	const clampedIndependence = Math.max(0, Math.min(3, Math.trunc(independence)));
+	const threshold = thresholds[clampedIndependence] ?? 0;
+	return Math.random() < threshold;
 }
 
-function buildTurnInstruction(args: { participantsLine: string; speakerName: string; useIndependentAction: boolean }): string {
-    const { participantsLine, speakerName, useIndependentAction } = args;
+function buildTurnInstruction(args: {
+	participantsLine: string;
+	speakerName: string;
+	useIndependentAction: boolean;
+}): string {
+	const { participantsLine, speakerName, useIndependentAction } = args;
 
-    if (useIndependentAction) {
-        return `<system>You are participating in a turn-based group chat. Participants: ${participantsLine}.
+	if (useIndependentAction) {
+		return `<system>You are participating in a turn-based group chat. Participants: ${participantsLine}.
 It is now ${speakerName}'s turn to respond.
 
 ${speakerName} is feeling independent right now. They should progress the story on their own terms - perhaps start an activity, pursue a personal goal, engage with another character, or do something that doesn't revolve around the user. The user doesn't need to be involved in everything.
@@ -1387,9 +1671,9 @@ ${speakerName} is feeling independent right now. They should progress the story 
 If you reply, write ONLY what ${speakerName} would send as a single chat message (no prefixes like "${speakerName}:").
 If you choose to skip this turn entirely, set kind to "skip".
 </system>`;
-    }
+	}
 
-    return `<system>You are participating in a turn-based group chat. Participants: ${participantsLine}.
+	return `<system>You are participating in a turn-based group chat. Participants: ${participantsLine}.
 It is now ${speakerName}'s turn to respond.
 
 Respond naturally as ${speakerName}, staying true to their independence level and personality.
@@ -1400,23 +1684,25 @@ If you choose to skip this turn entirely, set kind to "skip".
 }
 
 function dispatchRoundState(args: {
-    userCompletedTurn: boolean;
-    currentRoundIndex: number;
-    stoppedForUser: boolean;
-    startsNewRound: boolean;
-    nextSpeakerId?: string;
+	chatId: string;
+	userCompletedTurn: boolean;
+	currentRoundIndex: number;
+	stoppedForUser: boolean;
+	startsNewRound: boolean;
+	nextSpeakerId?: string;
 }): void {
-    const { currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId } = args;
-    const isUserTurnNext = stoppedForUser;
+	const { chatId, currentRoundIndex, stoppedForUser, startsNewRound, nextSpeakerId } = args;
+	const isUserTurnNext = stoppedForUser;
 
-    dispatchAppEvent('round-state-changed', {
-        isUserTurn: isUserTurnNext,
-        currentRoundIndex,
-        roundComplete: stoppedForUser,
-        nextRoundNumber: startsNewRound ? currentRoundIndex + 1 : currentRoundIndex,
-        startsNewRound,
-        nextSpeakerId,
-    });
+	dispatchAppEvent("round-state-changed", {
+		chatId,
+		isUserTurn: isUserTurnNext,
+		currentRoundIndex,
+		roundComplete: stoppedForUser,
+		nextRoundNumber: startsNewRound ? currentRoundIndex + 1 : currentRoundIndex,
+		startsNewRound,
+		nextSpeakerId
+	});
 }
 
 // ================================================================================
@@ -1424,182 +1710,223 @@ function dispatchRoundState(args: {
 // ================================================================================
 
 async function parseGroupTurnDecision(rawText: string): Promise<GroupTurnDecision> {
-    try {
-        const parsed = JSON.parse(rawText) as Partial<GroupTurnDecision>;
-        const kind = parsed.kind;
-        if (kind !== "reply" && kind !== "skip") throw new Error("invalid kind");
-        return { kind, text: typeof parsed.text === "string" ? parsed.text : null };
-    } catch {
-        // Continue
-    }
+	try {
+		const parsed = JSON.parse(rawText) as Partial<GroupTurnDecision>;
+		const kind = parsed.kind;
+		if (kind !== "reply" && kind !== "skip") throw new Error("invalid kind");
+		return { kind, text: typeof parsed.text === "string" ? parsed.text : null };
+	} catch {
+		// Continue
+	}
 
-    const lastJsonStart = rawText.lastIndexOf('{"kind"');
-    if (lastJsonStart > 0) {
-        const lastPart = rawText.slice(lastJsonStart);
-        let braceCount = 0;
-        let endIndex = -1;
-        for (let i = 0; i < lastPart.length; i++) {
-            if (lastPart[i] === '{') braceCount++;
-            else if (lastPart[i] === '}') {
-                braceCount--;
-                if (braceCount === 0) { endIndex = i + 1; break; }
-            }
-        }
-        if (endIndex > 0) {
-            try {
-                const lastJson = JSON.parse(lastPart.slice(0, endIndex)) as Partial<GroupTurnDecision>;
-                const kind = lastJson.kind;
-                if (kind === "reply" || kind === "skip") {
-                    return { kind, text: typeof lastJson.text === "string" ? lastJson.text : null };
-                }
-            } catch {
-                // Continue
-            }
-        }
-    }
+	const lastJsonStart = rawText.lastIndexOf('{"kind"');
+	if (lastJsonStart > 0) {
+		const lastPart = rawText.slice(lastJsonStart);
+		let braceCount = 0;
+		let endIndex = -1;
+		for (let i = 0; i < lastPart.length; i++) {
+			if (lastPart[i] === "{") braceCount++;
+			else if (lastPart[i] === "}") {
+				braceCount--;
+				if (braceCount === 0) {
+					endIndex = i + 1;
+					break;
+				}
+			}
+		}
+		if (endIndex > 0) {
+			try {
+				const lastJson = JSON.parse(lastPart.slice(0, endIndex)) as Partial<GroupTurnDecision>;
+				const kind = lastJson.kind;
+				if (kind === "reply" || kind === "skip") {
+					return { kind, text: typeof lastJson.text === "string" ? lastJson.text : null };
+				}
+			} catch {
+				// Continue
+			}
+		}
+	}
 
-    const extractedText = extractGroupTurnDecisionTextFromPossiblyMalformedJson(rawText);
-    if (extractedText !== null) {
-        const hasSkipKind = rawText.includes('"kind"') && rawText.includes('"skip"');
-        return { kind: hasSkipKind ? "skip" : "reply", text: extractedText };
-    }
+	const extractedText = extractGroupTurnDecisionTextFromPossiblyMalformedJson(rawText);
+	if (extractedText !== null) {
+		const hasSkipKind = rawText.includes('"kind"') && rawText.includes('"skip"');
+		return { kind: hasSkipKind ? "skip" : "reply", text: extractedText };
+	}
 
-    return { kind: "reply", text: rawText || "" };
+	return { kind: "reply", text: rawText || "" };
 }
 
 function extractPartialJsonStringProperty(raw: string, propertyName: string): string | null {
-    const key = `"${propertyName}"`;
-    const keyIndex = raw.indexOf(key);
-    if (keyIndex < 0) return null;
+	const key = `"${propertyName}"`;
+	const keyIndex = raw.indexOf(key);
+	if (keyIndex < 0) return null;
 
-    let i = keyIndex + key.length;
-    while (i < raw.length && raw[i] !== ':') i++;
-    if (i >= raw.length) return null;
-    i++;
+	let i = keyIndex + key.length;
+	while (i < raw.length && raw[i] !== ":") i++;
+	if (i >= raw.length) return null;
+	i++;
 
-    while (i < raw.length && /\s/.test(raw[i] || '')) i++;
-    if (i >= raw.length) return null;
+	while (i < raw.length && /\s/.test(raw[i] || "")) i++;
+	if (i >= raw.length) return null;
 
-    if (raw.slice(i, i + 4) === 'null') return "";
-    if (raw[i] !== '"') return null;
-    i++;
+	if (raw.slice(i, i + 4) === "null") return "";
+	if (raw[i] !== '"') return null;
+	i++;
 
-    let out = "";
-    for (; i < raw.length; i++) {
-        const ch = raw[i];
-        if (ch === '"') return out;
-        if (ch === '\\') {
-            i++;
-            if (i >= raw.length) return out;
-            const esc = raw[i];
-            switch (esc) {
-                case '"': out += '"'; break;
-                case '\\': out += '\\'; break;
-                case '/': out += '/'; break;
-                case 'b': out += '\b'; break;
-                case 'f': out += '\f'; break;
-                case 'n': out += '\n'; break;
-                case 'r': out += '\r'; break;
-                case 't': out += '\t'; break;
-                case 'u': {
-                    if (i + 4 < raw.length) {
-                        const hex = raw.slice(i + 1, i + 5);
-                        if (/^[0-9a-fA-F]{4}$/.test(hex)) {
-                            out += String.fromCharCode(parseInt(hex, 16));
-                            i += 4;
-                        }
-                    }
-                    break;
-                }
-                default: out += esc;
-            }
-        } else {
-            out += ch;
-        }
-    }
-    return out;
+	let out = "";
+	for (; i < raw.length; i++) {
+		const ch = raw[i];
+		if (ch === '"') return out;
+		if (ch === "\\") {
+			i++;
+			if (i >= raw.length) return out;
+			const esc = raw[i];
+			switch (esc) {
+				case '"':
+					out += '"';
+					break;
+				case "\\":
+					out += "\\";
+					break;
+				case "/":
+					out += "/";
+					break;
+				case "b":
+					out += "\b";
+					break;
+				case "f":
+					out += "\f";
+					break;
+				case "n":
+					out += "\n";
+					break;
+				case "r":
+					out += "\r";
+					break;
+				case "t":
+					out += "\t";
+					break;
+				case "u": {
+					if (i + 4 < raw.length) {
+						const hex = raw.slice(i + 1, i + 5);
+						if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+							out += String.fromCharCode(parseInt(hex, 16));
+							i += 4;
+						}
+					}
+					break;
+				}
+				default:
+					out += esc;
+			}
+		} else {
+			out += ch;
+		}
+	}
+	return out;
 }
 
 function extractGroupTurnDecisionTextFromPossiblyMalformedJson(raw: string): string | null {
-    const lastJsonStart = raw.lastIndexOf('{"kind"');
-    if (lastJsonStart > 0) {
-        const lastPart = raw.slice(lastJsonStart);
-        const lastText = extractPartialJsonStringProperty(lastPart, "text");
-        if (lastText !== null && lastText.length > 0) return lastText;
-    }
-    return extractPartialJsonStringProperty(raw, "text");
+	const lastJsonStart = raw.lastIndexOf('{"kind"');
+	if (lastJsonStart > 0) {
+		const lastPart = raw.slice(lastJsonStart);
+		const lastText = extractPartialJsonStringProperty(lastPart, "text");
+		if (lastText !== null && lastText.length > 0) return lastText;
+	}
+	return extractPartialJsonStringProperty(raw, "text");
 }
 
 function extractGroupTurnDecisionTextPreview(raw: string): string | null {
-    return extractPartialJsonStringProperty(raw, "text");
+	return extractPartialJsonStringProperty(raw, "text");
 }
 
-async function readPremiumEndpointTextAndThinkingFromSse(args: { res: Response; signal?: AbortSignal }): Promise<TextAndThinking> {
-    const { res, signal } = args;
-    if (!res.body) return { text: "", thinking: "" };
+async function readPremiumEndpointTextAndThinkingFromSse(args: {
+	res: Response;
+	signal?: AbortSignal;
+}): Promise<TextAndThinking & { requestId?: string }> {
+	const { res, signal } = args;
+	if (!res.body) return { text: "", thinking: "" };
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let isFallbackMode = false;
-    let text = "";
-    let thinking = "";
+	const reader = res.body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+	let isFallbackMode = false;
+	let text = "";
+	let thinking = "";
+	let requestId: string | undefined;
 
-    while (true) {
-        if (signal?.aborted) {
-            try { await reader.cancel(); } catch { /* noop */ }
-            throwAbortError();
-        }
+	while (true) {
+		if (signal?.aborted) {
+			try {
+				await reader.cancel();
+			} catch {
+				/* noop */
+			}
+			throwAbortError();
+		}
 
-        const { value, done } = await reader.read();
-        if (done) break;
+		const { value, done } = await reader.read();
+		if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        let delimiterIndex: number;
-        while ((delimiterIndex = buffer.indexOf("\n\n")) !== -1) {
-            const eventBlock = buffer.slice(0, delimiterIndex);
-            buffer = buffer.slice(delimiterIndex + 2);
-            if (!eventBlock) continue;
-            if (eventBlock.startsWith(":")) continue;
+		buffer += decoder.decode(value, { stream: true });
+		let delimiterIndex: number;
+		while ((delimiterIndex = buffer.indexOf("\n\n")) !== -1) {
+			const eventBlock = buffer.slice(0, delimiterIndex);
+			buffer = buffer.slice(delimiterIndex + 2);
+			if (!eventBlock) continue;
+			if (eventBlock.startsWith(":")) {
+				const connectedMatch = eventBlock.match(/^:\s*connected\s+(\S+)/);
+				const nextRequestId = connectedMatch?.[1]?.trim();
+				if (nextRequestId) requestId = nextRequestId;
+				continue;
+			}
 
-            const lines = eventBlock.split("\n");
-            let eventName = "message";
-            let data = "";
-            for (const line of lines) {
-                if (line.startsWith("event: ")) eventName = line.slice(7).trim();
-                else if (line.startsWith("data: ")) data += line.slice(6);
-            }
+			const lines = eventBlock.split("\n");
+			let eventName = "message";
+			let data = "";
+			for (const line of lines) {
+				if (line.startsWith("event: ")) eventName = line.slice(7).trim();
+				else if (line.startsWith("data: ")) data += line.slice(6);
+			}
 
-            if (eventName === "error") throw new Error(data);
-            if (eventName === "done") return { text, thinking };
-            if (eventName === "fallback") {
-                isFallbackMode = true;
-                text = "";
-                thinking = "";
-                continue;
-            }
-            if (!data) continue;
+			if (eventName === "error") throw new Error(data);
+			if (eventName === "done") return { text, thinking, requestId };
+			if (eventName === "fallback") {
+				try {
+					const fallbackMeta = JSON.parse(data);
+					if (fallbackMeta?.requestId && !requestId) {
+						requestId = fallbackMeta.requestId;
+					}
+				} catch {
+					// noop
+				}
+				isFallbackMode = true;
+				text = "";
+				thinking = "";
+				continue;
+			}
+			if (!data) continue;
 
-            if (isFallbackMode) {
-                if (data === "[DONE]") return { text, thinking };
-                if (data === "{}") continue;
-                const glmPayload = JSON.parse(data);
-                const choice = glmPayload.choices?.[0];
-                const delta = choice?.delta;
-                if (delta?.content) text += delta.content;
-                if (delta?.reasoning) thinking += delta.reasoning;
-                continue;
-            }
+			if (isFallbackMode) {
+				if (data === "[DONE]") return { text, thinking, requestId };
+				if (data === "{}") continue;
+				const glmPayload = JSON.parse(data);
+				const choice = glmPayload.choices?.[0];
+				const delta = choice?.delta;
+				if (delta?.content) text += delta.content;
+				if (delta?.reasoning) thinking += delta.reasoning;
+				continue;
+			}
 
-            const payload = JSON.parse(data) as GenerateContentResponse;
-            for (const part of payload?.candidates?.[0]?.content?.parts || []) {
-                if (part?.thought && part?.text) thinking += part.text;
-                else if (part?.text) text += part.text;
-            }
-        }
-    }
+			const payload = JSON.parse(data) as GenerateContentResponse;
+			for (const part of payload?.candidates?.[0]?.content?.parts || []) {
+				if (part?.thought && part?.text) thinking += part.text;
+				else if (part?.text) text += part.text;
+			}
+		}
+	}
 
-    return { text, thinking };
+	return { text, thinking, requestId };
 }
 
 // ================================================================================
@@ -1607,68 +1934,70 @@ async function readPremiumEndpointTextAndThinkingFromSse(args: { res: Response; 
 // ================================================================================
 
 async function constructGeminiChatHistoryForGroupChatRpg(
-    currentChat: DbChat,
-    args: {
-        speakerNameById: Map<string, string>;
-        userName: string;
-        enforceThoughtSignatures?: boolean;
-    }
+	currentChat: DbChat,
+	args: {
+		speakerNameById: Map<string, string>;
+		userName: string;
+		enforceThoughtSignatures?: boolean;
+	}
 ): Promise<{ history: Content[]; pinnedHistoryIndices: number[] }> {
-    const history: Content[] = [];
-    const pinnedHistoryIndices: number[] = [];
-    const shouldEnforceThoughtSignatures = args.enforceThoughtSignatures === true;
+	const history: Content[] = [];
+	const pinnedHistoryIndices: number[] = [];
+	const shouldEnforceThoughtSignatures = args.enforceThoughtSignatures === true;
 
-    const speakerNameForMessage = (m: Message): string => {
-        if (m.role === "user") return (args.userName || "User").toString();
-        if (m.personalityid === NARRATOR_PERSONALITY_ID) return "Narrator";
-        const id = (m.personalityid ?? "").toString();
-        return args.speakerNameById.get(id) ?? "Unknown";
-    };
+	const speakerNameForMessage = (m: Message): string => {
+		if (m.role === "user") return (args.userName || "User").toString();
+		if (m.personalityid === NARRATOR_PERSONALITY_ID) return "Narrator";
+		const id = (m.personalityid ?? "").toString();
+		return args.speakerNameById.get(id) ?? "Unknown";
+	};
 
-    const lastImageIndex = findLastGeneratedImageIndex(currentChat.content);
-    const lastAttachmentIndex = findLastAttachmentIndex(currentChat.content);
+	const lastImageIndex = findLastGeneratedImageIndex(currentChat.content);
+	const lastAttachmentIndex = findLastAttachmentIndex(currentChat.content);
 
-    for (let index = 0; index < currentChat.content.length; index++) {
-        const dbMessage = currentChat.content[index];
-        if (dbMessage.hidden) continue;
+	for (let index = 0; index < currentChat.content.length; index++) {
+		const dbMessage = currentChat.content[index];
+		if (dbMessage.hidden) continue;
 
-        const aggregatedParts: any[] = [];
-        const speaker = speakerNameForMessage(dbMessage);
+		const aggregatedParts: any[] = [];
+		const speaker = speakerNameForMessage(dbMessage);
 
-        for (const part of dbMessage.parts) {
-            const text = (part.text || "").toString();
-            const attachments = part.attachments || [];
+		for (const part of dbMessage.parts) {
+			const text = (part.text || "").toString();
+			const attachments = part.attachments || [];
 
-            if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
-                const resolvedThoughtSignature = await resolveThoughtSignature(part);
-                const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
-                partObj.thoughtSignature = resolvedThoughtSignature ?? (shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
-                aggregatedParts.push(partObj);
-            }
+			if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
+				const resolvedThoughtSignature = await resolveThoughtSignature(part);
+				const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
+				partObj.thoughtSignature =
+					resolvedThoughtSignature ??
+					(shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+				aggregatedParts.push(partObj);
+			}
 
-            const attachmentParts = await processAttachmentsToParts({
-                attachments,
-                shouldProcess: attachments.length > 0 && index === lastAttachmentIndex,
-            });
-            aggregatedParts.push(...attachmentParts);
-        }
+			const attachmentParts = await processAttachmentsToParts({
+				attachments,
+				shouldProcess: attachments.length > 0 && index === lastAttachmentIndex
+			});
+			aggregatedParts.push(...attachmentParts);
+		}
 
-        const genAiMessage: Content = { role: dbMessage.role, parts: aggregatedParts };
+		const genAiMessage: Content = { role: dbMessage.role, parts: aggregatedParts };
 
-        const imageParts = await processGeneratedImagesToParts({
-            images: dbMessage.generatedImages,
-            shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
-            enforceThoughtSignatures: shouldEnforceThoughtSignatures,
-            skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
-        });
-        if (imageParts.length > 0) {
-            genAiMessage.parts?.push(...imageParts);
-        }
+		const imageParts = await processGeneratedImagesToParts({
+			images: dbMessage.generatedImages,
+			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
+			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
+			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR
+		});
+		if (imageParts.length > 0) {
+			genAiMessage.parts?.push(...imageParts);
+		}
 
-        if (genAiMessage.parts && genAiMessage.parts.length > 0) {
-            history.push(genAiMessage);
-        }
-    }
+		if (genAiMessage.parts && genAiMessage.parts.length > 0) {
+			history.push(genAiMessage);
+		}
+	}
 
-    return { history, pinnedHistoryIndices };
+	return { history, pinnedHistoryIndices };
 }
