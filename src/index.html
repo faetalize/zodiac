@@ -521,6 +521,20 @@
 												<label id="label-temperature" for="temperature">0</label>
 											</div>
 										</div>
+										<div>
+											<label class="setting-label" for="roleplaySuggestionModel"
+												><span class="material-symbols-outlined">theater_comedy</span>Roleplay
+												suggestion model
+												<span
+													class="material-symbols-outlined tooltip"
+													style="font-size: 0.885rem; opacity: 0.6; cursor: default"
+													info="Controls which model generates the four quick-reply roleplay suggestions in the composer."
+												>
+													info
+												</span>
+											</label>
+											<select id="roleplaySuggestionModel" class="input-field"></select>
+										</div>
 									</div>
 								</div>
 							</div>
@@ -1167,6 +1181,93 @@
 						<div id="attachment-preview" class="attachment-preview-container">
 							<input type="file" name="attachments" id="attachments" />
 						</div>
+						<div id="roleplay-composer" class="roleplay-composer hidden" aria-live="polite">
+							<div class="roleplay-composer__header">
+								<div
+									class="roleplay-composer__tabs"
+									role="tablist"
+									aria-label="Roleplay composer sections"
+								>
+									<button
+										type="button"
+										class="btn roleplay-tab active"
+										data-roleplay-tab="dialogue"
+										aria-selected="true"
+									>
+										Dialogue
+									</button>
+									<button
+										type="button"
+										class="btn roleplay-tab"
+										data-roleplay-tab="actions"
+										aria-selected="false"
+									>
+										Actions
+									</button>
+									<button
+										type="button"
+										class="btn roleplay-tab"
+										data-roleplay-tab="custom"
+										aria-selected="false"
+									>
+										Custom
+									</button>
+								</div>
+								<button
+									type="button"
+									class="btn btn-textual roleplay-refresh"
+									id="btn-roleplay-refresh"
+									aria-label="Refresh suggestions"
+									title="Refresh suggestions"
+								>
+									<span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+								</button>
+							</div>
+							<div class="roleplay-composer__selection-bar">
+								<div id="roleplay-selected-actions" class="roleplay-selected-actions">
+									No actions selected.
+								</div>
+								<button
+									type="button"
+									class="btn btn-textual roleplay-clear-actions hidden"
+									id="btn-roleplay-clear-actions"
+								>
+									Clear
+								</button>
+							</div>
+							<div class="roleplay-panel" data-roleplay-panel="dialogue">
+								<div id="roleplay-suggestions" class="roleplay-suggestions"></div>
+							</div>
+							<div class="roleplay-panel hidden" data-roleplay-panel="actions">
+								<div id="roleplay-actions-root" class="roleplay-actions-root"></div>
+								<div class="roleplay-custom-action-form">
+									<div class="roleplay-custom-action-copy">
+										<div class="roleplay-custom-action-title">Save a reusable action</div>
+										<div class="roleplay-custom-action-hint">
+											Add a beat you want to keep in your personal quick list.
+										</div>
+									</div>
+									<input
+										id="roleplay-custom-action-input"
+										class="input-field"
+										type="text"
+										placeholder="Create a custom action, e.g. brushes a thumb across their lip"
+									/>
+									<button type="button" class="btn" id="btn-roleplay-add-action">Add Action</button>
+								</div>
+							</div>
+							<div class="roleplay-panel hidden" data-roleplay-panel="custom">
+								<textarea
+									id="roleplay-custom-payload"
+									class="input-field roleplay-custom-payload"
+									rows="4"
+									placeholder="Write a custom reply or scene direction."
+								></textarea>
+								<div class="roleplay-custom-actions">
+									<button type="button" class="btn" id="btn-roleplay-send-custom">Send Custom</button>
+								</div>
+							</div>
+						</div>
 						<div id="message-box-buttons">
 							<button type="button" class="btn-textual material-symbols-outlined btn" id="btn-attach">
 								attach_file
@@ -1536,16 +1637,16 @@
 					<h1 id="header-version">What's New in</h1>
 					<ul id="changelog">
 						<li>
-							<b>Message debug tools:</b> Model replies can now expose request debug info, including
-							payload details and request slugs that make issue reports easier to trace
+							<b>Login and registration refresh:</b> Auth screens now use native forms with better
+							validation and a smoother password recovery flow
 						</li>
 						<li>
-							<b>RPG group chat fixes:</b> Persona skip handling now keeps turn order stable, restores
-							skip notices after refresh, and keeps regenerated skip turns in the correct round
+							<b>Gemini model naming updates:</b> Model labels now use clearer intrinsic version names,
+							including the newer Flash Lite 3.1 naming
 						</li>
 						<li>
-							<b>Stability improvements:</b> This release also includes behind-the-scenes fixes that make
-							group chats feel more reliable overall
+							<b>Worktree tooling polish:</b> Branch worktree setup removes unused MCP config and fixes
+							path resolution issues in the creation script
 						</li>
 					</ul>
 				</div>

@@ -614,7 +614,6 @@ function syncGenerationUiForCurrentChat(): void {
 		sendMessageButton!.title = "";
 	}
 	sendMessageButton!.classList.remove("generating");
-
 	void chatsService.getCurrentChat().then((chat) => {
 		if (chat?.groupChat?.mode === "rpg") {
 			turnControlPanel?.classList.remove("hidden");
@@ -651,6 +650,14 @@ sendMessageButton.addEventListener(
 			}
 
 			try {
+				if (roleplayActionsMenu.classList.contains("btn-toggled")) {
+					const roleplaySendRequested = new CustomEvent("roleplay-send-requested", { cancelable: true });
+					const wasHandled = !window.dispatchEvent(roleplaySendRequested);
+					if (wasHandled) {
+						return;
+					}
+				}
+
 				const message = serializeMessageInput();
 				messageInput.innerHTML = "";
 				closeMentionMenu();

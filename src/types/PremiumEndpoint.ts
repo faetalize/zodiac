@@ -1,4 +1,4 @@
-import type { Content} from "@google/genai";
+import type { Content } from "@google/genai";
 import { type GenerateContentConfig } from "@google/genai";
 
 export namespace PremiumEndpoint {
