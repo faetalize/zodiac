@@ -30,8 +30,6 @@ const roleplayActionsRoot = document.querySelector<HTMLDivElement>("#roleplay-ac
 const roleplaySelectedActions = document.querySelector<HTMLDivElement>("#roleplay-selected-actions");
 const roleplayClearActionsButton = document.querySelector<HTMLButtonElement>("#btn-roleplay-clear-actions");
 const roleplayRefreshButton = document.querySelector<HTMLButtonElement>("#btn-roleplay-refresh");
-const roleplayCustomPayload = document.querySelector<HTMLTextAreaElement>("#roleplay-custom-payload");
-const roleplaySendCustomButton = document.querySelector<HTMLButtonElement>("#btn-roleplay-send-custom");
 const roleplayCustomActionInput = document.querySelector<HTMLInputElement>("#roleplay-custom-action-input");
 const roleplayAddActionButton = document.querySelector<HTMLButtonElement>("#btn-roleplay-add-action");
 const roleplayTabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-roleplay-tab]"));
@@ -48,8 +46,6 @@ if (
 	!roleplaySelectedActions ||
 	!roleplayClearActionsButton ||
 	!roleplayRefreshButton ||
-	!roleplayCustomPayload ||
-	!roleplaySendCustomButton ||
 	!roleplayCustomActionInput ||
 	!roleplayAddActionButton ||
 	!roleplaySuggestionModelSelect ||
@@ -69,13 +65,11 @@ const ensuredRoleplayActionsRoot = roleplayActionsRoot;
 const ensuredRoleplaySelectedActions = roleplaySelectedActions;
 const ensuredRoleplayClearActionsButton = roleplayClearActionsButton;
 const ensuredRoleplayRefreshButton = roleplayRefreshButton;
-const ensuredRoleplayCustomPayload = roleplayCustomPayload;
-const ensuredRoleplaySendCustomButton = roleplaySendCustomButton;
 const ensuredRoleplayCustomActionInput = roleplayCustomActionInput;
 const ensuredRoleplayAddActionButton = roleplayAddActionButton;
 const ensuredRoleplaySuggestionModelSelect = roleplaySuggestionModelSelect;
 
-type RoleplayTab = "dialogue" | "actions" | "custom";
+type RoleplayTab = "dialogue" | "actions";
 type ActionCategory = "favorites" | "mood" | "body-language" | "scene" | "intimacy" | "custom";
 
 type RoleplayAction = {
@@ -154,7 +148,6 @@ const ACTION_CATEGORY_LABELS: Record<ActionCategory, string> = {
 	custom: "Custom"
 };
 
-let activeTab: RoleplayTab = "dialogue";
 let activeActionCategory: ActionCategory = "favorites";
 let composerEnabled = false;
 const selectedActionIds = new Set<string>();
@@ -292,7 +285,6 @@ function syncComposerVisibility(): void {
 }
 
 function setActiveTab(nextTab: RoleplayTab): void {
-	activeTab = nextTab;
 	roleplayTabButtons.forEach((button) => {
 		const isActive = button.dataset.roleplayTab === nextTab;
 		button.classList.toggle("active", isActive);
@@ -454,7 +446,6 @@ async function sendRoleplayPayload(payload: string): Promise<void> {
 	}
 
 	await messageService.send(payload);
-	ensuredRoleplayCustomPayload.value = "";
 	selectedActionIds.clear();
 	updateSelectedActionsSummary();
 	renderActions();
@@ -861,26 +852,12 @@ ensuredRoleplayAddActionButton.addEventListener("click", () => {
 	renderActions();
 });
 
-ensuredRoleplaySendCustomButton.addEventListener("click", () => {
-	void (async () => {
-		try {
-			await sendRoleplayPayload(buildPayload(ensuredRoleplayCustomPayload.value, { treatAsRaw: true }));
-		} catch (error: any) {
-			toastService.danger({ title: "Couldn't send custom roleplay", text: error?.message || String(error) });
-		}
-	})();
-});
-
 window.addEventListener("roleplay-send-requested", (event) => {
 	void (async () => {
 		if (!composerEnabled || isGenerating) return;
 		event.preventDefault();
 
 		try {
-			if (activeTab === "custom") {
-				await sendRoleplayPayload(buildPayload(ensuredRoleplayCustomPayload.value, { treatAsRaw: true }));
-				return;
-			}
 			await sendRoleplayPayload(buildPayload(""));
 		} catch (error: any) {
 			toastService.danger({ title: "Couldn't send roleplay action", text: error?.message || String(error) });
@@ -896,7 +873,6 @@ window.addEventListener("generation-state-changed", (event: Event) => {
 
 		if (composerEnabled) {
 			syncSuggestionControls();
-			ensuredRoleplaySendCustomButton.disabled = isGenerating;
 		}
 
 		if (wasGenerating && !isGenerating) {
