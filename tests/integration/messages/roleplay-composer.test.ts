@@ -132,6 +132,54 @@ function getSuggestionModelSelect(): HTMLSelectElement {
 	return select;
 }
 
+function getCustomCategoryInput(): HTMLInputElement {
+	const input = document.querySelector<HTMLInputElement>("#roleplay-add-modal-input");
+	if (!input) {
+		throw new Error("Missing category input");
+	}
+	return input;
+}
+
+function getCustomActionInput(): HTMLInputElement {
+	const input = document.querySelector<HTMLInputElement>("#roleplay-add-modal-input");
+	if (!input) {
+		throw new Error("Missing action input");
+	}
+	return input;
+}
+
+function getCreateCategoryButton(): HTMLButtonElement {
+	const button = document.querySelector<HTMLButtonElement>("#btn-roleplay-add-modal-submit");
+	if (!button) {
+		throw new Error("Missing add category button");
+	}
+	return button;
+}
+
+function getAddActionButton(): HTMLButtonElement {
+	const button = document.querySelector<HTMLButtonElement>("#btn-roleplay-add-modal-submit");
+	if (!button) {
+		throw new Error("Missing add action button");
+	}
+	return button;
+}
+
+function getRevealCategoryButton(): HTMLButtonElement {
+	const button = document.querySelector<HTMLButtonElement>("[data-roleplay-add-category-toggle]");
+	if (!button) {
+		throw new Error("Missing reveal category button");
+	}
+	return button;
+}
+
+function getRevealActionButton(): HTMLButtonElement {
+	const button = document.querySelector<HTMLButtonElement>("[data-roleplay-add-action-toggle]");
+	if (!button) {
+		throw new Error("Missing reveal action button");
+	}
+	return button;
+}
+
 function getActionButton(title: string): HTMLButtonElement {
 	const button = Array.from(document.querySelectorAll<HTMLButtonElement>(".roleplay-action-chip__select")).find(
 		(element) => element.title === title
@@ -149,14 +197,15 @@ function bootstrapRoleplayDom(): void {
 			<button id="btn-send" type="button"></button>
 			<div id="roleplay-composer" class="hidden">
 				<div class="roleplay-composer__header">
-					<div class="roleplay-composer__tabs" role="tablist">
-						<button type="button" data-roleplay-tab="dialogue" aria-selected="true">Dialogue</button>
-						<button type="button" data-roleplay-tab="actions" aria-selected="false">Actions</button>
+					<div class="navbar roleplay-composer__tabs" role="tablist">
+						<div class="navbar-tab navbar-tab-active" data-roleplay-tab="dialogue" aria-selected="true">Dialogue</div>
+						<div class="navbar-tab" data-roleplay-tab="actions" aria-selected="false">Actions</div>
+						<div class="navbar-tab-highlight"></div>
 					</div>
 					<button id="btn-roleplay-refresh" type="button">Refresh</button>
 				</div>
 				<div class="roleplay-composer__selection-bar">
-					<div id="roleplay-selected-actions">No actions selected.</div>
+					<div id="roleplay-selected-actions"></div>
 					<button id="btn-roleplay-clear-actions" class="hidden" type="button">Clear</button>
 				</div>
 				<div class="roleplay-panel" data-roleplay-panel="dialogue">
@@ -164,8 +213,20 @@ function bootstrapRoleplayDom(): void {
 				</div>
 				<div class="roleplay-panel hidden" data-roleplay-panel="actions">
 					<div id="roleplay-actions-root"></div>
-					<input id="roleplay-custom-action-input" type="text">
-					<button id="btn-roleplay-add-action" type="button">Add Action</button>
+				</div>
+			</div>
+		</div>
+		<div class="overlay hidden" id="overlay">
+			<button id="btn-hide-overlay" type="button">BACK</button>
+			<div class="overlay-content">
+				<div id="modal-roleplay-add" class="hidden">
+					<h1 id="roleplay-add-modal-title">Add</h1>
+					<input id="roleplay-add-modal-input" type="text">
+					<div id="roleplay-add-modal-error" class="hidden">
+						<span id="roleplay-add-modal-error-message"></span>
+					</div>
+					<button id="btn-roleplay-add-modal-submit" type="button">Add</button>
+					<button id="btn-roleplay-add-modal-cancel" type="button">Cancel</button>
 				</div>
 			</div>
 		</div>
@@ -302,5 +363,48 @@ describe("Roleplay composer suggestion workflow", () => {
 		expect(testState.builtRequests[1].responseFormat.json_schema.schema.properties.options.minItems).toBe(4);
 		expect(testState.builtRequests[1].responseFormat.json_schema.schema.properties.options.maxItems).toBe(4);
 		expect(getSuggestionButtons().map((button) => button.textContent)).toEqual(["Five", "Six", "Seven", "Eight"]);
+	});
+
+	it("creates a custom category and saves a reusable action into it", async () => {
+		queueSuggestionOptions(["One", "Two", "Three", "Four"]);
+
+		await importRoleplayComposer();
+		await waitForSuggestions();
+
+		getRevealCategoryButton().click();
+		getCustomCategoryInput().value = "Affection";
+		getCreateCategoryButton().click();
+
+		await waitForCondition(
+			() =>
+				Array.from(document.querySelectorAll(".roleplay-action-category-pill")).some((button) =>
+					button.textContent?.includes("Affection")
+				),
+			"Expected custom category to render"
+		);
+
+		const affectionCategory = Array.from(
+			document.querySelectorAll<HTMLButtonElement>(".roleplay-action-category-pill")
+		).find((button) => button.textContent === "Affection (0)");
+		if (!affectionCategory) {
+			throw new Error("Missing Affection category button");
+		}
+		affectionCategory.click();
+
+		getRevealActionButton().click();
+		getCustomActionInput().value = "pets her head";
+		getAddActionButton().click();
+
+		await waitForCondition(
+			() =>
+				Array.from(document.querySelectorAll<HTMLButtonElement>(".roleplay-action-chip__select")).some(
+					(button) => button.title === "pets her head"
+				),
+			"Expected custom action to render inside the selected category"
+		);
+
+		expect(
+			Array.from(document.querySelectorAll(".roleplay-action-category-pill")).map((button) => button.textContent)
+		).toContain("Affection (1)");
 	});
 });

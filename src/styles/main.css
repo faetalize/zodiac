@@ -7859,7 +7859,6 @@ input.onboarding-select {
 
 .roleplay-composer__header,
 .roleplay-composer__selection-bar,
-.roleplay-custom-action-form,
 .roleplay-custom-actions {
 	display: flex;
 	align-items: center;
@@ -7870,34 +7869,13 @@ input.onboarding-select {
 
 .roleplay-composer__tabs {
 	display: flex;
-	gap: 0.5rem;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
+	min-width: 14rem;
 }
 
-.roleplay-tab {
-	padding: 0.45rem 0.8rem;
-	border-radius: 999px;
-	border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-	background: color-mix(in srgb, var(--input-bg) 88%, var(--button-bg) 12%);
-	color: inherit;
-	box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
-}
-
-.roleplay-tab:hover:not(.active):not(:disabled) {
-	background: color-mix(in srgb, var(--input-bg) 72%, var(--button-bg) 28%);
-	border-color: color-mix(in srgb, var(--button-bg) 35%, var(--border-color));
-	transform: translateY(-1px);
-}
-
-.roleplay-tab:active:not(:disabled) {
-	background: color-mix(in srgb, var(--input-bg) 60%, var(--button-active-bg) 40%);
-}
-
-.roleplay-tab.active {
-	background: var(--button-toggled-bg);
-	color: var(--button-toggled-fg, inherit);
-	border-color: color-mix(in srgb, var(--button-toggled-bg) 65%, var(--border-color));
-	box-shadow: 0 0 0 1px color-mix(in srgb, var(--button-toggled-bg) 24%, transparent);
+.roleplay-composer__tabs .navbar-tab {
+	flex: 1 1 0;
+	text-align: center;
 }
 
 .roleplay-composer__status,
@@ -7961,7 +7939,6 @@ input.onboarding-select {
 .roleplay-suggestion:hover:not(:disabled) {
 	background: color-mix(in srgb, var(--input-bg) 64%, var(--button-bg) 36%);
 	border-color: color-mix(in srgb, var(--button-bg) 38%, var(--border-color));
-	transform: translateY(-1px);
 }
 
 .roleplay-suggestion:active:not(:disabled) {
@@ -7995,7 +7972,6 @@ input.onboarding-select {
 .roleplay-action-category-pill:hover:not(.active):not(:disabled) {
 	background: color-mix(in srgb, var(--input-bg) 68%, var(--button-bg) 32%);
 	border-color: color-mix(in srgb, var(--button-bg) 36%, var(--border-color));
-	transform: translateY(-1px);
 }
 
 .roleplay-action-category-pill.active {
@@ -8004,30 +7980,12 @@ input.onboarding-select {
 	border-color: color-mix(in srgb, var(--button-toggled-bg) 65%, var(--border-color));
 }
 
-.roleplay-action-category {
-	display: grid;
-	gap: 0.55rem;
-	padding: 0.75rem;
-	border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
-	border-radius: 1rem;
-	background: color-mix(in srgb, var(--input-bg) 84%, var(--button-bg) 16%);
-}
-
-.roleplay-action-category-header {
-	display: grid;
-	gap: 0.2rem;
-}
-
-.roleplay-action-category-title {
-	font-size: 0.85rem;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	opacity: 0.65;
-}
-
-.roleplay-action-category-hint {
-	font-size: 0.82rem;
-	opacity: 0.75;
+.roleplay-add-entry {
+	justify-content: center;
+	font-size: 1rem;
+	font-weight: 700;
+	min-width: 2.25rem;
+	padding-inline: 0.65rem;
 }
 
 .roleplay-action-strip {
@@ -8111,6 +8069,13 @@ input.onboarding-select {
 		0 8px 20px color-mix(in srgb, var(--button-bg) 16%, transparent);
 }
 
+.roleplay-action-chip--add {
+	justify-content: center;
+	padding: 0.35rem 0.9rem;
+	font-size: 1rem;
+	font-weight: 700;
+}
+
 .roleplay-action-chip.selected .roleplay-action-chip__select {
 	background: color-mix(in srgb, var(--button-bg) 22%, transparent);
 	color: var(--button-fg);
@@ -8130,66 +8095,49 @@ input.onboarding-select {
 	color: #f5b301;
 }
 
-.roleplay-custom-action-form .btn,
+.roleplay-inline-add__button,
 .roleplay-custom-actions .btn {
 	background: var(--button-bg);
 	color: var(--button-fg);
 }
 
-.roleplay-custom-action-form {
-	justify-content: stretch;
-	align-items: stretch;
-	padding: 0.75rem;
-	border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
-	border-radius: 1rem;
-	background: color-mix(in srgb, var(--input-bg) 90%, var(--button-bg) 10%);
-}
-
-.roleplay-custom-action-copy {
-	display: grid;
-	gap: 0.15rem;
-	flex: 1 1 100%;
-}
-
-.roleplay-custom-action-title {
-	font-size: 0.84rem;
-	font-weight: 700;
-}
-
-.roleplay-custom-action-hint {
-	font-size: 0.8rem;
-	opacity: 0.75;
-}
-
-.roleplay-custom-action-form .input-field {
-	flex: 1 1 14rem;
-}
-
-.roleplay-custom-action-form .btn {
+.roleplay-inline-add {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
 	flex: 0 0 auto;
 }
 
-.roleplay-custom-action-form .btn:hover:not(:disabled),
-.roleplay-custom-actions .btn:hover:not(:disabled) {
-	background: var(--button-hover-bg);
-	transform: translateY(-1px);
+.roleplay-inline-add__input {
+	min-width: 10rem;
+	height: 2.25rem;
 }
 
-.roleplay-custom-action-form .btn:active:not(:disabled),
+.roleplay-inline-add__button {
+	flex: 0 0 auto;
+	white-space: nowrap;
+}
+
+.roleplay-inline-add__button:hover:not(:disabled),
+.roleplay-custom-actions .btn:hover:not(:disabled) {
+	background: var(--button-hover-bg);
+}
+
+.roleplay-inline-add__button:active:not(:disabled),
 .roleplay-custom-actions .btn:active:not(:disabled) {
 	background: var(--button-active-bg);
 }
 
 .roleplay-composer
 	:is(
-		.roleplay-tab,
 		.roleplay-refresh,
 		.roleplay-clear-actions,
 		.roleplay-suggestion,
 		.roleplay-action-category-pill,
+		.roleplay-add-entry,
 		.roleplay-action-chip__select,
 		.roleplay-action-chip__favorite,
-		.roleplay-custom-action-form .btn,
+		.roleplay-inline-add__button,
 		.roleplay-custom-actions .btn
 	):focus-visible {
 	outline: none;
@@ -8197,7 +8145,12 @@ input.onboarding-select {
 }
 
 @media (max-width: 640px) {
-	.roleplay-custom-action-form .btn {
+	.roleplay-inline-add {
+		width: 100%;
+	}
+
+	.roleplay-inline-add__input,
+	.roleplay-inline-add__button {
 		width: 100%;
 	}
 }

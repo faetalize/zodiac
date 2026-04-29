@@ -7,6 +7,7 @@ import * as personalityService from "../../services/Personality.service";
 import * as settingsService from "../../services/Settings.service";
 import * as supabaseService from "../../services/Supabase.service";
 import * as toastService from "../../services/Toast.service";
+import * as overlayService from "../../services/Overlay.service";
 import { shouldPreferPremiumEndpoint } from "./ApiKeyInput.component";
 import { buildOpenRouterRequest, requestOpenRouterCompletion } from "../../services/OpenRouter.service";
 import {
@@ -27,12 +28,20 @@ const sendButton = document.querySelector<HTMLButtonElement>("#btn-send");
 const roleplayComposer = document.querySelector<HTMLDivElement>("#roleplay-composer");
 const roleplaySuggestions = document.querySelector<HTMLDivElement>("#roleplay-suggestions");
 const roleplayActionsRoot = document.querySelector<HTMLDivElement>("#roleplay-actions-root");
+const roleplaySelectionBar = document.querySelector<HTMLDivElement>(".roleplay-composer__selection-bar");
 const roleplaySelectedActions = document.querySelector<HTMLDivElement>("#roleplay-selected-actions");
 const roleplayClearActionsButton = document.querySelector<HTMLButtonElement>("#btn-roleplay-clear-actions");
 const roleplayRefreshButton = document.querySelector<HTMLButtonElement>("#btn-roleplay-refresh");
-const roleplayCustomActionInput = document.querySelector<HTMLInputElement>("#roleplay-custom-action-input");
-const roleplayAddActionButton = document.querySelector<HTMLButtonElement>("#btn-roleplay-add-action");
-const roleplayTabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-roleplay-tab]"));
+const roleplayAddModal = document.querySelector<HTMLDivElement>("#modal-roleplay-add");
+const roleplayAddModalTitle = document.querySelector<HTMLHeadingElement>("#roleplay-add-modal-title");
+const roleplayAddModalInput = document.querySelector<HTMLInputElement>("#roleplay-add-modal-input");
+const roleplayAddModalError = document.querySelector<HTMLDivElement>("#roleplay-add-modal-error");
+const roleplayAddModalErrorMessage = document.querySelector<HTMLSpanElement>("#roleplay-add-modal-error-message");
+const roleplayAddModalSubmitButton = document.querySelector<HTMLButtonElement>("#btn-roleplay-add-modal-submit");
+const roleplayAddModalCancelButton = document.querySelector<HTMLButtonElement>("#btn-roleplay-add-modal-cancel");
+const roleplayTabs = document.querySelector<HTMLDivElement>(".roleplay-composer__tabs");
+const roleplayTabHighlight = roleplayTabs?.querySelector<HTMLElement>(".navbar-tab-highlight") ?? null;
+const roleplayTabButtons = Array.from(document.querySelectorAll<HTMLElement>("[data-roleplay-tab]"));
 const roleplayPanels = Array.from(document.querySelectorAll<HTMLDivElement>("[data-roleplay-panel]"));
 const roleplaySuggestionModelSelect = document.querySelector<HTMLSelectElement>("#roleplaySuggestionModel");
 
@@ -43,11 +52,19 @@ if (
 	!roleplayComposer ||
 	!roleplaySuggestions ||
 	!roleplayActionsRoot ||
+	!roleplaySelectionBar ||
 	!roleplaySelectedActions ||
 	!roleplayClearActionsButton ||
 	!roleplayRefreshButton ||
-	!roleplayCustomActionInput ||
-	!roleplayAddActionButton ||
+	!roleplayAddModal ||
+	!roleplayAddModalTitle ||
+	!roleplayAddModalInput ||
+	!roleplayAddModalError ||
+	!roleplayAddModalErrorMessage ||
+	!roleplayAddModalSubmitButton ||
+	!roleplayAddModalCancelButton ||
+	!roleplayTabs ||
+	!roleplayTabHighlight ||
 	!roleplaySuggestionModelSelect ||
 	roleplayTabButtons.length === 0 ||
 	roleplayPanels.length === 0
@@ -62,15 +79,28 @@ const ensuredSendButton = sendButton;
 const ensuredRoleplayComposer = roleplayComposer;
 const ensuredRoleplaySuggestions = roleplaySuggestions;
 const ensuredRoleplayActionsRoot = roleplayActionsRoot;
+const ensuredRoleplaySelectionBar = roleplaySelectionBar;
 const ensuredRoleplaySelectedActions = roleplaySelectedActions;
 const ensuredRoleplayClearActionsButton = roleplayClearActionsButton;
 const ensuredRoleplayRefreshButton = roleplayRefreshButton;
-const ensuredRoleplayCustomActionInput = roleplayCustomActionInput;
-const ensuredRoleplayAddActionButton = roleplayAddActionButton;
+const ensuredRoleplayAddModalTitle = roleplayAddModalTitle;
+const ensuredRoleplayAddModalInput = roleplayAddModalInput;
+const ensuredRoleplayAddModalError = roleplayAddModalError;
+const ensuredRoleplayAddModalErrorMessage = roleplayAddModalErrorMessage;
+const ensuredRoleplayAddModalSubmitButton = roleplayAddModalSubmitButton;
+const ensuredRoleplayAddModalCancelButton = roleplayAddModalCancelButton;
+const ensuredRoleplayTabHighlight = roleplayTabHighlight;
 const ensuredRoleplaySuggestionModelSelect = roleplaySuggestionModelSelect;
 
 type RoleplayTab = "dialogue" | "actions";
-type ActionCategory = "favorites" | "mood" | "body-language" | "scene" | "intimacy" | "custom";
+type BuiltInActionCategory = "favorites" | "mood" | "body-language" | "scene" | "intimacy";
+type CustomActionCategoryId = `custom:${string}`;
+type ActionCategory = BuiltInActionCategory | CustomActionCategoryId;
+
+type CustomActionCategory = {
+	id: CustomActionCategoryId;
+	label: string;
+};
 
 type RoleplayAction = {
 	id: string;
@@ -139,27 +169,28 @@ const PRESET_ACTIONS: RoleplayAction[] = [
 	{ id: "intimacy-smirk", label: "Smirk", text: "answers with a knowing smirk", category: "intimacy" }
 ];
 
-const ACTION_CATEGORY_LABELS: Record<ActionCategory, string> = {
+const ACTION_CATEGORY_LABELS: Record<BuiltInActionCategory, string> = {
 	favorites: "Favorites",
 	mood: "Mood",
 	"body-language": "Body language",
 	scene: "Scene beats",
-	intimacy: "Intimacy",
-	custom: "Custom"
+	intimacy: "Intimacy"
 };
 
 let activeActionCategory: ActionCategory = "favorites";
 let composerEnabled = false;
 const selectedActionIds = new Set<string>();
 let favoriteActionIds = new Set<string>();
+let customCategories: CustomActionCategory[] = [];
 let customActions: RoleplayAction[] = [];
 let suggestionOptions: string[] = [];
 let lastSuggestionSignature = "";
 let lastLoadedChatId: string | null = null;
 let isGenerating = false;
 let hasPremiumModelAccess = false;
+let pendingAddMode: "category" | "action" | null = null;
 
-type StoredCustomAction = string | { id?: string; text?: string };
+type StoredCustomAction = string | { id?: string; text?: string; category?: string };
 
 function parseStoredArray(key: string): string[] {
 	try {
@@ -180,14 +211,80 @@ function buildCustomActionId(text: string): string {
 	return `custom-${encodeURIComponent(text.trim().toLowerCase())}`;
 }
 
-function createCustomAction(text: string, id = buildCustomActionId(text)): RoleplayAction {
+function slugifyCategoryLabel(label: string): string {
+	return label
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, 40);
+}
+
+function buildCustomCategoryId(label: string): CustomActionCategoryId {
+	const slug = slugifyCategoryLabel(label) || "custom";
+	return `custom:${slug}`;
+}
+
+function createCustomCategory(label: string, id = buildCustomCategoryId(label)): CustomActionCategory {
+	return {
+		id,
+		label: label.trim()
+	};
+}
+
+function createCustomAction(text: string, category: ActionCategory, id = buildCustomActionId(text)): RoleplayAction {
 	return {
 		id,
 		label: text.length > 22 ? `${text.slice(0, 22)}...` : text,
 		text,
-		category: "custom",
+		category,
 		custom: true
 	};
+}
+
+function isBuiltInCategory(category: ActionCategory): category is BuiltInActionCategory {
+	return category in ACTION_CATEGORY_LABELS;
+}
+
+function getCategoryLabel(category: ActionCategory): string {
+	if (isBuiltInCategory(category)) {
+		return ACTION_CATEGORY_LABELS[category];
+	}
+
+	const stored = customCategories.find((entry) => entry.id === category);
+	return stored?.label ?? category.replace(/^custom:/, "");
+}
+
+function getCategoryCount(category: ActionCategory, actions = getAllActions()): number {
+	return category === "favorites"
+		? actions.filter((action) => favoriteActionIds.has(action.id)).length
+		: actions.filter((action) => action.category === category).length;
+}
+
+function parseStoredCustomCategories(): CustomActionCategory[] {
+	try {
+		const raw = localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_CUSTOM_CATEGORIES);
+		if (!raw) return [];
+
+		const parsed = JSON.parse(raw);
+		if (!Array.isArray(parsed)) return [];
+
+		const seen = new Set<string>();
+		return parsed.flatMap((value) => {
+			const label =
+				typeof value === "string" ? value.trim() : typeof value?.label === "string" ? value.label.trim() : "";
+			if (!label) return [];
+
+			const rawId = typeof value === "object" && value && typeof value.id === "string" ? value.id.trim() : "";
+			const id = (rawId || buildCustomCategoryId(label)) as CustomActionCategoryId;
+			if (seen.has(id)) return [];
+
+			seen.add(id);
+			return [createCustomCategory(label, id)];
+		});
+	} catch {
+		return [];
+	}
 }
 
 function parseStoredCustomActions(): RoleplayAction[] {
@@ -201,7 +298,8 @@ function parseStoredCustomActions(): RoleplayAction[] {
 		return parsed.flatMap((value) => {
 			if (typeof value === "string") {
 				const text = value.trim();
-				return text ? [createCustomAction(text)] : [];
+				const legacyCategory = buildCustomCategoryId("Custom");
+				return text ? [createCustomAction(text, legacyCategory)] : [];
 			}
 
 			if (!value || typeof value !== "object") {
@@ -213,8 +311,12 @@ function parseStoredCustomActions(): RoleplayAction[] {
 			if (!text) return [];
 
 			const id = typeof stored.id === "string" && stored.id.trim() ? stored.id.trim() : buildCustomActionId(text);
+			const category =
+				typeof stored.category === "string" && stored.category.trim()
+					? (stored.category.trim() as ActionCategory)
+					: buildCustomCategoryId("Custom");
 
-			return [createCustomAction(text, id)];
+			return [createCustomAction(text, category, id)];
 		});
 	} catch {
 		return [];
@@ -232,7 +334,17 @@ function syncSuggestionControls(): void {
 }
 
 function loadActionState(): void {
+	customCategories = parseStoredCustomCategories();
 	customActions = parseStoredCustomActions();
+
+	for (const action of customActions) {
+		if (
+			!isBuiltInCategory(action.category) &&
+			!customCategories.some((category) => category.id === action.category)
+		) {
+			customCategories.push(createCustomCategory(getCategoryLabel(action.category), action.category));
+		}
+	}
 
 	const allActionIds = new Set(getAllActions().map((action) => action.id));
 	favoriteActionIds = new Set(
@@ -242,10 +354,14 @@ function loadActionState(): void {
 	);
 }
 
+function persistCustomCategories(): void {
+	localStorage.setItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_CUSTOM_CATEGORIES, JSON.stringify(customCategories));
+}
+
 function persistCustomActions(): void {
 	localStorage.setItem(
 		SETTINGS_STORAGE_KEYS.ROLEPLAY_CUSTOM_ACTIONS,
-		JSON.stringify(customActions.map((action) => ({ id: action.id, text: action.text })))
+		JSON.stringify(customActions.map((action) => ({ id: action.id, text: action.text, category: action.category })))
 	);
 }
 
@@ -254,11 +370,17 @@ function getAllActions(): RoleplayAction[] {
 }
 
 function getAvailableActionCategories(actions = getAllActions()): ActionCategory[] {
-	const ordered: ActionCategory[] = ["favorites", "mood", "body-language", "scene", "intimacy", "custom"];
-	return ordered.filter((category) => {
+	const ordered: BuiltInActionCategory[] = ["favorites", "mood", "body-language", "scene", "intimacy"];
+	const available: ActionCategory[] = ordered.filter((category) => {
 		if (category === "favorites") return actions.some((action) => favoriteActionIds.has(action.id));
 		return actions.some((action) => action.category === category);
 	});
+
+	for (const category of customCategories) {
+		available.push(category.id);
+	}
+
+	return available;
 }
 
 function ensureActiveActionCategory(actions = getAllActions()): ActionCategory | null {
@@ -285,10 +407,17 @@ function syncComposerVisibility(): void {
 }
 
 function setActiveTab(nextTab: RoleplayTab): void {
+	const targetIndex = roleplayTabButtons.findIndex((button) => button.dataset.roleplayTab === nextTab);
+	const highlightInset = "0.1875rem";
+	const availableWidth = `calc(100% - (${highlightInset} * 2))`;
+	ensuredRoleplayTabHighlight.style.width = `calc(${availableWidth} / ${roleplayTabButtons.length})`;
+	ensuredRoleplayTabHighlight.style.left = `calc(${highlightInset} + ((${availableWidth} / ${roleplayTabButtons.length}) * ${Math.max(targetIndex, 0)}))`;
+
 	roleplayTabButtons.forEach((button) => {
 		const isActive = button.dataset.roleplayTab === nextTab;
-		button.classList.toggle("active", isActive);
+		button.classList.toggle("navbar-tab-active", isActive);
 		button.setAttribute("aria-selected", String(isActive));
+		button.tabIndex = isActive ? 0 : -1;
 	});
 	roleplayPanels.forEach((panel) => {
 		panel.classList.toggle("hidden", panel.dataset.roleplayPanel !== nextTab);
@@ -298,11 +427,13 @@ function setActiveTab(nextTab: RoleplayTab): void {
 function updateSelectedActionsSummary(): void {
 	const actions = getAllActions().filter((action) => selectedActionIds.has(action.id));
 	if (actions.length === 0) {
-		ensuredRoleplaySelectedActions.textContent = "No actions selected.";
+		ensuredRoleplaySelectionBar.classList.add("hidden");
+		ensuredRoleplaySelectedActions.textContent = "";
 		ensuredRoleplayClearActionsButton.classList.add("hidden");
 		return;
 	}
 
+	ensuredRoleplaySelectionBar.classList.remove("hidden");
 	ensuredRoleplaySelectedActions.textContent = `Queued actions: ${actions.map((action) => action.label).join(", ")}`;
 	ensuredRoleplayClearActionsButton.classList.remove("hidden");
 }
@@ -327,38 +458,69 @@ function toggleActionSelection(actionId: string): void {
 	updateSelectedActionsSummary();
 }
 
+function renderInlineAddCategory(nav: HTMLDivElement): void {
+	const button = document.createElement("button");
+	button.type = "button";
+	button.className = "btn roleplay-action-category-pill roleplay-add-entry";
+	button.textContent = "+";
+	button.title = "Add category";
+	button.setAttribute("data-roleplay-add-category-toggle", "true");
+	button.addEventListener("click", () => openRoleplayAddModal("category"));
+	nav.append(button);
+}
+
+function renderInlineAddAction(strip: HTMLDivElement, activeCategory: ActionCategory): void {
+	if (activeCategory === "favorites") return;
+
+	const button = document.createElement("button");
+	button.type = "button";
+	button.className = "btn roleplay-action-chip roleplay-action-chip--add roleplay-add-entry";
+	button.textContent = "+";
+	button.title = `Add action to ${getCategoryLabel(activeCategory)}`;
+	button.setAttribute("data-roleplay-add-action-toggle", "true");
+	button.addEventListener("click", () => openRoleplayAddModal("action"));
+	strip.append(button);
+}
+
+function addCustomAction(rawText: string, category: ActionCategory): boolean {
+	const text = rawText.trim();
+	if (!text || category === "favorites") return false;
+
+	if (
+		customActions.some((action) => action.category === category && action.text.toLowerCase() === text.toLowerCase())
+	) {
+		toastService.warn({ title: "Action already exists", text: "That custom action is already in your list." });
+		return false;
+	}
+
+	customActions.unshift(createCustomAction(text, category));
+	activeActionCategory = category;
+	persistCustomActions();
+	renderActions();
+	return true;
+}
+
 function renderActions(): void {
 	const actions = getAllActions();
 	const activeCategory = ensureActiveActionCategory(actions);
 	ensuredRoleplayActionsRoot.replaceChildren();
 
-	if (!activeCategory) {
-		const emptyState = document.createElement("div");
-		emptyState.className = "roleplay-empty-state";
-		emptyState.textContent = "Add a custom action to start building your quick menu.";
-		ensuredRoleplayActionsRoot.append(emptyState);
-		return;
-	}
-
 	const availableCategories = getAvailableActionCategories(actions);
+	if (!activeCategory || availableCategories.length === 0) return;
+
 	const nav = document.createElement("div");
 	nav.className = "roleplay-action-category-nav";
 	nav.setAttribute("role", "tablist");
 	nav.setAttribute("aria-label", "Roleplay action categories");
 
 	for (const category of availableCategories) {
-		const count =
-			category === "favorites"
-				? actions.filter((action) => favoriteActionIds.has(action.id)).length
-				: actions.filter((action) => action.category === category).length;
-
 		const button = document.createElement("button");
 		button.type = "button";
 		button.className = "btn roleplay-action-category-pill";
 		button.classList.toggle("active", category === activeCategory);
 		button.setAttribute("role", "tab");
 		button.setAttribute("aria-selected", String(category === activeCategory));
-		button.textContent = `${ACTION_CATEGORY_LABELS[category]} (${count})`;
+		button.textContent = `${getCategoryLabel(category)} (${getCategoryCount(category, actions)})`;
 		button.addEventListener("click", () => {
 			activeActionCategory = category;
 			renderActions();
@@ -366,24 +528,7 @@ function renderActions(): void {
 		nav.append(button);
 	}
 
-	const section = document.createElement("section");
-	section.className = "roleplay-action-category";
-
-	const header = document.createElement("div");
-	header.className = "roleplay-action-category-header";
-
-	const title = document.createElement("div");
-	title.className = "roleplay-action-category-title";
-	title.textContent = ACTION_CATEGORY_LABELS[activeCategory];
-
-	const hint = document.createElement("div");
-	hint.className = "roleplay-action-category-hint";
-	hint.textContent =
-		activeCategory === "favorites"
-			? "Your starred beats stay one tap away."
-			: "Scroll sideways and tap any beat to queue it.";
-
-	header.append(title, hint);
+	renderInlineAddCategory(nav);
 
 	const strip = document.createElement("div");
 	strip.className = "roleplay-action-strip";
@@ -417,8 +562,89 @@ function renderActions(): void {
 		strip.append(chip);
 	}
 
-	section.append(header, strip);
-	ensuredRoleplayActionsRoot.append(nav, section);
+	renderInlineAddAction(strip, activeCategory);
+
+	ensuredRoleplayActionsRoot.append(nav, strip);
+}
+
+function addCustomCategory(rawLabel: string): boolean {
+	const label = rawLabel.trim();
+	if (!label) return false;
+
+	if (Object.values(ACTION_CATEGORY_LABELS).some((existing) => existing.toLowerCase() === label.toLowerCase())) {
+		toastService.warn({ title: "Category already exists", text: "That category name is already in use." });
+		return false;
+	}
+
+	if (customCategories.some((category) => category.label.toLowerCase() === label.toLowerCase())) {
+		toastService.warn({ title: "Category already exists", text: "That category name is already in use." });
+		return false;
+	}
+
+	const category = createCustomCategory(label);
+	customCategories.unshift(category);
+	persistCustomCategories();
+	activeActionCategory = category.id;
+	renderActions();
+	return true;
+}
+
+function hideAddModalError(): void {
+	ensuredRoleplayAddModalError.classList.add("hidden");
+	ensuredRoleplayAddModalErrorMessage.textContent = "";
+}
+
+function showAddModalError(message: string): void {
+	ensuredRoleplayAddModalErrorMessage.textContent = message;
+	ensuredRoleplayAddModalError.classList.remove("hidden");
+}
+
+function closeRoleplayAddModal(): void {
+	pendingAddMode = null;
+	hideAddModalError();
+	ensuredRoleplayAddModalInput.value = "";
+	overlayService.closeOverlay();
+}
+
+function openRoleplayAddModal(mode: "category" | "action"): void {
+	pendingAddMode = mode;
+	hideAddModalError();
+	ensuredRoleplayAddModalInput.value = "";
+	ensuredRoleplayAddModalTitle.textContent =
+		mode === "category" ? "Add Category" : `Add Action to ${getCategoryLabel(activeActionCategory)}`;
+	ensuredRoleplayAddModalInput.placeholder = mode === "category" ? "New category" : "pets her head";
+	ensuredRoleplayAddModalSubmitButton.textContent = "Add";
+	overlayService.show("modal-roleplay-add");
+	requestAnimationFrame(() => ensuredRoleplayAddModalInput.focus());
+}
+
+function submitRoleplayAddModal(): void {
+	if (pendingAddMode === "category") {
+		const success = addCustomCategory(ensuredRoleplayAddModalInput.value);
+		if (success) {
+			closeRoleplayAddModal();
+			return;
+		}
+		if (!ensuredRoleplayAddModalInput.value.trim()) {
+			showAddModalError("Enter a category name.");
+		}
+		return;
+	}
+
+	if (pendingAddMode === "action") {
+		if (activeActionCategory === "favorites") {
+			showAddModalError("Choose a category before adding an action.");
+			return;
+		}
+		const success = addCustomAction(ensuredRoleplayAddModalInput.value, activeActionCategory);
+		if (success) {
+			closeRoleplayAddModal();
+			return;
+		}
+		if (!ensuredRoleplayAddModalInput.value.trim()) {
+			showAddModalError("Enter an action.");
+		}
+	}
 }
 
 function getSelectedActionPayload(): string[] {
@@ -838,18 +1064,23 @@ ensuredRoleplayRefreshButton.addEventListener("click", () => {
 	void refreshSuggestions(true);
 });
 
-ensuredRoleplayAddActionButton.addEventListener("click", () => {
-	const text = ensuredRoleplayCustomActionInput.value.trim();
-	if (!text) return;
-	if (customActions.some((action) => action.text.toLowerCase() === text.toLowerCase())) {
-		toastService.warn({ title: "Action already exists", text: "That custom action is already in your list." });
-		return;
+ensuredRoleplayAddModalSubmitButton.addEventListener("click", () => {
+	submitRoleplayAddModal();
+});
+
+ensuredRoleplayAddModalCancelButton.addEventListener("click", () => {
+	closeRoleplayAddModal();
+});
+
+ensuredRoleplayAddModalInput.addEventListener("keydown", (event) => {
+	if (event.key === "Enter") {
+		event.preventDefault();
+		submitRoleplayAddModal();
 	}
-	customActions.unshift(createCustomAction(text));
-	ensuredRoleplayCustomActionInput.value = "";
-	activeActionCategory = "custom";
-	persistCustomActions();
-	renderActions();
+	if (event.key === "Escape") {
+		event.preventDefault();
+		closeRoleplayAddModal();
+	}
 });
 
 window.addEventListener("roleplay-send-requested", (event) => {
