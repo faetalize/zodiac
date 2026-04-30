@@ -7,7 +7,7 @@
  * Contributors: Treat this as READ-ONLY.
  * If you need schema changes, open an issue describing the required modifications.
  *
- * Generated: 2026-03-28
+ * Generated: 2026-04-30
  */
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
