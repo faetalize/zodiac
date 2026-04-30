@@ -159,6 +159,14 @@ function getCustomActionInput(): HTMLInputElement {
 	return input;
 }
 
+function getCustomActionLabelInput(): HTMLInputElement {
+	const input = document.querySelector<HTMLInputElement>("#roleplay-add-modal-label-input");
+	if (!input) {
+		throw new Error("Missing action label input");
+	}
+	return input;
+}
+
 function getCreateCategoryButton(): HTMLButtonElement {
 	const button = document.querySelector<HTMLButtonElement>("#btn-roleplay-add-modal-submit");
 	if (!button) {
@@ -257,6 +265,7 @@ function bootstrapRoleplayDom(): void {
 			<div class="overlay-content">
 				<div id="modal-roleplay-add" class="roleplay-editor-modal hidden">
 					<h1 id="roleplay-add-modal-title">Add</h1>
+					<input id="roleplay-add-modal-label-input" type="text">
 					<input id="roleplay-add-modal-input" type="text">
 					<div id="roleplay-add-modal-error" class="hidden">
 						<span id="roleplay-add-modal-error-message"></span>
@@ -436,13 +445,14 @@ describe("Roleplay composer suggestion workflow", () => {
 		affectionCategory.click();
 
 		getRevealActionButton().click();
+		getCustomActionLabelInput().value = "Pet head";
 		getCustomActionInput().value = "pets her head";
 		getAddActionButton().click();
 
 		await waitForCondition(
 			() =>
 				Array.from(document.querySelectorAll<HTMLButtonElement>(".roleplay-action-chip__select")).some(
-					(button) => button.title === "pets her head"
+					(button) => button.textContent === "Pet head" && button.title === "pets her head"
 				),
 			"Expected custom action to render inside the selected category"
 		);
@@ -466,32 +476,35 @@ describe("Roleplay composer suggestion workflow", () => {
 			"Expected custom category rename to render"
 		);
 
-		getTitledButton("Edit pets her head").click();
+		getTitledButton("Edit Pet head").click();
+		getCustomActionLabelInput().value = "Gentle pet";
 		getCustomActionInput().value = "pets her head gently";
 		getAddActionButton().click();
 
 		await waitForCondition(
 			() =>
 				Array.from(document.querySelectorAll<HTMLButtonElement>(".roleplay-action-chip__select")).some(
-					(button) => button.title === "pets her head gently"
+					(button) => button.textContent === "Gentle pet" && button.title === "pets her head gently"
 				),
 			"Expected custom action edit to render"
 		);
 
 		expect(window.localStorage.getItem("roleplayCustomCategories")).toContain("Comfort");
+		expect(window.localStorage.getItem("roleplayCustomActions")).toContain("Gentle pet");
 		expect(window.localStorage.getItem("roleplayCustomActions")).toContain("pets her head gently");
 
-		getTitledButton("Delete pets her head gently").click();
+		getTitledButton("Delete Gentle pet").click();
 		confirmDangerDialog();
 
 		await waitForCondition(
 			() =>
 				!Array.from(document.querySelectorAll<HTMLButtonElement>(".roleplay-action-chip__select")).some(
-					(button) => button.title === "pets her head gently"
+					(button) => button.textContent === "Gentle pet"
 				),
 			"Expected deleted custom action to be removed"
 		);
 
+		expect(window.localStorage.getItem("roleplayCustomActions")).not.toContain("Gentle pet");
 		expect(window.localStorage.getItem("roleplayCustomActions")).not.toContain("pets her head gently");
 		expect(
 			Array.from(document.querySelectorAll(".roleplay-action-category-pill")).map((button) => button.textContent)

@@ -8088,6 +8088,12 @@ input.onboarding-select {
 	white-space: nowrap;
 }
 
+.roleplay-action-chip__controls {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.05rem;
+}
+
 .roleplay-action-chip__select:hover {
 	background: color-mix(in srgb, var(--button-bg) 16%, transparent);
 }
@@ -8134,7 +8140,6 @@ input.onboarding-select {
 .roleplay-action-chip.selected .roleplay-action-chip__select {
 	background: color-mix(in srgb, var(--button-bg) 22%, transparent);
 	color: var(--button-fg);
-	font-weight: 700;
 }
 
 .roleplay-action-chip.selected .roleplay-action-chip__select:hover {

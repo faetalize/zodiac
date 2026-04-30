@@ -36,6 +36,7 @@ const roleplayClearActionsButton = document.querySelector<HTMLButtonElement>("#b
 const roleplayRefreshButton = document.querySelector<HTMLButtonElement>("#btn-roleplay-refresh");
 const roleplayAddModal = document.querySelector<HTMLDivElement>("#modal-roleplay-add");
 const roleplayAddModalTitle = document.querySelector<HTMLHeadingElement>("#roleplay-add-modal-title");
+const roleplayAddModalLabelInput = document.querySelector<HTMLInputElement>("#roleplay-add-modal-label-input");
 const roleplayAddModalInput = document.querySelector<HTMLInputElement>("#roleplay-add-modal-input");
 const roleplayAddModalError = document.querySelector<HTMLDivElement>("#roleplay-add-modal-error");
 const roleplayAddModalErrorMessage = document.querySelector<HTMLSpanElement>("#roleplay-add-modal-error-message");
@@ -60,6 +61,7 @@ if (
 	!roleplayRefreshButton ||
 	!roleplayAddModal ||
 	!roleplayAddModalTitle ||
+	!roleplayAddModalLabelInput ||
 	!roleplayAddModalInput ||
 	!roleplayAddModalError ||
 	!roleplayAddModalErrorMessage ||
@@ -86,6 +88,7 @@ const ensuredRoleplaySelectedActions = roleplaySelectedActions;
 const ensuredRoleplayClearActionsButton = roleplayClearActionsButton;
 const ensuredRoleplayRefreshButton = roleplayRefreshButton;
 const ensuredRoleplayAddModalTitle = roleplayAddModalTitle;
+const ensuredRoleplayAddModalLabelInput = roleplayAddModalLabelInput;
 const ensuredRoleplayAddModalInput = roleplayAddModalInput;
 const ensuredRoleplayAddModalError = roleplayAddModalError;
 const ensuredRoleplayAddModalErrorMessage = roleplayAddModalErrorMessage;
@@ -195,7 +198,7 @@ let pendingAddMode: "category" | "action" | "edit-category" | "edit-action" | nu
 let pendingEditCategoryId: CustomActionCategoryId | null = null;
 let pendingEditActionId: string | null = null;
 
-type StoredCustomAction = string | { id?: string; text?: string; category?: string };
+type StoredCustomAction = string | { id?: string; label?: string; text?: string; category?: string };
 
 function parseStoredArray(key: string): string[] {
 	try {
@@ -237,10 +240,15 @@ function createCustomCategory(label: string, id = buildCustomCategoryId(label)):
 	};
 }
 
-function createCustomAction(text: string, category: ActionCategory, id = buildCustomActionId(text)): RoleplayAction {
+function createCustomAction(
+	text: string,
+	category: ActionCategory,
+	label = text,
+	id = buildCustomActionId(text)
+): RoleplayAction {
 	return {
 		id,
-		label: text.length > 22 ? `${text.slice(0, 22)}...` : text,
+		label,
 		text,
 		category,
 		custom: true
@@ -341,6 +349,7 @@ function parseStoredCustomActions(): RoleplayAction[] {
 			const stored = value as Exclude<StoredCustomAction, string>;
 			const text = typeof stored.text === "string" ? stored.text.trim() : "";
 			if (!text) return [];
+			const label = typeof stored.label === "string" && stored.label.trim() ? stored.label.trim() : text;
 
 			const id = typeof stored.id === "string" && stored.id.trim() ? stored.id.trim() : buildCustomActionId(text);
 			const category =
@@ -348,7 +357,7 @@ function parseStoredCustomActions(): RoleplayAction[] {
 					? (stored.category.trim() as ActionCategory)
 					: buildCustomCategoryId("Custom");
 
-			return [createCustomAction(text, category, id)];
+			return [createCustomAction(text, category, label, id)];
 		});
 	} catch {
 		return [];
@@ -393,7 +402,14 @@ function persistCustomCategories(): void {
 function persistCustomActions(): void {
 	localStorage.setItem(
 		SETTINGS_STORAGE_KEYS.ROLEPLAY_CUSTOM_ACTIONS,
-		JSON.stringify(customActions.map((action) => ({ id: action.id, text: action.text, category: action.category })))
+		JSON.stringify(
+			customActions.map((action) => ({
+				id: action.id,
+				label: action.label,
+				text: action.text,
+				category: action.category
+			}))
+		)
 	);
 }
 
@@ -583,16 +599,17 @@ function renderInlineAddAction(strip: HTMLDivElement, activeCategory: ActionCate
 	strip.append(button);
 }
 
-function addCustomAction(rawText: string, category: ActionCategory): boolean {
+function addCustomAction(rawLabel: string, rawText: string, category: ActionCategory): boolean {
+	const label = rawLabel.trim();
 	const text = rawText.trim();
-	if (!text || category === "favorites") return false;
+	if (!label || !text || category === "favorites") return false;
 
 	if (!isActionTextAvailable(text, category)) {
 		toastService.warn({ title: "Action already exists", text: "That custom action is already in your list." });
 		return false;
 	}
 
-	customActions.unshift(createCustomAction(text, category));
+	customActions.unshift(createCustomAction(text, category, label));
 	activeActionCategory = category;
 	persistCustomActions();
 	queueRoleplaySettingsSync();
@@ -600,10 +617,11 @@ function addCustomAction(rawText: string, category: ActionCategory): boolean {
 	return true;
 }
 
-function updateCustomAction(actionId: string, rawText: string): boolean {
+function updateCustomAction(actionId: string, rawLabel: string, rawText: string): boolean {
+	const label = rawLabel.trim();
 	const text = rawText.trim();
 	const action = customActions.find((entry) => entry.id === actionId);
-	if (!text || !action) return false;
+	if (!label || !text || !action) return false;
 
 	if (!isActionTextAvailable(text, action.category, actionId)) {
 		toastService.warn({ title: "Action already exists", text: "That custom action is already in your list." });
@@ -611,7 +629,7 @@ function updateCustomAction(actionId: string, rawText: string): boolean {
 	}
 
 	action.text = text;
-	action.label = text.length > 22 ? `${text.slice(0, 22)}...` : text;
+	action.label = label;
 	persistCustomActions();
 	queueRoleplaySettingsSync();
 	renderActions();
@@ -681,10 +699,12 @@ function createRoleplayActionChip(action: RoleplayAction): HTMLDivElement {
 	});
 	favoriteButton.classList.add("roleplay-action-chip__favorite");
 
-	chip.append(selectButton, favoriteButton);
+	const controls = document.createElement("div");
+	controls.className = "roleplay-action-chip__controls";
+	controls.append(favoriteButton);
 
 	if (action.custom) {
-		chip.append(
+		controls.append(
 			createRoleplayIconButton({
 				icon: "edit",
 				title: `Edit ${action.label}`,
@@ -698,6 +718,8 @@ function createRoleplayActionChip(action: RoleplayAction): HTMLDivElement {
 			})
 		);
 	}
+
+	chip.append(selectButton, controls);
 
 	return chip;
 }
@@ -811,6 +833,8 @@ function closeRoleplayAddModal(): void {
 	pendingEditCategoryId = null;
 	pendingEditActionId = null;
 	hideAddModalError();
+	ensuredRoleplayAddModalLabelInput.value = "";
+	ensuredRoleplayAddModalLabelInput.classList.add("hidden");
 	ensuredRoleplayAddModalInput.value = "";
 	overlayService.closeOverlay();
 }
@@ -820,13 +844,18 @@ function openRoleplayAddModal(mode: "category" | "action"): void {
 	pendingEditCategoryId = null;
 	pendingEditActionId = null;
 	hideAddModalError();
+	ensuredRoleplayAddModalLabelInput.value = "";
+	ensuredRoleplayAddModalLabelInput.classList.toggle("hidden", mode === "category");
 	ensuredRoleplayAddModalInput.value = "";
 	ensuredRoleplayAddModalTitle.textContent =
 		mode === "category" ? "Add Category" : `Add Action to ${getCategoryLabel(activeActionCategory)}`;
-	ensuredRoleplayAddModalInput.placeholder = mode === "category" ? "New category" : "pets her head";
+	ensuredRoleplayAddModalLabelInput.placeholder = "Action label, e.g. Pet head";
+	ensuredRoleplayAddModalInput.placeholder = mode === "category" ? "New category" : "Payload, e.g. pets her head";
 	ensuredRoleplayAddModalSubmitButton.textContent = "Add";
 	overlayService.show("modal-roleplay-add");
-	requestAnimationFrame(() => ensuredRoleplayAddModalInput.focus());
+	requestAnimationFrame(() =>
+		(mode === "category" ? ensuredRoleplayAddModalInput : ensuredRoleplayAddModalLabelInput).focus()
+	);
 }
 
 function openRoleplayEditCategoryModal(categoryId: CustomActionCategoryId): void {
@@ -836,6 +865,8 @@ function openRoleplayEditCategoryModal(categoryId: CustomActionCategoryId): void
 	pendingEditCategoryId = categoryId;
 	pendingEditActionId = null;
 	hideAddModalError();
+	ensuredRoleplayAddModalLabelInput.value = "";
+	ensuredRoleplayAddModalLabelInput.classList.add("hidden");
 	ensuredRoleplayAddModalInput.value = category.label;
 	ensuredRoleplayAddModalTitle.textContent = "Rename Category";
 	ensuredRoleplayAddModalInput.placeholder = "Category name";
@@ -851,12 +882,15 @@ function openRoleplayEditActionModal(actionId: string): void {
 	pendingEditActionId = actionId;
 	pendingEditCategoryId = null;
 	hideAddModalError();
+	ensuredRoleplayAddModalLabelInput.classList.remove("hidden");
+	ensuredRoleplayAddModalLabelInput.value = action.label;
 	ensuredRoleplayAddModalInput.value = action.text;
 	ensuredRoleplayAddModalTitle.textContent = "Edit Action";
-	ensuredRoleplayAddModalInput.placeholder = "Action text";
+	ensuredRoleplayAddModalLabelInput.placeholder = "Action label";
+	ensuredRoleplayAddModalInput.placeholder = "Action payload";
 	ensuredRoleplayAddModalSubmitButton.textContent = "Save";
 	overlayService.show("modal-roleplay-add");
-	requestAnimationFrame(() => ensuredRoleplayAddModalInput.select());
+	requestAnimationFrame(() => ensuredRoleplayAddModalLabelInput.select());
 }
 
 function submitRoleplayAddModal(): void {
@@ -877,13 +911,21 @@ function submitRoleplayAddModal(): void {
 			showAddModalError("Choose a category before adding an action.");
 			return;
 		}
-		const success = addCustomAction(ensuredRoleplayAddModalInput.value, activeActionCategory);
+		const success = addCustomAction(
+			ensuredRoleplayAddModalLabelInput.value,
+			ensuredRoleplayAddModalInput.value,
+			activeActionCategory
+		);
 		if (success) {
 			closeRoleplayAddModal();
 			return;
 		}
+		if (!ensuredRoleplayAddModalLabelInput.value.trim()) {
+			showAddModalError("Enter an action label.");
+			return;
+		}
 		if (!ensuredRoleplayAddModalInput.value.trim()) {
-			showAddModalError("Enter an action.");
+			showAddModalError("Enter an action payload.");
 		}
 	}
 
@@ -901,13 +943,21 @@ function submitRoleplayAddModal(): void {
 
 	if (pendingAddMode === "edit-action") {
 		if (!pendingEditActionId) return;
-		const success = updateCustomAction(pendingEditActionId, ensuredRoleplayAddModalInput.value);
+		const success = updateCustomAction(
+			pendingEditActionId,
+			ensuredRoleplayAddModalLabelInput.value,
+			ensuredRoleplayAddModalInput.value
+		);
 		if (success) {
 			closeRoleplayAddModal();
 			return;
 		}
+		if (!ensuredRoleplayAddModalLabelInput.value.trim()) {
+			showAddModalError("Enter an action label.");
+			return;
+		}
 		if (!ensuredRoleplayAddModalInput.value.trim()) {
-			showAddModalError("Enter an action.");
+			showAddModalError("Enter an action payload.");
 		}
 	}
 }
@@ -1337,7 +1387,7 @@ ensuredRoleplayAddModalCancelButton.addEventListener("click", () => {
 	closeRoleplayAddModal();
 });
 
-ensuredRoleplayAddModalInput.addEventListener("keydown", (event) => {
+function handleRoleplayEditorKeydown(event: KeyboardEvent): void {
 	if (event.key === "Enter") {
 		event.preventDefault();
 		submitRoleplayAddModal();
@@ -1346,7 +1396,10 @@ ensuredRoleplayAddModalInput.addEventListener("keydown", (event) => {
 		event.preventDefault();
 		closeRoleplayAddModal();
 	}
-});
+}
+
+ensuredRoleplayAddModalLabelInput.addEventListener("keydown", handleRoleplayEditorKeydown);
+ensuredRoleplayAddModalInput.addEventListener("keydown", handleRoleplayEditorKeydown);
 
 window.addEventListener("roleplay-send-requested", (event) => {
 	void (async () => {
