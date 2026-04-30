@@ -335,7 +335,7 @@ describe("Roleplay composer suggestion workflow", () => {
 		await importRoleplayComposer();
 		await waitForSuggestions();
 
-		getActionButton("teases them with a sly smile").click();
+		getActionButton("shakes their right hand").click();
 		getSuggestionButtons()[0].click();
 
 		await waitForCondition(
@@ -343,7 +343,7 @@ describe("Roleplay composer suggestion workflow", () => {
 			"Expected chained roleplay action and dialogue to send"
 		);
 
-		expect(testState.messagePayloads[0]).toBe("ACTION::teases them with a sly smile\nDIALOGUE::Tell me more.");
+		expect(testState.messagePayloads[0]).toBe("ACTION::shakes their right hand\nDIALOGUE::Tell me more.");
 	});
 
 	it("refresh button requests a fresh set of four suggestions again", async () => {

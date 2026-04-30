@@ -93,7 +93,7 @@ const ensuredRoleplayTabHighlight = roleplayTabHighlight;
 const ensuredRoleplaySuggestionModelSelect = roleplaySuggestionModelSelect;
 
 type RoleplayTab = "dialogue" | "actions";
-type BuiltInActionCategory = "favorites" | "mood" | "body-language" | "scene" | "intimacy";
+type BuiltInActionCategory = "favorites" | "neutral" | "body-language" | "intimacy" | "aggression" | "expressions";
 type CustomActionCategoryId = `custom:${string}`;
 type ActionCategory = BuiltInActionCategory | CustomActionCategoryId;
 
@@ -130,51 +130,52 @@ const ROLEPLAY_SUGGESTIONS_SCHEMA: any = {
 const ROLEPLAY_SUGGESTIONS_MAX_OUTPUT_TOKENS = 5000;
 
 const PRESET_ACTIONS: RoleplayAction[] = [
-	{ id: "mood-tease", label: "Tease", text: "teases them with a sly smile", category: "mood" },
-	{ id: "mood-soften", label: "Soften", text: "lets their guard down a little", category: "mood" },
-	{ id: "mood-fluster", label: "Fluster", text: "goes a little pink at the reaction", category: "mood" },
-	{ id: "body-step-closer", label: "Step closer", text: "steps a little closer", category: "body-language" },
+	{ id: "neutral-shake-hand-r", label: "Shake Hand (R)", text: "shakes their right hand", category: "neutral" },
+	{ id: "neutral-shake-hand-l", label: "Shake Hand (L)", text: "shakes their left hand", category: "neutral" },
+	{ id: "neutral-push", label: "Push", text: "pushes them", category: "neutral" },
+	{ id: "neutral-pull", label: "Pull", text: "pulls them", category: "neutral" },
+	{ id: "body-look-away", label: "Look away", text: "looks away", category: "body-language" },
+	{ id: "body-eye-contact", label: "Eye contact", text: "makes eye contact", category: "body-language" },
+	{ id: "body-shrug", label: "Shrug", text: "shrugs", category: "body-language" },
+	{ id: "intimacy-hug", label: "Hug", text: "hugs them", category: "intimacy" },
+	{ id: "intimacy-pat-back", label: "Pat on the back", text: "pats them on the back", category: "intimacy" },
+	{ id: "intimacy-kiss", label: "Kiss", text: "kisses them", category: "intimacy" },
+	{ id: "intimacy-hold-hands", label: "Hold hands", text: "holds their hand", category: "intimacy" },
+	{ id: "intimacy-pat-head", label: "Pat on the head", text: "pats them on the head", category: "intimacy" },
+	{ id: "aggression-punch", label: "Punch", text: "punches them", category: "aggression" },
+	{ id: "aggression-kick", label: "Kick", text: "kicks them", category: "aggression" },
+	{ id: "aggression-spit", label: "Spit", text: "spits at them", category: "aggression" },
 	{
-		id: "body-lean-in",
-		label: "Lean in",
-		text: "leans in until their voices are nearly shared",
-		category: "body-language"
+		id: "aggression-pull-aggressively",
+		label: "Pull aggressively",
+		text: "pulls them aggressively",
+		category: "aggression"
 	},
 	{
-		id: "body-cross-arms",
-		label: "Cross arms",
-		text: "crosses their arms and studies them",
-		category: "body-language"
+		id: "aggression-push-aggressively",
+		label: "Push aggressively",
+		text: "pushes them aggressively",
+		category: "aggression"
 	},
-	{ id: "scene-pause", label: "Pause", text: "lets the silence linger for a beat", category: "scene" },
-	{
-		id: "scene-glance-away",
-		label: "Glance away",
-		text: "glances away before looking back again",
-		category: "scene"
-	},
-	{
-		id: "scene-close-door",
-		label: "Close the distance",
-		text: "closes the distance between them",
-		category: "scene"
-	},
-	{
-		id: "intimacy-touch-hand",
-		label: "Touch hand",
-		text: "brushes their fingers lightly against their hand",
-		category: "intimacy"
-	},
-	{ id: "intimacy-whisper", label: "Whisper", text: "drops to a softer whisper", category: "intimacy" },
-	{ id: "intimacy-smirk", label: "Smirk", text: "answers with a knowing smirk", category: "intimacy" }
+	{ id: "expression-disgusted", label: "Disgusted", text: "looks disgusted", category: "expressions" },
+	{ id: "expression-hopeful", label: "Hopeful", text: "looks hopeful", category: "expressions" },
+	{ id: "expression-anxious", label: "Anxious", text: "looks anxious", category: "expressions" },
+	{ id: "expression-fearful", label: "Fearful", text: "looks fearful", category: "expressions" },
+	{ id: "expression-in-love", label: "In love", text: "looks in love", category: "expressions" },
+	{ id: "expression-shocked", label: "Shocked", text: "looks shocked", category: "expressions" },
+	{ id: "expression-surprised", label: "Surprised", text: "looks surprised", category: "expressions" },
+	{ id: "expression-angry", label: "Angry", text: "looks angry", category: "expressions" },
+	{ id: "expression-happy", label: "Happy", text: "looks happy", category: "expressions" },
+	{ id: "expression-frown", label: "Frown", text: "frowns", category: "expressions" }
 ];
 
 const ACTION_CATEGORY_LABELS: Record<BuiltInActionCategory, string> = {
 	favorites: "Favorites",
-	mood: "Mood",
+	neutral: "Neutral",
 	"body-language": "Body language",
-	scene: "Scene beats",
-	intimacy: "Intimacy"
+	intimacy: "Intimacy",
+	aggression: "Aggression",
+	expressions: "Expressions"
 };
 
 let activeActionCategory: ActionCategory = "favorites";
@@ -370,7 +371,14 @@ function getAllActions(): RoleplayAction[] {
 }
 
 function getAvailableActionCategories(actions = getAllActions()): ActionCategory[] {
-	const ordered: BuiltInActionCategory[] = ["favorites", "mood", "body-language", "scene", "intimacy"];
+	const ordered: BuiltInActionCategory[] = [
+		"favorites",
+		"neutral",
+		"body-language",
+		"intimacy",
+		"aggression",
+		"expressions"
+	];
 	const available: ActionCategory[] = ordered.filter((category) => {
 		if (category === "favorites") return actions.some((action) => favoriteActionIds.has(action.id));
 		return actions.some((action) => action.category === category);
