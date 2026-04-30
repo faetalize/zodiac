@@ -200,8 +200,23 @@ function getActionButton(title: string): HTMLButtonElement {
 	return button;
 }
 
+function confirmDangerDialog(): void {
+	const button = document.querySelector<HTMLButtonElement>("#btn-dialog-ok");
+	if (!button) {
+		throw new Error("Missing dialog confirm button");
+	}
+	button.click();
+}
+
 function bootstrapRoleplayDom(): void {
 	bootstrapDom(`
+		<div id="dialog" class="dialog hidden">
+			<div id="dialog-message"></div>
+			<div id="dialog-buttons" class="btn-array">
+				<button class="btn-danger btn" id="btn-dialog-ok">OK</button>
+				<button class="btn-neutral btn" id="btn-dialog-cancel">Cancel</button>
+			</div>
+		</div>
 		<div id="message-box">
 			<button id="btn-roleplay" type="button"></button>
 			<button id="btn-send" type="button"></button>
@@ -229,7 +244,7 @@ function bootstrapRoleplayDom(): void {
 		<div class="overlay hidden" id="overlay">
 			<button id="btn-hide-overlay" type="button">BACK</button>
 			<div class="overlay-content">
-				<div id="modal-roleplay-add" class="hidden">
+				<div id="modal-roleplay-add" class="roleplay-editor-modal hidden">
 					<h1 id="roleplay-add-modal-title">Add</h1>
 					<input id="roleplay-add-modal-input" type="text">
 					<div id="roleplay-add-modal-error" class="hidden">
@@ -376,7 +391,6 @@ describe("Roleplay composer suggestion workflow", () => {
 	});
 
 	it("creates, edits, and deletes custom categories and actions", async () => {
-		vi.spyOn(window, "confirm").mockReturnValue(true);
 		queueSuggestionOptions(["One", "Two", "Three", "Four"]);
 
 		await importRoleplayComposer();
@@ -446,6 +460,7 @@ describe("Roleplay composer suggestion workflow", () => {
 		expect(window.localStorage.getItem("roleplayCustomActions")).toContain("pets her head gently");
 
 		getTitledButton("Delete pets her head gently").click();
+		confirmDangerDialog();
 
 		await waitForCondition(
 			() =>
@@ -461,6 +476,7 @@ describe("Roleplay composer suggestion workflow", () => {
 		).toContain("Comfort (0)");
 
 		getTitledButton("Delete Comfort").click();
+		confirmDangerDialog();
 
 		await waitForCondition(
 			() =>

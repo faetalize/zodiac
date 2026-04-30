@@ -8,6 +8,7 @@ import * as settingsService from "../../services/Settings.service";
 import * as supabaseService from "../../services/Supabase.service";
 import * as toastService from "../../services/Toast.service";
 import * as overlayService from "../../services/Overlay.service";
+import { confirmDialogDanger } from "../../utils/helpers";
 import { shouldPreferPremiumEndpoint } from "./ApiKeyInput.component";
 import { buildOpenRouterRequest, requestOpenRouterCompletion } from "../../services/OpenRouter.service";
 import {
@@ -522,10 +523,27 @@ function renderInlineAddCategory(nav: HTMLDivElement): void {
 	nav.append(button);
 }
 
-function renderCustomCategoryControls(wrapper: HTMLDivElement, category: CustomActionCategoryId): void {
+function createRoleplayIconButton(args: {
+	icon: string;
+	title: string;
+	onClick: () => void;
+	danger?: boolean;
+}): HTMLButtonElement {
+	const button = document.createElement("button");
+	button.type = "button";
+	button.className = "roleplay-action-chip__icon material-symbols-outlined";
+	button.classList.toggle("roleplay-action-chip__icon--danger", !!args.danger);
+	button.textContent = args.icon;
+	button.title = args.title;
+	button.setAttribute("aria-label", args.title);
+	button.addEventListener("click", args.onClick);
+	return button;
+}
+
+function appendCustomCategoryControls(wrapper: HTMLDivElement, category: CustomActionCategoryId): void {
 	const editButton = document.createElement("button");
 	editButton.type = "button";
-	editButton.className = "roleplay-category-control material-symbols-outlined";
+	editButton.className = "btn-textual material-symbols-outlined roleplay-category-control";
 	editButton.textContent = "edit";
 	editButton.title = `Rename ${getCategoryLabel(category)}`;
 	editButton.setAttribute("aria-label", editButton.title);
@@ -533,11 +551,12 @@ function renderCustomCategoryControls(wrapper: HTMLDivElement, category: CustomA
 
 	const deleteButton = document.createElement("button");
 	deleteButton.type = "button";
-	deleteButton.className = "roleplay-category-control roleplay-category-control--danger material-symbols-outlined";
+	deleteButton.className =
+		"btn-textual material-symbols-outlined roleplay-category-control roleplay-category-control--danger";
 	deleteButton.textContent = "delete";
 	deleteButton.title = `Delete ${getCategoryLabel(category)}`;
 	deleteButton.setAttribute("aria-label", deleteButton.title);
-	deleteButton.addEventListener("click", () => deleteCustomCategory(category));
+	deleteButton.addEventListener("click", () => void deleteCustomCategory(category));
 
 	wrapper.append(editButton, deleteButton);
 }
@@ -589,15 +608,86 @@ function updateCustomAction(actionId: string, rawText: string): boolean {
 	return true;
 }
 
-function deleteCustomAction(actionId: string): void {
+async function deleteCustomAction(actionId: string): Promise<void> {
 	const action = customActions.find((entry) => entry.id === actionId);
 	if (!action) return;
-	if (!window.confirm(`Delete action "${action.label}"?`)) return;
+	const confirmed = await confirmDialogDanger(`Delete action "${action.label}"?`);
+	if (!confirmed) return;
 
 	customActions = customActions.filter((entry) => entry.id !== actionId);
 	discardActionState([actionId]);
 	persistCustomActions();
 	renderActions();
+}
+
+function createRoleplayCategoryEntry(
+	category: ActionCategory,
+	activeCategory: ActionCategory,
+	actions: RoleplayAction[]
+): HTMLDivElement {
+	const wrapper = document.createElement("div");
+	wrapper.className = "roleplay-action-category-entry";
+	wrapper.classList.toggle("is-custom", isCustomCategory(category));
+
+	const button = document.createElement("button");
+	button.type = "button";
+	button.className = "btn roleplay-action-category-pill";
+	button.classList.toggle("active", category === activeCategory);
+	button.setAttribute("role", "tab");
+	button.setAttribute("aria-selected", String(category === activeCategory));
+	button.textContent = `${getCategoryLabel(category)} (${getCategoryCount(category, actions)})`;
+	button.addEventListener("click", () => {
+		activeActionCategory = category;
+		renderActions();
+	});
+	wrapper.append(button);
+
+	if (isCustomCategory(category)) {
+		appendCustomCategoryControls(wrapper, category);
+	}
+
+	return wrapper;
+}
+
+function createRoleplayActionChip(action: RoleplayAction): HTMLDivElement {
+	const chip = document.createElement("div");
+	chip.className = "roleplay-action-chip";
+	chip.classList.toggle("selected", selectedActionIds.has(action.id));
+	chip.classList.toggle("favorite", favoriteActionIds.has(action.id));
+
+	const selectButton = document.createElement("button");
+	selectButton.type = "button";
+	selectButton.className = "roleplay-action-chip__select";
+	selectButton.textContent = action.label;
+	selectButton.title = action.text;
+	selectButton.addEventListener("click", () => toggleActionSelection(action.id));
+
+	const favoriteButton = createRoleplayIconButton({
+		icon: favoriteActionIds.has(action.id) ? "star" : "star_outline",
+		title: favoriteActionIds.has(action.id) ? "Remove favorite" : "Favorite action",
+		onClick: () => toggleFavorite(action.id)
+	});
+	favoriteButton.classList.add("roleplay-action-chip__favorite");
+
+	chip.append(selectButton, favoriteButton);
+
+	if (action.custom) {
+		chip.append(
+			createRoleplayIconButton({
+				icon: "edit",
+				title: `Edit ${action.label}`,
+				onClick: () => openRoleplayEditActionModal(action.id)
+			}),
+			createRoleplayIconButton({
+				icon: "delete",
+				title: `Delete ${action.label}`,
+				onClick: () => void deleteCustomAction(action.id),
+				danger: true
+			})
+		);
+	}
+
+	return chip;
 }
 
 function renderActions(): void {
@@ -614,26 +704,7 @@ function renderActions(): void {
 	nav.setAttribute("aria-label", "Roleplay action categories");
 
 	for (const category of availableCategories) {
-		const wrapper = document.createElement("div");
-		wrapper.className = "roleplay-action-category-entry";
-		wrapper.classList.toggle("is-custom", isCustomCategory(category));
-
-		const button = document.createElement("button");
-		button.type = "button";
-		button.className = "btn roleplay-action-category-pill";
-		button.classList.toggle("active", category === activeCategory);
-		button.setAttribute("role", "tab");
-		button.setAttribute("aria-selected", String(category === activeCategory));
-		button.textContent = `${getCategoryLabel(category)} (${getCategoryCount(category, actions)})`;
-		button.addEventListener("click", () => {
-			activeActionCategory = category;
-			renderActions();
-		});
-		wrapper.append(button);
-		if (isCustomCategory(category)) {
-			renderCustomCategoryControls(wrapper, category);
-		}
-		nav.append(wrapper);
+		nav.append(createRoleplayCategoryEntry(category, activeCategory, actions));
 	}
 
 	renderInlineAddCategory(nav);
@@ -647,48 +718,7 @@ function renderActions(): void {
 			: actions.filter((action) => action.category === activeCategory);
 
 	for (const action of relevant) {
-		const chip = document.createElement("div");
-		chip.className = "roleplay-action-chip";
-		chip.classList.toggle("selected", selectedActionIds.has(action.id));
-		chip.classList.toggle("favorite", favoriteActionIds.has(action.id));
-
-		const selectButton = document.createElement("button");
-		selectButton.type = "button";
-		selectButton.className = "roleplay-action-chip__select";
-		selectButton.textContent = action.label;
-		selectButton.title = action.text;
-		selectButton.addEventListener("click", () => toggleActionSelection(action.id));
-
-		const favoriteButton = document.createElement("button");
-		favoriteButton.type = "button";
-		favoriteButton.className = "roleplay-action-chip__favorite material-symbols-outlined";
-		favoriteButton.textContent = favoriteActionIds.has(action.id) ? "star" : "star_outline";
-		favoriteButton.title = favoriteActionIds.has(action.id) ? "Remove favorite" : "Favorite action";
-		favoriteButton.addEventListener("click", () => toggleFavorite(action.id));
-
-		chip.append(selectButton, favoriteButton);
-
-		if (action.custom) {
-			const editButton = document.createElement("button");
-			editButton.type = "button";
-			editButton.className = "roleplay-action-chip__manage material-symbols-outlined";
-			editButton.textContent = "edit";
-			editButton.title = `Edit ${action.label}`;
-			editButton.setAttribute("aria-label", editButton.title);
-			editButton.addEventListener("click", () => openRoleplayEditActionModal(action.id));
-
-			const deleteButton = document.createElement("button");
-			deleteButton.type = "button";
-			deleteButton.className =
-				"roleplay-action-chip__manage roleplay-action-chip__manage--danger material-symbols-outlined";
-			deleteButton.textContent = "delete";
-			deleteButton.title = `Delete ${action.label}`;
-			deleteButton.setAttribute("aria-label", deleteButton.title);
-			deleteButton.addEventListener("click", () => deleteCustomAction(action.id));
-
-			chip.append(editButton, deleteButton);
-		}
-		strip.append(chip);
+		strip.append(createRoleplayActionChip(action));
 	}
 
 	renderInlineAddAction(strip, activeCategory);
@@ -729,11 +759,14 @@ function updateCustomCategory(categoryId: CustomActionCategoryId, rawLabel: stri
 	return true;
 }
 
-function deleteCustomCategory(categoryId: CustomActionCategoryId): void {
+async function deleteCustomCategory(categoryId: CustomActionCategoryId): Promise<void> {
 	const category = customCategories.find((entry) => entry.id === categoryId);
 	if (!category) return;
 	const actionIds = customActions.filter((action) => action.category === categoryId).map((action) => action.id);
-	if (!window.confirm(`Delete category "${category.label}" and ${actionIds.length} action(s)?`)) return;
+	const confirmed = await confirmDialogDanger(
+		`Delete category "${category.label}" and ${actionIds.length} action(s)?`
+	);
+	if (!confirmed) return;
 
 	customCategories = customCategories.filter((entry) => entry.id !== categoryId);
 	customActions = customActions.filter((action) => action.category !== categoryId);
