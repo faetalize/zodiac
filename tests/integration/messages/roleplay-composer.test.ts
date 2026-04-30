@@ -5,13 +5,16 @@ import { waitForCondition } from "../../helpers/async";
 import { makeChat } from "../../fixtures/chats";
 import { makeModelMessage, makeUserMessage } from "../../fixtures/messages";
 import { makePersona } from "../../fixtures/personas";
+import { SETTINGS_STORAGE_KEYS, SYNCABLE_SETTINGS_KEYS } from "../../../src/constants/SettingsStorageKeys";
 
 const testState = vi.hoisted(() => ({
 	chat: null as ReturnType<typeof makeChat> | null,
 	persona: null as ReturnType<typeof makePersona> | null,
 	queuedSuggestionResponses: [] as string[],
 	builtRequests: [] as Array<Record<string, any>>,
-	messagePayloads: [] as string[]
+	messagePayloads: [] as string[],
+	syncPushCount: 0,
+	syncActive: true
 }));
 
 vi.mock("@google/genai", () => ({
@@ -63,6 +66,14 @@ vi.mock("../../../src/services/Supabase.service", () => ({
 	getUserSubscription: vi.fn(async () => null),
 	getSubscriptionTier: vi.fn(() => "free"),
 	getAuthHeaders: vi.fn(async () => ({}))
+}));
+
+vi.mock("../../../src/services/Sync.service", () => ({
+	isSyncActive: vi.fn(() => testState.syncActive),
+	pushCurrentSettings: vi.fn(async () => {
+		testState.syncPushCount += 1;
+		return true;
+	})
 }));
 
 vi.mock("../../../src/services/Toast.service", () => ({
@@ -286,6 +297,8 @@ describe("Roleplay composer suggestion workflow", () => {
 		testState.queuedSuggestionResponses = [];
 		testState.builtRequests = [];
 		testState.messagePayloads = [];
+		testState.syncPushCount = 0;
+		testState.syncActive = true;
 		bootstrapRoleplayDom();
 		window.localStorage.setItem("roleplaySuggestionModel", "openrouter/roleplay-beta");
 	});
@@ -311,6 +324,12 @@ describe("Roleplay composer suggestion workflow", () => {
 			"You are trouble.",
 			"Come closer."
 		]);
+	});
+
+	it("includes custom roleplay action settings in the cloud-sync settings blob", () => {
+		expect(SYNCABLE_SETTINGS_KEYS).toContain(SETTINGS_STORAGE_KEYS.ROLEPLAY_FAVORITE_ACTIONS);
+		expect(SYNCABLE_SETTINGS_KEYS).toContain(SETTINGS_STORAGE_KEYS.ROLEPLAY_CUSTOM_CATEGORIES);
+		expect(SYNCABLE_SETTINGS_KEYS).toContain(SETTINGS_STORAGE_KEYS.ROLEPLAY_CUSTOM_ACTIONS);
 	});
 
 	it("refreshes with the newly selected suggestion model", async () => {
@@ -432,6 +451,9 @@ describe("Roleplay composer suggestion workflow", () => {
 			Array.from(document.querySelectorAll(".roleplay-action-category-pill")).map((button) => button.textContent)
 		).toContain("Affection (1)");
 
+		getTitledButton("Favorite action").click();
+		expect(window.localStorage.getItem("roleplayFavoriteActions")).toContain("custom-pets%20her%20head");
+
 		getTitledButton("Rename Affection").click();
 		getCustomCategoryInput().value = "Comfort";
 		getCreateCategoryButton().click();
@@ -487,5 +509,6 @@ describe("Roleplay composer suggestion workflow", () => {
 		);
 
 		expect(window.localStorage.getItem("roleplayCustomCategories")).not.toContain("Comfort");
+		expect(testState.syncPushCount).toBe(7);
 	});
 });

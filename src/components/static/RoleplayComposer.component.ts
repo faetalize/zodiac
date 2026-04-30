@@ -6,6 +6,7 @@ import * as messageService from "../../services/Message.service";
 import * as personalityService from "../../services/Personality.service";
 import * as settingsService from "../../services/Settings.service";
 import * as supabaseService from "../../services/Supabase.service";
+import * as syncService from "../../services/Sync.service";
 import * as toastService from "../../services/Toast.service";
 import * as overlayService from "../../services/Overlay.service";
 import { confirmDialogDanger } from "../../utils/helpers";
@@ -400,6 +401,13 @@ function persistFavoriteActions(): void {
 	saveStoredArray(SETTINGS_STORAGE_KEYS.ROLEPLAY_FAVORITE_ACTIONS, Array.from(favoriteActionIds));
 }
 
+function queueRoleplaySettingsSync(): void {
+	if (!syncService.isSyncActive()) return;
+	syncService.pushCurrentSettings().catch((error) => {
+		console.warn("Failed to sync roleplay settings", error);
+	});
+}
+
 function discardActionState(actionIds: Iterable<string>): void {
 	let changedFavorites = false;
 	for (const actionId of actionIds) {
@@ -499,6 +507,7 @@ function toggleFavorite(actionId: string): void {
 		favoriteActionIds.add(actionId);
 	}
 	persistFavoriteActions();
+	queueRoleplaySettingsSync();
 	renderActions();
 }
 
@@ -586,6 +595,7 @@ function addCustomAction(rawText: string, category: ActionCategory): boolean {
 	customActions.unshift(createCustomAction(text, category));
 	activeActionCategory = category;
 	persistCustomActions();
+	queueRoleplaySettingsSync();
 	renderActions();
 	return true;
 }
@@ -603,6 +613,7 @@ function updateCustomAction(actionId: string, rawText: string): boolean {
 	action.text = text;
 	action.label = text.length > 22 ? `${text.slice(0, 22)}...` : text;
 	persistCustomActions();
+	queueRoleplaySettingsSync();
 	renderActions();
 	updateSelectedActionsSummary();
 	return true;
@@ -617,6 +628,7 @@ async function deleteCustomAction(actionId: string): Promise<void> {
 	customActions = customActions.filter((entry) => entry.id !== actionId);
 	discardActionState([actionId]);
 	persistCustomActions();
+	queueRoleplaySettingsSync();
 	renderActions();
 }
 
@@ -739,6 +751,7 @@ function addCustomCategory(rawLabel: string): boolean {
 	customCategories.unshift(category);
 	persistCustomCategories();
 	activeActionCategory = category.id;
+	queueRoleplaySettingsSync();
 	renderActions();
 	return true;
 }
@@ -755,6 +768,7 @@ function updateCustomCategory(categoryId: CustomActionCategoryId, rawLabel: stri
 
 	category.label = label;
 	persistCustomCategories();
+	queueRoleplaySettingsSync();
 	renderActions();
 	return true;
 }
@@ -773,6 +787,7 @@ async function deleteCustomCategory(categoryId: CustomActionCategoryId): Promise
 	discardActionState(actionIds);
 	persistCustomCategories();
 	persistCustomActions();
+	queueRoleplaySettingsSync();
 
 	if (activeActionCategory === categoryId) {
 		activeActionCategory = getAvailableActionCategories(getAllActions())[0] ?? "favorites";
@@ -1377,6 +1392,12 @@ onAppEvent("subscription-updated", (event) => {
 	hasPremiumModelAccess =
 		event.detail.tier === "pro" || event.detail.tier === "pro_plus" || event.detail.tier === "max";
 	populateRoleplayModelOptions();
+});
+
+onAppEvent("sync-data-pulled", () => {
+	loadActionState();
+	renderActions();
+	updateSelectedActionsSummary();
 });
 
 document.querySelector<HTMLDivElement>("#personalitiesDiv")?.addEventListener("change", () => {
