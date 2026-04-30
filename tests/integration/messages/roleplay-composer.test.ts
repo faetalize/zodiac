@@ -180,6 +180,16 @@ function getRevealActionButton(): HTMLButtonElement {
 	return button;
 }
 
+function getTitledButton(title: string): HTMLButtonElement {
+	const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
+		(element) => element.title === title || element.getAttribute("aria-label") === title
+	);
+	if (!button) {
+		throw new Error(`Missing button titled ${title}`);
+	}
+	return button;
+}
+
 function getActionButton(title: string): HTMLButtonElement {
 	const button = Array.from(document.querySelectorAll<HTMLButtonElement>(".roleplay-action-chip__select")).find(
 		(element) => element.title === title
@@ -365,7 +375,8 @@ describe("Roleplay composer suggestion workflow", () => {
 		expect(getSuggestionButtons().map((button) => button.textContent)).toEqual(["Five", "Six", "Seven", "Eight"]);
 	});
 
-	it("creates a custom category and saves a reusable action into it", async () => {
+	it("creates, edits, and deletes custom categories and actions", async () => {
+		vi.spyOn(window, "confirm").mockReturnValue(true);
 		queueSuggestionOptions(["One", "Two", "Three", "Four"]);
 
 		await importRoleplayComposer();
@@ -406,5 +417,59 @@ describe("Roleplay composer suggestion workflow", () => {
 		expect(
 			Array.from(document.querySelectorAll(".roleplay-action-category-pill")).map((button) => button.textContent)
 		).toContain("Affection (1)");
+
+		getTitledButton("Rename Affection").click();
+		getCustomCategoryInput().value = "Comfort";
+		getCreateCategoryButton().click();
+
+		await waitForCondition(
+			() =>
+				Array.from(document.querySelectorAll(".roleplay-action-category-pill")).some(
+					(button) => button.textContent === "Comfort (1)"
+				),
+			"Expected custom category rename to render"
+		);
+
+		getTitledButton("Edit pets her head").click();
+		getCustomActionInput().value = "pets her head gently";
+		getAddActionButton().click();
+
+		await waitForCondition(
+			() =>
+				Array.from(document.querySelectorAll<HTMLButtonElement>(".roleplay-action-chip__select")).some(
+					(button) => button.title === "pets her head gently"
+				),
+			"Expected custom action edit to render"
+		);
+
+		expect(window.localStorage.getItem("roleplayCustomCategories")).toContain("Comfort");
+		expect(window.localStorage.getItem("roleplayCustomActions")).toContain("pets her head gently");
+
+		getTitledButton("Delete pets her head gently").click();
+
+		await waitForCondition(
+			() =>
+				!Array.from(document.querySelectorAll<HTMLButtonElement>(".roleplay-action-chip__select")).some(
+					(button) => button.title === "pets her head gently"
+				),
+			"Expected deleted custom action to be removed"
+		);
+
+		expect(window.localStorage.getItem("roleplayCustomActions")).not.toContain("pets her head gently");
+		expect(
+			Array.from(document.querySelectorAll(".roleplay-action-category-pill")).map((button) => button.textContent)
+		).toContain("Comfort (0)");
+
+		getTitledButton("Delete Comfort").click();
+
+		await waitForCondition(
+			() =>
+				!Array.from(document.querySelectorAll(".roleplay-action-category-pill")).some((button) =>
+					button.textContent?.includes("Comfort")
+				),
+			"Expected deleted custom category to be removed"
+		);
+
+		expect(window.localStorage.getItem("roleplayCustomCategories")).not.toContain("Comfort");
 	});
 });

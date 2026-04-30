@@ -189,7 +189,9 @@ let lastSuggestionSignature = "";
 let lastLoadedChatId: string | null = null;
 let isGenerating = false;
 let hasPremiumModelAccess = false;
-let pendingAddMode: "category" | "action" | null = null;
+let pendingAddMode: "category" | "action" | "edit-category" | "edit-action" | null = null;
+let pendingEditCategoryId: CustomActionCategoryId | null = null;
+let pendingEditActionId: string | null = null;
 
 type StoredCustomAction = string | { id?: string; text?: string; category?: string };
 
@@ -260,6 +262,33 @@ function getCategoryCount(category: ActionCategory, actions = getAllActions()): 
 	return category === "favorites"
 		? actions.filter((action) => favoriteActionIds.has(action.id)).length
 		: actions.filter((action) => action.category === category).length;
+}
+
+function isCustomCategory(category: ActionCategory): category is CustomActionCategoryId {
+	return !isBuiltInCategory(category);
+}
+
+function isCategoryLabelAvailable(label: string, ignoredCategoryId?: CustomActionCategoryId): boolean {
+	const normalized = label.trim().toLowerCase();
+	if (!normalized) return false;
+
+	if (Object.values(ACTION_CATEGORY_LABELS).some((existing) => existing.toLowerCase() === normalized)) {
+		return false;
+	}
+
+	return !customCategories.some(
+		(category) => category.id !== ignoredCategoryId && category.label.toLowerCase() === normalized
+	);
+}
+
+function isActionTextAvailable(text: string, category: ActionCategory, ignoredActionId?: string): boolean {
+	const normalized = text.trim().toLowerCase();
+	if (!normalized) return false;
+
+	return !customActions.some(
+		(action) =>
+			action.id !== ignoredActionId && action.category === category && action.text.toLowerCase() === normalized
+	);
 }
 
 function parseStoredCustomCategories(): CustomActionCategory[] {
@@ -366,6 +395,22 @@ function persistCustomActions(): void {
 	);
 }
 
+function persistFavoriteActions(): void {
+	saveStoredArray(SETTINGS_STORAGE_KEYS.ROLEPLAY_FAVORITE_ACTIONS, Array.from(favoriteActionIds));
+}
+
+function discardActionState(actionIds: Iterable<string>): void {
+	let changedFavorites = false;
+	for (const actionId of actionIds) {
+		selectedActionIds.delete(actionId);
+		if (favoriteActionIds.delete(actionId)) {
+			changedFavorites = true;
+		}
+	}
+	if (changedFavorites) persistFavoriteActions();
+	updateSelectedActionsSummary();
+}
+
 function getAllActions(): RoleplayAction[] {
 	return [...PRESET_ACTIONS, ...customActions];
 }
@@ -452,7 +497,7 @@ function toggleFavorite(actionId: string): void {
 	} else {
 		favoriteActionIds.add(actionId);
 	}
-	saveStoredArray(SETTINGS_STORAGE_KEYS.ROLEPLAY_FAVORITE_ACTIONS, Array.from(favoriteActionIds));
+	persistFavoriteActions();
 	renderActions();
 }
 
@@ -477,6 +522,26 @@ function renderInlineAddCategory(nav: HTMLDivElement): void {
 	nav.append(button);
 }
 
+function renderCustomCategoryControls(wrapper: HTMLDivElement, category: CustomActionCategoryId): void {
+	const editButton = document.createElement("button");
+	editButton.type = "button";
+	editButton.className = "roleplay-category-control material-symbols-outlined";
+	editButton.textContent = "edit";
+	editButton.title = `Rename ${getCategoryLabel(category)}`;
+	editButton.setAttribute("aria-label", editButton.title);
+	editButton.addEventListener("click", () => openRoleplayEditCategoryModal(category));
+
+	const deleteButton = document.createElement("button");
+	deleteButton.type = "button";
+	deleteButton.className = "roleplay-category-control roleplay-category-control--danger material-symbols-outlined";
+	deleteButton.textContent = "delete";
+	deleteButton.title = `Delete ${getCategoryLabel(category)}`;
+	deleteButton.setAttribute("aria-label", deleteButton.title);
+	deleteButton.addEventListener("click", () => deleteCustomCategory(category));
+
+	wrapper.append(editButton, deleteButton);
+}
+
 function renderInlineAddAction(strip: HTMLDivElement, activeCategory: ActionCategory): void {
 	if (activeCategory === "favorites") return;
 
@@ -494,9 +559,7 @@ function addCustomAction(rawText: string, category: ActionCategory): boolean {
 	const text = rawText.trim();
 	if (!text || category === "favorites") return false;
 
-	if (
-		customActions.some((action) => action.category === category && action.text.toLowerCase() === text.toLowerCase())
-	) {
+	if (!isActionTextAvailable(text, category)) {
 		toastService.warn({ title: "Action already exists", text: "That custom action is already in your list." });
 		return false;
 	}
@@ -506,6 +569,35 @@ function addCustomAction(rawText: string, category: ActionCategory): boolean {
 	persistCustomActions();
 	renderActions();
 	return true;
+}
+
+function updateCustomAction(actionId: string, rawText: string): boolean {
+	const text = rawText.trim();
+	const action = customActions.find((entry) => entry.id === actionId);
+	if (!text || !action) return false;
+
+	if (!isActionTextAvailable(text, action.category, actionId)) {
+		toastService.warn({ title: "Action already exists", text: "That custom action is already in your list." });
+		return false;
+	}
+
+	action.text = text;
+	action.label = text.length > 22 ? `${text.slice(0, 22)}...` : text;
+	persistCustomActions();
+	renderActions();
+	updateSelectedActionsSummary();
+	return true;
+}
+
+function deleteCustomAction(actionId: string): void {
+	const action = customActions.find((entry) => entry.id === actionId);
+	if (!action) return;
+	if (!window.confirm(`Delete action "${action.label}"?`)) return;
+
+	customActions = customActions.filter((entry) => entry.id !== actionId);
+	discardActionState([actionId]);
+	persistCustomActions();
+	renderActions();
 }
 
 function renderActions(): void {
@@ -522,6 +614,10 @@ function renderActions(): void {
 	nav.setAttribute("aria-label", "Roleplay action categories");
 
 	for (const category of availableCategories) {
+		const wrapper = document.createElement("div");
+		wrapper.className = "roleplay-action-category-entry";
+		wrapper.classList.toggle("is-custom", isCustomCategory(category));
+
 		const button = document.createElement("button");
 		button.type = "button";
 		button.className = "btn roleplay-action-category-pill";
@@ -533,7 +629,11 @@ function renderActions(): void {
 			activeActionCategory = category;
 			renderActions();
 		});
-		nav.append(button);
+		wrapper.append(button);
+		if (isCustomCategory(category)) {
+			renderCustomCategoryControls(wrapper, category);
+		}
+		nav.append(wrapper);
 	}
 
 	renderInlineAddCategory(nav);
@@ -567,6 +667,27 @@ function renderActions(): void {
 		favoriteButton.addEventListener("click", () => toggleFavorite(action.id));
 
 		chip.append(selectButton, favoriteButton);
+
+		if (action.custom) {
+			const editButton = document.createElement("button");
+			editButton.type = "button";
+			editButton.className = "roleplay-action-chip__manage material-symbols-outlined";
+			editButton.textContent = "edit";
+			editButton.title = `Edit ${action.label}`;
+			editButton.setAttribute("aria-label", editButton.title);
+			editButton.addEventListener("click", () => openRoleplayEditActionModal(action.id));
+
+			const deleteButton = document.createElement("button");
+			deleteButton.type = "button";
+			deleteButton.className =
+				"roleplay-action-chip__manage roleplay-action-chip__manage--danger material-symbols-outlined";
+			deleteButton.textContent = "delete";
+			deleteButton.title = `Delete ${action.label}`;
+			deleteButton.setAttribute("aria-label", deleteButton.title);
+			deleteButton.addEventListener("click", () => deleteCustomAction(action.id));
+
+			chip.append(editButton, deleteButton);
+		}
 		strip.append(chip);
 	}
 
@@ -579,12 +700,7 @@ function addCustomCategory(rawLabel: string): boolean {
 	const label = rawLabel.trim();
 	if (!label) return false;
 
-	if (Object.values(ACTION_CATEGORY_LABELS).some((existing) => existing.toLowerCase() === label.toLowerCase())) {
-		toastService.warn({ title: "Category already exists", text: "That category name is already in use." });
-		return false;
-	}
-
-	if (customCategories.some((category) => category.label.toLowerCase() === label.toLowerCase())) {
+	if (!isCategoryLabelAvailable(label)) {
 		toastService.warn({ title: "Category already exists", text: "That category name is already in use." });
 		return false;
 	}
@@ -595,6 +711,41 @@ function addCustomCategory(rawLabel: string): boolean {
 	activeActionCategory = category.id;
 	renderActions();
 	return true;
+}
+
+function updateCustomCategory(categoryId: CustomActionCategoryId, rawLabel: string): boolean {
+	const label = rawLabel.trim();
+	const category = customCategories.find((entry) => entry.id === categoryId);
+	if (!label || !category) return false;
+
+	if (!isCategoryLabelAvailable(label, categoryId)) {
+		toastService.warn({ title: "Category already exists", text: "That category name is already in use." });
+		return false;
+	}
+
+	category.label = label;
+	persistCustomCategories();
+	renderActions();
+	return true;
+}
+
+function deleteCustomCategory(categoryId: CustomActionCategoryId): void {
+	const category = customCategories.find((entry) => entry.id === categoryId);
+	if (!category) return;
+	const actionIds = customActions.filter((action) => action.category === categoryId).map((action) => action.id);
+	if (!window.confirm(`Delete category "${category.label}" and ${actionIds.length} action(s)?`)) return;
+
+	customCategories = customCategories.filter((entry) => entry.id !== categoryId);
+	customActions = customActions.filter((action) => action.category !== categoryId);
+	discardActionState(actionIds);
+	persistCustomCategories();
+	persistCustomActions();
+
+	if (activeActionCategory === categoryId) {
+		activeActionCategory = getAvailableActionCategories(getAllActions())[0] ?? "favorites";
+	}
+
+	renderActions();
 }
 
 function hideAddModalError(): void {
@@ -609,6 +760,8 @@ function showAddModalError(message: string): void {
 
 function closeRoleplayAddModal(): void {
 	pendingAddMode = null;
+	pendingEditCategoryId = null;
+	pendingEditActionId = null;
 	hideAddModalError();
 	ensuredRoleplayAddModalInput.value = "";
 	overlayService.closeOverlay();
@@ -616,6 +769,8 @@ function closeRoleplayAddModal(): void {
 
 function openRoleplayAddModal(mode: "category" | "action"): void {
 	pendingAddMode = mode;
+	pendingEditCategoryId = null;
+	pendingEditActionId = null;
 	hideAddModalError();
 	ensuredRoleplayAddModalInput.value = "";
 	ensuredRoleplayAddModalTitle.textContent =
@@ -624,6 +779,36 @@ function openRoleplayAddModal(mode: "category" | "action"): void {
 	ensuredRoleplayAddModalSubmitButton.textContent = "Add";
 	overlayService.show("modal-roleplay-add");
 	requestAnimationFrame(() => ensuredRoleplayAddModalInput.focus());
+}
+
+function openRoleplayEditCategoryModal(categoryId: CustomActionCategoryId): void {
+	const category = customCategories.find((entry) => entry.id === categoryId);
+	if (!category) return;
+	pendingAddMode = "edit-category";
+	pendingEditCategoryId = categoryId;
+	pendingEditActionId = null;
+	hideAddModalError();
+	ensuredRoleplayAddModalInput.value = category.label;
+	ensuredRoleplayAddModalTitle.textContent = "Rename Category";
+	ensuredRoleplayAddModalInput.placeholder = "Category name";
+	ensuredRoleplayAddModalSubmitButton.textContent = "Save";
+	overlayService.show("modal-roleplay-add");
+	requestAnimationFrame(() => ensuredRoleplayAddModalInput.select());
+}
+
+function openRoleplayEditActionModal(actionId: string): void {
+	const action = customActions.find((entry) => entry.id === actionId);
+	if (!action) return;
+	pendingAddMode = "edit-action";
+	pendingEditActionId = actionId;
+	pendingEditCategoryId = null;
+	hideAddModalError();
+	ensuredRoleplayAddModalInput.value = action.text;
+	ensuredRoleplayAddModalTitle.textContent = "Edit Action";
+	ensuredRoleplayAddModalInput.placeholder = "Action text";
+	ensuredRoleplayAddModalSubmitButton.textContent = "Save";
+	overlayService.show("modal-roleplay-add");
+	requestAnimationFrame(() => ensuredRoleplayAddModalInput.select());
 }
 
 function submitRoleplayAddModal(): void {
@@ -645,6 +830,30 @@ function submitRoleplayAddModal(): void {
 			return;
 		}
 		const success = addCustomAction(ensuredRoleplayAddModalInput.value, activeActionCategory);
+		if (success) {
+			closeRoleplayAddModal();
+			return;
+		}
+		if (!ensuredRoleplayAddModalInput.value.trim()) {
+			showAddModalError("Enter an action.");
+		}
+	}
+
+	if (pendingAddMode === "edit-category") {
+		if (!pendingEditCategoryId) return;
+		const success = updateCustomCategory(pendingEditCategoryId, ensuredRoleplayAddModalInput.value);
+		if (success) {
+			closeRoleplayAddModal();
+			return;
+		}
+		if (!ensuredRoleplayAddModalInput.value.trim()) {
+			showAddModalError("Enter a category name.");
+		}
+	}
+
+	if (pendingAddMode === "edit-action") {
+		if (!pendingEditActionId) return;
+		const success = updateCustomAction(pendingEditActionId, ensuredRoleplayAddModalInput.value);
 		if (success) {
 			closeRoleplayAddModal();
 			return;
