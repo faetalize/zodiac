@@ -104,3 +104,37 @@ test("roleplay button toggles the composer UI off and on for a roleplay persona"
 
 	await expect(page.locator(".roleplay-suggestion")).toHaveCount(4);
 });
+
+test("mobile adaptive sheet handle drags the roleplay action editor closed", async ({ page }) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await stubExternalTraffic(page, [
+		{
+			text: '{"options":["Stay close.","Tell me more.","Not so fast.","Prove it."]}'
+		}
+	]);
+	await seedLocalSettings(page);
+	await page.goto("/");
+
+	await addRoleplayPersona(page);
+	await page.evaluate(() => {
+		document.querySelector<HTMLInputElement>("#personality-roleplay-test input[name='personality']")?.click();
+	});
+	await page.locator('[data-roleplay-tab="actions"]').click();
+	await page.locator('[data-roleplay-add-action-toggle="true"]').click();
+
+	const sheet = page.locator("#modal-roleplay-add");
+	const handle = page.locator(".adaptive-sheet__handle");
+	await expect(sheet).toBeVisible();
+	await expect(handle).toBeVisible();
+
+	const handleBox = await handle.boundingBox();
+	expect(handleBox).not.toBeNull();
+	if (!handleBox) return;
+
+	await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2 + 140, { steps: 6 });
+	await page.mouse.up();
+
+	await expect(sheet).toBeHidden();
+});

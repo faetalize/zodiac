@@ -263,7 +263,7 @@ function bootstrapRoleplayDom(): void {
 		<div class="overlay hidden" id="overlay">
 			<button id="btn-hide-overlay" type="button">BACK</button>
 			<div class="overlay-content">
-				<div id="modal-roleplay-add" class="roleplay-editor-modal hidden">
+				<div id="modal-roleplay-add" class="adaptive-sheet hidden" role="dialog" aria-modal="true" aria-labelledby="roleplay-add-modal-title">
 					<h1 id="roleplay-add-modal-title">Add</h1>
 					<input id="roleplay-add-modal-label-input" type="text">
 					<input id="roleplay-add-modal-input" type="text">

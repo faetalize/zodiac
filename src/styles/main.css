@@ -2534,6 +2534,25 @@ form {
 	margin-top: 1rem;
 }
 
+.adaptive-sheet {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	width: min(32rem, calc(100dvw - 2rem));
+	max-height: 100%;
+	overflow-y: auto;
+	padding: 2rem;
+	border: var(--elevated-ui-outline);
+	border-radius: 1rem;
+	background: var(--modal-bg, var(--body-bg));
+	box-shadow: var(--elevated-ui-shadow);
+	box-sizing: border-box;
+}
+
+.adaptive-sheet__handle {
+	display: none;
+}
+
 .message-debug-modal {
 	width: min(42rem, 100%);
 	display: flex;
@@ -7853,20 +7872,6 @@ input.onboarding-select {
 	padding: 0.75rem 0.75rem 0;
 }
 
-.roleplay-editor-modal {
-	display: flex;
-	flex-direction: column;
-	gap: 0.75rem;
-	width: 32rem;
-	max-width: 95%;
-	padding: 2.5rem;
-	border: var(--elevated-ui-outline);
-	border-radius: 1.5rem;
-	background: var(--modal-bg, var(--body-bg));
-	box-shadow: var(--elevated-ui-shadow);
-	box-sizing: border-box;
-}
-
 #message-box.roleplay-composer-active #messageInput {
 	display: none;
 }
@@ -8206,6 +8211,42 @@ input.onboarding-select {
 }
 
 @media (max-width: 640px) {
+	.overlay-content:has(.adaptive-sheet:not(.hidden)) {
+		align-items: flex-end;
+		padding: 0;
+	}
+
+	.overlay-content > .adaptive-sheet {
+		width: 100%;
+		max-width: 100%;
+		max-height: min(85dvh, 40rem);
+		padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+		border-right: 0;
+		border-bottom: 0;
+		border-left: 0;
+		border-radius: 1rem 1rem 0 0;
+	}
+
+	.overlay-content > .adaptive-sheet > .adaptive-sheet__handle {
+		display: block;
+		align-self: center;
+		width: 2.5rem;
+		height: 0.25rem;
+		padding: 0;
+		margin-bottom: 0.25rem;
+		border: 0;
+		border-radius: 999px;
+		background: currentColor;
+		opacity: 0.28;
+		flex: 0 0 auto;
+		touch-action: none;
+		cursor: grab;
+	}
+
+	.overlay-content > .adaptive-sheet > .adaptive-sheet__handle:active {
+		cursor: grabbing;
+	}
+
 	.roleplay-inline-add {
 		width: 100%;
 	}
