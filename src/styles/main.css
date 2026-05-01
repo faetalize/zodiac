@@ -2534,6 +2534,36 @@ form {
 	margin-top: 1rem;
 }
 
+.surface-plane {
+	position: fixed;
+	inset: 0;
+	z-index: 10020;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+	pointer-events: none;
+	box-sizing: border-box;
+}
+
+.surface-plane__item {
+	pointer-events: auto;
+	opacity: 0;
+	transform: translateY(0.35rem) scale(0.985);
+	transition:
+		opacity 0.16s ease,
+		transform 0.18s ease;
+}
+
+.surface-plane__item.surface-open {
+	opacity: 1;
+	transform: translateY(0) scale(1);
+}
+
+.surface-plane__item.surface-closing {
+	pointer-events: none;
+}
+
 .adaptive-sheet {
 	display: flex;
 	flex-direction: column;
@@ -7981,8 +8011,8 @@ input.onboarding-select {
 	flex: 0 0 auto;
 	padding: 0.4rem 0.75rem;
 	border-radius: 999px;
-	border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-	background: color-mix(in srgb, var(--input-bg) 88%, var(--button-bg) 12%);
+	border: 1px solid color-mix(in srgb, var(--border-color) 72%, var(--button-bg) 28%);
+	background: color-mix(in srgb, var(--input-bg) 72%, var(--button-bg) 28%);
 	color: inherit;
 	font-size: 0.82rem;
 	line-height: 1.1;
@@ -8029,14 +8059,14 @@ input.onboarding-select {
 }
 
 .roleplay-action-category-pill:hover:not(.active):not(:disabled) {
-	background: color-mix(in srgb, var(--input-bg) 68%, var(--button-bg) 32%);
-	border-color: color-mix(in srgb, var(--button-bg) 36%, var(--border-color));
+	background: color-mix(in srgb, var(--input-bg) 58%, var(--button-bg) 42%);
+	border-color: color-mix(in srgb, var(--button-bg) 52%, var(--border-color));
 }
 
 .roleplay-action-category-pill.active {
-	background: var(--button-toggled-bg);
-	color: var(--button-toggled-fg, inherit);
-	border-color: color-mix(in srgb, var(--button-toggled-bg) 65%, var(--border-color));
+	background: var(--button-bg);
+	color: var(--button-fg);
+	border-color: color-mix(in srgb, var(--button-bg) 82%, var(--border-color));
 }
 
 .roleplay-add-entry {
@@ -8128,11 +8158,12 @@ input.onboarding-select {
 }
 
 .roleplay-action-chip.selected {
-	border-color: color-mix(in srgb, var(--button-bg) 56%, var(--button-toggled-bg));
-	background: color-mix(in srgb, var(--button-bg) 32%, var(--input-bg));
+	border-color: color-mix(in srgb, var(--button-bg) 88%, var(--border-color));
+	background: color-mix(in srgb, var(--button-bg) 82%, var(--input-bg));
+	color: var(--button-fg);
 	box-shadow:
-		0 0 0 1px color-mix(in srgb, var(--button-bg) 22%, transparent),
-		0 8px 20px color-mix(in srgb, var(--button-bg) 16%, transparent);
+		0 0 0 1px color-mix(in srgb, var(--button-bg) 44%, transparent),
+		0 8px 20px color-mix(in srgb, var(--button-bg) 18%, transparent);
 }
 
 .roleplay-action-chip--add {
@@ -8143,16 +8174,16 @@ input.onboarding-select {
 }
 
 .roleplay-action-chip.selected .roleplay-action-chip__select {
-	background: color-mix(in srgb, var(--button-bg) 22%, transparent);
+	background: color-mix(in srgb, var(--button-fg) 10%, transparent);
 	color: var(--button-fg);
 }
 
 .roleplay-action-chip.selected .roleplay-action-chip__select:hover {
-	background: color-mix(in srgb, var(--button-bg) 34%, transparent);
+	background: color-mix(in srgb, var(--button-fg) 16%, transparent);
 }
 
 .roleplay-action-chip.selected .roleplay-action-chip__select:active {
-	background: color-mix(in srgb, var(--button-active-bg) 40%, transparent);
+	background: color-mix(in srgb, var(--button-fg) 22%, transparent);
 }
 
 .roleplay-action-chip.favorite .roleplay-action-chip__favorite {
@@ -8211,12 +8242,16 @@ input.onboarding-select {
 }
 
 @media (max-width: 640px) {
-	.overlay-content:has(.adaptive-sheet:not(.hidden)) {
+	.surface-plane:has(.adaptive-sheet:not(.hidden)) {
 		align-items: flex-end;
 		padding: 0;
 	}
 
-	.overlay-content > .adaptive-sheet {
+	.surface-plane > .adaptive-sheet {
+		position: fixed;
+		right: 0;
+		bottom: 0;
+		left: 0;
 		width: 100%;
 		max-width: 100%;
 		max-height: min(85dvh, 40rem);
@@ -8227,23 +8262,44 @@ input.onboarding-select {
 		border-radius: 1rem 1rem 0 0;
 	}
 
-	.overlay-content > .adaptive-sheet > .adaptive-sheet__handle {
-		display: block;
+	.surface-plane > .adaptive-sheet.surface-plane__item {
+		transform: translateY(calc(100% + 1rem));
+	}
+
+	.surface-plane > .adaptive-sheet.surface-plane__item.surface-open {
+		transform: translateY(0);
+	}
+
+	.surface-plane > .adaptive-sheet > .adaptive-sheet__handle {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		pointer-events: auto;
 		align-self: center;
-		width: 2.5rem;
-		height: 0.25rem;
+		align-items: center;
+		justify-content: center;
+		width: 3.5rem;
+		height: 1.25rem;
 		padding: 0;
-		margin-bottom: 0.25rem;
+		margin: -0.25rem 0 0.25rem;
 		border: 0;
-		border-radius: 999px;
-		background: currentColor;
-		opacity: 0.28;
+		background: transparent;
+		color: inherit;
 		flex: 0 0 auto;
 		touch-action: none;
 		cursor: grab;
 	}
 
-	.overlay-content > .adaptive-sheet > .adaptive-sheet__handle:active {
+	.surface-plane > .adaptive-sheet > .adaptive-sheet__handle::before {
+		content: "";
+		width: 2.5rem;
+		height: 0.25rem;
+		border-radius: 999px;
+		background: currentColor;
+		opacity: 0.28;
+	}
+
+	.surface-plane > .adaptive-sheet > .adaptive-sheet__handle:active {
 		cursor: grabbing;
 	}
 

@@ -254,7 +254,7 @@
 	--top-up-subtitle-fg: #6b7280;
 
 	/* Modal */
-	--modal-bg: var(--onboarding-card-bg);
+	--modal-bg: #ffffff;
 	--modal-fg: var(--onboarding-title);
 	--modal-shadow: 0 8px 24px var(--onboarding-card-shadow);
 

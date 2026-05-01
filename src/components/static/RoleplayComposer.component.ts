@@ -8,7 +8,7 @@ import * as settingsService from "../../services/Settings.service";
 import * as supabaseService from "../../services/Supabase.service";
 import * as syncService from "../../services/Sync.service";
 import * as toastService from "../../services/Toast.service";
-import * as overlayService from "../../services/Overlay.service";
+import * as surfaceService from "../../services/Surface.service";
 import { confirmDialogDanger } from "../../utils/helpers";
 import { shouldPreferPremiumEndpoint } from "./ApiKeyInput.component";
 import { buildOpenRouterRequest, requestOpenRouterCompletion } from "../../services/OpenRouter.service";
@@ -87,6 +87,7 @@ const ensuredRoleplaySelectionBar = roleplaySelectionBar;
 const ensuredRoleplaySelectedActions = roleplaySelectedActions;
 const ensuredRoleplayClearActionsButton = roleplayClearActionsButton;
 const ensuredRoleplayRefreshButton = roleplayRefreshButton;
+const ensuredRoleplayAddModal = roleplayAddModal;
 const ensuredRoleplayAddModalTitle = roleplayAddModalTitle;
 const ensuredRoleplayAddModalLabelInput = roleplayAddModalLabelInput;
 const ensuredRoleplayAddModalInput = roleplayAddModalInput;
@@ -829,6 +830,10 @@ function showAddModalError(message: string): void {
 }
 
 function closeRoleplayAddModal(): void {
+	surfaceService.close("modal-roleplay-add");
+}
+
+function resetRoleplayAddModal(): void {
 	pendingAddMode = null;
 	pendingEditCategoryId = null;
 	pendingEditActionId = null;
@@ -836,7 +841,6 @@ function closeRoleplayAddModal(): void {
 	ensuredRoleplayAddModalLabelInput.value = "";
 	ensuredRoleplayAddModalLabelInput.classList.add("hidden");
 	ensuredRoleplayAddModalInput.value = "";
-	overlayService.closeOverlay();
 }
 
 function openRoleplayAddModal(mode: "category" | "action"): void {
@@ -852,7 +856,7 @@ function openRoleplayAddModal(mode: "category" | "action"): void {
 	ensuredRoleplayAddModalLabelInput.placeholder = "Action label, e.g. Pet head";
 	ensuredRoleplayAddModalInput.placeholder = mode === "category" ? "New category" : "Payload, e.g. pets her head";
 	ensuredRoleplayAddModalSubmitButton.textContent = "Add";
-	overlayService.show("modal-roleplay-add");
+	surfaceService.show("modal-roleplay-add");
 	requestAnimationFrame(() =>
 		(mode === "category" ? ensuredRoleplayAddModalInput : ensuredRoleplayAddModalLabelInput).focus()
 	);
@@ -871,7 +875,7 @@ function openRoleplayEditCategoryModal(categoryId: CustomActionCategoryId): void
 	ensuredRoleplayAddModalTitle.textContent = "Rename Category";
 	ensuredRoleplayAddModalInput.placeholder = "Category name";
 	ensuredRoleplayAddModalSubmitButton.textContent = "Save";
-	overlayService.show("modal-roleplay-add");
+	surfaceService.show("modal-roleplay-add");
 	requestAnimationFrame(() => ensuredRoleplayAddModalInput.select());
 }
 
@@ -889,7 +893,7 @@ function openRoleplayEditActionModal(actionId: string): void {
 	ensuredRoleplayAddModalLabelInput.placeholder = "Action label";
 	ensuredRoleplayAddModalInput.placeholder = "Action payload";
 	ensuredRoleplayAddModalSubmitButton.textContent = "Save";
-	overlayService.show("modal-roleplay-add");
+	surfaceService.show("modal-roleplay-add");
 	requestAnimationFrame(() => ensuredRoleplayAddModalLabelInput.select());
 }
 
@@ -1385,6 +1389,10 @@ ensuredRoleplayAddModalSubmitButton.addEventListener("click", () => {
 
 ensuredRoleplayAddModalCancelButton.addEventListener("click", () => {
 	closeRoleplayAddModal();
+});
+
+ensuredRoleplayAddModal.addEventListener("surface-closed", () => {
+	resetRoleplayAddModal();
 });
 
 function handleRoleplayEditorKeydown(event: KeyboardEvent): void {

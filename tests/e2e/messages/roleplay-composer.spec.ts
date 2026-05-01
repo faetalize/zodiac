@@ -126,6 +126,10 @@ test("mobile adaptive sheet handle drags the roleplay action editor closed", asy
 	const handle = page.locator(".adaptive-sheet__handle");
 	await expect(sheet).toBeVisible();
 	await expect(handle).toBeVisible();
+	const viewportHeight = page.viewportSize()?.height ?? 844;
+	await expect
+		.poll(async () => (await handle.boundingBox())?.y ?? Number.POSITIVE_INFINITY)
+		.toBeLessThan(viewportHeight);
 
 	const handleBox = await handle.boundingBox();
 	expect(handleBox).not.toBeNull();

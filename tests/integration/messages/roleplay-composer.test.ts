@@ -262,8 +262,10 @@ function bootstrapRoleplayDom(): void {
 		</div>
 		<div class="overlay hidden" id="overlay">
 			<button id="btn-hide-overlay" type="button">BACK</button>
-			<div class="overlay-content">
-				<div id="modal-roleplay-add" class="adaptive-sheet hidden" role="dialog" aria-modal="true" aria-labelledby="roleplay-add-modal-title">
+			<div class="overlay-content"></div>
+		</div>
+		<div id="surface-plane" class="surface-plane">
+			<div id="modal-roleplay-add" class="adaptive-sheet hidden" role="dialog" aria-labelledby="roleplay-add-modal-title">
 					<h1 id="roleplay-add-modal-title">Add</h1>
 					<input id="roleplay-add-modal-label-input" type="text">
 					<input id="roleplay-add-modal-input" type="text">
@@ -272,7 +274,6 @@ function bootstrapRoleplayDom(): void {
 					</div>
 					<button id="btn-roleplay-add-modal-submit" type="button">Add</button>
 					<button id="btn-roleplay-add-modal-cancel" type="button">Cancel</button>
-				</div>
 			</div>
 		</div>
 		<div id="personalitiesDiv"></div>
