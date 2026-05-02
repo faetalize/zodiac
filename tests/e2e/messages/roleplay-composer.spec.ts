@@ -139,6 +139,15 @@ test("mobile adaptive sheet handle drags the roleplay action editor closed", asy
 	await page.mouse.down();
 	await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2 + 140, { steps: 6 });
 	await page.mouse.up();
+	await page.locator("#btn-roleplay").click();
+
+	await expect
+		.poll(async () => await readRoleplayComposerState(page))
+		.toMatchObject({
+			composerHidden: true,
+			messageBoxActive: false,
+			buttonToggled: false
+		});
 
 	await expect(sheet).toBeHidden();
 });

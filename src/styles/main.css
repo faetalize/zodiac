@@ -2564,6 +2564,10 @@ form {
 	pointer-events: none;
 }
 
+.surface-plane__item.surface-closing * {
+	pointer-events: none !important;
+}
+
 .adaptive-sheet {
 	display: flex;
 	flex-direction: column;
