@@ -14,8 +14,8 @@ import { shouldPreferPremiumEndpoint } from "./ApiKeyInput.component";
 import { buildOpenRouterRequest, requestOpenRouterCompletion } from "../../services/OpenRouter.service";
 import {
 	formatChatModelLabel,
-	getAccessibleChatModels,
-	getValidChatModel,
+	getAccessibleRoleplaySuggestionModels,
+	getValidRoleplaySuggestionModel,
 	isOpenRouterModel,
 	modelRequiresThinking,
 	modelSupportsTemperature
@@ -366,7 +366,7 @@ function parseStoredCustomActions(): RoleplayAction[] {
 }
 
 function hasSuggestionModelAccess(): boolean {
-	return getAccessibleChatModels(buildAccess()).length > 0;
+	return getAccessibleRoleplaySuggestionModels(buildAccess()).length > 0;
 }
 
 function syncSuggestionControls(): void {
@@ -1173,7 +1173,7 @@ function buildRoleplaySuggestionBaseConfig(model: string) {
 
 function populateRoleplayModelOptions(): void {
 	const access = buildAccess();
-	const available = getAccessibleChatModels(access);
+	const available = getAccessibleRoleplaySuggestionModels(access);
 	const currentValue =
 		ensuredRoleplaySuggestionModelSelect.value ||
 		localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) ||
@@ -1200,7 +1200,7 @@ function populateRoleplayModelOptions(): void {
 		ensuredRoleplaySuggestionModelSelect.append(option);
 	}
 
-	ensuredRoleplaySuggestionModelSelect.value = getValidChatModel(currentValue, access);
+	ensuredRoleplaySuggestionModelSelect.value = getValidRoleplaySuggestionModel(currentValue, access);
 	syncSuggestionControls();
 }
 
@@ -1298,7 +1298,10 @@ async function refreshSuggestions(force = false): Promise<void> {
 
 	try {
 		const settings = settingsService.getSettings();
-		const model = getValidChatModel(settings.roleplaySuggestionModel || settings.model, buildAccess());
+		const model = getValidRoleplaySuggestionModel(
+			settings.roleplaySuggestionModel || settings.model,
+			buildAccess()
+		);
 		const { systemInstruction, userPrompt } = buildSuggestionPrompts({
 			transcript,
 			personaName: personality.name,

@@ -102,8 +102,11 @@ vi.mock("../../../src/services/OpenRouter.service", () => ({
 
 vi.mock("../../../src/types/Models", () => ({
 	formatChatModelLabel: vi.fn((model: { id: string }) => model.id),
-	getAccessibleChatModels: vi.fn(() => [{ id: "openrouter/roleplay-alpha" }, { id: "openrouter/roleplay-beta" }]),
-	getValidChatModel: vi.fn((model: string) => {
+	getAccessibleRoleplaySuggestionModels: vi.fn(() => [
+		{ id: "openrouter/roleplay-alpha" },
+		{ id: "openrouter/roleplay-beta" }
+	]),
+	getValidRoleplaySuggestionModel: vi.fn((model: string) => {
 		if (model === "openrouter/roleplay-alpha" || model === "openrouter/roleplay-beta") {
 			return model;
 		}
