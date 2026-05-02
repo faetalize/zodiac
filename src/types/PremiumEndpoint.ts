@@ -13,5 +13,6 @@ export namespace PremiumEndpoint {
 		model: string;
 		streamResponses: boolean;
 		generate?: boolean; // whether to generate a new response or just continue the chat
+		generatePurpose?: "chat_title" | "roleplay_suggestion";
 	}
 }

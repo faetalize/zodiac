@@ -1215,6 +1215,7 @@ async function requestWithPremiumEndpoint(
 		model,
 		streamResponses: false,
 		generate: true,
+		generatePurpose: "roleplay_suggestion",
 		systemInstruction,
 		...baseConfig
 	};

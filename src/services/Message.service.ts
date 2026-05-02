@@ -1084,6 +1084,7 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
 		model: ChatModel.FLASH_LITE,
 		streamResponses: false,
 		generate: true,
+		generatePurpose: "chat_title",
 		systemInstruction: CHAT_TITLE_SYSTEM_INSTRUCTION,
 		maxOutputTokens: 100,
 		temperature: 0.9,
