@@ -1353,12 +1353,9 @@ async function refreshComposerAvailability(): Promise<void> {
 		lastSuggestionSignature = "";
 	}
 
-	if (!composerEnabled) {
-		composerEnabled = true;
-		syncComposerVisibility();
+	if (composerEnabled) {
+		await refreshSuggestions();
 	}
-
-	await refreshSuggestions();
 }
 
 ensuredRoleplayButton.addEventListener("click", () => {
