@@ -130,6 +130,12 @@ function getSuggestionButtons(): HTMLButtonElement[] {
 	return Array.from(document.querySelectorAll<HTMLButtonElement>(".roleplay-suggestion"));
 }
 
+function getRoleplayToggleButton(): HTMLButtonElement {
+	const button = document.querySelector<HTMLButtonElement>("#btn-roleplay");
+	if (!button) throw new Error("Missing #btn-roleplay");
+	return button;
+}
+
 function getRefreshButton(): HTMLButtonElement {
 	const button = document.querySelector<HTMLButtonElement>("#btn-roleplay-refresh");
 	if (!button) {
@@ -288,6 +294,12 @@ async function importRoleplayComposer(): Promise<void> {
 	await import("../../../src/components/static/RoleplayComposer.component");
 }
 
+async function enableRoleplayComposerAndRefresh(): Promise<void> {
+	await importRoleplayComposer();
+	getRoleplayToggleButton().click();
+	getRefreshButton().click();
+}
+
 async function waitForSuggestions(expectedCount = 4): Promise<void> {
 	await waitForCondition(
 		() => getSuggestionButtons().length === expectedCount,
@@ -324,7 +336,7 @@ describe("Roleplay composer suggestion workflow", () => {
 	it("uses the selected roleplay suggestion model and renders four suggestion buttons", async () => {
 		queueSuggestionOptions(["Stay where you are.", "Tell me what you want.", "You are trouble.", "Come closer."]);
 
-		await importRoleplayComposer();
+		await enableRoleplayComposerAndRefresh();
 		await waitForSuggestions();
 
 		expect(testState.builtRequests).toHaveLength(1);
@@ -345,35 +357,30 @@ describe("Roleplay composer suggestion workflow", () => {
 		expect(SYNCABLE_SETTINGS_KEYS).toContain(SETTINGS_STORAGE_KEYS.ROLEPLAY_CUSTOM_ACTIONS);
 	});
 
-	it("refreshes with the newly selected suggestion model", async () => {
+	it("requests fresh suggestions with the newly selected suggestion model after clicking refresh", async () => {
 		queueSuggestionOptions(["First", "Second", "Third", "Fourth"]);
 		queueSuggestionOptions(["Again one", "Again two", "Again three", "Again four"]);
 
-		await importRoleplayComposer();
+		await enableRoleplayComposerAndRefresh();
 		await waitForSuggestions();
 
 		const select = getSuggestionModelSelect();
 		select.value = "openrouter/roleplay-alpha";
 		select.dispatchEvent(new Event("change", { bubbles: true }));
+		getRefreshButton().click();
 
 		await waitForCondition(
 			() => testState.builtRequests.length === 2,
-			"Expected suggestion request after model change"
+			"Expected a second request after selecting a new model and clicking refresh"
 		);
 
 		expect(testState.builtRequests[1].model).toBe("openrouter/roleplay-alpha");
-		expect(getSuggestionButtons().map((button) => button.textContent)).toEqual([
-			"Again one",
-			"Again two",
-			"Again three",
-			"Again four"
-		]);
 	});
 
 	it("sends the selected dialogue option through the final message request", async () => {
 		queueSuggestionOptions(["Tell me more.", "Not yet.", "Try again.", "Maybe later."]);
 
-		await importRoleplayComposer();
+		await enableRoleplayComposerAndRefresh();
 		await waitForSuggestions();
 
 		getSuggestionButtons()[0].click();
@@ -389,7 +396,7 @@ describe("Roleplay composer suggestion workflow", () => {
 	it("includes queued actions before the selected dialogue option in the final request", async () => {
 		queueSuggestionOptions(["Tell me more.", "Not yet.", "Try again.", "Maybe later."]);
 
-		await importRoleplayComposer();
+		await enableRoleplayComposerAndRefresh();
 		await waitForSuggestions();
 
 		getActionButton("shakes their right hand").click();
@@ -407,7 +414,7 @@ describe("Roleplay composer suggestion workflow", () => {
 		queueSuggestionOptions(["One", "Two", "Three", "Four"]);
 		queueSuggestionOptions(["Five", "Six", "Seven", "Eight"]);
 
-		await importRoleplayComposer();
+		await enableRoleplayComposerAndRefresh();
 		await waitForSuggestions();
 
 		getRefreshButton().click();
@@ -425,7 +432,7 @@ describe("Roleplay composer suggestion workflow", () => {
 	it("creates, edits, and deletes custom categories and actions", async () => {
 		queueSuggestionOptions(["One", "Two", "Three", "Four"]);
 
-		await importRoleplayComposer();
+		await enableRoleplayComposerAndRefresh();
 		await waitForSuggestions();
 
 		getRevealCategoryButton().click();

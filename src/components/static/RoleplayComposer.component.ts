@@ -1354,7 +1354,8 @@ async function refreshComposerAvailability(): Promise<void> {
 	}
 
 	if (composerEnabled) {
-		await refreshSuggestions();
+		suggestionOptions = [];
+		renderSuggestions();
 	}
 }
 
@@ -1468,7 +1469,6 @@ document.querySelector<HTMLDivElement>("#personalitiesDiv")?.addEventListener("c
 
 ensuredRoleplaySuggestionModelSelect.addEventListener("change", () => {
 	lastSuggestionSignature = "";
-	void refreshSuggestions(true);
 });
 
 loadActionState();
