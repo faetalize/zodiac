@@ -67,6 +67,7 @@ test("roleplay button toggles the composer UI off and on for a roleplay persona"
 	await addRoleplayPersona(page);
 	await expect(page.locator("#personality-roleplay-test")).toContainText("Playwright Roleplay");
 	await page.locator("#personality-roleplay-test").click();
+	await page.locator("#btn-roleplay").click();
 
 	await expect
 		.poll(async () => await readRoleplayComposerState(page))
@@ -102,6 +103,7 @@ test("roleplay button toggles the composer UI off and on for a roleplay persona"
 			sendTitle: "Send current roleplay composition"
 		});
 
+	await page.locator("#btn-roleplay-refresh").click();
 	await expect(page.locator(".roleplay-suggestion")).toHaveCount(4);
 });
 
@@ -119,6 +121,7 @@ test("mobile adaptive sheet handle drags the roleplay action editor closed", asy
 	await page.evaluate(() => {
 		document.querySelector<HTMLInputElement>("#personality-roleplay-test input[name='personality']")?.click();
 	});
+	await page.locator("#btn-roleplay").click();
 	await page.locator('[data-roleplay-tab="actions"]').click();
 	await page.locator('[data-roleplay-add-action-toggle="true"]').click();
 
@@ -134,11 +137,53 @@ test("mobile adaptive sheet handle drags the roleplay action editor closed", asy
 	const handleBox = await handle.boundingBox();
 	expect(handleBox).not.toBeNull();
 	if (!handleBox) return;
+	const dragStartX = handleBox.x + handleBox.width / 2;
+	const dragStartY = handleBox.y + handleBox.height / 2;
+	const dragEndY = dragStartY + 140;
 
-	await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
-	await page.mouse.down();
-	await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2 + 140, { steps: 6 });
-	await page.mouse.up();
+	await page.evaluate(
+		({ dragStartX, dragStartY, dragEndY }) => {
+			const handle = document.querySelector<HTMLElement>(".adaptive-sheet__handle");
+			if (!handle) throw new Error("Missing adaptive sheet handle");
+			const pointerId = 1;
+			handle.dispatchEvent(
+				new PointerEvent("pointerdown", {
+					bubbles: true,
+					button: 0,
+					pointerId,
+					clientX: dragStartX,
+					clientY: dragStartY
+				})
+			);
+			document.dispatchEvent(
+				new PointerEvent("pointermove", {
+					bubbles: true,
+					button: 0,
+					pointerId,
+					clientX: dragStartX,
+					clientY: dragEndY
+				})
+			);
+			document.dispatchEvent(
+				new PointerEvent("pointerup", {
+					bubbles: true,
+					button: 0,
+					pointerId,
+					clientX: dragStartX,
+					clientY: dragEndY
+				})
+			);
+		},
+		{ dragStartX, dragStartY, dragEndY }
+	);
+
+	await page.evaluate(async () => {
+		const sheet = document.querySelector<HTMLElement>("#modal-roleplay-add");
+		if (!sheet || sheet.classList.contains("hidden")) return;
+		await new Promise<void>((resolve) => {
+			sheet.addEventListener("surface-closed", () => resolve(), { once: true });
+		});
+	});
 	await page.locator("#btn-roleplay").click();
 
 	await expect

@@ -255,7 +255,10 @@ function bootstrapRoleplayDom(): void {
 						<div class="navbar-tab" data-roleplay-tab="actions" aria-selected="false">Actions</div>
 						<div class="navbar-tab-highlight"></div>
 					</div>
-					<button id="btn-roleplay-refresh" type="button">Refresh</button>
+					<button id="btn-roleplay-refresh" type="button">
+						<span class="material-symbols-outlined">refresh</span>
+						<span class="loading-spinner roleplay-refresh-spinner hidden"></span>
+					</button>
 				</div>
 				<div class="roleplay-composer__selection-bar">
 					<div id="roleplay-selected-actions"></div>

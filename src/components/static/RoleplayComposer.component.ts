@@ -30,6 +30,7 @@ const sendButton = document.querySelector<HTMLButtonElement>("#btn-send");
 const roleplayComposer = document.querySelector<HTMLDivElement>("#roleplay-composer");
 const roleplaySuggestions = document.querySelector<HTMLDivElement>("#roleplay-suggestions");
 const roleplayActionsRoot = document.querySelector<HTMLDivElement>("#roleplay-actions-root");
+const roleplayRefreshSpinner = document.querySelector<HTMLElement>(".roleplay-refresh-spinner");
 const roleplaySelectionBar = document.querySelector<HTMLDivElement>(".roleplay-composer__selection-bar");
 const roleplaySelectedActions = document.querySelector<HTMLDivElement>("#roleplay-selected-actions");
 const roleplayClearActionsButton = document.querySelector<HTMLButtonElement>("#btn-roleplay-clear-actions");
@@ -55,6 +56,7 @@ if (
 	!roleplayComposer ||
 	!roleplaySuggestions ||
 	!roleplayActionsRoot ||
+	!roleplayRefreshSpinner ||
 	!roleplaySelectionBar ||
 	!roleplaySelectedActions ||
 	!roleplayClearActionsButton ||
@@ -83,6 +85,7 @@ const ensuredSendButton = sendButton;
 const ensuredRoleplayComposer = roleplayComposer;
 const ensuredRoleplaySuggestions = roleplaySuggestions;
 const ensuredRoleplayActionsRoot = roleplayActionsRoot;
+const ensuredRoleplayRefreshSpinner = roleplayRefreshSpinner;
 const ensuredRoleplaySelectionBar = roleplaySelectionBar;
 const ensuredRoleplaySelectedActions = roleplaySelectedActions;
 const ensuredRoleplayClearActionsButton = roleplayClearActionsButton;
@@ -374,6 +377,10 @@ function syncSuggestionControls(): void {
 	const hasAccess = hasSuggestionModelAccess();
 	ensuredRoleplaySuggestionModelSelect.disabled = !hasAccess;
 	ensuredRoleplayRefreshButton.disabled = isGenerating || !hasAccess;
+	ensuredRoleplayRefreshSpinner.classList.toggle("hidden", !isGeneratingSuggestions);
+	ensuredRoleplayRefreshButton
+		.querySelector(".material-symbols-outlined")
+		?.classList.toggle("hidden", isGeneratingSuggestions);
 }
 
 function loadActionState(): void {
@@ -1003,15 +1010,9 @@ function renderSuggestions(): void {
 	if (isGeneratingSuggestions) {
 		const emptyState = document.createElement("div");
 		emptyState.className = "roleplay-empty-state";
-		const spinner = document.createElement("span");
-		spinner.className = "loading-spinner";
-		spinner.style.display = "inline-block";
-		spinner.style.marginRight = "0.5rem";
-		spinner.style.verticalAlign = "middle";
 		const text = document.createElement("span");
 		text.textContent = "Generating suggestions...";
-		text.style.verticalAlign = "middle";
-		emptyState.append(spinner, text);
+		emptyState.append(text);
 		ensuredRoleplaySuggestions.append(emptyState);
 		return;
 	}
@@ -1314,6 +1315,7 @@ async function refreshSuggestions(force = false): Promise<void> {
 	ensuredRoleplayRefreshButton.disabled = true;
 	isGeneratingSuggestions = true;
 	renderSuggestions();
+	syncSuggestionControls();
 
 	try {
 		const settings = settingsService.getSettings();

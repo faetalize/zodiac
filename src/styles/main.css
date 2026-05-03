@@ -7965,6 +7965,12 @@ input.onboarding-select {
 	font-size: 1rem;
 }
 
+.roleplay-refresh .loading-spinner {
+	width: 1rem;
+	height: 1rem;
+	border-width: 2px;
+}
+
 .roleplay-refresh {
 	width: 2.1rem;
 	height: 2.1rem;
