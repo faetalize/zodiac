@@ -109,15 +109,8 @@ function updateModeSettingsVisibility(): void {
 
 	if (isDynamic) {
 		renderGuardSliders();
-		const settings = settingsService.getSettings();
-		if (settings.disallowPersonaPinging) {
-			allowPingsToggle.checked = false;
-			allowPingsToggle.disabled = true;
-			allowPingsToggle.title = "This setting is globally disabled in app settings.";
-		} else {
-			allowPingsToggle.disabled = false;
-			allowPingsToggle.title = "";
-		}
+		allowPingsToggle.disabled = false;
+		allowPingsToggle.title = "";
 	}
 }
 

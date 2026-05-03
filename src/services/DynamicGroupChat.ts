@@ -191,7 +191,8 @@ async function loadDynamicContext(args: { chatId: ChatId; shouldEnforceThoughtSi
 
 	const maxMessageGuardById = chat.groupChat.dynamic?.maxMessageGuardById;
 	const globalSettings = settingsService.getSettings();
-	const allowPings = !globalSettings.disallowPersonaPinging && !!chat.groupChat.dynamic?.allowPings;
+	const mentionsEnabled = !!chat.groupChat.dynamic?.allowPings;
+	const aiPingsEnabled = mentionsEnabled && !globalSettings.disallowPersonaPinging;
 	const pingOnly = !!globalSettings.dynamicGroupChatPingOnly;
 
 	const participantPersonas: DbPersonality[] = [];
@@ -209,14 +210,14 @@ async function loadDynamicContext(args: { chatId: ChatId; shouldEnforceThoughtSi
 	const rosterSystemPrompt = buildDynamicGroupChatRosterSystemPrompt({
 		participantPersonas,
 		userName,
-		allowPings
+		allowPings: aiPingsEnabled
 	});
 
 	return {
 		chat,
 		participants,
 		maxMessageGuardById,
-		allowPings,
+		mentionsEnabled,
 		participantPersonas,
 		speakerNameById,
 		userName,
@@ -246,7 +247,7 @@ async function triggerResponses(args: {
 		chat,
 		participants,
 		maxMessageGuardById,
-		allowPings,
+		mentionsEnabled,
 		participantPersonas,
 		speakerNameById,
 		userName,
@@ -254,7 +255,7 @@ async function triggerResponses(args: {
 		pingOnly
 	} = ctx;
 
-	const forcedIds = allowPings ? extractMentionedParticipantIds(args.triggeringText, participants) : [];
+	const forcedIds = mentionsEnabled ? extractMentionedParticipantIds(args.triggeringText, participants) : [];
 	const shouldRestrictToForced = pingOnly && forcedIds.length > 0;
 	const allowCascadeForWave = (args.allowCascade ?? true) && !shouldRestrictToForced;
 
