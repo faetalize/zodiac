@@ -9,9 +9,7 @@ import type {
 	OnboardingSetupOption,
 	OnboardingState
 } from "../types/Onboarding";
-import {
-	OnboardingStep
-} from "../types/Onboarding";
+import { OnboardingStep } from "../types/Onboarding";
 
 let currentState: OnboardingState = {
 	currentStep: OnboardingStep.PATH_SELECTION,

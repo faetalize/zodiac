@@ -1,4 +1,4 @@
-import type { EditableImage} from "../../utils/imageHistory";
+import type { EditableImage } from "../../utils/imageHistory";
 import { scrollToMessage } from "../../utils/imageHistory";
 import { dispatchEmptyAppEvent } from "../../events";
 

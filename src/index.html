@@ -521,6 +521,20 @@
 												<label id="label-temperature" for="temperature">0</label>
 											</div>
 										</div>
+										<div>
+											<label class="setting-label" for="roleplaySuggestionModel"
+												><span class="material-symbols-outlined">theater_comedy</span>Roleplay
+												suggestion model
+												<span
+													class="material-symbols-outlined tooltip"
+													style="font-size: 0.885rem; opacity: 0.6; cursor: default"
+													info="Controls which model generates the four quick-reply roleplay suggestions in the composer."
+												>
+													info
+												</span>
+											</label>
+											<select id="roleplaySuggestionModel" class="input-field"></select>
+										</div>
 									</div>
 								</div>
 							</div>
@@ -1167,6 +1181,57 @@
 						<div id="attachment-preview" class="attachment-preview-container">
 							<input type="file" name="attachments" id="attachments" />
 						</div>
+						<div id="roleplay-composer" class="roleplay-composer hidden" aria-live="polite">
+							<div class="roleplay-composer__header">
+								<div
+									class="navbar roleplay-composer__tabs"
+									data-tabview="manual"
+									role="tablist"
+									aria-label="Roleplay composer sections"
+								>
+									<div
+										class="navbar-tab navbar-tab-active"
+										data-roleplay-tab="dialogue"
+										aria-selected="true"
+									>
+										Dialogue
+									</div>
+									<div class="navbar-tab" data-roleplay-tab="actions" aria-selected="false">
+										Actions
+									</div>
+									<div class="navbar-tab-highlight"></div>
+								</div>
+								<button
+									type="button"
+									class="btn btn-textual roleplay-refresh"
+									id="btn-roleplay-refresh"
+									aria-label="Refresh suggestions"
+									title="Refresh suggestions"
+								>
+									<span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+									<span
+										class="loading-spinner roleplay-refresh-spinner hidden"
+										aria-hidden="true"
+									></span>
+								</button>
+							</div>
+							<div class="roleplay-composer__selection-bar hidden">
+								<div id="roleplay-selected-actions" class="roleplay-selected-actions"></div>
+								<button
+									type="button"
+									class="btn btn-textual roleplay-clear-actions hidden"
+									id="btn-roleplay-clear-actions"
+								>
+									Clear
+								</button>
+							</div>
+							<div class="roleplay-panel" data-roleplay-panel="dialogue">
+								<div id="roleplay-suggestions" class="roleplay-suggestions"></div>
+							</div>
+							<div class="roleplay-panel hidden" data-roleplay-panel="actions">
+								<div id="roleplay-actions-root" class="roleplay-actions-root"></div>
+							</div>
+						</div>
 						<div id="message-box-buttons">
 							<button type="button" class="btn-textual material-symbols-outlined btn" id="btn-attach">
 								attach_file
@@ -1536,16 +1601,16 @@
 					<h1 id="header-version">What's New in</h1>
 					<ul id="changelog">
 						<li>
-							<b>Message debug tools:</b> Model replies can now expose request debug info, including
-							payload details and request slugs that make issue reports easier to trace
+							<b>Login and registration refresh:</b> Auth screens now use native forms with better
+							validation and a smoother password recovery flow
 						</li>
 						<li>
-							<b>RPG group chat fixes:</b> Persona skip handling now keeps turn order stable, restores
-							skip notices after refresh, and keeps regenerated skip turns in the correct round
+							<b>Gemini model naming updates:</b> Model labels now use clearer intrinsic version names,
+							including the newer Flash Lite 3.1 naming
 						</li>
 						<li>
-							<b>Stability improvements:</b> This release also includes behind-the-scenes fixes that make
-							group chats feel more reliable overall
+							<b>Worktree tooling polish:</b> Branch worktree setup removes unused MCP config and fixes
+							path resolution issues in the creation script
 						</li>
 					</ul>
 				</div>
@@ -3113,6 +3178,27 @@
 							Start Chatting
 						</button>
 					</div>
+				</div>
+			</div>
+		</div>
+
+		<div id="surface-plane" class="surface-plane" aria-live="polite">
+			<div
+				id="modal-roleplay-add"
+				class="adaptive-sheet hidden"
+				role="dialog"
+				aria-labelledby="roleplay-add-modal-title"
+			>
+				<h1 id="roleplay-add-modal-title">Add</h1>
+				<input id="roleplay-add-modal-label-input" class="input-field hidden" type="text" />
+				<input id="roleplay-add-modal-input" class="input-field" type="text" />
+				<div id="roleplay-add-modal-error" class="error-message hidden">
+					<span class="material-symbols-outlined">error</span>
+					<span id="roleplay-add-modal-error-message">Unable to save.</span>
+				</div>
+				<div class="overlay-actions">
+					<button id="btn-roleplay-add-modal-submit" class="btn btn-primary" type="button">Add</button>
+					<button id="btn-roleplay-add-modal-cancel" class="btn btn-secondary" type="button">Cancel</button>
 				</div>
 			</div>
 		</div>

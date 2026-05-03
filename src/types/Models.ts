@@ -44,6 +44,8 @@ export interface ChatModelDefinition {
 	supportsImageInput: boolean;
 	supportsFileInput: boolean;
 	supportsImageOutput: boolean;
+	roleplayModeSuggester?: boolean;
+	roleplaySuggestionThinkingCap?: number;
 }
 
 export interface ChatModelAccess {
@@ -66,6 +68,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		label: "Gemini 3.1 Flash Lite Preview",
 		provider: "gemini",
 		mega: false,
+		roleplayModeSuggester: true,
 		supportsThinking: true,
 		supportsTemperature: true,
 		supportsImageInput: false,
@@ -77,6 +80,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		label: "Gemini 3.0 Flash",
 		provider: "gemini",
 		mega: false,
+		roleplayModeSuggester: true,
 		supportsThinking: true,
 		supportsTemperature: true,
 		supportsImageInput: true,
@@ -88,8 +92,10 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		label: "Gemini 3.1 Pro Preview",
 		provider: "gemini",
 		mega: false,
+		roleplayModeSuggester: true,
 		supportsThinking: true,
 		requiresThinking: true,
+		roleplaySuggestionThinkingCap: 128,
 		supportsTemperature: true,
 		supportsImageInput: true,
 		supportsFileInput: true,
@@ -138,6 +144,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		mega: true,
 		supportsThinking: true,
 		requiresThinking: true,
+		roleplaySuggestionThinkingCap: 128,
 		supportsTemperature: true,
 		supportsImageInput: true,
 		supportsFileInput: true,
@@ -148,8 +155,10 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		label: "GPT-OSS 120B",
 		provider: "openrouter",
 		mega: false,
+		roleplayModeSuggester: true,
 		supportsThinking: true,
 		requiresThinking: true,
+		roleplaySuggestionThinkingCap: 128,
 		supportsTemperature: true,
 		supportsImageInput: false,
 		supportsFileInput: false,
@@ -182,6 +191,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		label: "Claude Sonnet 4.6",
 		provider: "openrouter",
 		mega: false,
+		roleplayModeSuggester: true,
 		supportsThinking: true,
 		supportsTemperature: true,
 		supportsImageInput: true,
@@ -204,6 +214,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		label: "GLM 5",
 		provider: "openrouter",
 		mega: false,
+		roleplayModeSuggester: true,
 		supportsThinking: true,
 		supportsTemperature: true,
 		supportsImageInput: false,
@@ -226,6 +237,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		label: "Qwen3.5 397B",
 		provider: "openrouter",
 		mega: false,
+		roleplayModeSuggester: true,
 		supportsThinking: true,
 		supportsTemperature: true,
 		supportsImageInput: true,
@@ -237,6 +249,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		label: "Qwen3.5 Plus",
 		provider: "openrouter",
 		mega: false,
+		roleplayModeSuggester: true,
 		supportsThinking: true,
 		supportsTemperature: true,
 		supportsImageInput: true,
@@ -274,6 +287,10 @@ export function modelRequiresThinking(model: string | null | undefined): boolean
 	return getChatModelDefinition(model)?.requiresThinking === true;
 }
 
+export function getRoleplaySuggestionThinkingCap(model: string | null | undefined): number | undefined {
+	return getChatModelDefinition(model)?.roleplaySuggestionThinkingCap;
+}
+
 export function modelSupportsTemperature(_model: string | null | undefined): boolean {
 	return true;
 }
@@ -287,6 +304,10 @@ export function getAccessibleChatModels(access: ChatModelAccess): ChatModelDefin
 		if (model.provider === "gemini") return access.hasGeminiAccess;
 		return access.hasOpenRouterAccess;
 	});
+}
+
+export function getAccessibleRoleplaySuggestionModels(access: ChatModelAccess): ChatModelDefinition[] {
+	return getAccessibleChatModels(access).filter((model) => model.roleplayModeSuggester === true);
 }
 
 export function formatChatModelLabel(model: Pick<ChatModelDefinition, "label" | "mega">): string {
@@ -327,6 +348,15 @@ export function getDefaultChatModel(access: ChatModelAccess): string {
 
 export function getValidChatModel(model: string | null | undefined, access: ChatModelAccess): string {
 	const availableModels = getAccessibleChatModels(access);
+	if (model && availableModels.some((candidate) => candidate.id === model)) {
+		return model;
+	}
+
+	return availableModels[0]?.id ?? getDefaultChatModel(access);
+}
+
+export function getValidRoleplaySuggestionModel(model: string | null | undefined, access: ChatModelAccess): string {
+	const availableModels = getAccessibleRoleplaySuggestionModels(access);
 	if (model && availableModels.some((candidate) => candidate.id === model)) {
 		return model;
 	}

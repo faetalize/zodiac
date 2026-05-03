@@ -5,6 +5,7 @@ import type { User } from "../types/User";
 import { getDefaultChatModel, getValidChatModel } from "../types/Models";
 import * as syncService from "./Sync.service";
 import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
+import { dispatchAppEvent } from "../events";
 
 const geminiApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const openRouterApiKeyInput = document.querySelector("#openRouterApiKeyInput") as HTMLInputElement;
@@ -18,6 +19,9 @@ const enableThinkingSelect = document.querySelector("#enableThinkingSelect") as 
 const thinkingBudgetInput = document.querySelector("#thinkingBudget") as HTMLInputElement;
 const imageEditModelSelector = document.querySelector<HTMLSelectElement>(
 	"#selectedImageEditingModel"
+) as HTMLSelectElement;
+const roleplaySuggestionModelSelect = document.querySelector<HTMLSelectElement>(
+	"#roleplaySuggestionModel"
 ) as HTMLSelectElement;
 const rpgGroupChatsProgressAutomaticallyToggle = document.querySelector(
 	"#rpgGroupChatsProgressAutomatically"
@@ -47,6 +51,7 @@ if (
 	!enableThinkingSelect ||
 	!thinkingBudgetInput ||
 	!imageEditModelSelector ||
+	!roleplaySuggestionModelSelect ||
 	!rpgGroupChatsProgressAutomaticallyToggle ||
 	!disallowPersonaPingingToggle ||
 	!dynamicGroupChatPingOnlyToggle ||
@@ -239,6 +244,64 @@ function updateDelimiterPreview(): void {
 	delimiterPreviewThought.textContent = `Thought: ${preview.thought}`;
 }
 
+export function getStoredRoleplaySuggestionModel(): string {
+	return (
+		localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) ||
+		modelSelect.value ||
+		getSelectedOrFallbackModel()
+	);
+}
+
+function formatRoleplayTextWithInstruction(
+	text: string,
+	instruction: string,
+	fallbackWrapper: [string, string]
+): string {
+	const trimmed = text.trim();
+	if (!trimmed) return "";
+
+	const lower = instruction.toLowerCase();
+	if (
+		lower.includes("plain text") ||
+		lower.includes("without wrapping") ||
+		lower.includes("plain prose") ||
+		lower.includes("without any markers")
+	) {
+		return trimmed;
+	}
+	if (lower.includes("double quotes") || lower.includes("between quotes")) {
+		return `"${trimmed}"`;
+	}
+	if (lower.includes("single quotes") || lower.includes("apostrophe")) {
+		return `'${trimmed}'`;
+	}
+	if (lower.includes("curly quotes")) {
+		return `“${trimmed}”`;
+	}
+	if (lower.includes("asterisk")) {
+		return `*${trimmed}*`;
+	}
+	if (lower.includes("double bracket")) {
+		return `[[${trimmed}]]`;
+	}
+	if (lower.includes("bracket")) {
+		return `[${trimmed}]`;
+	}
+	if (lower.includes("parentheses")) {
+		return `(${trimmed})`;
+	}
+
+	return `${fallbackWrapper[0]}${trimmed}${fallbackWrapper[1]}`;
+}
+
+export function formatRoleplayDialogue(text: string): string {
+	return formatRoleplayTextWithInstruction(text, getEffectiveDelimiterInstructions().dialogue, ["", ""]);
+}
+
+export function formatRoleplayAction(text: string): string {
+	return formatRoleplayTextWithInstruction(text, getEffectiveDelimiterInstructions().action, ["(", ")"]);
+}
+
 function buildRoleplayGuidelinesPrompt(): string {
 	const preset = getStoredDelimiterPreset();
 	const instructions = getEffectiveDelimiterInstructions();
@@ -274,6 +337,7 @@ export function initialize() {
 	uiScaleInput.addEventListener("input", saveSettings);
 	thinkingBudgetInput.addEventListener("input", saveSettings);
 	imageEditModelSelector.addEventListener("change", saveSettings);
+	roleplaySuggestionModelSelect.addEventListener("change", saveSettings);
 	delimiterPresetSelect.addEventListener("change", () => {
 		updateDelimiterCustomizationVisibility();
 		saveSettings();
@@ -291,6 +355,8 @@ export function loadSettings() {
 	modelSelect.value = getSelectedOrFallbackModel();
 	imageModelSelect.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || "imagen-4.0-ultra-generate-001";
 	imageEditModelSelector.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) || "qwen";
+	roleplaySuggestionModelSelect.value =
+		localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) || modelSelect.value;
 	autoscrollToggle.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL)
 		? localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) === "true"
 		: true;
@@ -327,13 +393,25 @@ export function loadSettings() {
 }
 
 export function saveSettings() {
+	const prevGeminiKey = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
+	const prevOpenRouterKey = localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "";
+
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.API_KEY, geminiApiKeyInput.value);
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY, openRouterApiKeyInput.value);
+
+	if (prevGeminiKey !== geminiApiKeyInput.value || prevOpenRouterKey !== openRouterApiKeyInput.value) {
+		dispatchAppEvent("api-keys-changed", {});
+	}
+
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS, maxTokensInput.value);
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.TEMPERATURE, temperatureInput.value);
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, modelSelect.value);
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL, imageModelSelect.value);
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL, imageEditModelSelector.value);
+	localStorage.setItem(
+		SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL,
+		roleplaySuggestionModelSelect.value || modelSelect.value
+	);
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL, autoscrollToggle.checked.toString());
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES, streamResponsesToggle.checked.toString());
 	localStorage.setItem(
@@ -394,6 +472,7 @@ export function getSettings() {
 		model: modelSelect.value,
 		imageModel: imageModelSelect.value,
 		imageEditModel: imageEditModelSelector.value,
+		roleplaySuggestionModel: roleplaySuggestionModelSelect.value || modelSelect.value,
 		autoscroll: autoscrollToggle.checked,
 		streamResponses: streamResponsesToggle.checked,
 		rpgGroupChatsProgressAutomatically: rpgGroupChatsProgressAutomaticallyToggle.checked,
@@ -435,7 +514,7 @@ export async function getSystemPrompt(mode: SystemPromptMode = "chat"): Promise<
 	let userProfile: User;
 	try {
 		userProfile = await supabaseService.getUserProfile();
-	} catch {
+	} catch (_error) {
 		userProfile = { systemPromptAddition: "", preferredName: "User" };
 	}
 

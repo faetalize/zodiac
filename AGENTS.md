@@ -100,6 +100,15 @@ Key events: `auth-state-changed`, `generation-state-changed`, `chat-model-change
 
 Services export an `initialize()` function called from `main.ts` in dependency order. Avoid circular imports by using event-based communication.
 
+### Overlay And Surface Layers
+
+- Use [src/services/Overlay.service.ts](src/services/Overlay.service.ts) for true app-level overlays: full-screen flows that intentionally blur/take over the app and use the overlay back button, such as auth, onboarding, changelog, persona forms, and debug modals already hosted in `.overlay-content`.
+- Use [src/services/Surface.service.ts](src/services/Surface.service.ts) for transient floating surfaces that should not inherit overlay blur or the back button, such as adaptive sheets, lightweight editors, and contextual task surfaces.
+- `#surface-plane` is always mounted and should not be hidden with `display: none`; it is click-through by default (`pointer-events: none`) while hosted surfaces opt back into pointer handling.
+- Adaptive sheets belong on `#surface-plane` and should use the `adaptive-sheet` class. They present as compact modal-like surfaces on desktop and slide up as bottom sheets on mobile.
+- Prefer `surfaceService.show("element-id")` / `surfaceService.close("element-id")` for adaptive sheets instead of `overlayService.show()` / `overlayService.closeOverlay()`.
+- Keep feature-specific state resets in the feature component. `Surface.service.ts` dispatches `surface-closed` on the surface element after the close animation completes.
+
 ### Database Migrations
 
 Dexie schema versions in `Db.service.ts` are additive. Use `.upgrade()` for data migrations:
