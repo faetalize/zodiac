@@ -1149,11 +1149,10 @@ function buildSuggestionPrompts(args: {
 			: `Active response delimiter preset: ${args.delimiterPreset}.`;
 
 	const systemInstruction = [
-		"You generate exactly four concise roleplay reply options for the user in a visual-novel composer.",
+		"You generate exactly four concise Visual Novel-like reply options.",
 		'Return strict JSON only in the form {"options":["...","...","...","..."]}.',
 		"Each option must be a single user reply, 4 to 18 words, with no numbering or commentary.",
 		"Write options that feel distinct in tone and intent.",
-		"Keep formatting consistent with the active roleplay delimiter settings.",
 		delimiterContext
 	].join(" ");
 
@@ -1162,7 +1161,7 @@ function buildSuggestionPrompts(args: {
 		`Persona guidance: ${args.personaPrompt || "No extra guidance provided."}`,
 		"Conversation transcript:",
 		args.transcript,
-		"Generate the next four things the user could say."
+		"Generate the next four things the user could say. They need to be distinct and lead the conversation in different directions. At least one option should be adversarial, and at least one option should explore intimacy."
 	].join("\n\n");
 
 	return { systemInstruction, userPrompt };
