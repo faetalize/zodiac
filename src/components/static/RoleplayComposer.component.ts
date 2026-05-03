@@ -18,6 +18,7 @@ import {
 	getValidRoleplaySuggestionModel,
 	isOpenRouterModel,
 	modelRequiresThinking,
+	getRoleplaySuggestionThinkingCap,
 	modelSupportsTemperature
 } from "../../types/Models";
 import { SUPABASE_URL } from "../../services/Supabase.service";
@@ -1176,8 +1177,10 @@ function buildAccess() {
 
 function buildRoleplaySuggestionThinkingConfig(
 	model: string
-): { includeThoughts: false; thinkingBudget: 0 } | undefined {
-	return modelRequiresThinking(model) ? undefined : { includeThoughts: false, thinkingBudget: 0 };
+): { includeThoughts: false; thinkingBudget: number } | undefined {
+	return modelRequiresThinking(model)
+		? { includeThoughts: false, thinkingBudget: getRoleplaySuggestionThinkingCap(model) ?? 128 }
+		: undefined;
 }
 
 function buildRoleplaySuggestionOpenRouterResponseFormat() {
@@ -1281,8 +1284,8 @@ async function requestWithLocalModel(model: string, systemInstruction: string, u
 			stream: false,
 			maxTokens: baseConfig.maxOutputTokens,
 			temperature: baseConfig.temperature,
-			enableThinking: false,
-			thinkingBudget: 0,
+			enableThinking: modelRequiresThinking(model),
+			thinkingBudget: modelRequiresThinking(model) ? (getRoleplaySuggestionThinkingCap(model) ?? 128) : 0,
 			isInternetSearchEnabled: false,
 			responseFormat: buildRoleplaySuggestionOpenRouterResponseFormat()
 		});

@@ -45,6 +45,7 @@ export interface ChatModelDefinition {
 	supportsFileInput: boolean;
 	supportsImageOutput: boolean;
 	roleplayModeSuggester?: boolean;
+	roleplaySuggestionThinkingCap?: number;
 }
 
 export interface ChatModelAccess {
@@ -94,6 +95,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		roleplayModeSuggester: true,
 		supportsThinking: true,
 		requiresThinking: true,
+		roleplaySuggestionThinkingCap: 128,
 		supportsTemperature: true,
 		supportsImageInput: true,
 		supportsFileInput: true,
@@ -142,6 +144,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		mega: true,
 		supportsThinking: true,
 		requiresThinking: true,
+		roleplaySuggestionThinkingCap: 128,
 		supportsTemperature: true,
 		supportsImageInput: true,
 		supportsFileInput: true,
@@ -155,6 +158,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		roleplayModeSuggester: true,
 		supportsThinking: true,
 		requiresThinking: true,
+		roleplaySuggestionThinkingCap: 128,
 		supportsTemperature: true,
 		supportsImageInput: false,
 		supportsFileInput: false,
@@ -281,6 +285,10 @@ export function modelSupportsThinking(model: string | null | undefined): boolean
 
 export function modelRequiresThinking(model: string | null | undefined): boolean {
 	return getChatModelDefinition(model)?.requiresThinking === true;
+}
+
+export function getRoleplaySuggestionThinkingCap(model: string | null | undefined): number | undefined {
+	return getChatModelDefinition(model)?.roleplaySuggestionThinkingCap;
 }
 
 export function modelSupportsTemperature(_model: string | null | undefined): boolean {

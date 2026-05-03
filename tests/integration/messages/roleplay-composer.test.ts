@@ -121,6 +121,7 @@ vi.mock("../../../src/types/Models", () => ({
 	}),
 	isOpenRouterModel: vi.fn(() => true),
 	modelRequiresThinking: vi.fn(() => false),
+	getRoleplaySuggestionThinkingCap: vi.fn(() => undefined),
 	modelSupportsTemperature: vi.fn(() => true)
 }));
 
@@ -453,6 +454,21 @@ describe("Roleplay composer suggestion workflow", () => {
 		expect(systemInstruction).toContain("Dialogue: <dialogue>.");
 		expect(systemInstruction).toContain("Action: <action>.");
 		expect(systemInstruction).toContain("Thought: <thought>.");
+	});
+
+	it("includes thinking configuration in the final request when the model requires it", async () => {
+		queueSuggestionOptions(["Stay close.", "Tell me more.", "Not so fast.", "Prove it."]);
+
+		const models = await import("../../../src/types/Models");
+		vi.mocked(models.modelRequiresThinking).mockReturnValue(true);
+		vi.mocked(models.getRoleplaySuggestionThinkingCap).mockReturnValue(128);
+
+		await enableRoleplayComposerAndRefresh();
+		await waitForSuggestions();
+
+		expect(testState.builtRequests).toHaveLength(1);
+		expect(testState.builtRequests[0].enableThinking).toBe(true);
+		expect(testState.builtRequests[0].thinkingBudget).toBe(128);
 	});
 
 	it("includes custom roleplay action settings in the cloud-sync settings blob", () => {
