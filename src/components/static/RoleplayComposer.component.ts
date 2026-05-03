@@ -194,6 +194,7 @@ let suggestionOptions: string[] = [];
 let lastSuggestionSignature = "";
 let lastLoadedChatId: string | null = null;
 let isGenerating = false;
+let isGeneratingSuggestions = false;
 let hasPremiumModelAccess = false;
 let pendingAddMode: "category" | "action" | "edit-category" | "edit-action" | null = null;
 let pendingEditCategoryId: CustomActionCategoryId | null = null;
@@ -999,6 +1000,22 @@ async function sendRoleplayPayload(payload: string): Promise<void> {
 function renderSuggestions(): void {
 	ensuredRoleplaySuggestions.replaceChildren();
 
+	if (isGeneratingSuggestions) {
+		const emptyState = document.createElement("div");
+		emptyState.className = "roleplay-empty-state";
+		const spinner = document.createElement("span");
+		spinner.className = "loading-spinner";
+		spinner.style.display = "inline-block";
+		spinner.style.marginRight = "0.5rem";
+		spinner.style.verticalAlign = "middle";
+		const text = document.createElement("span");
+		text.textContent = "Generating suggestions...";
+		text.style.verticalAlign = "middle";
+		emptyState.append(spinner, text);
+		ensuredRoleplaySuggestions.append(emptyState);
+		return;
+	}
+
 	if (suggestionOptions.length === 0) {
 		const emptyState = document.createElement("div");
 		emptyState.className = "roleplay-empty-state";
@@ -1295,6 +1312,8 @@ async function refreshSuggestions(force = false): Promise<void> {
 	}
 
 	ensuredRoleplayRefreshButton.disabled = true;
+	isGeneratingSuggestions = true;
+	renderSuggestions();
 
 	try {
 		const settings = settingsService.getSettings();
@@ -1324,13 +1343,16 @@ async function refreshSuggestions(force = false): Promise<void> {
 		const options = extractOptionsFromResponse(raw);
 		suggestionOptions = options;
 		lastSuggestionSignature = signature;
+		isGeneratingSuggestions = false;
 		renderSuggestions();
 	} catch (error: any) {
 		suggestionOptions = [];
+		isGeneratingSuggestions = false;
 		renderSuggestions();
 		console.error(error);
 		toastService.warn({ title: "Roleplay suggestions unavailable", text: error?.message || String(error) });
 	} finally {
+		isGeneratingSuggestions = false;
 		syncSuggestionControls();
 	}
 }
