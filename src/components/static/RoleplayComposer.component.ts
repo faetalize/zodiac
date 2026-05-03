@@ -1128,16 +1128,33 @@ function extractOptionsFromResponse(text: string): string[] {
 	return parseRoleplaySuggestionsJson(text);
 }
 
-function buildSuggestionPrompts(args: { transcript: string; personaName: string; personaPrompt: string }): {
+function buildSuggestionPrompts(args: {
+	transcript: string;
+	personaName: string;
+	personaPrompt: string;
+	delimiterPreset: string;
+	customDelimiterInstructions: { dialogue: string; action: string; thought: string };
+}): {
 	systemInstruction: string;
 	userPrompt: string;
 } {
+	const delimiterContext =
+		args.delimiterPreset === "custom"
+			? [
+					"Active response delimiter preset: custom.",
+					`Dialogue: ${args.customDelimiterInstructions.dialogue || "(none)"}.`,
+					`Action: ${args.customDelimiterInstructions.action || "(none)"}.`,
+					`Thought: ${args.customDelimiterInstructions.thought || "(none)"}.`
+				].join(" ")
+			: `Active response delimiter preset: ${args.delimiterPreset}.`;
+
 	const systemInstruction = [
 		"You generate exactly four concise roleplay reply options for the user in a visual-novel composer.",
 		'Return strict JSON only in the form {"options":["...","...","...","..."]}.',
 		"Each option must be a single user reply, 4 to 18 words, with no numbering or commentary.",
 		"Write options that feel distinct in tone and intent.",
-		"Keep formatting consistent with the active roleplay delimiter settings."
+		"Keep formatting consistent with the active roleplay delimiter settings.",
+		delimiterContext
 	].join(" ");
 
 	const userPrompt = [
@@ -1326,7 +1343,9 @@ async function refreshSuggestions(force = false): Promise<void> {
 		const { systemInstruction, userPrompt } = buildSuggestionPrompts({
 			transcript,
 			personaName: personality.name,
-			personaPrompt: personality.prompt
+			personaPrompt: personality.prompt,
+			delimiterPreset: settings.delimiterPreset,
+			customDelimiterInstructions: settings.customDelimiterInstructions
 		});
 
 		const subscription = await supabaseService.getUserSubscription();

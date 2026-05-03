@@ -17,12 +17,18 @@ const testState = vi.hoisted(() => ({
 	syncActive: true
 }));
 
+const geminiGenerateContent = vi.fn();
+
+class GoogleGenAI {
+	models = {
+		generateContent: geminiGenerateContent
+	};
+
+	constructor(_: { apiKey: string }) {}
+}
+
 vi.mock("@google/genai", () => ({
-	GoogleGenAI: vi.fn(() => ({
-		models: {
-			generateContent: vi.fn()
-		}
-	}))
+	GoogleGenAI
 }));
 
 vi.mock("../../../src/services/Chats.service", () => ({
@@ -314,6 +320,7 @@ describe("Roleplay composer suggestion workflow", () => {
 	beforeEach(() => {
 		vi.resetModules();
 		vi.clearAllMocks();
+		geminiGenerateContent.mockReset();
 		testState.chat = makeChat({
 			content: [makeUserMessage("Hello there"), makeModelMessage("Hi. Come closer.")]
 		});
@@ -327,6 +334,9 @@ describe("Roleplay composer suggestion workflow", () => {
 		testState.messagePayloads = [];
 		testState.syncPushCount = 0;
 		testState.syncActive = true;
+		geminiGenerateContent.mockImplementation(async () => ({
+			text: testState.queuedSuggestionResponses.shift() ?? ""
+		}));
 		bootstrapRoleplayDom();
 		window.localStorage.setItem("roleplaySuggestionModel", "openrouter/roleplay-beta");
 	});
@@ -352,6 +362,97 @@ describe("Roleplay composer suggestion workflow", () => {
 			"You are trouble.",
 			"Come closer."
 		]);
+	});
+
+	it("includes delimiter preferences in the suggestion prompt", async () => {
+		queueSuggestionOptions(["Stay close.", "Tell me more.", "Not so fast.", "Prove it."]);
+
+		const settingsService = await import("../../../src/services/Settings.service");
+		vi.mocked(settingsService.getSettings).mockReturnValue({
+			apiKey: "",
+			roleplaySuggestionModel: "openrouter/roleplay-beta",
+			model: "openrouter/default",
+			imageModel: "imagen-4.0-ultra-generate-001",
+			imageEditModel: "imagen-4.0-ultra-generate-001",
+			openRouterApiKey: "test-openrouter-key",
+			geminiApiKey: "",
+			maxTokens: "512",
+			temperature: "60",
+			streamResponses: false,
+			enableThinking: false,
+			thinkingBudget: 0,
+			safetySettings: [],
+			rpgGroupChatsProgressAutomatically: false,
+			disallowPersonaPinging: false,
+			dynamicGroupChatPingOnly: false,
+			autoscroll: true,
+			fullWidthChat: false,
+			uiScale: 1,
+			delimiterPreset: "custom",
+			customDelimiterInstructions: {
+				dialogue: "<dialogue>",
+				action: "<action>",
+				thought: "<thought>"
+			}
+		});
+
+		await enableRoleplayComposerAndRefresh();
+		await waitForSuggestions();
+
+		const systemInstruction = testState.builtRequests[0].messages?.[0]?.content as string;
+		expect(systemInstruction).toContain("Active response delimiter preset: custom.");
+		expect(systemInstruction).toContain("Dialogue: <dialogue>.");
+		expect(systemInstruction).toContain("Action: <action>.");
+		expect(systemInstruction).toContain("Thought: <thought>.");
+	});
+
+	it("includes delimiter preferences in the Gemini suggestion request", async () => {
+		queueSuggestionOptions(["Stay close.", "Tell me more.", "Not so fast.", "Prove it."]);
+
+		const settingsService = await import("../../../src/services/Settings.service");
+		vi.mocked(settingsService.getSettings).mockReturnValue({
+			apiKey: "",
+			roleplaySuggestionModel: "gemini-2.5-flash",
+			model: "gemini-2.5-flash",
+			imageModel: "imagen-4.0-ultra-generate-001",
+			imageEditModel: "imagen-4.0-ultra-generate-001",
+			openRouterApiKey: "",
+			geminiApiKey: "test-gemini-key",
+			maxTokens: "512",
+			temperature: "60",
+			streamResponses: false,
+			enableThinking: false,
+			thinkingBudget: 0,
+			safetySettings: [],
+			rpgGroupChatsProgressAutomatically: false,
+			disallowPersonaPinging: false,
+			dynamicGroupChatPingOnly: false,
+			autoscroll: true,
+			fullWidthChat: false,
+			uiScale: 1,
+			delimiterPreset: "custom",
+			customDelimiterInstructions: {
+				dialogue: "<dialogue>",
+				action: "<action>",
+				thought: "<thought>"
+			}
+		});
+
+		const models = await import("../../../src/types/Models");
+		vi.mocked(models.isOpenRouterModel).mockReturnValue(false);
+
+		await enableRoleplayComposerAndRefresh();
+		await waitForSuggestions();
+
+		expect(geminiGenerateContent).toHaveBeenCalled();
+		const request = geminiGenerateContent.mock.calls[0]?.[0] as {
+			config?: { systemInstruction?: string };
+		};
+		const systemInstruction = request?.config?.systemInstruction ?? "";
+		expect(systemInstruction).toContain("Active response delimiter preset: custom.");
+		expect(systemInstruction).toContain("Dialogue: <dialogue>.");
+		expect(systemInstruction).toContain("Action: <action>.");
+		expect(systemInstruction).toContain("Thought: <thought>.");
 	});
 
 	it("includes custom roleplay action settings in the cloud-sync settings blob", () => {
