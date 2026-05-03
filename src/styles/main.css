@@ -7903,7 +7903,7 @@ input.onboarding-select {
 .roleplay-composer {
 	display: grid;
 	gap: 0.75rem;
-	padding: 0.75rem 0.75rem 0;
+	padding: 0.75rem;
 }
 
 #message-box.roleplay-composer-active #messageInput {
@@ -7924,6 +7924,7 @@ input.onboarding-select {
 	display: flex;
 	flex-wrap: nowrap;
 	min-width: 14rem;
+	margin: 0;
 }
 
 .roleplay-composer__tabs .navbar-tab {
