@@ -255,6 +255,7 @@ export const EventNames = {
 	THINKING_TOGGLED: "thinking-toggled",
 	EDIT_MODEL_CHANGED: "edit-model-changed",
 	PREMIUM_ENDPOINT_PREFERENCE_CHANGED: "premium-endpoint-preference-changed",
+	API_KEYS_CHANGED: "api-keys-changed",
 
 	// Image Mode
 	IMAGE_GENERATION_TOGGLED: "image-generation-toggled",
@@ -328,6 +329,7 @@ export interface AppEventMap {
 	[EventNames.THINKING_TOGGLED]: ThinkingToggledDetail;
 	[EventNames.EDIT_MODEL_CHANGED]: EditModelChangedDetail;
 	[EventNames.PREMIUM_ENDPOINT_PREFERENCE_CHANGED]: PremiumEndpointPreferenceChangedDetail;
+	[EventNames.API_KEYS_CHANGED]: ApiKeysChangedDetail;
 
 	// Image Mode
 	[EventNames.IMAGE_GENERATION_TOGGLED]: ImageGenerationToggledDetail;
@@ -576,3 +578,5 @@ export function getEventDetail<K extends keyof AppEventMap>(event: Event, name: 
 	}
 	return undefined;
 }
+
+export interface ApiKeysChangedDetail {}

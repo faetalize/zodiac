@@ -1499,6 +1499,10 @@ onAppEvent("subscription-updated", (event) => {
 	populateRoleplayModelOptions();
 });
 
+onAppEvent("api-keys-changed", () => {
+	populateRoleplayModelOptions();
+});
+
 onAppEvent("sync-data-pulled", () => {
 	loadActionState();
 	renderActions();

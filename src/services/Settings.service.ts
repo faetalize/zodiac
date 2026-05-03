@@ -5,6 +5,7 @@ import type { User } from "../types/User";
 import { getDefaultChatModel, getValidChatModel } from "../types/Models";
 import * as syncService from "./Sync.service";
 import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
+import { dispatchAppEvent } from "../events";
 
 const geminiApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const openRouterApiKeyInput = document.querySelector("#openRouterApiKeyInput") as HTMLInputElement;
@@ -392,8 +393,16 @@ export function loadSettings() {
 }
 
 export function saveSettings() {
+	const prevGeminiKey = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
+	const prevOpenRouterKey = localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "";
+
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.API_KEY, geminiApiKeyInput.value);
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY, openRouterApiKeyInput.value);
+
+	if (prevGeminiKey !== geminiApiKeyInput.value || prevOpenRouterKey !== openRouterApiKeyInput.value) {
+		dispatchAppEvent("api-keys-changed", {});
+	}
+
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS, maxTokensInput.value);
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.TEMPERATURE, temperatureInput.value);
 	localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, modelSelect.value);
