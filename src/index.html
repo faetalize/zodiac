@@ -550,10 +550,23 @@
 									<h4>Dynamic group chats</h4>
 									<div class="settings-ux-group">
 										<div class="settings-toggle-entry">
-											<label class="settings-toggle-entry-label" for="disallowPersonaPinging">
+											<label class="settings-toggle-entry-label" for="allowPersonaPinging">
 												<span class="settings-toggle-entry-title"
-													>Disallow personas from pinging one another</span
+													>Allow personas to ping one another</span
 												>
+												<span class="settings-toggle-entry-desc"
+													>Enables inter-persona pinging in dynamic group chats</span
+												>
+											</label>
+											<label class="settings-toggle">
+												<input
+													type="checkbox"
+													class="settings-toggle-input"
+													id="allowPersonaPinging"
+													autocomplete="off"
+													name="allowPersonaPinging"
+												/>
+												<div class="settings-toggle-switch"></div>
 											</label>
 											<input
 												class="uxtoggle"
@@ -1475,11 +1488,6 @@
 
 									<h3>Per-persona max messages</h3>
 									<div id="group-chat-guard-list" class="group-chat-guard-list"></div>
-
-									<div class="group-chat-toggle-row">
-										<input type="checkbox" id="group-chat-allow-pings" />
-										<label for="group-chat-allow-pings">Enable @mentions (Pings)</label>
-									</div>
 								</div>
 
 								<div id="group-chat-rpg-settings" class="group-chat-rpg-settings">
@@ -3086,14 +3094,14 @@
 							<!-- Dynamic Group Chat: Disallow Persona Pings -->
 							<div class="onboarding-setting-group">
 								<label class="onboarding-checkbox-label">
-									<input type="checkbox" id="onboarding-disallow-persona-pinging" />
+									<input type="checkbox" id="onboarding-allow-persona-pinging" />
 									<span class="onboarding-checkbox-custom"></span>
 									<div class="onboarding-checkbox-text">
-										<span class="material-symbols-outlined setting-icon">person_off</span>
-										<span>Disallow Personas from Pinging Each Other</span>
+										<span class="material-symbols-outlined setting-icon">forum</span>
+										<span>Allow personas to ping one another</span>
 									</div>
 								</label>
-								<p class="setting-hint">Turns off inter-persona pinging in dynamic group chats</p>
+								<p class="setting-hint">Enables inter-persona pinging in dynamic group chats</p>
 							</div>
 
 							<!-- Dynamic Group Chat: Ping Only -->

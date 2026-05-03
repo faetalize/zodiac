@@ -41,7 +41,7 @@ vi.mock("../../../src/services/Toast.service", () => ({
 vi.mock("../../../src/services/Settings.service", () => ({
 	getSettings: vi.fn(() => ({
 		rpgGroupChatsProgressAutomatically: false,
-		disallowPersonaPinging: false
+		allowPersonaPinging: true
 	}))
 }));
 

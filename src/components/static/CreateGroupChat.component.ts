@@ -46,10 +46,7 @@ const rpgSettingsSection = must(
 	document.querySelector<HTMLDivElement>("#group-chat-rpg-settings"),
 	"#group-chat-rpg-settings"
 );
-const allowPingsToggle = must(
-	document.querySelector<HTMLInputElement>("#group-chat-allow-pings"),
-	"#group-chat-allow-pings"
-);
+
 const guardList = must(document.querySelector<HTMLDivElement>("#group-chat-guard-list"), "#group-chat-guard-list");
 const guardApplyAll = must(
 	document.querySelector<HTMLInputElement>("#group-chat-guard-apply-all"),
@@ -109,8 +106,6 @@ function updateModeSettingsVisibility(): void {
 
 	if (isDynamic) {
 		renderGuardSliders();
-		allowPingsToggle.disabled = false;
-		allowPingsToggle.title = "";
 	}
 }
 
@@ -489,7 +484,7 @@ openButton.addEventListener(
 			searchInput.value = "";
 			scenarioInput.value = "";
 			narratorToggle.checked = false;
-			allowPingsToggle.checked = false;
+
 			maxMessageGuardById = {};
 			guardApplyAll.value = "5";
 			guardApplyAllValue.textContent = "5";
@@ -546,7 +541,6 @@ window.addEventListener(
 
 			scenarioInput.value = mode === "rpg" ? chat.groupChat.rpg?.scenarioPrompt || "" : "";
 			narratorToggle.checked = mode === "rpg" ? !!chat.groupChat.rpg?.narratorEnabled : false;
-			allowPingsToggle.checked = !!chat.groupChat.dynamic?.allowPings;
 
 			const legacyGuard = chat.groupChat.dynamic?.maxMessageGuard;
 			const existingMap = chat.groupChat.dynamic?.maxMessageGuardById;
@@ -658,7 +652,7 @@ form.addEventListener("submit", (e) => {
 					: await groupChatService.updateDynamicGroupChat(editingChatId, {
 							participantIds: selectedIds,
 							maxMessageGuardById,
-							allowPings: allowPingsToggle.checked
+							allowPings: true
 						});
 
 			if (!success) {
@@ -677,7 +671,7 @@ form.addEventListener("submit", (e) => {
 					: await groupChatService.createDynamicGroupChat({
 							participantIds: selectedIds,
 							maxMessageGuardById,
-							allowPings: allowPingsToggle.checked
+							allowPings: true
 						});
 
 			if (!id) {
