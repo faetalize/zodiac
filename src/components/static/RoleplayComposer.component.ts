@@ -1032,7 +1032,7 @@ function buildTranscript(
 	chat: Awaited<ReturnType<typeof chatsService.getCurrentChat>> | null,
 	personaName: string
 ): string {
-	const visibleMessages = (chat?.content || []).filter((message) => !message.hidden).slice(-8);
+	const visibleMessages = (chat?.content || []).filter((message) => !message.hidden).slice(-4);
 	if (visibleMessages.length === 0) return "No prior dialogue yet.";
 
 	return visibleMessages
