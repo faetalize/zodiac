@@ -376,7 +376,7 @@ function hasSuggestionModelAccess(): boolean {
 function syncSuggestionControls(): void {
 	const hasAccess = hasSuggestionModelAccess();
 	ensuredRoleplaySuggestionModelSelect.disabled = !hasAccess;
-	ensuredRoleplayRefreshButton.disabled = isGenerating || !hasAccess;
+	ensuredRoleplayRefreshButton.disabled = isGenerating || isGeneratingSuggestions || !hasAccess;
 	ensuredRoleplayRefreshSpinner.classList.toggle("hidden", !isGeneratingSuggestions);
 	ensuredRoleplayRefreshButton
 		.querySelector(".material-symbols-outlined")
