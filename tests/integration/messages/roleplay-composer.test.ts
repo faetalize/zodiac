@@ -639,4 +639,80 @@ describe("Roleplay composer suggestion workflow", () => {
 		expect(window.localStorage.getItem("roleplayCustomCategories")).not.toContain("Comfort");
 		expect(testState.syncPushCount).toBe(7);
 	});
+
+	it("prevents creating actions with identical payloads even across different categories", async () => {
+		queueSuggestionOptions(["One", "Two", "Three", "Four"]);
+		await enableRoleplayComposerAndRefresh();
+		await waitForSuggestions();
+
+		getRevealCategoryButton().click();
+		getCustomCategoryInput().value = "Duplicates One";
+		getCreateCategoryButton().click();
+
+		await waitForCondition(
+			() =>
+				Array.from(document.querySelectorAll(".roleplay-action-category-pill")).some((button) =>
+					button.textContent?.includes("Duplicates One")
+				),
+			"Expected first custom category to render"
+		);
+
+		const duplicatesOneCategory = Array.from(
+			document.querySelectorAll<HTMLButtonElement>(".roleplay-action-category-pill")
+		).find((button) => button.textContent === "Duplicates One (0)");
+		if (!duplicatesOneCategory) {
+			throw new Error("Missing Duplicates One category button");
+		}
+		duplicatesOneCategory.click();
+
+		getRevealActionButton().click();
+		getCustomActionLabelInput().value = "Action 1";
+		getCustomActionInput().value = "identical payload";
+		getAddActionButton().click();
+
+		await waitForCondition(
+			() =>
+				Array.from(document.querySelectorAll<HTMLButtonElement>(".roleplay-action-chip__select")).some(
+					(button) => button.textContent === "Action 1" && button.title === "identical payload"
+				),
+			"Expected Action 1 to render"
+		);
+
+		getRevealCategoryButton().click();
+		getCustomCategoryInput().value = "Duplicates Two";
+		getCreateCategoryButton().click();
+
+		await waitForCondition(
+			() =>
+				Array.from(document.querySelectorAll(".roleplay-action-category-pill")).some((button) =>
+					button.textContent?.includes("Duplicates Two")
+				),
+			"Expected second custom category to render"
+		);
+
+		const duplicatesTwoCategory = Array.from(
+			document.querySelectorAll<HTMLButtonElement>(".roleplay-action-category-pill")
+		).find((button) => button.textContent === "Duplicates Two (0)");
+		if (!duplicatesTwoCategory) {
+			throw new Error("Missing Duplicates Two category button");
+		}
+		duplicatesTwoCategory.click();
+
+		getRevealActionButton().click();
+		getCustomActionLabelInput().value = "Action 2";
+		getCustomActionInput().value = "identical payload";
+		getAddActionButton().click();
+
+		const toastService = await import("../../../src/services/Toast.service");
+		expect(toastService.warn).toHaveBeenCalledWith({
+			title: "Action already exists",
+			text: "That custom action is already in your list."
+		});
+
+		// Verify Action 2 did not render
+		const secondActionExists = Array.from(
+			document.querySelectorAll<HTMLButtonElement>(".roleplay-action-chip__select")
+		).some((button) => button.textContent === "Action 2" && button.title === "identical payload");
+		expect(secondActionExists).toBe(false);
+	});
 });

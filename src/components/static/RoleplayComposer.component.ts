@@ -300,10 +300,7 @@ function isActionTextAvailable(text: string, category: ActionCategory, ignoredAc
 	const normalized = text.trim().toLowerCase();
 	if (!normalized) return false;
 
-	return !customActions.some(
-		(action) =>
-			action.id !== ignoredActionId && action.category === category && action.text.toLowerCase() === normalized
-	);
+	return !customActions.some((action) => action.id !== ignoredActionId && action.text.toLowerCase() === normalized);
 }
 
 function parseStoredCustomCategories(): CustomActionCategory[] {
