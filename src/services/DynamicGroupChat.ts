@@ -204,8 +204,15 @@ async function loadDynamicContext(args: { chatId: ChatId; shouldEnforceThoughtSi
 		speakerNameById.set(String(id), String(resolved.name || "Unknown"));
 	}
 
-	const profile = await getUserProfile();
-	const userName = (profile?.preferredName || "User").toString();
+	let userName = "User";
+	try {
+		const profile = await getUserProfile();
+		if (profile?.preferredName) {
+			userName = profile.preferredName.toString();
+		}
+	} catch {
+		// BYOK/Local mode throws when trying to fetch profile
+	}
 
 	const rosterSystemPrompt = buildDynamicGroupChatRosterSystemPrompt({
 		participantPersonas,
