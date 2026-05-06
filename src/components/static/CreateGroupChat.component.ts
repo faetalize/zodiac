@@ -2,7 +2,6 @@ import * as overlayService from "../../services/Overlay.service";
 import * as personalityService from "../../services/Personality.service";
 import * as groupChatService from "../../services/GroupChat.service";
 import * as stepperService from "../../services/Stepper.service";
-import * as settingsService from "../../services/Settings.service";
 import * as chatsService from "../../services/Chats.service";
 import { warn, danger } from "../../services/Toast.service";
 import { defaultGuardFromIndependence, normalizeGuardMap } from "../../utils/dynamicGroupChatGuards";

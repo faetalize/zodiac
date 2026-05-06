@@ -1,19 +1,19 @@
 import { expect, test, type Page } from "@playwright/test";
 import { seedLocalSettings, stubExternalTraffic } from "../helpers/app";
 
-async function createDynamicGroupChat(page: Page): Promise<string> {
-	return await page.evaluate(async () => {
-		const importModule = new Function("path", "return import(path);") as (path: string) => Promise<any>;
-		const groupChatService = await importModule("/services/GroupChat.service.ts");
+// async function createDynamicGroupChat(page: Page): Promise<string> {
+// 	return await page.evaluate(async () => {
+// 		const importModule = new Function("path", "return import(path);") as (path: string) => Promise<any>;
+// 		const groupChatService = await importModule("/services/GroupChat.service.ts");
 
-		const chatId = await groupChatService.createDynamicGroupChat({
-			participantIds: [],
-			allowPings: true,
-			maxMessageGuardById: {}
-		});
-		return chatId;
-	});
-}
+// 		const chatId = await groupChatService.createDynamicGroupChat({
+// 			participantIds: [],
+// 			allowPings: true,
+// 			maxMessageGuardById: {}
+// 		});
+// 		return chatId;
+// 	});
+// }
 
 test("dynamic group chat does not crash when there is no user session (BYOK mode)", async ({ page }) => {
 	// The crash was happening because dynamic group chat tries to fetch the user profile.
