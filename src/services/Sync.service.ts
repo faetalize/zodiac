@@ -15,13 +15,16 @@
 import { supabase, getCurrentUser, getSubscriptionTier, getUserSubscription } from "./Supabase.service";
 import * as crypto from "./Crypto.service";
 import * as blobStore from "./BlobStore.service";
+import * as toastService from "./Toast.service";
 import { db } from "./Db.service";
 import { dispatchAppEvent } from "../events";
 import type { SyncStatus } from "../events";
+import type { ToastOptions } from "../types/Toast";
 import type { DbChat } from "../types/Chat";
 import type { Message, GeneratedImage } from "../types/Message";
 import type { DbPersonality } from "../types/Personality";
 import { isBlobReference, type BlobReference } from "../types/BlobReference";
+import type { SubscriptionTier } from "../types/Supabase";
 import { fileToBase64 } from "../utils/helpers";
 import { resolveAttachmentFile, resolveGeneratedImageSrc, resolveThoughtSignature } from "../utils/blobResolver";
 import { SETTINGS_STORAGE_KEYS, SYNCABLE_SETTINGS_KEYS } from "../constants/SettingsStorageKeys";
@@ -97,10 +100,12 @@ const MESSAGE_DELETE_MARK_BATCH_SIZE = 500;
 const CHAT_DELETE_MARK_BATCH_SIZE = 500;
 const MESSAGE_DECRYPT_CONCURRENCY = 4;
 const MAX_OFFLINE_RETRIES = 5;
+const QUOTA_TOAST_DEDUP_MS = 30_000;
 /** Client-side page size for reading messages from Supabase. Independent of
  *  the server-side PostgREST max-rows setting (typically 1000 on hosted
  *  Supabase). Cursor-based paging handles lower server caps safely. */
 const READ_PAGE_SIZE = 500;
+let quotaToastShownAt = 0;
 
 function areSyncHooksSuppressed(): boolean {
 	return suppressSyncHooksDepth > 0;
@@ -258,6 +263,96 @@ export async function fetchSyncQuota(): Promise<SyncQuota | null> {
 	};
 	dispatchAppEvent("sync-quota-updated", quota);
 	return quota;
+}
+
+export function isSyncQuotaExceededError(error: unknown): boolean {
+	const parts: string[] = [];
+	if (error instanceof Error) {
+		parts.push(error.message, error.name);
+	}
+	if (typeof error === "string") {
+		parts.push(error);
+	}
+	if (error && typeof error === "object") {
+		const record = error as Record<string, unknown>;
+		for (const key of ["message", "details", "hint", "code", "name"]) {
+			const value = record[key];
+			if (typeof value === "string") {
+				parts.push(value);
+			}
+		}
+	}
+
+	const normalized = parts.join(" ").toLowerCase();
+	return normalized.includes("quota") && (normalized.includes("storage") || normalized.includes("sync"));
+}
+
+export function buildSyncQuotaExceededToastText(quota: SyncQuota | null): string {
+	const commitText = "Your latest change was saved on this device, but it was not committed to cloud sync.";
+	if (!quota || quota.quotaBytes <= 0) {
+		return `${commitText} Your cloud storage quota is full.`;
+	}
+
+	const percent = Math.min(999, Math.round((quota.usedBytes / quota.quotaBytes) * 100));
+	return `${commitText} Cloud storage is ${formatBytes(quota.usedBytes)} of ${formatBytes(quota.quotaBytes)} used (${percent}% filled).`;
+}
+
+export function buildSyncQuotaExceededToastOptions(
+	quota: SyncQuota | null,
+	tier: SubscriptionTier
+): Omit<ToastOptions, "severity"> {
+	const actions =
+		tier === "max"
+			? []
+			: [
+					{
+						label: "See upgrade options",
+						onClick: () => {
+							document.querySelector<HTMLButtonElement>("#btn-show-subscription-options")?.click();
+						}
+					}
+				];
+
+	return {
+		title: "Cloud sync storage is full",
+		text: buildSyncQuotaExceededToastText(quota),
+		actions
+	};
+}
+
+async function showSyncQuotaExceededToast(): Promise<void> {
+	const now = Date.now();
+	if (now - quotaToastShownAt < QUOTA_TOAST_DEDUP_MS) {
+		return;
+	}
+	quotaToastShownAt = now;
+
+	const [quota, subscription] = await Promise.all([fetchSyncQuota(), getUserSubscription()]);
+	const tier = getSubscriptionTier(subscription);
+	toastService.warn(buildSyncQuotaExceededToastOptions(quota, tier));
+}
+
+async function notifyIfSyncQuotaExceeded(error: unknown): Promise<void> {
+	if (!isSyncQuotaExceededError(error)) {
+		return;
+	}
+	try {
+		await showSyncQuotaExceededToast();
+	} catch (toastError) {
+		console.error("Failed to show sync quota toast", toastError);
+	}
+}
+
+function formatBytes(bytes: number): string {
+	const units = ["B", "KB", "MB", "GB", "TB"];
+	let value = Math.max(0, bytes);
+	let unitIndex = 0;
+	while (value >= 1024 && unitIndex < units.length - 1) {
+		value /= 1024;
+		unitIndex++;
+	}
+	const precision = value >= 10 || unitIndex === 0 ? 0 : 1;
+	return `${value.toFixed(precision)} ${units[unitIndex]}`;
 }
 
 // ── First-time setup ───────────────────────────────────────────────────────
@@ -1226,6 +1321,7 @@ export async function pushChat(chat: DbChat, messageCountOverride?: number): Pro
 
 		if (error) {
 			console.error("pushChat failed (chat id=%s):", chat.id, JSON.stringify(error));
+			await notifyIfSyncQuotaExceeded(error);
 			enqueue({ table: "chats", operation: "upsert", entityId: chat.id });
 			return false;
 		}
@@ -1233,6 +1329,7 @@ export async function pushChat(chat: DbChat, messageCountOverride?: number): Pro
 		return true;
 	} catch (err) {
 		console.error("pushChat error (chat id=%s):", chat.id, err);
+		await notifyIfSyncQuotaExceeded(err);
 		enqueue({ table: "chats", operation: "upsert", entityId: chat.id });
 		return false;
 	}
@@ -1273,6 +1370,7 @@ async function pushChatMessagesRange(chat: DbChat, startInclusive: number, endEx
 				rangeEnd,
 				JSON.stringify(error)
 			);
+			await notifyIfSyncQuotaExceeded(error);
 			failures += rows.length;
 			enqueue({ table: "chats", operation: "upsert", entityId: chat.id });
 			return false;
@@ -1324,6 +1422,7 @@ async function pushChatMessagesRange(chat: DbChat, startInclusive: number, endEx
 			currentBatchBytes += (rows.length > 1 ? 1 : 0) + rowBytes;
 		} catch (err) {
 			console.error("pushChatMessagesRange error (chat=%s idx=%s):", chat.id, messageIndex, err);
+			await notifyIfSyncQuotaExceeded(err);
 			// Clean up only blobs uploaded while serializing this message.
 			if (uploadedBlobIdsForMessage.length > 0) {
 				blobStore.deleteBlobsBatch(uploadedBlobIdsForMessage).catch(() => {});
@@ -1711,6 +1810,7 @@ export async function pushPersona(persona: DbPersonality): Promise<boolean> {
 
 		if (error) {
 			console.error("pushPersona failed:", error);
+			await notifyIfSyncQuotaExceeded(error);
 			enqueue({ table: "personas", operation: "upsert", entityId: persona.id });
 			return false;
 		}
@@ -1718,6 +1818,7 @@ export async function pushPersona(persona: DbPersonality): Promise<boolean> {
 		return true;
 	} catch (err) {
 		console.error("pushPersona error:", err);
+		await notifyIfSyncQuotaExceeded(err);
 		enqueue({ table: "personas", operation: "upsert", entityId: persona.id });
 		return false;
 	}
@@ -1772,6 +1873,7 @@ export async function pushSettings(settings: Record<string, string>): Promise<bo
 
 		if (error) {
 			console.error("pushSettings failed:", error);
+			await notifyIfSyncQuotaExceeded(error);
 			enqueue({ table: "settings", operation: "upsert" });
 			return false;
 		}
@@ -1779,6 +1881,7 @@ export async function pushSettings(settings: Record<string, string>): Promise<bo
 		return true;
 	} catch (err) {
 		console.error("pushSettings error:", err);
+		await notifyIfSyncQuotaExceeded(err);
 		enqueue({ table: "settings", operation: "upsert" });
 		return false;
 	}

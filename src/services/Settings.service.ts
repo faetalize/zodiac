@@ -72,6 +72,7 @@ if (
 
 const UI_SCALE_VALUES = [0.5, 0.75, 1, 1.25, 1.5] as const;
 const DEFAULT_UI_SCALE = 1;
+let isLoadingSettings = false;
 
 function getCurrentModelAccess() {
 	return {
@@ -348,51 +349,63 @@ export function initialize() {
 }
 
 export function loadSettings() {
-	geminiApiKeyInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
-	openRouterApiKeyInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "";
-	maxTokensInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
-	temperatureInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
-	modelSelect.value = getSelectedOrFallbackModel();
-	imageModelSelect.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || "imagen-4.0-ultra-generate-001";
-	imageEditModelSelector.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) || "qwen";
-	roleplaySuggestionModelSelect.value =
-		localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) || modelSelect.value;
-	autoscrollToggle.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL)
-		? localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) === "true"
-		: true;
-	// Default ON when not set
-	streamResponsesToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES) ?? "true") === "true";
-	rpgGroupChatsProgressAutomaticallyToggle.checked =
-		(localStorage.getItem(SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY) ?? "false") === "true";
-	allowPersonaPingingToggle.checked =
-		(localStorage.getItem(SETTINGS_STORAGE_KEYS.ALLOW_PERSONA_PINGING) ?? "true") === "true";
-	dynamicGroupChatPingOnlyToggle.checked =
-		(localStorage.getItem(SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY) ?? "false") === "true";
-	fullWidthChatToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.FULL_WIDTH_CHAT) ?? "false") === "true";
-	const enableThinkingStored = localStorage.getItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING);
-	const enableThinking = (enableThinkingStored ?? "true") === "true";
-	enableThinkingSelect.value = enableThinking ? "enabled" : "disabled";
-	const uiScale = getStoredUiScale();
-	uiScaleInput.value = getUiScaleInputValue(uiScale);
-	thinkingBudgetInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.THINKING_BUDGET) || "500";
-	delimiterPresetSelect.value = getStoredDelimiterPreset();
+	isLoadingSettings = true;
+	try {
+		geminiApiKeyInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
+		openRouterApiKeyInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "";
+		maxTokensInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
+		temperatureInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
+		modelSelect.value = getSelectedOrFallbackModel();
+		imageModelSelect.value =
+			localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || "imagen-4.0-ultra-generate-001";
+		imageEditModelSelector.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) || "qwen";
+		roleplaySuggestionModelSelect.value =
+			localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) || modelSelect.value;
+		autoscrollToggle.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL)
+			? localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL) === "true"
+			: true;
+		// Default ON when not set
+		streamResponsesToggle.checked =
+			(localStorage.getItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES) ?? "true") === "true";
+		rpgGroupChatsProgressAutomaticallyToggle.checked =
+			(localStorage.getItem(SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY) ?? "false") === "true";
+		allowPersonaPingingToggle.checked =
+			(localStorage.getItem(SETTINGS_STORAGE_KEYS.ALLOW_PERSONA_PINGING) ?? "true") === "true";
+		dynamicGroupChatPingOnlyToggle.checked =
+			(localStorage.getItem(SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY) ?? "false") === "true";
+		fullWidthChatToggle.checked =
+			(localStorage.getItem(SETTINGS_STORAGE_KEYS.FULL_WIDTH_CHAT) ?? "false") === "true";
+		const enableThinkingStored = localStorage.getItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING);
+		const enableThinking = (enableThinkingStored ?? "true") === "true";
+		enableThinkingSelect.value = enableThinking ? "enabled" : "disabled";
+		const uiScale = getStoredUiScale();
+		uiScaleInput.value = getUiScaleInputValue(uiScale);
+		thinkingBudgetInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.THINKING_BUDGET) || "500";
+		delimiterPresetSelect.value = getStoredDelimiterPreset();
 
-	const customDelimiterInstructions = getStoredCustomDelimiterInstructions();
-	customDialogueInstructionInput.value = customDelimiterInstructions.dialogue;
-	customActionInstructionInput.value = customDelimiterInstructions.action;
-	customThoughtInstructionInput.value = customDelimiterInstructions.thought;
+		const customDelimiterInstructions = getStoredCustomDelimiterInstructions();
+		customDialogueInstructionInput.value = customDelimiterInstructions.dialogue;
+		customActionInstructionInput.value = customDelimiterInstructions.action;
+		customThoughtInstructionInput.value = customDelimiterInstructions.thought;
 
-	updateDelimiterCustomizationVisibility();
-	updateDelimiterPreview();
-	applyUiScale(uiScale);
-	applyFullWidthChat(fullWidthChatToggle.checked);
+		updateDelimiterCustomizationVisibility();
+		updateDelimiterPreview();
+		applyUiScale(uiScale);
+		applyFullWidthChat(fullWidthChatToggle.checked);
 
-	// Trigger input events to update any UI components that depend on these values
-	temperatureInput.dispatchEvent(new Event("input", { bubbles: true }));
-	uiScaleInput.dispatchEvent(new Event("input", { bubbles: true }));
+		// Trigger input events to update dependent UI without treating the load as a user edit.
+		temperatureInput.dispatchEvent(new Event("input", { bubbles: true }));
+		uiScaleInput.dispatchEvent(new Event("input", { bubbles: true }));
+	} finally {
+		isLoadingSettings = false;
+	}
 }
 
 export function saveSettings() {
+	if (isLoadingSettings) {
+		return;
+	}
+
 	const prevGeminiKey = localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "";
 	const prevOpenRouterKey = localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "";
 
