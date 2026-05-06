@@ -59,7 +59,7 @@ describe("sync quota errors", () => {
 		document.body.appendChild(button);
 
 		const options = buildSyncQuotaExceededToastOptions({ usedBytes: 10, quotaBytes: 10 }, "pro");
-		options.actions?.[0]?.onClick(() => {});
+		await options.actions?.[0]?.onClick(() => {});
 
 		expect(options.title).toBe("Cloud sync storage is full");
 		expect(options.actions?.[0]?.label).toBe("See upgrade options");
