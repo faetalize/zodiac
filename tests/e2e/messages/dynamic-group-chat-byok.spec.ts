@@ -1,20 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { seedLocalSettings, stubExternalTraffic } from "../helpers/app";
 
-// async function createDynamicGroupChat(page: Page): Promise<string> {
-// 	return await page.evaluate(async () => {
-// 		const importModule = new Function("path", "return import(path);") as (path: string) => Promise<any>;
-// 		const groupChatService = await importModule("/services/GroupChat.service.ts");
-
-// 		const chatId = await groupChatService.createDynamicGroupChat({
-// 			participantIds: [],
-// 			allowPings: true,
-// 			maxMessageGuardById: {}
-// 		});
-// 		return chatId;
-// 	});
-// }
-
 test("dynamic group chat does not crash when there is no user session (BYOK mode)", async ({ page }) => {
 	// The crash was happening because dynamic group chat tries to fetch the user profile.
 	// In BYOK mode, there's no Supabase session, so this throws.
@@ -28,6 +14,7 @@ test("dynamic group chat does not crash when there is no user session (BYOK mode
 	// Add an AI persona to the DB so the group chat can use it
 	await page.addInitScript(() => {
 		localStorage.setItem("model", "openai/gpt-5.4");
+		localStorage.setItem("dynamicGroupChatPingOnly", "true");
 	});
 
 	await page.goto("/");
@@ -49,7 +36,7 @@ test("dynamic group chat does not crash when there is no user session (BYOK mode
 	await expect(page.locator("#btn-new-chat")).toBeVisible();
 
 	// Create a dynamic group chat programmatically to avoid complex UI interactions
-	const chatId = await page.evaluate(async () => {
+	const { chatId, pingedPersonaId } = await page.evaluate(async () => {
 		const importModule = new Function("path", "return import(path);") as (path: string) => Promise<any>;
 		const groupChatService = await importModule("/services/GroupChat.service.ts");
 		const personalityService = await importModule("/services/Personality.service.ts");
@@ -59,11 +46,13 @@ test("dynamic group chat does not crash when there is no user session (BYOK mode
 		const p1 = personas[0].id;
 		const p2 = personas[1].id;
 
-		return await groupChatService.createDynamicGroupChat({
+		const chatId = await groupChatService.createDynamicGroupChat({
 			participantIds: [p1, p2],
 			allowPings: true,
 			maxMessageGuardById: { [p1]: 5, [p2]: 5 }
 		});
+
+		return { chatId, pingedPersonaId: p1 };
 	});
 
 	// Click the newly created chat in the sidebar to load it
@@ -71,7 +60,7 @@ test("dynamic group chat does not crash when there is no user session (BYOK mode
 	await chatLabel.click();
 
 	// Send a message
-	await page.locator("#messageInput").fill("Hello everyone");
+	await page.locator("#messageInput").fill(`@${pingedPersonaId} Hello everyone`);
 	await page.locator("#btn-send").click();
 
 	// If the crash happens, the message won't even appear, or the persona won't respond.
