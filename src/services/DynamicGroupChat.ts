@@ -191,7 +191,8 @@ async function loadDynamicContext(args: { chatId: ChatId; shouldEnforceThoughtSi
 
 	const maxMessageGuardById = chat.groupChat.dynamic?.maxMessageGuardById;
 	const globalSettings = settingsService.getSettings();
-	const allowPings = !globalSettings.disallowPersonaPinging && !!chat.groupChat.dynamic?.allowPings;
+	const allowPings = true;
+	const aiPingsEnabled = globalSettings.allowPersonaPinging;
 	const pingOnly = !!globalSettings.dynamicGroupChatPingOnly;
 
 	const participantPersonas: DbPersonality[] = [];
@@ -203,13 +204,20 @@ async function loadDynamicContext(args: { chatId: ChatId; shouldEnforceThoughtSi
 		speakerNameById.set(String(id), String(resolved.name || "Unknown"));
 	}
 
-	const profile = await getUserProfile();
-	const userName = (profile?.preferredName || "User").toString();
+	let userName = "User";
+	try {
+		const profile = await getUserProfile();
+		if (profile?.preferredName) {
+			userName = profile.preferredName.toString();
+		}
+	} catch {
+		// BYOK/Local mode throws when trying to fetch profile
+	}
 
 	const rosterSystemPrompt = buildDynamicGroupChatRosterSystemPrompt({
 		participantPersonas,
 		userName,
-		allowPings
+		allowPings: aiPingsEnabled
 	});
 
 	return {

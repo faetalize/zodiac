@@ -138,7 +138,7 @@ const advancedStreamResponses = document.querySelector<HTMLInputElement>("#onboa
 const advancedRpgGroupChatsProgressAutomatically = document.querySelector<HTMLInputElement>(
 	"#onboarding-rpg-group-chats-progress-automatically"
 );
-const advancedDisallowPersonaPinging = document.querySelector<HTMLInputElement>("#onboarding-disallow-persona-pinging");
+const advancedAllowPersonaPinging = document.querySelector<HTMLInputElement>("#onboarding-allow-persona-pinging");
 const advancedDynamicGroupChatPingOnly = document.querySelector<HTMLInputElement>(
 	"#onboarding-dynamic-group-chat-ping-only"
 );
@@ -236,7 +236,7 @@ const requiredElements = {
 	advancedAutoscroll,
 	advancedStreamResponses,
 	advancedRpgGroupChatsProgressAutomatically,
-	advancedDisallowPersonaPinging,
+	advancedAllowPersonaPinging,
 	advancedDynamicGroupChatPingOnly,
 	advancedPrimaryContinueButton,
 	advancedBehaviorContinueButton,
@@ -1720,8 +1720,8 @@ function setupAdvancedSettings(): void {
 		advancedStreamResponses!.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES) !== "false";
 		advancedRpgGroupChatsProgressAutomatically!.checked =
 			(localStorage.getItem(SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY) ?? "false") === "true";
-		advancedDisallowPersonaPinging!.checked =
-			(localStorage.getItem(SETTINGS_STORAGE_KEYS.DISALLOW_PERSONA_PINGING) ?? "false") === "true";
+		advancedAllowPersonaPinging!.checked =
+			(localStorage.getItem(SETTINGS_STORAGE_KEYS.ALLOW_PERSONA_PINGING) ?? "true") === "true";
 		advancedDynamicGroupChatPingOnly!.checked =
 			(localStorage.getItem(SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY) ?? "false") === "true";
 
@@ -1863,8 +1863,8 @@ function setupAdvancedSettings(): void {
 			advancedRpgGroupChatsProgressAutomatically!.checked.toString()
 		);
 		localStorage.setItem(
-			SETTINGS_STORAGE_KEYS.DISALLOW_PERSONA_PINGING,
-			advancedDisallowPersonaPinging!.checked.toString()
+			SETTINGS_STORAGE_KEYS.ALLOW_PERSONA_PINGING,
+			advancedAllowPersonaPinging!.checked.toString()
 		);
 		localStorage.setItem(
 			SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY,

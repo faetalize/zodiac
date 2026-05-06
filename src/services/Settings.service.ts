@@ -26,7 +26,7 @@ const roleplaySuggestionModelSelect = document.querySelector<HTMLSelectElement>(
 const rpgGroupChatsProgressAutomaticallyToggle = document.querySelector(
 	"#rpgGroupChatsProgressAutomatically"
 ) as HTMLInputElement;
-const disallowPersonaPingingToggle = document.querySelector("#disallowPersonaPinging") as HTMLInputElement;
+const allowPersonaPingingToggle = document.querySelector("#allowPersonaPinging") as HTMLInputElement;
 const dynamicGroupChatPingOnlyToggle = document.querySelector("#dynamicGroupChatPingOnly") as HTMLInputElement;
 const fullWidthChatToggle = document.querySelector("#fullWidthChat") as HTMLInputElement;
 const uiScaleInput = document.querySelector("#uiScale") as HTMLInputElement;
@@ -53,7 +53,7 @@ if (
 	!imageEditModelSelector ||
 	!roleplaySuggestionModelSelect ||
 	!rpgGroupChatsProgressAutomaticallyToggle ||
-	!disallowPersonaPingingToggle ||
+	!allowPersonaPingingToggle ||
 	!dynamicGroupChatPingOnlyToggle ||
 	!fullWidthChatToggle ||
 	!uiScaleInput ||
@@ -330,7 +330,7 @@ export function initialize() {
 	autoscrollToggle.addEventListener("change", saveSettings);
 	streamResponsesToggle.addEventListener("change", saveSettings);
 	rpgGroupChatsProgressAutomaticallyToggle.addEventListener("change", saveSettings);
-	disallowPersonaPingingToggle.addEventListener("change", saveSettings);
+	allowPersonaPingingToggle.addEventListener("change", saveSettings);
 	dynamicGroupChatPingOnlyToggle.addEventListener("change", saveSettings);
 	fullWidthChatToggle.addEventListener("change", saveSettings);
 	enableThinkingSelect.addEventListener("change", saveSettings);
@@ -364,8 +364,8 @@ export function loadSettings() {
 	streamResponsesToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.STREAM_RESPONSES) ?? "true") === "true";
 	rpgGroupChatsProgressAutomaticallyToggle.checked =
 		(localStorage.getItem(SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY) ?? "false") === "true";
-	disallowPersonaPingingToggle.checked =
-		(localStorage.getItem(SETTINGS_STORAGE_KEYS.DISALLOW_PERSONA_PINGING) ?? "false") === "true";
+	allowPersonaPingingToggle.checked =
+		(localStorage.getItem(SETTINGS_STORAGE_KEYS.ALLOW_PERSONA_PINGING) ?? "true") === "true";
 	dynamicGroupChatPingOnlyToggle.checked =
 		(localStorage.getItem(SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY) ?? "false") === "true";
 	fullWidthChatToggle.checked = (localStorage.getItem(SETTINGS_STORAGE_KEYS.FULL_WIDTH_CHAT) ?? "false") === "true";
@@ -418,10 +418,7 @@ export function saveSettings() {
 		SETTINGS_STORAGE_KEYS.RPG_GROUP_CHATS_PROGRESS_AUTOMATICALLY,
 		rpgGroupChatsProgressAutomaticallyToggle.checked.toString()
 	);
-	localStorage.setItem(
-		SETTINGS_STORAGE_KEYS.DISALLOW_PERSONA_PINGING,
-		disallowPersonaPingingToggle.checked.toString()
-	);
+	localStorage.setItem(SETTINGS_STORAGE_KEYS.ALLOW_PERSONA_PINGING, allowPersonaPingingToggle.checked.toString());
 	localStorage.setItem(
 		SETTINGS_STORAGE_KEYS.DYNAMIC_GROUP_CHAT_PING_ONLY,
 		dynamicGroupChatPingOnlyToggle.checked.toString()
@@ -476,7 +473,7 @@ export function getSettings() {
 		autoscroll: autoscrollToggle.checked,
 		streamResponses: streamResponsesToggle.checked,
 		rpgGroupChatsProgressAutomatically: rpgGroupChatsProgressAutomaticallyToggle.checked,
-		disallowPersonaPinging: disallowPersonaPingingToggle.checked,
+		allowPersonaPinging: allowPersonaPingingToggle.checked,
 		dynamicGroupChatPingOnly: dynamicGroupChatPingOnlyToggle.checked,
 		fullWidthChat: fullWidthChatToggle.checked,
 		enableThinking: enableThinkingSelect.value === "enabled",

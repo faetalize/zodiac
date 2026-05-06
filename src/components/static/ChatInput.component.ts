@@ -269,7 +269,6 @@ function buildRangeFromPlainTextOffsets(startIndex: number, endIndex: number): R
 function shouldShowMentionMenu(): boolean {
 	if (!isDynamicGroupChatContext) return false;
 	if (!allowDynamicPings) return false;
-	if (settingsService.getSettings().disallowPersonaPinging) return false;
 	return true;
 }
 
@@ -799,8 +798,7 @@ window.addEventListener(
 			isGroupChatContext = !!chat?.groupChat;
 			isRpgGroupChatContext = chat?.groupChat?.mode === "rpg";
 			isDynamicGroupChatContext = chat?.groupChat?.mode === "dynamic";
-			allowDynamicPings =
-				!!chat?.groupChat?.dynamic?.allowPings && !settingsService.getSettings().disallowPersonaPinging;
+			allowDynamicPings = isDynamicGroupChatContext;
 
 			if (isDynamicGroupChatContext) {
 				const participantIds: string[] = Array.isArray(chat.groupChat?.participantIds)

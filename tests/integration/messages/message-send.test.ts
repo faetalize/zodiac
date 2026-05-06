@@ -29,7 +29,7 @@ type MockSettings = {
 	thinkingBudget: number;
 	safetySettings: unknown[];
 	rpgGroupChatsProgressAutomatically: boolean;
-	disallowPersonaPinging: boolean;
+	allowPersonaPinging: boolean;
 	dynamicGroupChatPingOnly: boolean;
 	autoscroll: boolean;
 };
@@ -50,7 +50,7 @@ const testState = vi.hoisted(() => ({
 		thinkingBudget: 0,
 		safetySettings: [],
 		rpgGroupChatsProgressAutomatically: true,
-		disallowPersonaPinging: false,
+		allowPersonaPinging: true,
 		dynamicGroupChatPingOnly: false,
 		autoscroll: true
 	} as MockSettings
@@ -395,7 +395,7 @@ describe("Message send lifecycle", () => {
 		testState.settings.streamResponses = false;
 		testState.settings.enableThinking = false;
 		testState.settings.rpgGroupChatsProgressAutomatically = true;
-		testState.settings.disallowPersonaPinging = false;
+		testState.settings.allowPersonaPinging = true;
 		testState.settings.dynamicGroupChatPingOnly = false;
 	});
 
