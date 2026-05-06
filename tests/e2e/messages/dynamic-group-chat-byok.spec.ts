@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { seedLocalSettings, stubExternalTraffic } from "../helpers/app";
 
 // async function createDynamicGroupChat(page: Page): Promise<string> {
