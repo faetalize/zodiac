@@ -29,5 +29,15 @@ jobs:
             - name: Run CI test suite
               run: npm run test:ci
 
+            - name: Upload Playwright report
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-report
+                  path: |
+                      playwright-report/
+                      test-results/
+                  retention-days: 5
+
             - name: Build application
               run: npm run build
