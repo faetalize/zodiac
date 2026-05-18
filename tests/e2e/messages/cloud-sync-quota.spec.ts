@@ -20,6 +20,8 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 async function stubSupabaseQuotaFull(page: Page): Promise<void> {
+	let syncPreferences: unknown = {};
+
 	await page.route(`https://${SUPABASE_HOST}/**/*`, async (route: Route) => {
 		const request = route.request();
 		const url = new URL(request.url());
@@ -85,7 +87,23 @@ async function stubSupabaseQuotaFull(page: Page): Promise<void> {
 		}
 
 		if (url.pathname.startsWith("/rest/v1/user_sync_preferences")) {
-			await route.fulfill(jsonResponse({}));
+			if (request.method() !== "GET") {
+				const postData = request.postData();
+				if (postData) {
+					const body = JSON.parse(postData) as Record<string, unknown>;
+					syncPreferences = {
+						sync_enabled: body.sync_enabled,
+						encryption_salt: body.encryption_salt,
+						key_verification: body.key_verification,
+						key_verification_iv: body.key_verification_iv
+					};
+				}
+
+				await route.fulfill(jsonResponse({}));
+				return;
+			}
+
+			await route.fulfill(jsonResponse(syncPreferences));
 			return;
 		}
 
