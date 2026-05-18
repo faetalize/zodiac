@@ -1892,17 +1892,21 @@ async function readPremiumEndpointTextAndThinkingFromSse(args: {
 			if (eventName === "error") throw new Error(data);
 			if (eventName === "done") return { text, thinking, requestId };
 			if (eventName === "fallback") {
+				let fallbackMode: "continue" | "restart" | undefined;
 				try {
 					const fallbackMeta = JSON.parse(data);
 					if (fallbackMeta?.requestId && !requestId) {
 						requestId = fallbackMeta.requestId;
 					}
+					fallbackMode = fallbackMeta?.mode;
 				} catch {
 					// noop
 				}
 				isFallbackMode = true;
-				text = "";
-				thinking = "";
+				if (fallbackMode === "restart") {
+					text = "";
+					thinking = "";
+				}
 				continue;
 			}
 			if (!data) continue;
