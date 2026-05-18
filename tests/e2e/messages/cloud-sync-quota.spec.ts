@@ -100,11 +100,16 @@ async function stubSupabaseQuotaFull(page: Page): Promise<void> {
 		}
 
 		if (url.pathname.startsWith("/rest/v1/user_synced_chats")) {
+			await route.fulfill(jsonResponse([]));
+			return;
+		}
+
+		if (url.pathname.startsWith("/rest/v1/user_synced_messages")) {
 			await route.fulfill(
 				jsonResponse(
 					{
 						code: "P0001",
-						message: "Storage quota exceeded by trg_enforce_quota_synced_chats",
+						message: "Storage quota exceeded by trg_enforce_quota_synced_messages",
 						details: "Cloud sync storage quota exceeded"
 					},
 					400
@@ -156,7 +161,7 @@ async function enableCloudSync(page: Page): Promise<void> {
 	});
 }
 
-test("cloud sync quota failure after sending shows quota toast with upgrade action", async ({ page }) => {
+test("cloud sync quota failure shows quota toast with upgrade action", async ({ page }) => {
 	await stubExternalTraffic(page, [{ text: "Quota Regression Thread" }, { text: "Mocked quota reply." }]);
 	await stubSupabaseQuotaFull(page);
 	await seedLocalSettings(page);
@@ -164,8 +169,22 @@ test("cloud sync quota failure after sending shows quota toast with upgrade acti
 	await page.goto("/");
 	await enableCloudSync(page);
 
-	await page.locator("#messageInput").fill("Trigger cloud sync quota failure");
-	await page.locator("#btn-send").click();
+	await page.evaluate(async () => {
+		const importModule = new Function("path", "return import(path);") as (path: string) => Promise<any>;
+		const syncService = await importModule("/services/Sync.service.ts");
+		const synced = await syncService.upsertSyncedChat({
+			id: "quota-regression-chat",
+			title: "Quota Regression Thread",
+			timestamp: Date.now(),
+			content: [
+				{ role: "user", parts: [{ text: "Trigger cloud sync quota failure", attachments: [] }] },
+				{ role: "model", personalityid: "default", parts: [{ text: "Mocked quota reply." }] }
+			]
+		});
+		if (synced) {
+			throw new Error("Expected synced message upsert to fail quota enforcement");
+		}
+	});
 
 	const toast = page.locator(".toast", { hasText: "Cloud sync storage is full" });
 	await expect(toast).toBeVisible({ timeout: 10_000 });
