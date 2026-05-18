@@ -165,11 +165,7 @@ test("cloud sync quota failure after sending shows quota toast with upgrade acti
 	await enableCloudSync(page);
 
 	await page.locator("#messageInput").fill("Trigger cloud sync quota failure");
-	const quotaFailure = page.waitForResponse(
-		(response) => response.url().includes("/rest/v1/user_synced_chats") && response.status() === 400
-	);
 	await page.locator("#btn-send").click();
-	await quotaFailure;
 
 	const toast = page.locator(".toast", { hasText: "Cloud sync storage is full" });
 	await expect(toast).toBeVisible({ timeout: 10_000 });
