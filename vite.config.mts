@@ -1,6 +1,9 @@
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+
+const fromRoot = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
 export default defineConfig({
 	root: "src",
@@ -11,9 +14,9 @@ export default defineConfig({
 		emptyOutDir: true,
 		rollupOptions: {
 			input: {
-				main: "./src/index.html",
-				privacy: "./src/privacy-policy.html",
-				terms: "./src/terms-of-service.html"
+				main: fromRoot("./src/index.html"),
+				privacy: fromRoot("./src/privacy-policy.html"),
+				terms: fromRoot("./src/terms-of-service.html")
 			}
 		}
 	}

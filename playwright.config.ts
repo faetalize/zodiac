@@ -10,8 +10,9 @@ export default defineConfig({
 	use: {
 		baseURL: "https://127.0.0.1:4173",
 		ignoreHTTPSErrors: true,
-		trace: "on-first-retry"
+		trace: "retain-on-failure"
 	},
+	reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : undefined,
 	projects: [
 		{
 			name: "chromium",

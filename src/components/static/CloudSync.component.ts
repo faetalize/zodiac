@@ -60,7 +60,6 @@ const syncDetails = document.querySelector<HTMLElement>("#sync-details");
 const syncQuotaFill = document.querySelector<HTMLElement>("#sync-quota-fill");
 const syncQuotaLabel = document.querySelector<HTMLElement>("#sync-quota-label");
 const btnSyncNow = document.querySelector<HTMLButtonElement>("#btn-sync-now");
-const btnSyncMediaMaintenance = document.querySelector<HTMLButtonElement>("#btn-sync-media-maintenance");
 const btnSyncWipe = document.querySelector<HTMLButtonElement>("#btn-sync-wipe");
 const syncUpgradeHint = document.querySelector<HTMLElement>("#sync-upgrade-hint");
 const btnSyncForgotPassword = document.querySelector<HTMLButtonElement>("#btn-sync-forgot-password");
@@ -515,32 +514,6 @@ btnSyncNow?.addEventListener(
 			btnSyncNow!.innerHTML = '<span class="material-symbols-outlined">sync</span> Sync Now';
 
 			info({ title: "Sync complete", text: "All data has been synchronized." });
-		})()
-);
-
-btnSyncMediaMaintenance?.addEventListener(
-	"click",
-	() =>
-		void (async () => {
-			if (!syncService.isSyncActive()) {
-				danger({ title: "Sync not active", text: "Please unlock sync first." });
-				return;
-			}
-
-			btnSyncMediaMaintenance.disabled = true;
-			btnSyncMediaMaintenance.innerHTML =
-				'<span class="material-symbols-outlined">hourglass_top</span> Maintenance…';
-
-			try {
-				const ok = await runLegacyMediaMigrationFlowIfNeeded({ force: true });
-				if (ok) {
-					info({ title: "Maintenance complete", text: "Media payloads were checked and optimized." });
-				}
-			} finally {
-				btnSyncMediaMaintenance.disabled = false;
-				btnSyncMediaMaintenance.innerHTML =
-					'<span class="material-symbols-outlined">build</span> Media Maintenance';
-			}
 		})()
 );
 
