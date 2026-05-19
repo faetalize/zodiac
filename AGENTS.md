@@ -49,8 +49,8 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 
 - The frontend targets the premium chat edge function through `PRO_REQUEST_FUNCTION_NAME` / `PRO_REQUEST_ENDPOINT` in [src/services/Supabase.service.ts](src/services/Supabase.service.ts).
 - Available Supabase function slots are `handle-pro-request`, `handle-pro-request-x`, and `handle-pro-request-test`.
-- Use `handle-pro-request` as the normal production slot for the currently released frontend.
-- Use `handle-pro-request-x` as the alternate production slot when a frontend/backend sync release is required. Deploy the backend update to the alternate slot first, update `PRO_REQUEST_FUNCTION_NAME` to point the new frontend bundle at that slot, then deploy the frontend. This keeps old loaded clients on the old function and new clients on the new function.
+- `handle-pro-request` and `handle-pro-request-x` are equivalent rotating production slots. The currently released frontend points at one slot, while the other slot is available for the next synced frontend/backend release.
+- When a frontend/backend sync release is required, deploy the backend update to the production slot that the currently released frontend is not using, update `PRO_REQUEST_FUNCTION_NAME` to point the new frontend bundle at that slot, then deploy the frontend. This keeps old loaded clients on the old function and new clients on the new function.
 - Use `handle-pro-request-test` for quick backend iteration and local/manual validation. Point `PRO_REQUEST_FUNCTION_NAME` at the test slot only for local test builds or short-lived validation branches; do not leave production release branches pointed at the test slot.
 - Before changing the production target, verify every premium caller uses `PRO_REQUEST_ENDPOINT` rather than hardcoding a function URL.
 
