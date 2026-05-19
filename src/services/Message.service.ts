@@ -40,7 +40,7 @@ import * as helpers from "../utils/helpers";
 import { db } from "./Db.service";
 import { info, warn, danger } from "./Toast.service";
 import { parseMarkdownToHtml } from "./Parser.service";
-import { SUPABASE_URL, getAuthHeaders } from "./Supabase.service";
+import { PRO_REQUEST_ENDPOINT, SUPABASE_URL, getAuthHeaders } from "./Supabase.service";
 import { processGeminiLocalSdkResponse, processGeminiLocalSdkStream } from "./GeminiResponseProcessor.service";
 import { processPremiumEndpointSse } from "./PremiumEndpointResponseProcessor.service";
 import {
@@ -1092,7 +1092,7 @@ async function createChatIfAbsentPremium(userMessage: string): Promise<DbChat> {
 		safetySettings: [...UNRESTRICTED_SAFETY_SETTINGS]
 	};
 
-	const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+	const endpoint = PRO_REQUEST_ENDPOINT;
 	const response = await fetch(endpoint, {
 		method: "POST",
 		headers: {
@@ -1856,7 +1856,7 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
 	};
 
 	const hasFiles = (ctx.attachmentFiles?.length ?? 0) > 0;
-	const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+	const endpoint = PRO_REQUEST_ENDPOINT;
 
 	let res: Response;
 	if (hasFiles) {
