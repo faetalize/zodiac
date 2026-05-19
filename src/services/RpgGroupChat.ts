@@ -32,7 +32,7 @@ import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
 import * as helpers from "../utils/helpers";
-import { SUPABASE_URL, getAuthHeaders, getUserProfile } from "./Supabase.service";
+import { PRO_REQUEST_ENDPOINT, getAuthHeaders, getUserProfile } from "./Supabase.service";
 import { parseMarkdownToHtml } from "./Parser.service";
 import { messageElement } from "../components/dynamic/message";
 
@@ -943,7 +943,7 @@ async function executeTurnPremium(args: {
 		thinkingConfig: generateThinkingConfig(settings.model, settings.enableThinking, settings)
 	} as any;
 
-	const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+	const endpoint = PRO_REQUEST_ENDPOINT;
 	const resp = await fetch(endpoint, {
 		method: "POST",
 		headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
@@ -1557,7 +1557,7 @@ async function generateNarratorPremium(args: {
 		thinkingConfig: generateThinkingConfig(narratorModel, false, settings)
 	} as any;
 
-	const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+	const endpoint = PRO_REQUEST_ENDPOINT;
 	const resp = await fetch(endpoint, {
 		method: "POST",
 		headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },

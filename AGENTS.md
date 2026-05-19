@@ -30,6 +30,11 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - The script can create or reuse a local branch, run `npm install`, push with `-u` to the remote, and open a new Alacritty window running `opencode` in the new worktree.
 - Run `npm run create-worktree -- --help` for the full flag list and positional argument rules.
 
+### Branch naming
+
+- Supported branch prefixes are `feature/*`, `release/*`, `bugfix/*`, `chore/*`, `hotfix/*`, and `codex/*`.
+- Use the prefix that best matches the work. Prefer `bugfix/*` for defects and `chore/*` for maintenance or refactors that do not change user-facing behavior.
+
 ## Release Cycle
 
 ### Branching and deployment flow

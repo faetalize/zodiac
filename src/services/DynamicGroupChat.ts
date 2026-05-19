@@ -22,7 +22,7 @@ import * as settingsService from "./Settings.service";
 import * as personalityService from "./Personality.service";
 import * as chatsService from "./Chats.service";
 import * as helpers from "../utils/helpers";
-import { SUPABASE_URL, getAuthHeaders, getUserProfile } from "./Supabase.service";
+import { PRO_REQUEST_ENDPOINT, getAuthHeaders, getUserProfile } from "./Supabase.service";
 import { warn } from "./Toast.service";
 
 import {
@@ -389,7 +389,7 @@ async function respondAsPersona(args: {
 				thinkingConfig: generateThinkingConfig(settings.model, settings.enableThinking, settings)
 			} as any;
 
-			const endpoint = `${SUPABASE_URL}/functions/v1/handle-pro-request`;
+			const endpoint = PRO_REQUEST_ENDPOINT;
 			const res = await fetch(endpoint, {
 				method: "POST",
 				headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },

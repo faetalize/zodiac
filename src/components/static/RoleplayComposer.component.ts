@@ -21,7 +21,7 @@ import {
 	getRoleplaySuggestionThinkingCap,
 	modelSupportsTemperature
 } from "../../types/Models";
-import { SUPABASE_URL } from "../../services/Supabase.service";
+import { PRO_REQUEST_ENDPOINT } from "../../services/Supabase.service";
 import type { PremiumEndpoint } from "../../types/PremiumEndpoint";
 import { UNRESTRICTED_SAFETY_SETTINGS } from "../../utils/chatHistoryBuilder";
 
@@ -1254,7 +1254,7 @@ async function requestWithPremiumEndpoint(
 		...baseConfig
 	};
 
-	const response = await fetch(`${SUPABASE_URL}/functions/v1/handle-pro-request`, {
+	const response = await fetch(PRO_REQUEST_ENDPOINT, {
 		method: "POST",
 		headers: { ...(await supabaseService.getAuthHeaders()), "Content-Type": "application/json" },
 		body: JSON.stringify({ message: userPrompt, settings: payloadSettings, history: [] })
