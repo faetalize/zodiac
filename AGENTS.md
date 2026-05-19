@@ -74,6 +74,8 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 
 ### Tagging guidance
 
+- Default release tags should point at the `main` merge commit created when the release branch is backmerged into `main`.
+- Do not create the release tag while the release PR is still open unless the user explicitly chooses to tag the release branch artifact instead.
 - If tags are meant to represent what is on `main`, create the tag after the release branch has been backmerged into `main`.
 - If tags are meant to represent the exact commit deployed by Cloudflare Pages, tag the release branch commit that was actually deployed.
 - Do not tag `main` before the backmerge if `main` does not yet contain the final release changelog/version bump.
