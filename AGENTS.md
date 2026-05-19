@@ -45,6 +45,15 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - Release-only preparation happens on that release branch first.
 - After the release is deployed, the release branch must be backmerged into `main` so `main` also contains the final version string and in-app changelog for that release.
 
+### Pro request edge function slots
+
+- The frontend targets the premium chat edge function through `PRO_REQUEST_FUNCTION_NAME` / `PRO_REQUEST_ENDPOINT` in [src/services/Supabase.service.ts](src/services/Supabase.service.ts).
+- Available Supabase function slots are `handle-pro-request`, `handle-pro-request-x`, and `handle-pro-request-test`.
+- Use `handle-pro-request` as the normal production slot for the currently released frontend.
+- Use `handle-pro-request-x` as the alternate production slot when a frontend/backend sync release is required. Deploy the backend update to the alternate slot first, update `PRO_REQUEST_FUNCTION_NAME` to point the new frontend bundle at that slot, then deploy the frontend. This keeps old loaded clients on the old function and new clients on the new function.
+- Use `handle-pro-request-test` for quick backend iteration and local/manual validation. Point `PRO_REQUEST_FUNCTION_NAME` at the test slot only for local test builds or short-lived validation branches; do not leave production release branches pointed at the test slot.
+- Before changing the production target, verify every premium caller uses `PRO_REQUEST_ENDPOINT` rather than hardcoding a function URL.
+
 ### Preparing a new release
 
 - Identify the last release backmerge commit on `main`, then inspect all mainline commits after that point up to `HEAD`.
