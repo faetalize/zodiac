@@ -5551,17 +5551,6 @@ body.full-width-chat #message-box {
 	background-color: var(--navbar-tab-hover-bg);
 }
 
-#gemini-pro-branding {
-	font-family:
-		Google Sans Display,
-		sans-serif;
-	color: #7c8a9c;
-	font-size: 0.8125rem;
-	font-weight: 400;
-	width: max-content;
-	opacity: 0.8;
-}
-
 #gemin-pro-logo {
 	width: 1.75rem;
 	height: 1.75rem;
