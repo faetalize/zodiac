@@ -135,7 +135,8 @@ describe("roleplay suggestion model dropdown", () => {
 
 		expect(options.map((option) => option.textContent)).toEqual([
 			"Gemini 3.1 Flash Lite Preview",
-			"Gemini 3.0 Flash",
+			"Gemini 3 Flash Preview",
+			"Gemini 3.5 Flash",
 			"Gemini 3.1 Pro Preview",
 			"GPT-OSS 120B",
 			"Claude Sonnet 4.6",
