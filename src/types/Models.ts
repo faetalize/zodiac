@@ -5,7 +5,10 @@ export enum ChatModel {
 	FLASH_LITE = "gemini-3.1-flash-lite",
 	NANO_BANANA = "gemini-2.5-flash-image",
 	NANO_BANANA_PRO = "gemini-3-pro-image-preview",
-	NANO_BANANA_2 = "gemini-3.1-flash-image-preview"
+	NANO_BANANA_2 = "gemini-3.1-flash-image-preview",
+	PRO_2_5 = "gemini-2.5-pro",
+	FLASH_2_5 = "gemini-2.5-flash",
+	FLASH_LITE_2_5 = "gemini-2.5-flash-lite"
 }
 
 export enum ImageModel {
@@ -111,6 +114,40 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		roleplaySuggestionThinkingCap: 128,
 		supportsTemperature: true,
 		supportsImageInput: true,
+		supportsFileInput: true,
+		supportsImageOutput: false
+	},
+	{
+		id: ChatModel.PRO_2_5,
+		label: "Gemini 2.5 Pro",
+		provider: "gemini",
+		mega: false,
+		supportsThinking: true,
+		requiresThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: true,
+		supportsImageOutput: false
+	},
+	{
+		id: ChatModel.FLASH_2_5,
+		label: "Gemini 2.5 Flash",
+		provider: "gemini",
+		mega: false,
+		supportsThinking: false,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: true,
+		supportsImageOutput: false
+	},
+	{
+		id: ChatModel.FLASH_LITE_2_5,
+		label: "Gemini 2.5 Flash Lite",
+		provider: "gemini",
+		mega: false,
+		supportsThinking: false,
+		supportsTemperature: true,
+		supportsImageInput: false,
 		supportsFileInput: true,
 		supportsImageOutput: false
 	},
