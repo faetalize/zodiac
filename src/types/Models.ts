@@ -1,6 +1,7 @@
 export enum ChatModel {
 	PRO = "gemini-3.1-pro-preview",
-	FLASH = "gemini-3-flash-preview",
+	FLASH = "gemini-3.5-flash",
+	FLASH_3_PREV = "gemini-3-flash-preview",
 	FLASH_LITE = "gemini-3.1-flash-lite",
 	NANO_BANANA = "gemini-2.5-flash-image",
 	NANO_BANANA_PRO = "gemini-3-pro-image-preview",
@@ -77,7 +78,19 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 	},
 	{
 		id: ChatModel.FLASH,
-		label: "Gemini 3.0 Flash",
+		label: "Gemini 3.5 Flash",
+		provider: "gemini",
+		mega: false,
+		roleplayModeSuggester: true,
+		supportsThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: true,
+		supportsImageOutput: false
+	},
+	{
+		id: ChatModel.FLASH_3_PREV,
+		label: "Gemini 3 Flash Preview",
 		provider: "gemini",
 		mega: false,
 		roleplayModeSuggester: true,

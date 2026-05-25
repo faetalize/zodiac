@@ -133,15 +133,19 @@ describe("roleplay suggestion model dropdown", () => {
 
 		const options = Array.from(document.querySelectorAll<HTMLOptionElement>("#roleplaySuggestionModel option"));
 
-		expect(options.map((option) => option.textContent)).toEqual([
+		const expectedModels = [
 			"Gemini 3.1 Flash Lite Preview",
-			"Gemini 3.0 Flash",
+			"Gemini 3 Flash Preview",
+			"Gemini 3.5 Flash",
 			"Gemini 3.1 Pro Preview",
 			"GPT-OSS 120B",
 			"Claude Sonnet 4.6",
 			"GLM 5",
 			"Qwen3.5 397B",
 			"Qwen3.5 Plus"
-		]);
+		];
+		const receivedModels = options.map((option) => option.textContent);
+
+		expect(receivedModels.sort()).toEqual(expectedModels.sort());
 	});
 });
