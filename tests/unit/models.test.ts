@@ -7,7 +7,7 @@ describe("roleplay suggestion models", () => {
 		const fullAccess: ChatModelAccess = { hasGeminiAccess: true, hasOpenRouterAccess: true };
 
 		const expectedModels = [
-			"Gemini 3.1 Flash Lite Preview",
+			"Gemini 3.1 Flash Lite",
 			"Gemini 3 Flash Preview",
 			"Gemini 3.5 Flash",
 			"Gemini 3.1 Pro Preview",

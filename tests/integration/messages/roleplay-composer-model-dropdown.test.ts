@@ -134,7 +134,7 @@ describe("roleplay suggestion model dropdown", () => {
 		const options = Array.from(document.querySelectorAll<HTMLOptionElement>("#roleplaySuggestionModel option"));
 
 		const expectedModels = [
-			"Gemini 3.1 Flash Lite Preview",
+			"Gemini 3.1 Flash Lite",
 			"Gemini 3 Flash Preview",
 			"Gemini 3.5 Flash",
 			"Gemini 3.1 Pro Preview",
