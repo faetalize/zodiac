@@ -1,7 +1,7 @@
 export enum ChatModel {
 	PRO = "gemini-3.1-pro-preview",
 	FLASH = "gemini-3-flash-preview",
-	FLASH_LITE = "gemini-3.1-flash-lite-preview",
+	FLASH_LITE = "gemini-3.1-flash-lite",
 	NANO_BANANA = "gemini-2.5-flash-image",
 	NANO_BANANA_PRO = "gemini-3-pro-image-preview",
 	NANO_BANANA_2 = "gemini-3.1-flash-image-preview"
@@ -65,7 +65,7 @@ export function requiresThoughtSignaturesInHistory(model: string): boolean {
 export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 	{
 		id: ChatModel.FLASH_LITE,
-		label: "Gemini 3.1 Flash Lite Preview",
+		label: "Gemini 3.1 Flash Lite",
 		provider: "gemini",
 		mega: false,
 		roleplayModeSuggester: true,
