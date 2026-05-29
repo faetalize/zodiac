@@ -97,7 +97,8 @@ vi.mock("../../../src/services/Supabase.service", () => ({
 	getUserSubscription: vi.fn(async () => null),
 	getSubscriptionTier: vi.fn(async () => "free"),
 	isImageGenerationAvailable: vi.fn(async () => ({ type: "none" })),
-	getUserProfile: vi.fn(async () => ({ preferredName: "Tester" }))
+	getUserProfile: vi.fn(async () => ({ preferredName: "Tester" })),
+	refreshImageGenerationRecord: vi.fn()
 }));
 
 vi.mock("../../../src/services/Sync.service", () => ({
@@ -190,7 +191,8 @@ vi.mock("../../../src/utils/helpers", () => ({
 	showElement: vi.fn(),
 	getDecoded: vi.fn(async (value: string) => value),
 	getSanitized: vi.fn((value: string) => value),
-	confirmDialogDanger: vi.fn(async () => true)
+	confirmDialogDanger: vi.fn(async () => true),
+	arrayBufferToBase64: vi.fn(async () => "mock-b64")
 }));
 
 vi.mock("../../../src/utils/blobResolver", () => ({
@@ -461,6 +463,85 @@ describe("Message send lifecycle", () => {
 		expect(visibleDomMessages).toHaveLength(2);
 		expect(getVisibleMessageTexts()).toEqual(["Hello normal chat", "Mocked assistant reply"]);
 		expect(document.querySelector("#chat-title")?.textContent).toBe("Normal Chat");
+	});
+
+	it("allows image generation with credits without a Gemini API key", async () => {
+		seedMockPersonas([
+			{
+				id: "persona-image",
+				persona: {
+					name: "Image Persona",
+					description: "Handles image generations."
+				}
+			}
+		]);
+
+		testState.settings.model = "gemini-2.5-flash";
+		testState.settings.geminiApiKey = "";
+		testState.settings.apiKey = "";
+
+		const { db: testDb, chatsService, messageService } = await loadServices();
+		db = testDb;
+
+		const chatId = await createAndLoadChat({
+			chatsService,
+			chat: makeChat({
+				id: "chat-image",
+				title: "Image Chat",
+				content: []
+			})
+		});
+
+		const imageButton = await import("../../../src/components/static/ImageButton.component");
+		const imageEditButton = await import("../../../src/components/static/ImageEditButton.component");
+		vi.mocked(imageButton.isImageModeActive).mockReturnValue(true);
+		vi.mocked(imageEditButton.isImageEditingActive).mockReturnValue(false);
+
+		const supabaseService = await import("../../../src/services/Supabase.service");
+		vi.mocked(supabaseService.isImageGenerationAvailable).mockResolvedValue({
+			enabled: true,
+			type: "all"
+		});
+
+		const toastService = await import("../../../src/services/Toast.service");
+		vi.mocked(toastService.warn).mockClear();
+
+		const fetchMock = vi.fn(async () => ({
+			ok: true,
+			arrayBuffer: vi.fn(async () => new ArrayBuffer(8)),
+			headers: {
+				get: (name: string) => {
+					if (name === "Content-Type") return "image/png";
+					if (name === "X-Request-Id") return "req-123";
+					return null;
+				}
+			}
+		}));
+		vi.stubGlobal("fetch", fetchMock);
+
+		try {
+			await messageService.send("Draw a comet", {
+				targetChatId: chatId,
+				selectedPersonalityId: "persona-image",
+				attachmentFiles: makeEmptyFileList()
+			});
+		} finally {
+			vi.unstubAllGlobals();
+		}
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			expect.stringContaining("/functions/v1/handle-max-request"),
+			expect.any(Object)
+		);
+		expect(toastService.warn).not.toHaveBeenCalled();
+
+		const persistedChat = await testDb.chats.get(chatId);
+		const visiblePersistedMessages = (persistedChat?.content ?? []).filter((message) => !message.hidden);
+		expect(visiblePersistedMessages).toHaveLength(2);
+		expect(visiblePersistedMessages[1]?.generatedImages?.[0]).toMatchObject({
+			mimeType: "image/png",
+			base64: "mock-b64"
+		});
 	});
 
 	it("sends a message and stores ordered mocked replies in an RPG group chat", async () => {

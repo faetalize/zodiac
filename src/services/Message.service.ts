@@ -1491,9 +1491,13 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 	const tier = await supabaseService.getSubscriptionTier(subscription);
 	const hasSubscription = tier === "pro" || tier === "pro_plus" || tier === "max";
 	const isPremiumEndpointPreferred = hasSubscription && shouldPreferPremiumEndpoint();
-	const isImagePremiumEndpointPreferred = (await supabaseService.isImageGenerationAvailable()).type === "all";
+	const imageGenerationAvailability = await supabaseService.isImageGenerationAvailable();
+	const isImagePremiumEndpointPreferred = imageGenerationAvailability.type === "all";
+	const isImageRequest = isImageModeActive() || isImageEditingActive();
+	const hasLocalApiKey = hasLocalApiKeyForModel(settings.model, settings);
+	const canUseImageCreditsWithoutApiKey = isImageRequest && isImagePremiumEndpointPreferred;
 
-	if (!isPremiumEndpointPreferred && !hasLocalApiKeyForModel(settings.model, settings)) {
+	if (!isPremiumEndpointPreferred && !hasLocalApiKey && !canUseImageCreditsWithoutApiKey) {
 		const providerName = isOpenRouterModel(settings.model) ? "OpenRouter" : "Gemini";
 		warn({
 			title: `${providerName} API Key Required`,
