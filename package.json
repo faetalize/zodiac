@@ -36,7 +36,7 @@
 		"openai": "^6.2.0",
 		"tippy.js": "^6.3.7",
 		"turndown": "^7.2.0",
-		"uuid": "^9.0.1"
+		"uuid": "^14.0.0"
 	},
 	"scripts": {
 		"type-check": "tsc --noEmit",
