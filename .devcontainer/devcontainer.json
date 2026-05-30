@@ -1,0 +1,7 @@
+{
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "features": {
+    "ghcr.io/stu-bell/devcontainer-features/open-code:0": {},
+    "ghcr.io/devcontainers/features/sshd:1": {}
+  }
+}
