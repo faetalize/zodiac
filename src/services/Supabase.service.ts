@@ -24,6 +24,7 @@ export type {
 };
 
 let userCache: SupabaseUser | null = null;
+let hydratedSessionUserId: string | null = null;
 
 export const SUPABASE_URL = "https://hglcltvwunzynnzduauy.supabase.co";
 export const PRO_REQUEST_FUNCTION_NAME = "handle-pro-request-x";
@@ -40,6 +41,40 @@ const subscriptionBadgeClasses = [
 	"badge-tier-max",
 	"badge-tier-canceled"
 ];
+
+async function hydrateAuthenticatedSession(session: Session): Promise<void> {
+	//cache user
+	userCache = session.user;
+	hydratedSessionUserId = session.user.id;
+	//show relevant components
+	document.querySelectorAll(".logged-in-component").forEach((el) => {
+		(el as HTMLElement).classList.remove("hidden");
+	});
+	document.querySelectorAll(".logged-out-component").forEach((el) => {
+		(el as HTMLElement).classList.add("hidden");
+	});
+	//initial profile load
+	const profile = await getUserProfile();
+	if (profile.avatar) {
+		document.querySelector("#profile-pfp")?.setAttribute("src", profile.avatar);
+		document.querySelector("#user-profile")?.setAttribute("src", profile.avatar);
+	}
+	document.querySelector<HTMLInputElement>("#profile-preferred-name")!.value = profile.preferredName;
+	document.querySelector<HTMLTextAreaElement>("#profile-system-prompt")!.defaultValue = profile.systemPromptAddition;
+	const sub = await getUserSubscription(session);
+	const imageGenRecord = await getImageGenerationRecord();
+	await updateSubscriptionUI(session, sub, imageGenRecord);
+	try {
+		dispatchAppEvent("auth-state-changed", {
+			loggedIn: true,
+			session,
+			subscription: sub,
+			imageGenerationRecord: imageGenRecord
+		});
+	} catch (e) {
+		console.error(e);
+	}
+}
 
 export const PASSWORD_RECOVERY_QUERY_PARAM = "recovery=true";
 
@@ -76,41 +111,7 @@ supabase.auth.onAuthStateChange((event, session) => {
 	//on login
 	if (event === "SIGNED_IN" && session) {
 		console.log("User signed in.");
-		//cache user
-		userCache = session.user;
-		//show relevant components
-		document.querySelectorAll(".logged-in-component").forEach((el) => {
-			(el as HTMLElement).classList.remove("hidden");
-		});
-		document.querySelectorAll(".logged-out-component").forEach((el) => {
-			(el as HTMLElement).classList.add("hidden");
-		});
-		//initial profile load
-		void getUserProfile().then((profile) => {
-			if (profile.avatar) {
-				document.querySelector("#profile-pfp")?.setAttribute("src", profile.avatar);
-				document.querySelector("#user-profile")?.setAttribute("src", profile.avatar);
-			}
-			document.querySelector<HTMLInputElement>("#profile-preferred-name")!.value = profile.preferredName;
-			document.querySelector<HTMLTextAreaElement>("#profile-system-prompt")!.defaultValue =
-				profile.systemPromptAddition;
-			void getUserSubscription(session).then((sub) => {
-				// notify listeners
-				void getImageGenerationRecord().then((imageGenRecord) => {
-					void updateSubscriptionUI(session, sub, imageGenRecord);
-					try {
-						dispatchAppEvent("auth-state-changed", {
-							loggedIn: true,
-							session,
-							subscription: sub,
-							imageGenerationRecord: imageGenRecord
-						});
-					} catch (e) {
-						console.error(e);
-					}
-				});
-			});
-		});
+		void hydrateAuthenticatedSession(session);
 	} else if (event === "SIGNED_OUT") {
 		console.log("User signed out.");
 		try {
@@ -120,6 +121,7 @@ supabase.auth.onAuthStateChange((event, session) => {
 		}
 		//clear cached user
 		userCache = null;
+		hydratedSessionUserId = null;
 		//hide relevant components
 		document.querySelectorAll(".logged-out-component").forEach((el) => {
 			(el as HTMLElement).classList.remove("hidden");
@@ -170,6 +172,9 @@ supabase.auth.onAuthStateChange((event, session) => {
 		console.log("Token refreshed.");
 		//update cached user
 		userCache = session.user;
+		if (hydratedSessionUserId !== session.user.id) {
+			void hydrateAuthenticatedSession(session);
+		}
 	} else if (event === "USER_UPDATED" && session) {
 		console.log("User update event.");
 		//update cached user
