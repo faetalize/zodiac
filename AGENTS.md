@@ -127,6 +127,13 @@ Services export an `initialize()` function called from `main.ts` in dependency o
 - Prefer `surfaceService.show("element-id")` / `surfaceService.close("element-id")` for adaptive sheets instead of `overlayService.show()` / `overlayService.closeOverlay()`.
 - Keep feature-specific state resets in the feature component. `Surface.service.ts` dispatches `surface-closed` on the surface element after the close animation completes.
 
+### Dropdown Menus
+
+- Prefer [src/utils/dropdownPortal.ts](src/utils/dropdownPortal.ts) for `.dropdown-menu` elements that open inside the sidebar or other blurred surfaces.
+- The sidebar uses `backdrop-filter`; nested dropdowns with their own `backdrop-filter` can blur the sidebar's already-flattened backdrop instead of the real content behind the menu, which makes the menu look foggy rather than properly blurred.
+- `openDropdownPortal(menu, anchor)` temporarily moves the menu to `document.body`, positions it from the anchor's `getBoundingClientRect()`, closes it on scroll/resize, and restores it to its original parent on close.
+- Keep dropdown-specific open state in the owning component, and use the portal `onClose` callback to reset ARIA/state when the helper closes the menu externally.
+
 ### Database Migrations
 
 Dexie schema versions in `Db.service.ts` are additive. Use `.upgrade()` for data migrations:

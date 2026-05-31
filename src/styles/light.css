@@ -24,7 +24,7 @@
 	--modal-shadow: var(--dropdown-menu-shadow);
 
 	/* dropdown */
-	--dropdown-menu-bg: #ffffffa6;
+	--dropdown-menu-bg: #ffffff73;
 	--dropdown-menu-fg: #000000;
 	--dropdown-menu-border: 1px solid rgba(0, 0, 0, 0.1);
 	--dropdown-menu-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.25), 0 2px 6px -1px rgba(0, 0, 0, 0.15);

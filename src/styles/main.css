@@ -4075,12 +4075,28 @@ body.full-width-chat #message-box {
 	opacity: 0;
 }
 
+.dropdown-menu.dropdown-menu--portal {
+	position: fixed;
+	top: var(--dropdown-menu-top, 0);
+	left: var(--dropdown-menu-left, 0);
+	right: auto;
+	width: var(--dropdown-menu-width, auto);
+	display: flex;
+	visibility: visible;
+	opacity: 1;
+	z-index: 10030;
+	animation: menuFadeIn 0.12s ease forwards;
+}
+
+.dropdown-menu.dropdown-menu--portal.dropdown-menu--above {
+	animation: menuFadeInAbove 0.12s ease forwards;
+}
+
 .dropdown-menu {
 	flex-direction: column;
 	color: var(--dropdown-menu-fg);
 	background: var(--dropdown-menu-bg);
 	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
 	border: var(--dropdown-menu-border);
 	padding: 0.25rem;
 	border-radius: 0.5rem;
@@ -5034,7 +5050,7 @@ body.full-width-chat #message-box {
 		0 0 0 1px rgba(0, 0, 0, 0.06);
 	outline: none;
 	background-color: var(--sidebar-bg);
-	backdrop-filter: blur(80px);
+	backdrop-filter: blur(32px);
 }
 
 .sidebar-top-bar {

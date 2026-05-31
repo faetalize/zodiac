@@ -1,11 +1,13 @@
 import { getPersonaSortMode, setPersonaSortMode } from "../../services/Personality.service";
 import type { PersonaSortMode } from "../../types/Personality";
+import { openDropdownPortal, type DropdownPortal } from "../../utils/dropdownPortal";
 
 const sortButton = document.querySelector<HTMLButtonElement>("#btn-persona-sort");
 const sortLabel = document.querySelector<HTMLSpanElement>("#persona-sort-label");
 
 let menu: HTMLDivElement | null = null;
 let isOpen = false;
+let menuPortal: DropdownPortal | null = null;
 
 const MODE_LABELS: Record<PersonaSortMode, string> = {
 	date_added: "Added",
@@ -19,12 +21,23 @@ function updateSortLabel(mode: PersonaSortMode) {
 	}
 }
 
-function closeMenu() {
+function resetMenuState() {
 	if (!menu || !sortButton) return;
+	menuPortal = null;
 	menu.classList.remove("open");
 	sortButton.setAttribute("aria-expanded", "false");
 	sortButton.classList.remove("chat-sort-toggle-open");
 	isOpen = false;
+}
+
+function closeMenu() {
+	if (!menu || !sortButton) return;
+	const portal = menuPortal;
+	if (portal) {
+		portal.close();
+	} else {
+		resetMenuState();
+	}
 }
 
 function handleOutsideClick(event: MouseEvent) {
@@ -98,6 +111,7 @@ function openMenu() {
 	menu.classList.add("open");
 	sortButton.setAttribute("aria-expanded", "true");
 	sortButton.classList.add("chat-sort-toggle-open");
+	menuPortal = openDropdownPortal(menu, sortButton, { onClose: resetMenuState });
 	isOpen = true;
 }
 

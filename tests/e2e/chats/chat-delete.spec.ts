@@ -67,9 +67,11 @@ async function openChatActions(page: Page, chatId: string): Promise<void> {
 }
 
 async function deleteChatFromSidebar(page: Page, chatId: string): Promise<void> {
-	const row = page.locator(`label[for='chat${chatId}']`);
 	await openChatActions(page, chatId);
-	await row.locator(".chat-actions-item").filter({ hasText: "Delete" }).click();
+	await page
+		.locator(".chat-actions-menu.dropdown-menu--portal .chat-actions-item")
+		.filter({ hasText: "Delete" })
+		.click();
 }
 
 test("deleting the selected chat from the sidebar returns the app to cleared new-chat state", async ({ page }) => {
