@@ -6,7 +6,9 @@ import { dispatchAppEvent, onAppEvent } from "../../events";
 const pfpChangeButton = document.querySelector("#btn-change-pfp");
 const preferredNameInput = document.querySelector("#profile-preferred-name");
 const systemPromptAddition = document.querySelector("#profile-system-prompt");
-const saveButton = document.querySelector("#btn-profile-save");
+const saveButton = document.querySelector<HTMLButtonElement>("#btn-profile-save");
+const saveSpinner = document.querySelector<HTMLElement>("#profile-save-spinner");
+const saveLabel = document.querySelector<HTMLElement>("#profile-save-label");
 const subscriptionBadge = document.querySelector<HTMLElement>("#subscription-badge");
 const manageSubscriptionBtn = document.querySelector<HTMLButtonElement>("#btn-manage-subscription");
 const subscriptionCard = document.querySelector<HTMLElement>("#subscription-status-row");
@@ -21,13 +23,16 @@ const accountHeader = document.querySelector<HTMLElement>("#account-info-card .c
 const accountEmailEl = document.querySelector<HTMLSpanElement>("#account-email");
 const resetPasswordButton = document.querySelector<HTMLButtonElement>("#btn-reset-password");
 const changeEmailButton = document.querySelector<HTMLButtonElement>("#btn-change-email");
-let image: File;
+let image: File | undefined;
+let isSavingProfile = false;
 
 if (
 	!pfpChangeButton ||
 	!preferredNameInput ||
 	!systemPromptAddition ||
 	!saveButton ||
+	!saveSpinner ||
+	!saveLabel ||
 	!subscriptionBadge ||
 	!manageSubscriptionBtn ||
 	!subscriptionCard ||
@@ -52,6 +57,21 @@ const ensuredRemainingMegaCredits = remainingMegaCredits;
 const ensuredRemainingNanoBanana = remainingNanoBanana;
 
 const PRO_NANO_BANANA_DAILY_LIMIT = 20;
+
+function setProfileSavePending(isPending: boolean) {
+	isSavingProfile = isPending;
+	saveButton!.disabled = isPending;
+	saveButton!.setAttribute("aria-busy", String(isPending));
+	saveSpinner!.classList.toggle("hidden", !isPending);
+	saveLabel!.textContent = isPending ? "Saving..." : "Save";
+}
+
+async function updateProfile(user: User): Promise<void> {
+	const result = await supabaseService.updateUser(user);
+	if (result.error) {
+		throw new Error(result.error.message);
+	}
+}
 
 function getTodayIsoDate() {
 	const now = new Date();
@@ -286,60 +306,73 @@ saveButton.addEventListener(
 	"click",
 	() =>
 		void (async () => {
-			const preferredName = (preferredNameInput as HTMLInputElement).value;
-			const systemPrompt = (systemPromptAddition as HTMLTextAreaElement).value;
-			if (image) {
-				//resize image on client side to 200 x 200 max
-				const img = document.createElement("img");
-				img.src = URL.createObjectURL(image);
-				await img.decode();
-				const canvas = document.createElement("canvas");
-				const ctx = canvas.getContext("2d");
-				if (!ctx) {
-					console.error("Failed to get canvas context");
-					return;
-				}
-				const maxSize = 200;
-				let width = img.width;
-				let height = img.height;
-				if (width > height) {
-					if (width > maxSize) {
-						height = Math.round((height *= maxSize / width));
-						width = maxSize;
-					}
-				} else {
-					if (height > maxSize) {
-						width = Math.round((width *= maxSize / height));
-						height = maxSize;
-					}
-				}
-				canvas.width = width;
-				canvas.height = height;
-				ctx.drawImage(img, 0, 0, width, height);
-				const resizedBlob = await new Promise<Blob | null>((resolve) =>
-					canvas.toBlob(resolve, "image/jpeg", 0.8)
-				);
-				const resizedFile = new File([resizedBlob!], "profile_picture.jpeg", { type: "image/jpeg" });
-				let imageURL;
-				try {
-					imageURL = await supabaseService.uploadPfpToSupabase(resizedFile);
-					imageURL = "https://hglcltvwunzynnzduauy.supabase.co/storage/v1/object/public/" + imageURL;
-					const user: User = {
-						preferredName,
-						systemPromptAddition: systemPrompt,
-						avatar: imageURL
-					};
-					await supabaseService.updateUser(user);
-				} catch (error) {
-					console.error("Error uploading image:", error);
-					return;
-				}
-			} else {
+			if (isSavingProfile) {
+				return;
+			}
+
+			setProfileSavePending(true);
+
+			try {
+				const preferredName = (preferredNameInput as HTMLInputElement).value;
+				const systemPrompt = (systemPromptAddition as HTMLTextAreaElement).value;
 				const user: User = {
 					preferredName,
 					systemPromptAddition: systemPrompt
 				};
-				await supabaseService.updateUser(user);
+
+				if (image) {
+					// Resize image on client side to 200 x 200 max.
+					const img = document.createElement("img");
+					img.src = URL.createObjectURL(image);
+					await img.decode();
+					const canvas = document.createElement("canvas");
+					const ctx = canvas.getContext("2d");
+					if (!ctx) {
+						throw new Error("Unable to prepare profile image.");
+					}
+					const maxSize = 200;
+					let width = img.width;
+					let height = img.height;
+					if (width > height) {
+						if (width > maxSize) {
+							height = Math.round((height *= maxSize / width));
+							width = maxSize;
+						}
+					} else {
+						if (height > maxSize) {
+							width = Math.round((width *= maxSize / height));
+							height = maxSize;
+						}
+					}
+					canvas.width = width;
+					canvas.height = height;
+					ctx.drawImage(img, 0, 0, width, height);
+					const resizedBlob = await new Promise<Blob | null>((resolve) =>
+						canvas.toBlob(resolve, "image/jpeg", 0.8)
+					);
+					if (!resizedBlob) {
+						throw new Error("Unable to prepare profile image.");
+					}
+					const resizedFile = new File([resizedBlob], "profile_picture.jpeg", { type: "image/jpeg" });
+					let imageURL = await supabaseService.uploadPfpToSupabase(resizedFile);
+					imageURL = "https://hglcltvwunzynnzduauy.supabase.co/storage/v1/object/public/" + imageURL;
+					user.avatar = imageURL;
+				}
+
+				await updateProfile(user);
+				image = undefined;
+				toastService.info({
+					title: "Profile Saved",
+					text: "Your profile changes are up to date."
+				});
+			} catch (error) {
+				console.error("Error saving profile:", error);
+				toastService.danger({
+					title: "Save Failed",
+					text: error instanceof Error ? error.message : "Unable to save your profile."
+				});
+			} finally {
+				setProfileSavePending(false);
 			}
 		})()
 );
