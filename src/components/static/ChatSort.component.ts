@@ -1,11 +1,13 @@
 import { getChatSortMode, setChatSortMode } from "../../services/Chats.service";
 import type { ChatSortMode } from "../../types/Chat";
+import { openDropdownPortal, type DropdownPortal } from "../../utils/dropdownPortal";
 
 const sortButton = document.querySelector<HTMLButtonElement>("#btn-chat-sort");
 const sortLabel = document.querySelector<HTMLSpanElement>("#chat-sort-label");
 
 let menu: HTMLDivElement | null = null;
 let isOpen = false;
+let menuPortal: DropdownPortal | null = null;
 
 const MODE_LABELS: Record<ChatSortMode, string> = {
 	created_at: "Created",
@@ -21,6 +23,8 @@ function updateSortLabel(mode: ChatSortMode) {
 
 function closeMenu() {
 	if (!menu || !sortButton) return;
+	menuPortal?.close();
+	menuPortal = null;
 	menu.classList.remove("open");
 	sortButton.setAttribute("aria-expanded", "false");
 	sortButton.classList.remove("chat-sort-toggle-open");
@@ -95,6 +99,15 @@ function openMenu() {
 	menu.classList.add("open");
 	sortButton.setAttribute("aria-expanded", "true");
 	sortButton.classList.add("chat-sort-toggle-open");
+	menuPortal = openDropdownPortal(menu, sortButton, {
+		onClose: () => {
+			menuPortal = null;
+			menu?.classList.remove("open");
+			sortButton.setAttribute("aria-expanded", "false");
+			sortButton.classList.remove("chat-sort-toggle-open");
+			isOpen = false;
+		}
+	});
 	isOpen = true;
 }
 

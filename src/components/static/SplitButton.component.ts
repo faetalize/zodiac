@@ -26,7 +26,10 @@
  * - Add your own event handlers to main button and menu items
  */
 
+import { openDropdownPortal, type DropdownPortal } from "../../utils/dropdownPortal";
+
 const splitButtons = document.querySelectorAll<HTMLElement>(".split-button");
+let closeOpenSplitButtonMenu: (() => void) | null = null;
 
 splitButtons.forEach((splitButton) => {
 	const toggleButton = splitButton.querySelector<HTMLButtonElement>(".split-button__toggle");
@@ -37,37 +40,45 @@ splitButtons.forEach((splitButton) => {
 		console.error("Split button missing required elements (.split-button__toggle or .split-button__menu)");
 		throw new Error("Split button component is not properly initialized.");
 	}
+	const toggleElement = toggleButton;
+	const menuElement = menu;
 
 	let currentFocusIndex = -1;
+	let menuPortal: DropdownPortal | null = null;
+
+	function resetMenuState() {
+		splitButton.classList.remove("open");
+		toggleElement.setAttribute("aria-expanded", "false");
+		currentFocusIndex = -1;
+		menuPortal = null;
+		if (closeOpenSplitButtonMenu === closeMenu) closeOpenSplitButtonMenu = null;
+	}
 
 	function closeMenu() {
-		if (splitButton.classList.contains("open")) {
-			splitButton.classList.remove("open");
-			toggleButton!.setAttribute("aria-expanded", "false");
-			currentFocusIndex = -1;
+		if (splitButton.classList.contains("open") || menuPortal) {
+			menuPortal?.close();
+			if (!menuPortal) resetMenuState();
 		}
 	}
 
 	function openMenu() {
 		if (!splitButton.classList.contains("open")) {
-			// Close other open split button menus
-			document.querySelectorAll(".split-button.open").forEach((el) => {
-				if (el !== splitButton) {
-					el.classList.remove("open");
-					const otherToggle = el.querySelector<HTMLButtonElement>(".split-button__toggle");
-					if (otherToggle) {
-						otherToggle.setAttribute("aria-expanded", "false");
-					}
-				}
-			});
+			closeOpenSplitButtonMenu?.();
 			splitButton.classList.add("open");
-			toggleButton!.setAttribute("aria-expanded", "true");
+			toggleElement.setAttribute("aria-expanded", "true");
+			menuPortal = openDropdownPortal(menuElement, splitButton, {
+				align: "left",
+				matchAnchorWidth: true,
+				offsetY: 4,
+				onClose: resetMenuState
+			});
+			closeOpenSplitButtonMenu = closeMenu;
 			currentFocusIndex = -1;
 		}
 	}
 
 	// Toggle menu on toggle button click
-	toggleButton.addEventListener("click", (e) => {
+	toggleElement.addEventListener("click", (e) => {
 		e.stopPropagation();
 		if (!splitButton.classList.contains("open")) {
 			openMenu();
@@ -111,7 +122,7 @@ splitButtons.forEach((splitButton) => {
 			case "Escape":
 				e.preventDefault();
 				closeMenu();
-				toggleButton.focus();
+				toggleElement.focus();
 				break;
 		}
 	});
@@ -123,18 +134,9 @@ splitButtons.forEach((splitButton) => {
 			// Let the menu handler above deal with it
 		});
 	});
-});
 
-// Close all split button menus when clicking outside
-document.addEventListener("click", (e) => {
-	const target = e.target as HTMLElement;
-	if (!target.closest(".split-button")) {
-		document.querySelectorAll(".split-button.open").forEach((el) => {
-			el.classList.remove("open");
-			const toggle = el.querySelector<HTMLButtonElement>(".split-button__toggle");
-			if (toggle) {
-				toggle.setAttribute("aria-expanded", "false");
-			}
-		});
-	}
+	document.addEventListener("click", (e) => {
+		const target = e.target as Node;
+		if (!splitButton.contains(target) && !menuElement.contains(target)) closeMenu();
+	});
 });

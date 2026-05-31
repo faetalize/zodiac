@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from "uuid";
 import * as syncService from "./Sync.service";
 import * as toastService from "./Toast.service";
 import * as pinningService from "./Pinning.service";
+import { openDropdownPortal, type DropdownPortal } from "../utils/dropdownPortal";
 const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
 const scrollableChatContainerSelector = "#scrollable-chat-container";
 const chatHistorySection = document.querySelector<HTMLDivElement>("#chatHistorySection");
@@ -38,6 +39,7 @@ let chatLoadDelayTimer: number | null = null;
 let activeChatLoadToken = 0;
 let activeChatLoadAbortController: AbortController | null = null;
 const generatingChatIds = new Set<string>();
+let closeOpenChatActionsMenu: (() => void) | null = null;
 
 const CHAT_SORT_MODE_STORAGE_KEY = "chat-sort-mode";
 // Lazily initialized from localStorage on first access so that the initial
@@ -598,42 +600,30 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 	menu.classList.add("chat-actions-menu");
 	menu.classList.add("dropdown-menu");
 	menu.setAttribute("role", "menu");
+	let menuPortal: DropdownPortal | null = null;
+
+	function resetMenuState() {
+		actionsWrapper.classList.remove("open");
+		actionsButton.setAttribute("aria-expanded", "false");
+		menuPortal = null;
+		if (closeOpenChatActionsMenu === closeMenu) closeOpenChatActionsMenu = null;
+	}
 
 	function closeMenu() {
-		if (actionsWrapper.classList.contains("open")) {
-			actionsWrapper.classList.remove("open");
-			actionsButton.setAttribute("aria-expanded", "false");
+		if (actionsWrapper.classList.contains("open") || menuPortal) {
+			menuPortal?.close();
+			if (!menuPortal) resetMenuState();
 		}
 	}
 
 	function openMenu() {
 		if (!actionsWrapper.classList.contains("open")) {
-			// close other open menus
-			document.querySelectorAll(".chat-actions-wrapper.open").forEach((el) => {
-				if (el !== actionsWrapper) el.classList.remove("open");
-			});
-
-			// Check if menu would overflow at the bottom
-			const scrollContainer = chatHistorySection;
-			if (scrollContainer) {
-				const buttonRect = actionsButton.getBoundingClientRect();
-				const containerRect = scrollContainer.getBoundingClientRect();
-
-				const menuItemsCount = menu.querySelectorAll("button.chat-actions-item").length;
-				const estimatedMenuHeight = Math.max(120, menuItemsCount * 40 + 16);
-				const spaceBelow = containerRect.bottom - buttonRect.bottom;
-				const spaceAbove = buttonRect.top - containerRect.top;
-
-				// If not enough space below but enough space above, open upward
-				if (spaceBelow < estimatedMenuHeight && spaceAbove > estimatedMenuHeight) {
-					actionsWrapper.classList.add("menu-above");
-				} else {
-					actionsWrapper.classList.remove("menu-above");
-				}
-			}
+			closeOpenChatActionsMenu?.();
 
 			actionsWrapper.classList.add("open");
 			actionsButton.setAttribute("aria-expanded", "true");
+			menuPortal = openDropdownPortal(menu, actionsButton, { onClose: resetMenuState });
+			closeOpenChatActionsMenu = closeMenu;
 		}
 	}
 
@@ -786,7 +776,8 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 
 	// close on outside click
 	document.addEventListener("click", (e) => {
-		if (!actionsWrapper.contains(e.target as Node)) {
+		const target = e.target as Node;
+		if (!actionsWrapper.contains(target) && !menu.contains(target)) {
 			closeMenu();
 		}
 	});
