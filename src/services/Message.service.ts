@@ -1324,8 +1324,7 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 		return;
 	}
 
-	const modelMessage = chat.content[modelMessageIndex];
-	const targetPersonalityId = modelMessage?.personalityid || getSelectedPersonalityId();
+	const targetPersonalityId = getSelectedPersonalityId();
 	const message = chat.content[modelMessageIndex - 1];
 	if (!message) {
 		console.error("No message found");

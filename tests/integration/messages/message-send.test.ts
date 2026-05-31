@@ -326,6 +326,19 @@ function seedMockPersonas(personas: Array<{ id: string; persona: Partial<Persona
 	}
 }
 
+function selectPersonality(personalityId: string): void {
+	const card = document.createElement("label");
+	card.id = `personality-${personalityId}`;
+
+	const input = document.createElement("input");
+	input.type = "radio";
+	input.name = "personality";
+	input.checked = true;
+
+	card.append(input);
+	document.body.append(card);
+}
+
 async function loadServices() {
 	const dbService = await import("../../../src/services/Db.service");
 	const chatsService = await import("../../../src/services/Chats.service");
@@ -812,6 +825,7 @@ describe("Message send lifecycle", () => {
 				}
 			}
 		]);
+		selectPersonality("persona-regen");
 
 		queueOpenRouterResponse("Regenerated second reply", "Regenerated thinking");
 
@@ -898,6 +912,77 @@ describe("Message send lifecycle", () => {
 		]);
 		expect(document.querySelector(".message-container")?.textContent).not.toContain("Third prompt");
 		expect(document.querySelector(".message-container")?.textContent).not.toContain("Third reply");
+	});
+
+	it("regenerate uses the currently selected persona instead of the original response persona", async () => {
+		seedMockPersonas([
+			{
+				id: "persona-original",
+				persona: {
+					name: "Original Persona",
+					description: "Responded to the original message."
+				}
+			},
+			{
+				id: "persona-selected",
+				persona: {
+					name: "Selected Persona",
+					description: "Currently selected before regeneration."
+				}
+			}
+		]);
+		selectPersonality("persona-selected");
+
+		queueOpenRouterResponse("Regenerated with selected persona");
+
+		const { db: testDb, chatsService, messageService } = await loadServices();
+		db = testDb;
+
+		const chatId = await createAndLoadChat({
+			chatsService,
+			chat: makeChat({
+				id: "chat-regenerate-selected-persona",
+				title: "Regenerate Selected Persona Chat",
+				content: [
+					makeUserMessage("Original prompt"),
+					makeModelMessage("Original reply", {
+						personalityid: "persona-original",
+						originModel: "openai/gpt-5.4"
+					})
+				]
+			})
+		});
+
+		await messageService.regenerate(1);
+		await chatsService.waitForPendingWrites(chatId);
+
+		const persistedChat = await testDb.chats.get(chatId);
+		const visiblePersistedMessages = (persistedChat?.content ?? []).filter((message) => !message.hidden);
+		expect(visiblePersistedMessages.map((message) => message.parts[0]?.text)).toEqual([
+			"Original prompt",
+			"Regenerated with selected persona"
+		]);
+		expect(visiblePersistedMessages.at(-1)).toMatchObject({
+			role: "model",
+			personalityid: "persona-selected",
+			parts: [expect.objectContaining({ text: "Regenerated with selected persona" })]
+		});
+
+		const currentChat = await chatsService.getCurrentChat();
+		expect((currentChat?.content ?? []).filter((message) => !message.hidden).at(-1)).toMatchObject({
+			role: "model",
+			personalityid: "persona-selected"
+		});
+		expect(messageService.getIsGenerating(chatId)).toBe(false);
+
+		await waitForCondition(
+			async () => getVisibleMessageTexts().length === 2,
+			"Timed out waiting for selected persona regeneration DOM to settle"
+		);
+		expect(getVisibleMessageTexts()).toEqual(["Original prompt", "Regenerated with selected persona"]);
+		expect(document.querySelector<HTMLElement>(".message:last-of-type .message-role")?.textContent).toBe(
+			"Selected Persona"
+		);
 	});
 
 	it("regeneration in an RPG group chat round prunes later round DOM and state consistently", async () => {
