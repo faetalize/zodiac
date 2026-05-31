@@ -113,6 +113,11 @@ onAppEvent("sync-data-pulled", () => {
 	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
 });
 
+onAppEvent("settings-loaded-from-storage", () => {
+	applyPremiumPreferenceFromStorage();
+	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
+});
+
 attachValidation({
 	input: ensuredGeminiApiKeyInput,
 	errorElement: ensuredGeminiError,
