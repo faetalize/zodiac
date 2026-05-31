@@ -7,7 +7,6 @@ const HELP_TEXT = `Create a git worktree in a sibling folder and optionally publ
 
 Usage:
   npm run create-worktree -- <branch> [worktree-path] [options]
-  npm run create-worktree -- --issue <number> [worktree-path] [options]
   node scripts/create-worktree.mjs <branch> [worktree-path] [options]
 
 Positional arguments:
@@ -16,22 +15,18 @@ Positional arguments:
 
 Options:
   -h, --help                 Show this help text.
-  --issue <number>          Use issue-<number> as the branch name.
   --remote <name>           Remote to publish/track. Defaults to origin when available.
   --remote-branch <name>    Remote branch name. Defaults to the local branch name.
   --publish                 Push the branch and configure upstream tracking.
-  --no-publish              Skip remote publishing and tracking.
   --open                    Launch opencode in a new Alacritty window.
-  --no-open                 Do not launch Alacritty.
   --install                 Run npm install in the new worktree.
-  --no-install              Skip npm install.
   --interactive             Ask for any values not passed on the CLI.
 
 Examples:
   npm run create-worktree -- feature/chat-cleanup
   npm run create-worktree -- feature/chat-cleanup ../zodiac-chat-cleanup --open
-  npm run create-worktree -- --issue 123 --publish --open
-  node scripts/create-worktree.mjs fix/sidebar ../zodiac-sidebar --remote origin --publish
+  npm run create-worktree -- feature/123-chat-cleanup --install --publish --open
+  node scripts/create-worktree.mjs bugfix/456-sidebar ../zodiac-sidebar --remote origin --publish
 `;
 
 function run(command, args, options = {}) {
@@ -130,7 +125,7 @@ function defaultWorktreePathFromBranch(branchName) {
 
 function remoteTrackingPrompt(defaultRemote) {
 	if (defaultRemote) {
-		return `Configure remote tracking/publish? (Y/n, default remote: ${defaultRemote}): `;
+		return `Configure remote tracking/publish? (y/N, default remote: ${defaultRemote}): `;
 	}
 
 	return "Configure remote tracking/publish? (y/N): ";
@@ -168,41 +163,13 @@ function parseArgs(argv) {
 			continue;
 		}
 
-		if (arg === "--no-publish") {
-			options.publish = false;
-			continue;
-		}
-
 		if (arg === "--open") {
 			options.open = true;
 			continue;
 		}
 
-		if (arg === "--no-open") {
-			options.open = false;
-			continue;
-		}
-
 		if (arg === "--install") {
 			options.install = true;
-			continue;
-		}
-
-		if (arg === "--no-install") {
-			options.install = false;
-			continue;
-		}
-
-		if (arg === "--issue") {
-			const issueNumber = args.shift();
-			if (!issueNumber) throw new Error("Missing value for --issue.");
-			if (!/^\d+$/.test(issueNumber)) {
-				throw new Error("--issue expects a numeric issue number.");
-			}
-			if (options.branchName) {
-				throw new Error("Pass either a branch positional argument or --issue, not both.");
-			}
-			options.branchName = `issue-${issueNumber}`;
 			continue;
 		}
 
@@ -235,6 +202,10 @@ function parseArgs(argv) {
 		}
 
 		throw new Error(`Unexpected extra argument: ${arg}`);
+	}
+
+	if ((options.remote || options.remoteBranch) && !options.publish) {
+		throw new Error("--remote and --remote-branch can only be used with --publish.");
 	}
 
 	return options;
@@ -298,8 +269,8 @@ async function main() {
 		const publish =
 			cliOptions.publish ??
 			(shouldPrompt && remotes.length > 0
-				? await askYesNo(rl, remoteTrackingPrompt(defaultRemote), defaultRemote === "origin")
-				: defaultRemote === "origin");
+				? await askYesNo(rl, remoteTrackingPrompt(defaultRemote), false)
+				: false);
 
 		let remote = "";
 		if (publish) {
@@ -367,7 +338,9 @@ async function main() {
 			run("git", ["worktree", "add", "-b", branchName, worktreePathInput]);
 		}
 
-		const shouldInstall = cliOptions.install ?? true;
+		const shouldInstall =
+			cliOptions.install ??
+			(shouldPrompt ? await askYesNo(rl, "Run npm install in the new worktree? (y/N): ", false) : false);
 		if (shouldInstall) {
 			console.log("Running npm install on worktree...");
 			try {
@@ -391,7 +364,7 @@ async function main() {
 
 		const shouldOpenOpencode =
 			cliOptions.open ??
-			(shouldPrompt ? await askYesNo(rl, "Open opencode in a new Alacritty window? (Y/n): ") : false);
+			(shouldPrompt ? await askYesNo(rl, "Open opencode in a new Alacritty window? (y/N): ", false) : false);
 
 		if (shouldOpenOpencode) {
 			console.log(`Opening opencode in ${resolvedWorktreePath}...`);
