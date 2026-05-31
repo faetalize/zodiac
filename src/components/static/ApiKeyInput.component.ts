@@ -38,6 +38,11 @@ function applyPremiumPreferenceFromStorage(): void {
 	}
 }
 
+function rehydratePremiumPreferenceFromStorage(): void {
+	applyPremiumPreferenceFromStorage();
+	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
+}
+
 function clearValidationState(input: HTMLInputElement, errorElement: HTMLElement): void {
 	input.classList.remove("api-key-valid", "api-key-invalid");
 	errorElement.classList.add("hidden");
@@ -109,8 +114,11 @@ onAppEvent("auth-state-changed", (event) => {
 });
 
 onAppEvent("sync-data-pulled", () => {
-	applyPremiumPreferenceFromStorage();
-	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
+	rehydratePremiumPreferenceFromStorage();
+});
+
+onAppEvent("settings-loaded-from-storage", () => {
+	rehydratePremiumPreferenceFromStorage();
 });
 
 attachValidation({

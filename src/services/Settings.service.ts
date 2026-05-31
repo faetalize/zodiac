@@ -5,7 +5,7 @@ import type { User } from "../types/User";
 import { getDefaultChatModel, getValidChatModel } from "../types/Models";
 import * as syncService from "./Sync.service";
 import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
-import { dispatchAppEvent } from "../events";
+import { dispatchAppEvent, dispatchEmptyAppEvent } from "../events";
 
 const geminiApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const openRouterApiKeyInput = document.querySelector("#openRouterApiKeyInput") as HTMLInputElement;
@@ -399,6 +399,7 @@ export function loadSettings() {
 	} finally {
 		isLoadingSettings = false;
 	}
+	dispatchEmptyAppEvent("settings-loaded-from-storage");
 }
 
 export function saveSettings() {
