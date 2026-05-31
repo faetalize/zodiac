@@ -611,8 +611,12 @@ function insertChatEntry(chat: DbChat, position: "append" | "prepend" = "prepend
 
 	function closeMenu() {
 		if (actionsWrapper.classList.contains("open") || menuPortal) {
-			menuPortal?.close();
-			if (!menuPortal) resetMenuState();
+			const portal = menuPortal;
+			if (portal) {
+				portal.close();
+			} else {
+				resetMenuState();
+			}
 		}
 	}
 

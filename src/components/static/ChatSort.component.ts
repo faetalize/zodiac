@@ -21,14 +21,23 @@ function updateSortLabel(mode: ChatSortMode) {
 	}
 }
 
-function closeMenu() {
+function resetMenuState() {
 	if (!menu || !sortButton) return;
-	menuPortal?.close();
 	menuPortal = null;
 	menu.classList.remove("open");
 	sortButton.setAttribute("aria-expanded", "false");
 	sortButton.classList.remove("chat-sort-toggle-open");
 	isOpen = false;
+}
+
+function closeMenu() {
+	if (!menu || !sortButton) return;
+	const portal = menuPortal;
+	if (portal) {
+		portal.close();
+	} else {
+		resetMenuState();
+	}
 }
 
 function handleOutsideClick(event: MouseEvent) {
@@ -99,15 +108,7 @@ function openMenu() {
 	menu.classList.add("open");
 	sortButton.setAttribute("aria-expanded", "true");
 	sortButton.classList.add("chat-sort-toggle-open");
-	menuPortal = openDropdownPortal(menu, sortButton, {
-		onClose: () => {
-			menuPortal = null;
-			menu?.classList.remove("open");
-			sortButton.setAttribute("aria-expanded", "false");
-			sortButton.classList.remove("chat-sort-toggle-open");
-			isOpen = false;
-		}
-	});
+	menuPortal = openDropdownPortal(menu, sortButton, { onClose: resetMenuState });
 	isOpen = true;
 }
 

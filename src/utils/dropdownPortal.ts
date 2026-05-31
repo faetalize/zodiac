@@ -53,7 +53,13 @@ export function openDropdownPortal(
 		menu.style.removeProperty("--dropdown-menu-left");
 		menu.style.removeProperty("--dropdown-menu-top");
 		menu.style.removeProperty("--dropdown-menu-width");
-		if (originalParent) originalParent.insertBefore(menu, originalNextSibling);
+		if (originalParent) {
+			if (originalNextSibling?.parentNode === originalParent) {
+				originalParent.insertBefore(menu, originalNextSibling);
+			} else {
+				originalParent.appendChild(menu);
+			}
+		}
 		options.onClose?.();
 	}
 

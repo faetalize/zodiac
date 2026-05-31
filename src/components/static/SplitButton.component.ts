@@ -30,6 +30,8 @@ import { openDropdownPortal, type DropdownPortal } from "../../utils/dropdownPor
 
 const splitButtons = document.querySelectorAll<HTMLElement>(".split-button");
 let closeOpenSplitButtonMenu: (() => void) | null = null;
+let openSplitButton: HTMLElement | null = null;
+let openSplitButtonMenu: HTMLElement | null = null;
 
 splitButtons.forEach((splitButton) => {
 	const toggleButton = splitButton.querySelector<HTMLButtonElement>(".split-button__toggle");
@@ -51,13 +53,21 @@ splitButtons.forEach((splitButton) => {
 		toggleElement.setAttribute("aria-expanded", "false");
 		currentFocusIndex = -1;
 		menuPortal = null;
-		if (closeOpenSplitButtonMenu === closeMenu) closeOpenSplitButtonMenu = null;
+		if (closeOpenSplitButtonMenu === closeMenu) {
+			closeOpenSplitButtonMenu = null;
+			openSplitButton = null;
+			openSplitButtonMenu = null;
+		}
 	}
 
 	function closeMenu() {
 		if (splitButton.classList.contains("open") || menuPortal) {
-			menuPortal?.close();
-			if (!menuPortal) resetMenuState();
+			const portal = menuPortal;
+			if (portal) {
+				portal.close();
+			} else {
+				resetMenuState();
+			}
 		}
 	}
 
@@ -73,6 +83,8 @@ splitButtons.forEach((splitButton) => {
 				onClose: resetMenuState
 			});
 			closeOpenSplitButtonMenu = closeMenu;
+			openSplitButton = splitButton;
+			openSplitButtonMenu = menuElement;
 			currentFocusIndex = -1;
 		}
 	}
@@ -134,9 +146,10 @@ splitButtons.forEach((splitButton) => {
 			// Let the menu handler above deal with it
 		});
 	});
+});
 
-	document.addEventListener("click", (e) => {
-		const target = e.target as Node;
-		if (!splitButton.contains(target) && !menuElement.contains(target)) closeMenu();
-	});
+document.addEventListener("click", (e) => {
+	const target = e.target as Node;
+	if (openSplitButton?.contains(target) || openSplitButtonMenu?.contains(target)) return;
+	closeOpenSplitButtonMenu?.();
 });
