@@ -129,9 +129,7 @@ export interface PremiumEndpointPreferenceChangedDetail {
 	preferred: boolean;
 }
 
-export interface SettingsLoadedFromStorageDetail {
-	// No detail payload - listeners should re-read their owned settings from storage.
-}
+export type SettingsLoadedFromStorageDetail = Record<string, never>;
 
 // --- Image Mode Events ---
 
