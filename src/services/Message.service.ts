@@ -1324,7 +1324,6 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 		return;
 	}
 
-	const modelMessage = chat.content[modelMessageIndex];
 	const targetPersonalityId = getSelectedPersonalityId();
 	const message = chat.content[modelMessageIndex - 1];
 	if (!message) {
