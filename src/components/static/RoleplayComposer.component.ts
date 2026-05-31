@@ -1509,6 +1509,13 @@ onAppEvent("sync-data-pulled", () => {
 	updateSelectedActionsSummary();
 });
 
+onAppEvent("settings-loaded-from-storage", () => {
+	loadActionState();
+	populateRoleplayModelOptions();
+	renderActions();
+	updateSelectedActionsSummary();
+});
+
 document.querySelector<HTMLDivElement>("#personalitiesDiv")?.addEventListener("change", () => {
 	void refreshComposerAvailability();
 });

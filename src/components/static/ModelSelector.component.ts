@@ -114,4 +114,9 @@ onAppEvent("auth-state-changed", (event) => {
 	refreshModelSelectorOptions();
 });
 
+onAppEvent("settings-loaded-from-storage", () => {
+	refreshModelSelectorOptions();
+	dispatchDocumentEvent("chat-model-changed", { model: ensuredModelSelect.value });
+});
+
 refreshModelSelectorOptions();
