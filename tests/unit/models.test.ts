@@ -4,6 +4,7 @@ import {
 	DEFAULT_OPENROUTER_TITLE_MODEL,
 	getAccessibleRoleplaySuggestionModels,
 	getValidRoleplaySuggestionModel,
+	modelRequiresThinking,
 	type ChatModelAccess
 } from "../../src/types/Models";
 
@@ -14,6 +15,11 @@ describe("default model roles", () => {
 });
 
 describe("roleplay suggestion models", () => {
+	it("requires thinking for Gemini 3.5 Flash local and OpenRouter variants", () => {
+		expect(modelRequiresThinking("gemini-3.5-flash")).toBe(true);
+		expect(modelRequiresThinking("google/gemini-3.5-flash")).toBe(true);
+	});
+
 	it("includes only models flagged for roleplay suggestions", () => {
 		const fullAccess: ChatModelAccess = { hasGeminiAccess: true, hasOpenRouterAccess: true };
 
