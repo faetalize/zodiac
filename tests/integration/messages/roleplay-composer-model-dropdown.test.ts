@@ -135,9 +135,13 @@ describe("roleplay suggestion model dropdown", () => {
 
 		const expectedModels = [
 			"Gemini 3.1 Flash Lite",
+			"Gemini 3.1 Flash Lite via OpenRouter",
 			"Gemini 3 Flash Preview",
+			"Gemini 3 Flash Preview via OpenRouter",
 			"Gemini 3.5 Flash",
+			"Gemini 3.5 Flash via OpenRouter",
 			"Gemini 3.1 Pro Preview",
+			"Gemini 3.1 Pro Preview via OpenRouter",
 			"GPT-OSS 120B",
 			"Claude Sonnet 4.6",
 			"GLM 5",
