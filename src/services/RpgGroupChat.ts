@@ -13,6 +13,7 @@ import type { Message } from "../types/Message";
 import type { DbChat } from "../types/Chat";
 import {
 	ChatModel,
+	getPremiumEndpointChatModel,
 	getPreferredNarratorLocalModel,
 	isOpenRouterModel,
 	modelSupportsTemperature,
@@ -1468,7 +1469,7 @@ async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<Na
 	).trim();
 
 	const narratorModel = isPremiumEndpointPreferred
-		? ChatModel.FLASH
+		? (getPremiumEndpointChatModel(ChatModel.FLASH) ?? ChatModel.FLASH)
 		: getPreferredNarratorLocalModel({
 				geminiApiKey: settings.geminiApiKey || settings.apiKey,
 				openRouterApiKey: settings.openRouterApiKey
