@@ -84,7 +84,7 @@ describe("premium endpoint synced settings", () => {
 
 	it("reapplies model-driven thinking constraints after synced settings replace stale local state", async () => {
 		localStorage.setItem(SETTINGS_STORAGE_KEYS.API_KEY, "local-gemini-key");
-		localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, "gemini-3.5-flash");
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.MODEL, "gemini-3-flash-preview");
 		localStorage.setItem(SETTINGS_STORAGE_KEYS.ENABLE_THINKING, "false");
 
 		await import("../../../src/components/static/ModelSelector.component");
@@ -99,7 +99,7 @@ describe("premium endpoint synced settings", () => {
 		const thinkingBudget = document.querySelector<HTMLInputElement>("#thinkingBudget");
 		const thinkingHint = document.querySelector<HTMLDivElement>("#thinking-required-hint");
 
-		expect(modelSelect?.value).toBe("gemini-3.5-flash");
+		expect(modelSelect?.value).toBe("gemini-3-flash-preview");
 		expect(thinkingSelect?.value).toBe("disabled");
 		expect(thinkingSelect?.disabled).toBe(false);
 		expect(thinkingBudget?.disabled).toBe(true);
