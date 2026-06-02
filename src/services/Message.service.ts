@@ -26,6 +26,7 @@ import {
 	getValidChatModel,
 	isGeminiModel,
 	isOpenRouterModel,
+	modelRequiresThinking,
 	modelSupportsThinking,
 	modelSupportsTemperature,
 	requiresThoughtSignaturesInHistory
@@ -587,15 +588,26 @@ function showGeminiProhibitedContentToast(args: { finishReason?: unknown; detail
 }
 
 function generateThinkingConfig(model: string, enableThinking: boolean, settings: any) {
-	if (!enableThinking && model !== ChatModel.NANO_BANANA) {
+	if (model === ChatModel.NANO_BANANA) {
+		return undefined;
+	}
+
+	if (modelRequiresThinking(model)) {
+		const thinkingBudget =
+			Number.isFinite(settings.thinkingBudget) && settings.thinkingBudget > 0 ? settings.thinkingBudget : 128;
+		return {
+			includeThoughts: enableThinking,
+			thinkingBudget
+		};
+	}
+
+	if (!enableThinking) {
 		return {
 			includeThoughts: false,
 			thinkingBudget: 0
 		};
 	}
-	if (model === ChatModel.NANO_BANANA) {
-		return undefined;
-	}
+
 	return {
 		includeThoughts: true,
 		thinkingBudget: settings.thinkingBudget
