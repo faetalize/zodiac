@@ -63,6 +63,7 @@ export interface ChatModelAccess {
 export const DEFAULT_GEMINI_CHAT_MODEL = ChatModel.FLASH;
 export const DEFAULT_OPENROUTER_CHAT_MODEL = "openai/gpt-5.4";
 export const DEFAULT_OPENROUTER_NARRATOR_MODEL = DEFAULT_OPENROUTER_CHAT_MODEL;
+export const DEFAULT_OPENROUTER_TITLE_MODEL = "z-ai/glm-5";
 const UI_DISABLED_CHAT_MODELS = new Set(["openai/gpt-5.4-pro"]);
 
 const GEMINI_TO_OPENROUTER_CHAT_MODEL_IDS = new Map<string, string>([

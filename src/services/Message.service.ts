@@ -22,7 +22,7 @@ import type { Chat, DbChat } from "../types/Chat";
 import type { DbPersonality } from "../types/Personality";
 import {
 	ChatModel,
-	getPreferredNarratorLocalModel,
+	DEFAULT_OPENROUTER_TITLE_MODEL,
 	getValidChatModel,
 	isGeminiModel,
 	isOpenRouterModel,
@@ -1037,7 +1037,7 @@ async function createChatIfAbsentOpenRouter(apiKey: string, msg: string): Promis
 	const response = await requestOpenRouterCompletion({
 		apiKey,
 		request: buildOpenRouterRequest({
-			model: getPreferredNarratorLocalModel({ geminiApiKey: "", openRouterApiKey: apiKey }),
+			model: DEFAULT_OPENROUTER_TITLE_MODEL,
 			messages: [
 				{ role: "system", content: CHAT_TITLE_SYSTEM_INSTRUCTION },
 				{ role: "user", content: msg }

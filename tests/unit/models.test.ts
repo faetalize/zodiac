@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	DEFAULT_OPENROUTER_TITLE_MODEL,
 	getAccessibleRoleplaySuggestionModels,
 	getValidRoleplaySuggestionModel,
 	type ChatModelAccess
 } from "../../src/types/Models";
+
+describe("default model roles", () => {
+	it("uses GLM 5 for local OpenRouter chat title generation", () => {
+		expect(DEFAULT_OPENROUTER_TITLE_MODEL).toBe("z-ai/glm-5");
+	});
+});
 
 describe("roleplay suggestion models", () => {
 	it("includes only models flagged for roleplay suggestions", () => {
