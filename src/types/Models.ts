@@ -11,6 +11,16 @@ export enum ChatModel {
 	FLASH_LITE_2_5 = "gemini-2.5-flash-lite"
 }
 
+const GEMINI_TO_OPENROUTER_CHAT_MODEL_IDS = new Map<string, string>([
+	[ChatModel.FLASH_LITE, "google/gemini-3.1-flash-lite"],
+	[ChatModel.FLASH_3_PREV, "google/gemini-3-flash-preview"],
+	[ChatModel.FLASH, "google/gemini-3.5-flash"],
+	[ChatModel.FLASH_2_5, "google/gemini-2.5-flash"],
+	[ChatModel.FLASH_LITE_2_5, "google/gemini-2.5-flash-lite"],
+	[ChatModel.PRO, "google/gemini-3.1-pro-preview"],
+	[ChatModel.PRO_2_5, "google/gemini-2.5-pro"]
+]);
+
 export enum ImageModel {
 	ULTRA = "imagen-4.0-ultra-generate-001",
 	ILLUSTRIOUS = "illustrious",
@@ -65,16 +75,6 @@ export const DEFAULT_OPENROUTER_CHAT_MODEL = "openai/gpt-5.4";
 export const DEFAULT_OPENROUTER_NARRATOR_MODEL = DEFAULT_OPENROUTER_CHAT_MODEL;
 export const DEFAULT_OPENROUTER_TITLE_MODEL = "z-ai/glm-5";
 const UI_DISABLED_CHAT_MODELS = new Set(["openai/gpt-5.4-pro"]);
-
-const GEMINI_TO_OPENROUTER_CHAT_MODEL_IDS = new Map<string, string>([
-	[ChatModel.FLASH_LITE, "google/gemini-3.1-flash-lite"],
-	[ChatModel.FLASH_3_PREV, "google/gemini-3-flash-preview"],
-	[ChatModel.FLASH, "google/gemini-3.5-flash"],
-	[ChatModel.FLASH_2_5, "google/gemini-2.5-flash"],
-	[ChatModel.FLASH_LITE_2_5, "google/gemini-2.5-flash-lite"],
-	[ChatModel.PRO, "google/gemini-3.1-pro-preview"],
-	[ChatModel.PRO_2_5, "google/gemini-2.5-pro"]
-]);
 
 export function requiresThoughtSignaturesInHistory(model: string): boolean {
 	return model === ChatModel.NANO_BANANA_PRO || model === ChatModel.NANO_BANANA_2;
