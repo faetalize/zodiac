@@ -19,7 +19,8 @@ import {
 	isOpenRouterModel,
 	modelRequiresThinking,
 	getRoleplaySuggestionThinkingCap,
-	modelSupportsTemperature
+	modelSupportsTemperature,
+	type ChatModelAccess
 } from "../../types/Models";
 import { PRO_REQUEST_ENDPOINT } from "../../services/Supabase.service";
 import type { PremiumEndpoint } from "../../types/PremiumEndpoint";
@@ -1165,13 +1166,15 @@ function buildSuggestionPrompts(args: {
 	return { systemInstruction, userPrompt };
 }
 
-function buildAccess() {
+function buildAccess(): ChatModelAccess {
+	const usePremiumEndpoint = hasPremiumModelAccess && shouldPreferPremiumEndpoint();
 	return {
 		hasGeminiAccess:
 			hasPremiumModelAccess || (localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "").trim().length > 0,
 		hasOpenRouterAccess:
 			hasPremiumModelAccess ||
-			(localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "").trim().length > 0
+			(localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "").trim().length > 0,
+		isPremiumEndpointPreferred: usePremiumEndpoint
 	};
 }
 
@@ -1208,6 +1211,7 @@ function buildRoleplaySuggestionBaseConfig(model: string) {
 function populateRoleplayModelOptions(): void {
 	const access = buildAccess();
 	const available = getAccessibleRoleplaySuggestionModels(access);
+	const usePremiumLabel = access.isPremiumEndpointPreferred === true;
 	const currentValue =
 		ensuredRoleplaySuggestionModelSelect.value ||
 		localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) ||
@@ -1230,7 +1234,7 @@ function populateRoleplayModelOptions(): void {
 	for (const model of available) {
 		const option = document.createElement("option");
 		option.value = model.id;
-		option.textContent = formatChatModelLabel(model);
+		option.textContent = formatChatModelLabel(model, { usePremiumLabel });
 		ensuredRoleplaySuggestionModelSelect.append(option);
 	}
 
@@ -1500,6 +1504,10 @@ onAppEvent("subscription-updated", (event) => {
 });
 
 onAppEvent("api-keys-changed", () => {
+	populateRoleplayModelOptions();
+});
+
+onAppEvent("premium-endpoint-preference-changed", () => {
 	populateRoleplayModelOptions();
 });
 

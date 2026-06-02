@@ -23,6 +23,7 @@ import type { DbPersonality } from "../types/Personality";
 import {
 	ChatModel,
 	getPreferredNarratorLocalModel,
+	getValidChatModel,
 	isGeminiModel,
 	isOpenRouterModel,
 	modelSupportsThinking,
@@ -1459,8 +1460,6 @@ function isViewingChat(chatId: string): boolean {
 async function performEarlyValidation(msg: string, options: SendOptions = {}): Promise<EarlyValidationResult> {
 	await ensureChatFullyHydratedForWrite(options.targetChatId);
 	const settings = settingsService.getSettings();
-	const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
-	const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 	const selectedPersonalityId = options.selectedPersonalityId ?? getSelectedPersonalityId();
 	const selectedPersonality = await personalityService.get(selectedPersonalityId);
 	const isInternetSearchEnabled =
@@ -1490,6 +1489,15 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 	const tier = await supabaseService.getSubscriptionTier(subscription);
 	const hasSubscription = tier === "pro" || tier === "pro_plus" || tier === "max";
 	const isPremiumEndpointPreferred = hasSubscription && shouldPreferPremiumEndpoint();
+	if (isPremiumEndpointPreferred) {
+		settings.model = getValidChatModel(settings.model, {
+			hasGeminiAccess: true,
+			hasOpenRouterAccess: true,
+			isPremiumEndpointPreferred: true
+		});
+	}
+	const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
+	const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 	const imageGenerationAvailability = await supabaseService.isImageGenerationAvailable();
 	const isImagePremiumEndpointPreferred = imageGenerationAvailability.type === "all";
 	const isImageRequest = isImageModeActive() || isImageEditingActive();
