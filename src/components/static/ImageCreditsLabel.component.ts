@@ -10,7 +10,7 @@ import {
 	isImageGenerationAvailable
 } from "../../services/Supabase.service";
 import type { ImageGenerationPermitted } from "../../types/ImageGenerationTypes";
-import { ChatModel, getChatModelDefinition, ImageModel } from "../../types/Models";
+import { ChatModel, getChatModelDefinition, getPremiumEndpointChatModel, ImageModel } from "../../types/Models";
 import * as overlayService from "../../services/Overlay.service";
 import * as helpers from "../../utils/helpers";
 import { dispatchAppEvent } from "../../events";
@@ -21,7 +21,16 @@ const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedI
 const modelSelector = document.querySelector<HTMLSelectElement>("#selectedModel");
 
 const PRO_NANO_BANANA_DAILY_LIMIT = 20;
-const NANO_BANANA_MODELS = new Set<string>([ChatModel.NANO_BANANA, ChatModel.NANO_BANANA_PRO, ChatModel.NANO_BANANA_2]);
+const NANO_BANANA_MODELS = new Set<string>(
+	[
+		ChatModel.NANO_BANANA,
+		ChatModel.NANO_BANANA_PRO,
+		ChatModel.NANO_BANANA_2,
+		getPremiumEndpointChatModel(ChatModel.NANO_BANANA),
+		getPremiumEndpointChatModel(ChatModel.NANO_BANANA_PRO),
+		getPremiumEndpointChatModel(ChatModel.NANO_BANANA_2)
+	].filter((model): model is string => !!model)
+);
 
 if (!imageCreditsLabel || !imageCreditsPopover) {
 	console.error("Image credits label component initialization failed");

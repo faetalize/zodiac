@@ -18,7 +18,10 @@ const GEMINI_TO_OPENROUTER_CHAT_MODEL_IDS = new Map<string, string>([
 	[ChatModel.FLASH_2_5, "google/gemini-2.5-flash"],
 	[ChatModel.FLASH_LITE_2_5, "google/gemini-2.5-flash-lite"],
 	[ChatModel.PRO, "google/gemini-3.1-pro-preview"],
-	[ChatModel.PRO_2_5, "google/gemini-2.5-pro"]
+	[ChatModel.PRO_2_5, "google/gemini-2.5-pro"],
+	[ChatModel.NANO_BANANA, "google/gemini-2.5-flash-image"],
+	[ChatModel.NANO_BANANA_PRO, "google/gemini-3-pro-image-preview"],
+	[ChatModel.NANO_BANANA_2, "google/gemini-3.1-flash-image-preview"]
 ]);
 
 export enum ImageModel {
@@ -177,6 +180,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		id: ChatModel.NANO_BANANA_PRO,
 		label: "Gemini 3.0 Pro Image (Nano Banana Pro)",
 		provider: "gemini",
+		localOnly: true,
 		mega: false,
 		supportsThinking: true,
 		supportsTemperature: true,
@@ -188,6 +192,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		id: ChatModel.NANO_BANANA_2,
 		label: "Gemini 3.1 Flash Image (Nano Banana 2)",
 		provider: "gemini",
+		localOnly: true,
 		mega: false,
 		supportsThinking: true,
 		supportsTemperature: true,
@@ -211,6 +216,19 @@ function openRouterGeminiVariant(localModelId: ChatModel, openRouterModelId: str
 	};
 }
 
+const OPENROUTER_NANO_BANANA_MODEL: ChatModelDefinition = {
+	id: "google/gemini-2.5-flash-image",
+	label: "Gemini 2.5 Flash Image (Nano Banana) via OpenRouter",
+	premiumLabel: "Gemini 2.5 Flash Image (Nano Banana)",
+	provider: "openrouter",
+	mega: false,
+	supportsThinking: true,
+	supportsTemperature: true,
+	supportsImageInput: true,
+	supportsFileInput: true,
+	supportsImageOutput: true
+};
+
 export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 	openRouterGeminiVariant(ChatModel.FLASH_LITE, "google/gemini-3.1-flash-lite"),
 	openRouterGeminiVariant(ChatModel.FLASH_3_PREV, "google/gemini-3-flash-preview"),
@@ -219,6 +237,9 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 	openRouterGeminiVariant(ChatModel.FLASH_LITE_2_5, "google/gemini-2.5-flash-lite"),
 	openRouterGeminiVariant(ChatModel.PRO, "google/gemini-3.1-pro-preview"),
 	openRouterGeminiVariant(ChatModel.PRO_2_5, "google/gemini-2.5-pro"),
+	OPENROUTER_NANO_BANANA_MODEL,
+	openRouterGeminiVariant(ChatModel.NANO_BANANA_PRO, "google/gemini-3-pro-image-preview"),
+	openRouterGeminiVariant(ChatModel.NANO_BANANA_2, "google/gemini-3.1-flash-image-preview"),
 	{
 		id: "openai/gpt-5.4",
 		label: "GPT-5.4",
@@ -418,8 +439,10 @@ export function formatChatModelLabel(
 export function getPremiumEndpointChatModel(model: string | null | undefined): string | undefined {
 	if (!model) return undefined;
 	const definition = getChatModelDefinition(model);
+	const mappedModel = GEMINI_TO_OPENROUTER_CHAT_MODEL_IDS.get(model);
+	if (mappedModel && (definition?.localOnly || !definition)) return mappedModel;
 	if (!definition?.localOnly) return model;
-	return GEMINI_TO_OPENROUTER_CHAT_MODEL_IDS.get(model);
+	return mappedModel;
 }
 
 const imageModelLabelMap = new Map<string, string>([

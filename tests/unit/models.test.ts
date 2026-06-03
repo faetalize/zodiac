@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
 	DEFAULT_OPENROUTER_TITLE_MODEL,
 	getAccessibleRoleplaySuggestionModels,
+	getChatModelDefinition,
+	getPremiumEndpointChatModel,
+	getValidChatModel,
 	getValidRoleplaySuggestionModel,
 	modelRequiresThinking,
 	type ChatModelAccess
@@ -11,6 +14,38 @@ import {
 describe("default model roles", () => {
 	it("uses GLM 5 for local OpenRouter chat title generation", () => {
 		expect(DEFAULT_OPENROUTER_TITLE_MODEL).toBe("z-ai/glm-5");
+	});
+});
+
+describe("premium endpoint model mapping", () => {
+	it("maps Nano Banana hybrid models to OpenRouter variants", () => {
+		const premiumAccess: ChatModelAccess = {
+			hasGeminiAccess: true,
+			hasOpenRouterAccess: true,
+			isPremiumEndpointPreferred: true
+		};
+
+		expect(getPremiumEndpointChatModel("gemini-2.5-flash-image")).toBe("google/gemini-2.5-flash-image");
+		expect(getValidChatModel("gemini-2.5-flash-image", premiumAccess)).toBe("google/gemini-2.5-flash-image");
+		expect(getValidChatModel("gemini-3-pro-image-preview", premiumAccess)).toBe(
+			"google/gemini-3-pro-image-preview"
+		);
+		expect(getValidChatModel("gemini-3.1-flash-image-preview", premiumAccess)).toBe(
+			"google/gemini-3.1-flash-image-preview"
+		);
+	});
+
+	it("keeps OpenRouter Nano Banana variants as image-output chat models", () => {
+		const models = [
+			"google/gemini-2.5-flash-image",
+			"google/gemini-3-pro-image-preview",
+			"google/gemini-3.1-flash-image-preview"
+		];
+
+		for (const model of models) {
+			expect(getChatModelDefinition(model)?.provider).toBe("openrouter");
+			expect(getChatModelDefinition(model)?.supportsImageOutput).toBe(true);
+		}
 	});
 });
 
