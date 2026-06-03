@@ -17,6 +17,11 @@ export interface OpenRouterCompletionResult {
 	text: string;
 	thinking: string;
 	finishReason?: unknown;
+	images?: {
+		mimeType: string;
+		base64: string;
+		thoughtSignature?: string;
+	}[];
 }
 
 export interface OpenRouterCompletionArgs {
@@ -25,6 +30,7 @@ export interface OpenRouterCompletionArgs {
 	signal?: AbortSignal;
 	onText?: (args: { text: string; delta: string }) => void | Promise<void>;
 	onThinking?: (args: { thinking: string; delta: string }) => void | Promise<void>;
+	onImage?: (image: { mimeType: string; base64: string; thoughtSignature?: string }) => void | Promise<void>;
 }
 
 function getHeaders(apiKey: string): Record<string, string> {
@@ -170,11 +176,38 @@ function extractReasoningFromDetails(details: unknown): string {
 
 	return details
 		.map((detail) => {
-			const value = detail as { text?: string; summary?: string };
+			const value = detail as { type?: string; text?: string; summary?: string };
+			if (value.type === "reasoning.encrypted") return "";
 			return value.text || value.summary || "";
 		})
 		.filter(Boolean)
 		.join("");
+}
+
+function extractThoughtSignatureFromDetails(details: unknown): string | undefined {
+	if (!Array.isArray(details)) return undefined;
+
+	const encryptedDetail = details.find((detail) => (detail as { type?: string }).type === "reasoning.encrypted");
+	if (encryptedDetail) {
+		return (encryptedDetail as { data?: string }).data;
+	}
+
+	return undefined;
+}
+
+function extractImageDataFromOpenRouterImageUrl(img: any, thoughtSignature?: string) {
+	const url = img?.image_url?.url;
+	if (typeof url === "string" && url.startsWith("data:")) {
+		const match = url.match(/^data:([^;]+);base64,(.+)$/);
+		if (match) {
+			return {
+				mimeType: match[1],
+				base64: match[2],
+				thoughtSignature
+			};
+		}
+	}
+	return undefined;
 }
 
 function extractContentText(content: unknown): string {
@@ -326,7 +359,8 @@ export function buildOpenRouterRequest(args: {
 		}),
 		plugins: buildOpenRouterPlugins({ isInternetSearchEnabled: args.isInternetSearchEnabled }),
 		response_format: args.responseFormat,
-		provider: definition?.provider === "openrouter" ? { require_parameters: false } : undefined
+		provider: definition?.provider === "openrouter" ? { require_parameters: false } : undefined,
+		modalities: definition?.supportsImageOutput ? ["text", "image"] : undefined
 	};
 }
 
@@ -365,6 +399,7 @@ async function processOpenRouterJson(args: {
 	response: Response;
 	onText?: OpenRouterCompletionArgs["onText"];
 	onThinking?: OpenRouterCompletionArgs["onThinking"];
+	onImage?: OpenRouterCompletionArgs["onImage"];
 }): Promise<OpenRouterCompletionResult> {
 	const payload = (await args.response.json()) as OpenRouterResponse;
 	const choice = payload.choices?.[0] as
@@ -375,6 +410,7 @@ async function processOpenRouterJson(args: {
 					content?: unknown;
 					reasoning?: string | null;
 					reasoning_details?: unknown;
+					images?: unknown[];
 				};
 		  }
 		| undefined;
@@ -385,6 +421,15 @@ async function processOpenRouterJson(args: {
 
 	const text = extractContentText(choice?.message?.content);
 	const thinking = choice?.message?.reasoning || extractReasoningFromDetails(choice?.message?.reasoning_details);
+	const thoughtSignature = extractThoughtSignatureFromDetails(choice?.message?.reasoning_details);
+
+	const images: { mimeType: string; base64: string; thoughtSignature?: string }[] = [];
+	for (const img of choice?.message?.images || []) {
+		const extracted = extractImageDataFromOpenRouterImageUrl(img, thoughtSignature);
+		if (extracted) {
+			images.push(extracted);
+		}
+	}
 
 	if (text && args.onText) {
 		await args.onText({ text, delta: text });
@@ -394,10 +439,17 @@ async function processOpenRouterJson(args: {
 		await args.onThinking({ thinking, delta: thinking });
 	}
 
+	for (const image of images) {
+		if (args.onImage) {
+			await args.onImage(image);
+		}
+	}
+
 	return {
 		text,
 		thinking,
-		finishReason: choice?.finish_reason
+		finishReason: choice?.finish_reason,
+		images
 	};
 }
 
@@ -406,6 +458,7 @@ async function processOpenRouterStream(args: {
 	signal?: AbortSignal;
 	onText?: OpenRouterCompletionArgs["onText"];
 	onThinking?: OpenRouterCompletionArgs["onThinking"];
+	onImage?: OpenRouterCompletionArgs["onImage"];
 }): Promise<OpenRouterCompletionResult> {
 	if (!args.response.body) {
 		return { text: "", thinking: "" };
@@ -418,6 +471,8 @@ async function processOpenRouterStream(args: {
 	let text = "";
 	let thinking = "";
 	let finishReason: unknown;
+	let thoughtSignature: string | undefined;
+	const images: { mimeType: string; base64: string; thoughtSignature?: string }[] = [];
 
 	while (true) {
 		if (args.signal?.aborted) {
@@ -474,10 +529,26 @@ async function processOpenRouterStream(args: {
 				thinking += thinkingDelta;
 				await args.onThinking?.({ thinking, delta: thinkingDelta });
 			}
+
+			const extractedThoughtSignature = extractThoughtSignatureFromDetails(choice.delta?.reasoning_details);
+			if (extractedThoughtSignature) {
+				thoughtSignature = extractedThoughtSignature;
+			}
+
+			const deltaImages = choice.delta?.images || [];
+			for (const img of deltaImages) {
+				const imageObj = extractImageDataFromOpenRouterImageUrl(img, thoughtSignature);
+				if (imageObj) {
+					images.push(imageObj);
+					if (args.onImage) {
+						await args.onImage(imageObj);
+					}
+				}
+			}
 		}
 	}
 
-	return { text, thinking, finishReason };
+	return { text, thinking, finishReason, images };
 }
 
 export function getOpenRouterModelDefinition(model: string): ChatModelDefinition | undefined {

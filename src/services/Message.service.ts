@@ -2094,12 +2094,34 @@ async function handleTextChatOpenRouter(ctx: SendContext, state: TextChatRespons
 		onThinking: async ({ thinking }) => {
 			state.thinking = thinking;
 			await renderStreamingTextState(ctx, state);
+		},
+		onImage: (img) => {
+			state.generatedImages.push({
+				mimeType: img.mimeType,
+				base64: img.base64,
+				thoughtSignature:
+					img.thoughtSignature ??
+					(ctx.shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
+				thought: undefined
+			});
 		}
 	});
 
 	state.rawText = result.text;
 	state.thinking = result.thinking;
 	state.finishReason = result.finishReason;
+	if (result.images && result.images.length > 0 && state.generatedImages.length === 0) {
+		for (const img of result.images) {
+			state.generatedImages.push({
+				mimeType: img.mimeType,
+				base64: img.base64,
+				thoughtSignature:
+					img.thoughtSignature ??
+					(ctx.shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
+				thought: undefined
+			});
+		}
+	}
 }
 
 async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseState): Promise<void> {
