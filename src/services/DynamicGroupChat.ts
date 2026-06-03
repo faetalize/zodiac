@@ -351,6 +351,7 @@ async function respondAsPersona(args: {
 			speakerNameById: args.speakerNameById,
 			userName: args.userName,
 			enforceThoughtSignatures: args.shouldEnforceThoughtSignaturesInHistory,
+			includeOpenRouterReasoningDetails: !args.isPremiumEndpointPreferred && isOpenRouterModel(settings.model),
 			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE
 		});
 

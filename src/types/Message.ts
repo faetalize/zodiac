@@ -1,4 +1,5 @@
 import type { BlobReference } from "./BlobReference";
+import type { ReasoningDetailFormat } from "./OpenRouterTypes";
 
 /**
  * Text and thinking content extracted from a model response.
@@ -12,6 +13,13 @@ export interface GeneratedImage {
 	mimeType: string;
 	base64: string; // raw base64 bytes without data: prefix
 	thoughtSignature?: string;
+	thoughtSignatureReasoningDetail?: {
+		type: "reasoning.encrypted";
+		id?: string | null;
+		format?: ReasoningDetailFormat;
+		index?: number;
+		[key: string]: unknown;
+	};
 	thought?: boolean;
 	/**
 	 * Runtime-only blob reference for images stored in encrypted blob storage.

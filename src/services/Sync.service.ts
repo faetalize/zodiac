@@ -1210,8 +1210,10 @@ function deserializeMessage(message: any): Message {
 		generatedImages = message.generatedImages.map((img: any) => {
 			const imageRef = isBlobReference(img.base64) ? img.base64 : undefined;
 			const thoughtSignatureRef = isBlobReference(img.thoughtSignature) ? img.thoughtSignature : undefined;
+			const { _blobRef, _thoughtSignatureRef, ...rest } = img;
 
 			return {
+				...rest,
 				mimeType: img.mimeType,
 				base64: imageRef ? "" : typeof img.base64 === "string" ? img.base64 : "",
 				thoughtSignature: thoughtSignatureRef

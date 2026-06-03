@@ -88,11 +88,40 @@ export type FileContentPart = {
 
 export type ContentPart = TextContent | ImageContentPart | FileContentPart;
 
+export type ReasoningDetailFormat =
+	| "unknown"
+	| "openai-responses-v1"
+	| "azure-openai-responses-v1"
+	| "xai-responses-v1"
+	| "anthropic-claude-v1"
+	| "google-gemini-v1"
+	| (string & {});
+
+export type ReasoningDetail =
+	| {
+			type: "reasoning.encrypted";
+			data: string;
+			id?: string | null;
+			format: ReasoningDetailFormat;
+			index?: number;
+	  }
+	| {
+			type?: string;
+			text?: string;
+			summary?: string;
+			data?: string;
+			signature?: string | null;
+			id?: string | null;
+			format?: ReasoningDetailFormat;
+			index?: number;
+	  };
+
 export type Message =
 	| {
 			role: "user" | "assistant" | "system" | "developer";
 			// ContentParts are only for the "user" role:
 			content: string | ContentPart[];
+			reasoning_details?: ReasoningDetail[];
 			// If "name" is included, it will be prepended like this
 			// for non-OpenAI models: `{name}: {content}`
 			name?: string;
@@ -328,10 +357,3 @@ type ResponseUsage = {
 };
 //alias to any for now
 type FunctionCall = any; // See "Tool Calling" section
-
-type ReasoningDetail = {
-	type?: string;
-	text?: string;
-	summary?: string;
-	data?: string;
-};

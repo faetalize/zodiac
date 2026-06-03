@@ -6,11 +6,13 @@ import type {
 	ImageContentPart,
 	Message as OpenRouterMessage,
 	Plugin,
+	ReasoningDetail as OpenRouterReasoningDetail,
 	Request as OpenRouterRequest,
 	Response as OpenRouterResponse,
 	StreamingChoice
 } from "../types/OpenRouterTypes";
 import { getChatModelDefinition, modelSupportsTemperature, type ChatModelDefinition } from "../types/Models";
+import type { GeneratedImage } from "../types/Message";
 import * as helpers from "../utils/helpers";
 
 export interface OpenRouterCompletionResult {
@@ -21,6 +23,7 @@ export interface OpenRouterCompletionResult {
 		mimeType: string;
 		base64: string;
 		thoughtSignature?: string;
+		thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
 	}[];
 }
 
@@ -30,7 +33,12 @@ export interface OpenRouterCompletionArgs {
 	signal?: AbortSignal;
 	onText?: (args: { text: string; delta: string }) => void | Promise<void>;
 	onThinking?: (args: { thinking: string; delta: string }) => void | Promise<void>;
-	onImage?: (image: { mimeType: string; base64: string; thoughtSignature?: string }) => void | Promise<void>;
+	onImage?: (image: {
+		mimeType: string;
+		base64: string;
+		thoughtSignature?: string;
+		thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
+	}) => void | Promise<void>;
 }
 
 function getHeaders(apiKey: string): Record<string, string> {
@@ -184,18 +192,58 @@ function extractReasoningFromDetails(details: unknown): string {
 		.join("");
 }
 
-export function extractThoughtSignatureFromDetails(details: unknown): string | undefined {
+const FALLBACK_GEMINI_REASONING_DETAIL_FORMAT = "google-gemini-v1";
+
+export function extractEncryptedReasoningDetailFromDetails(details: unknown): OpenRouterReasoningDetail | undefined {
 	if (!Array.isArray(details)) return undefined;
 
 	const encryptedDetail = details.find((detail) => (detail as { type?: string }).type === "reasoning.encrypted");
-	if (encryptedDetail) {
-		return (encryptedDetail as { data?: string }).data;
+	const data = (encryptedDetail as { data?: unknown } | undefined)?.data;
+	if (encryptedDetail && typeof data === "string" && data.length > 0) {
+		return { ...(encryptedDetail as OpenRouterReasoningDetail), type: "reasoning.encrypted", data };
 	}
 
 	return undefined;
 }
 
-export function extractImageDataFromOpenRouterImageUrl(img: any, thoughtSignature?: string) {
+export function extractThoughtSignatureFromDetails(details: unknown): string | undefined {
+	return extractEncryptedReasoningDetailFromDetails(details)?.data;
+}
+
+function getThoughtSignatureReasoningMetadata(
+	detail: OpenRouterReasoningDetail | undefined
+): GeneratedImage["thoughtSignatureReasoningDetail"] {
+	if (!detail || detail.type !== "reasoning.encrypted") return undefined;
+	const { data, ...metadata } = detail;
+
+	return {
+		...metadata,
+		type: "reasoning.encrypted",
+		id: metadata.id,
+		format: metadata.format,
+		index: metadata.index
+	};
+}
+
+function buildEncryptedReasoningDetail(
+	data: string,
+	metadata?: GeneratedImage["thoughtSignatureReasoningDetail"]
+): OpenRouterReasoningDetail {
+	return {
+		...metadata,
+		type: "reasoning.encrypted",
+		data,
+		id: metadata?.id,
+		format: metadata?.format ?? FALLBACK_GEMINI_REASONING_DETAIL_FORMAT,
+		index: metadata?.index
+	};
+}
+
+export function extractImageDataFromOpenRouterImageUrl(
+	img: any,
+	thoughtSignature?: string,
+	thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"]
+) {
 	const url = img?.image_url?.url;
 	if (typeof url === "string" && url.startsWith("data:")) {
 		const match = url.match(/^data:([^;]+);base64,(.+)$/);
@@ -203,7 +251,8 @@ export function extractImageDataFromOpenRouterImageUrl(img: any, thoughtSignatur
 			return {
 				mimeType: match[1],
 				base64: match[2],
-				thoughtSignature
+				thoughtSignature,
+				thoughtSignatureReasoningDetail
 			};
 		}
 	}
@@ -233,8 +282,23 @@ export async function convertGeminiHistoryToOpenRouterMessages(history: Content[
 	for (const item of history || []) {
 		const role = normalizeMessageRole(item?.role);
 		const contentParts: ContentPart[] = [];
+		const reasoningDetails: OpenRouterReasoningDetail[] = [];
 
 		for (const part of item?.parts || []) {
+			const thoughtSignature = (part as { thoughtSignature?: unknown })?.thoughtSignature;
+			if (role === "assistant" && typeof thoughtSignature === "string" && thoughtSignature.length > 0) {
+				reasoningDetails.push(
+					buildEncryptedReasoningDetail(
+						thoughtSignature,
+						(
+							part as {
+								thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
+							}
+						).thoughtSignatureReasoningDetail
+					)
+				);
+			}
+
 			if (part?.text) {
 				appendTextPart(contentParts, String(part.text));
 				continue;
@@ -251,7 +315,11 @@ export async function convertGeminiHistoryToOpenRouterMessages(history: Content[
 		}
 
 		if (contentParts.length === 0) continue;
-		messages.push({ role, content: collapseContentParts(contentParts) });
+		const message: OpenRouterMessage = { role, content: collapseContentParts(contentParts) };
+		if (role === "assistant" && reasoningDetails.length > 0) {
+			message.reasoning_details = reasoningDetails;
+		}
+		messages.push(message);
 	}
 
 	return messages;
@@ -421,11 +489,17 @@ async function processOpenRouterJson(args: {
 
 	const text = extractContentText(choice?.message?.content);
 	const thinking = choice?.message?.reasoning || extractReasoningFromDetails(choice?.message?.reasoning_details);
-	const thoughtSignature = extractThoughtSignatureFromDetails(choice?.message?.reasoning_details);
+	const encryptedReasoningDetail = extractEncryptedReasoningDetailFromDetails(choice?.message?.reasoning_details);
+	const thoughtSignature = encryptedReasoningDetail?.data;
+	const thoughtSignatureReasoningDetail = getThoughtSignatureReasoningMetadata(encryptedReasoningDetail);
 
-	const images: { mimeType: string; base64: string; thoughtSignature?: string }[] = [];
+	const images: OpenRouterCompletionResult["images"] = [];
 	for (const img of choice?.message?.images || []) {
-		const extracted = extractImageDataFromOpenRouterImageUrl(img, thoughtSignature);
+		const extracted = extractImageDataFromOpenRouterImageUrl(
+			img,
+			thoughtSignature,
+			thoughtSignatureReasoningDetail
+		);
 		if (extracted) {
 			images.push(extracted);
 		}
@@ -472,7 +546,8 @@ async function processOpenRouterStream(args: {
 	let thinking = "";
 	let finishReason: unknown;
 	let thoughtSignature: string | undefined;
-	const images: { mimeType: string; base64: string; thoughtSignature?: string }[] = [];
+	let thoughtSignatureReasoningDetail: GeneratedImage["thoughtSignatureReasoningDetail"];
+	const images: OpenRouterCompletionResult["images"] = [];
 
 	while (true) {
 		if (args.signal?.aborted) {
@@ -530,14 +605,21 @@ async function processOpenRouterStream(args: {
 				await args.onThinking?.({ thinking, delta: thinkingDelta });
 			}
 
-			const extractedThoughtSignature = extractThoughtSignatureFromDetails(choice.delta?.reasoning_details);
-			if (extractedThoughtSignature) {
-				thoughtSignature = extractedThoughtSignature;
+			const encryptedReasoningDetail = extractEncryptedReasoningDetailFromDetails(
+				choice.delta?.reasoning_details
+			);
+			if (encryptedReasoningDetail) {
+				thoughtSignature = encryptedReasoningDetail.data;
+				thoughtSignatureReasoningDetail = getThoughtSignatureReasoningMetadata(encryptedReasoningDetail);
 			}
 
 			const deltaImages = choice.delta?.images || [];
 			for (const img of deltaImages) {
-				const imageObj = extractImageDataFromOpenRouterImageUrl(img, thoughtSignature);
+				const imageObj = extractImageDataFromOpenRouterImageUrl(
+					img,
+					thoughtSignature,
+					thoughtSignatureReasoningDetail
+				);
 				if (imageObj) {
 					images.push(imageObj);
 					if (args.onImage) {

@@ -5,7 +5,10 @@ import type {
 	PremiumEndpointProcessArgs,
 	PremiumEndpointProcessResult
 } from "../types/PremiumEndpointResponseProcessor";
-import { extractImageDataFromOpenRouterImageUrl, extractThoughtSignatureFromDetails } from "./OpenRouter.service";
+import {
+	extractEncryptedReasoningDetailFromDetails,
+	extractImageDataFromOpenRouterImageUrl
+} from "./OpenRouter.service";
 
 function throwAbortError(): never {
 	const err = new Error("Aborted");
@@ -105,6 +108,7 @@ async function applyFallbackDelta(args: {
 		thinking: string;
 		images: GeneratedImage[];
 		thoughtSignature?: string;
+		thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
 	};
 }): Promise<void> {
 	const { data, process, state } = args;
@@ -129,21 +133,34 @@ async function applyFallbackDelta(args: {
 		await process.callbacks?.onThinking?.({ delta, thinking: state.thinking });
 	}
 
-	const extractedThoughtSignature = extractThoughtSignatureFromDetails(deltaObj?.reasoning_details);
-	if (extractedThoughtSignature) {
-		state.thoughtSignature = extractedThoughtSignature;
+	const encryptedReasoningDetail = extractEncryptedReasoningDetailFromDetails(deltaObj?.reasoning_details);
+	if (encryptedReasoningDetail) {
+		const { data, ...metadata } = encryptedReasoningDetail;
+		state.thoughtSignature = data;
+		state.thoughtSignatureReasoningDetail = {
+			...metadata,
+			type: "reasoning.encrypted",
+			id: metadata.id,
+			format: metadata.format,
+			index: metadata.index
+		};
 	}
 
 	const deltaImages = deltaObj?.images || [];
 	for (const img of deltaImages) {
-		const imageObj = extractImageDataFromOpenRouterImageUrl(img, state.thoughtSignature);
+		const imageObj = extractImageDataFromOpenRouterImageUrl(
+			img,
+			state.thoughtSignature,
+			state.thoughtSignatureReasoningDetail
+		);
 		if (imageObj) {
 			const genImage: GeneratedImage = {
 				mimeType: imageObj.mimeType,
 				base64: imageObj.base64,
 				thoughtSignature:
 					imageObj.thoughtSignature ??
-					(process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined)
+					(process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined),
+				thoughtSignatureReasoningDetail: imageObj.thoughtSignatureReasoningDetail
 			};
 			state.images.push(genImage);
 			await process.callbacks?.onImage?.(genImage);
@@ -178,6 +195,7 @@ export async function processPremiumEndpointSse(args: {
 		requestId?: string;
 		textSignature?: string;
 		thoughtSignature?: string;
+		thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
 		finishReason?: unknown;
 		groundingContent: string;
 		images: GeneratedImage[];

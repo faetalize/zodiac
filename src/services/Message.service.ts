@@ -912,7 +912,7 @@ async function insertHiddenMessageIntoDom(message: Message, index: number): Prom
 export async function constructGeminiChatHistoryFromLocalChat(
 	currentChat: Chat,
 	selectedPersonality: DbPersonality,
-	options?: { enforceThoughtSignatures?: boolean }
+	options?: { enforceThoughtSignatures?: boolean; includeOpenRouterReasoningDetails?: boolean }
 ): Promise<GeminiHistoryBuildResult> {
 	const history: Content[] = [];
 	const pinnedHistoryIndices: number[] = [];
@@ -994,7 +994,8 @@ export async function constructGeminiChatHistoryFromLocalChat(
 			images: dbMessage.generatedImages,
 			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
-			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR
+			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+			includeOpenRouterReasoningDetails: options?.includeOpenRouterReasoningDetails === true
 		});
 		if (imageParts.length > 0) {
 			genAiMessage.parts?.push(...imageParts);
@@ -1646,7 +1647,10 @@ async function buildSendContext(
 	const { history: chatHistory, pinnedHistoryIndices } = await constructGeminiChatHistoryFromLocalChat(
 		currentChat,
 		selectedPersonaForHistory,
-		{ enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory }
+		{
+			enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory,
+			includeOpenRouterReasoningDetails: !isPremiumEndpointPreferred && isOpenRouterModel(settings.model)
+		}
 	);
 
 	const userMessage: Message = {
@@ -2115,6 +2119,7 @@ async function handleTextChatOpenRouter(ctx: SendContext, state: TextChatRespons
 				thoughtSignature:
 					img.thoughtSignature ??
 					(ctx.shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
+				thoughtSignatureReasoningDetail: img.thoughtSignatureReasoningDetail,
 				thought: undefined
 			});
 		}
@@ -2131,6 +2136,7 @@ async function handleTextChatOpenRouter(ctx: SendContext, state: TextChatRespons
 				thoughtSignature:
 					img.thoughtSignature ??
 					(ctx.shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
+				thoughtSignatureReasoningDetail: img.thoughtSignatureReasoningDetail,
 				thought: undefined
 			});
 		}

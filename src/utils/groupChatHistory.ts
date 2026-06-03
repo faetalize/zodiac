@@ -19,6 +19,7 @@ export async function constructGeminiChatHistoryForGroupChat(
 		speakerNameById: Map<string, string>;
 		userName: string;
 		enforceThoughtSignatures?: boolean;
+		includeOpenRouterReasoningDetails?: boolean;
 		skipThoughtSignatureValidator: string;
 	}
 ): Promise<{ history: Content[]; pinnedHistoryIndices: number[] }> {
@@ -69,7 +70,8 @@ export async function constructGeminiChatHistoryForGroupChat(
 			images: dbMessage.generatedImages,
 			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
-			skipThoughtSignatureValidator: args.skipThoughtSignatureValidator
+			skipThoughtSignatureValidator: args.skipThoughtSignatureValidator,
+			includeOpenRouterReasoningDetails: args.includeOpenRouterReasoningDetails === true
 		});
 		if (imageParts.length > 0) {
 			genAiMessage.parts?.push(...imageParts);

@@ -109,6 +109,7 @@ export interface GeneratedImageProcessingConfig {
 	shouldProcess: boolean;
 	enforceThoughtSignatures: boolean;
 	skipThoughtSignatureValidator: string;
+	includeOpenRouterReasoningDetails?: boolean;
 }
 
 /**
@@ -116,7 +117,13 @@ export interface GeneratedImageProcessingConfig {
  * Returns an array of parts ready to be added to a message.
  */
 export async function processGeneratedImagesToParts(config: GeneratedImageProcessingConfig): Promise<any[]> {
-	const { images, shouldProcess, enforceThoughtSignatures, skipThoughtSignatureValidator } = config;
+	const {
+		images,
+		shouldProcess,
+		enforceThoughtSignatures,
+		skipThoughtSignatureValidator,
+		includeOpenRouterReasoningDetails
+	} = config;
 
 	if (!shouldProcess || !images || images.length === 0) {
 		return [];
@@ -141,6 +148,9 @@ export async function processGeneratedImagesToParts(config: GeneratedImageProces
 		};
 		part.thoughtSignature =
 			resolvedThoughtSignature ?? (enforceThoughtSignatures ? skipThoughtSignatureValidator : undefined);
+		if (includeOpenRouterReasoningDetails && img.thoughtSignatureReasoningDetail) {
+			part.thoughtSignatureReasoningDetail = img.thoughtSignatureReasoningDetail;
+		}
 		if (img.thought) {
 			part.thought = img.thought;
 		}
