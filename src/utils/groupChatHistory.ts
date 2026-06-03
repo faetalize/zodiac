@@ -20,12 +20,14 @@ export async function constructGeminiChatHistoryForGroupChat(
 		userName: string;
 		enforceThoughtSignatures?: boolean;
 		includeOpenRouterReasoningDetails?: boolean;
+		includeThoughtParts?: boolean;
 		skipThoughtSignatureValidator: string;
 	}
 ): Promise<{ history: Content[]; pinnedHistoryIndices: number[] }> {
 	const history: Content[] = [];
 	const pinnedHistoryIndices: number[] = [];
 	const shouldEnforceThoughtSignatures = args.enforceThoughtSignatures === true;
+	const shouldIncludeThoughtParts = args.includeThoughtParts === true;
 
 	const speakerNameForMessage = (m: Message): string => {
 		if (m.role === "user") return (args.userName || "User").toString();
@@ -48,12 +50,19 @@ export async function constructGeminiChatHistoryForGroupChat(
 			const text = (part.text || "").toString();
 			const attachments = part.attachments || [];
 
+			if (part.thought && !shouldIncludeThoughtParts) {
+				continue;
+			}
+
 			if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
 				const resolvedThoughtSignature = await resolveThoughtSignature(part);
-				const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
+				const partObj: any = { text: part.thought ? text : maybePrefixSpeaker(text, speaker) };
+				if (part.thought) {
+					partObj.thought = true;
+				}
 				partObj.thoughtSignature =
 					resolvedThoughtSignature ??
-					(shouldEnforceThoughtSignatures ? args.skipThoughtSignatureValidator : undefined);
+					(!part.thought && shouldEnforceThoughtSignatures ? args.skipThoughtSignatureValidator : undefined);
 				aggregatedParts.push(partObj);
 			}
 

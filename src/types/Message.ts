@@ -61,6 +61,7 @@ export interface Message {
 	role: "user" | "model";
 	parts: Array<{
 		text: string;
+		thought?: boolean;
 		attachments?: FileList | File[];
 		thoughtSignature?: string;
 		_thoughtSignatureRef?: BlobReference;

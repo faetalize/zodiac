@@ -352,6 +352,7 @@ async function respondAsPersona(args: {
 			userName: args.userName,
 			enforceThoughtSignatures: args.shouldEnforceThoughtSignaturesInHistory,
 			includeOpenRouterReasoningDetails: !args.isPremiumEndpointPreferred && isOpenRouterModel(settings.model),
+			includeThoughtParts: !args.isPremiumEndpointPreferred && !isOpenRouterModel(settings.model),
 			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE
 		});
 

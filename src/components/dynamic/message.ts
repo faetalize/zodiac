@@ -222,6 +222,18 @@ function unwrapMentionsToRaw(html: string): string {
 	return root.innerHTML;
 }
 
+function getVisibleMessagePart(message: Message): Message["parts"][number] | undefined {
+	return message.parts.find((part) => !part.thought) ?? message.parts[0];
+}
+
+function getVisibleMessageText(message: Message): string {
+	const visibleText = message.parts
+		.filter((part) => !part.thought)
+		.map((part) => part.text || "")
+		.join("");
+	return visibleText || message.parts[0]?.text || "";
+}
+
 export const messageElement = async (message: Message, index: number): Promise<HTMLElement> => {
 	const messageDiv = document.createElement("div");
 	//keep the chat index on the DOM node so that downstream logic (e.g.
@@ -256,7 +268,8 @@ export const messageElement = async (message: Message, index: number): Promise<H
 
 	//user message
 	if (!message.personalityid) {
-		const rawInitial = message.parts[0]?.text || "";
+		const visiblePart = getVisibleMessagePart(message);
+		const rawInitial = getVisibleMessageText(message);
 		const initialHtmlRaw = (await helpers.getDecoded(rawInitial)) || "";
 		const initialHtml = await decorateMentions(initialHtmlRaw);
 		messageDiv.innerHTML = `<div class="message-header">
@@ -271,7 +284,7 @@ export const messageElement = async (message: Message, index: number): Promise<H
         <div class="message-role-api" style="display: none;">${message.role}</div>
         <div class="message-text">${initialHtml}</div>
         <div class="attachment-preview-container">
-            ${Array.from(message.parts[0]?.attachments || [])
+            ${Array.from(visiblePart?.attachments || [])
 				.map((attachment: File, attachmentIndex: number) => {
 					if (attachment.type.startsWith("image/")) {
 						const hasBlobRef = !!(attachment as any)._blobRef;
@@ -303,7 +316,8 @@ export const messageElement = async (message: Message, index: number): Promise<H
 		if (isNarrator) {
 			messageDiv.classList.add("message-narrator");
 		}
-		const rawInitial = message.parts[0]?.text || "";
+		const visiblePart = getVisibleMessagePart(message);
+		const rawInitial = getVisibleMessageText(message);
 		const initialHtmlRaw = (await helpers.getDecoded(rawInitial)) || "";
 		const initialHtml = await decorateMentions(initialHtmlRaw);
 		// If we already have generated images, don't show loading spinner even if text is empty
@@ -504,7 +518,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
 				if (messageIndex >= 0) {
 					const currentChat = await chatsService.getCurrentChat();
 					if (currentChat && currentChat.content[messageIndex]) {
-						originalAttachments = currentChat.content[messageIndex].parts[0]?.attachments;
+						originalAttachments = getVisibleMessagePart(currentChat.content[messageIndex])?.attachments;
 						editingAttachments = originalAttachments ? Array.from(originalAttachments) : [];
 					}
 				}
@@ -825,17 +839,24 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
 			const targetMessage = chat.content[messageIndex];
 			if (!targetMessage) return undefined;
 
-			if (targetMessage.parts.length === 0) {
+			const visiblePartIndex = targetMessage.parts.findIndex((part) => !part.thought);
+			const visiblePart = visiblePartIndex >= 0 ? targetMessage.parts[visiblePartIndex] : undefined;
+
+			if (!visiblePart) {
 				targetMessage.parts.push({ text: markdownContent });
 			} else {
-				targetMessage.parts[0].text = markdownContent;
+				visiblePart.text = markdownContent;
+				targetMessage.parts = targetMessage.parts.filter(
+					(part, index) => part.thought || index === visiblePartIndex
+				);
 			}
 
 			if (nextAttachments !== undefined) {
-				if (targetMessage.parts.length === 0) {
+				const nextVisiblePart = targetMessage.parts.find((part) => !part.thought);
+				if (!nextVisiblePart) {
 					targetMessage.parts.push({ text: "", attachments: nextAttachments });
 				} else {
-					targetMessage.parts[0].attachments = nextAttachments;
+					nextVisiblePart.attachments = nextAttachments;
 				}
 			}
 
@@ -1181,7 +1202,7 @@ function resolveBlobImages(messageDiv: HTMLElement, message: Message): void {
 function resolveBlobAttachmentPreviews(messageDiv: HTMLElement, message: Message): void {
 	if (message.personalityid) return; // user messages only
 
-	const firstPart = message.parts[0];
+	const firstPart = getVisibleMessagePart(message);
 	if (!firstPart?.attachments || firstPart.attachments.length === 0) return;
 
 	const attachments = Array.from(firstPart.attachments);

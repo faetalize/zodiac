@@ -1056,6 +1056,7 @@ function buildTranscript(
 		.map((message) => {
 			const speaker = message.role === "user" ? "User" : personaName;
 			const text = message.parts
+				.filter((part) => !part.thought)
 				.map((part) => part.text || "")
 				.join("\n")
 				.replace(/<[^>]+>/g, " ")

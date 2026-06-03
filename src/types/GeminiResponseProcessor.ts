@@ -1,4 +1,4 @@
-import type { GeneratedImage } from "./Message";
+import type { GeneratedImage, Message } from "./Message";
 
 export type GeminiAbortMode = "throw" | "return";
 
@@ -23,6 +23,7 @@ export type GeminiLocalSdkProcessResult = {
 	text: string;
 	thinking: string;
 	textSignature?: string;
+	responseParts: Message["parts"];
 	finishReason?: unknown;
 	groundingContent: string;
 	images: GeneratedImage[];

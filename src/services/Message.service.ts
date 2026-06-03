@@ -747,15 +747,21 @@ function createInterruptedModelMessage(args: {
 	personalityId: string;
 	text: string;
 	textSignature?: string;
+	responseParts?: Message["parts"];
 	thinking?: string;
 	groundingContent?: string;
 	generatedImages?: GeneratedImage[];
 	originModel?: string;
 }): Message {
 	const hasImages = (args.generatedImages?.length ?? 0) > 0;
-	const parts: Array<{ text: string; thoughtSignature?: string }> = [];
+	const parts: Message["parts"] = args.responseParts?.length ? [...args.responseParts] : [];
 
-	if (args.text.trim().length > 0 || args.textSignature) {
+	if (parts.length > 0) {
+		const visiblePart = parts.find((part) => !part.thought);
+		if (visiblePart && args.textSignature && !visiblePart.thoughtSignature) {
+			visiblePart.thoughtSignature = args.textSignature;
+		}
+	} else if (args.text.trim().length > 0 || args.textSignature) {
 		parts.push({ text: args.text, thoughtSignature: args.textSignature });
 	} else if (!hasImages) {
 		parts.push({ text: "*Response interrupted.*" });
@@ -912,11 +918,16 @@ async function insertHiddenMessageIntoDom(message: Message, index: number): Prom
 export async function constructGeminiChatHistoryFromLocalChat(
 	currentChat: Chat,
 	selectedPersonality: DbPersonality,
-	options?: { enforceThoughtSignatures?: boolean; includeOpenRouterReasoningDetails?: boolean }
+	options?: {
+		enforceThoughtSignatures?: boolean;
+		includeOpenRouterReasoningDetails?: boolean;
+		includeThoughtParts?: boolean;
+	}
 ): Promise<GeminiHistoryBuildResult> {
 	const history: Content[] = [];
 	const pinnedHistoryIndices: number[] = [];
 	const shouldEnforceThoughtSignatures = options?.enforceThoughtSignatures === true;
+	const shouldIncludeThoughtParts = options?.includeThoughtParts === true;
 
 	const migrated = await migrateLegacyPersonalityMarkers(currentChat);
 	const backfilled = await backfillMissingPersonalityMarkers(currentChat);
@@ -969,12 +980,19 @@ export async function constructGeminiChatHistoryFromLocalChat(
 			const text = part.text || "";
 			const attachments = part.attachments || [];
 
+			if (part.thought && !shouldIncludeThoughtParts) {
+				continue;
+			}
+
 			if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
 				const resolvedThoughtSignature = await resolveThoughtSignature(part);
 				const partObj: any = { text };
+				if (part.thought) {
+					partObj.thought = true;
+				}
 				partObj.thoughtSignature =
 					resolvedThoughtSignature ??
-					(shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+					(!part.thought && shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
 				aggregatedParts.push(partObj);
 			}
 
@@ -1649,7 +1667,8 @@ async function buildSendContext(
 		selectedPersonaForHistory,
 		{
 			enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory,
-			includeOpenRouterReasoningDetails: !isPremiumEndpointPreferred && isOpenRouterModel(settings.model)
+			includeOpenRouterReasoningDetails: !isPremiumEndpointPreferred && isOpenRouterModel(settings.model),
+			includeThoughtParts: !isPremiumEndpointPreferred && isGeminiModel(settings.model)
 		}
 	);
 
@@ -1741,6 +1760,7 @@ interface TextChatResponseState {
 	thinking: string;
 	rawText: string;
 	textSignature: string | undefined;
+	responseParts: Message["parts"];
 	finishReason: unknown;
 	groundingContent: string;
 	generatedImages: GeneratedImage[];
@@ -1751,6 +1771,7 @@ async function handleTextChat(ctx: SendContext): Promise<HTMLElement | undefined
 		thinking: "",
 		rawText: "",
 		textSignature: undefined,
+		responseParts: [],
 		finishReason: undefined,
 		groundingContent: "",
 		generatedImages: []
@@ -1809,6 +1830,7 @@ async function handleAbort(
 		personalityId: ctx.selectedPersonalityId,
 		text: state.rawText,
 		textSignature: state.textSignature,
+		responseParts: state.responseParts,
 		thinking: state.thinking,
 		groundingContent: state.groundingContent,
 		generatedImages: state.generatedImages,
@@ -1846,14 +1868,20 @@ async function finalizeTextChatSuccess(
 	ensureTextSignature: () => void
 ): Promise<HTMLElement> {
 	ensureTextSignature();
+	const parts: Message["parts"] = state.responseParts.length
+		? state.responseParts.map((part) => ({ ...part }))
+		: state.rawText.trim().length > 0 || state.textSignature
+			? [{ text: state.rawText, thoughtSignature: state.textSignature }]
+			: [];
+	const visiblePart = parts.find((part) => !part.thought);
+	if (visiblePart && state.textSignature && !visiblePart.thoughtSignature) {
+		visiblePart.thoughtSignature = state.textSignature;
+	}
 
 	const modelMessage: Message = {
 		role: "model",
 		personalityid: ctx.selectedPersonalityId,
-		parts:
-			state.rawText.trim().length > 0 || state.textSignature
-				? [{ text: state.rawText, thoughtSignature: state.textSignature }]
-				: [],
+		parts,
 		groundingContent: state.groundingContent || "",
 		thinking: state.thinking || undefined,
 		generatedImages: state.generatedImages.length > 0 ? state.generatedImages : undefined,
@@ -2200,6 +2228,7 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 		state.thinking = result.thinking;
 		state.rawText = result.text;
 		state.textSignature = result.textSignature;
+		state.responseParts = result.responseParts;
 		state.groundingContent = result.groundingContent;
 		state.generatedImages = result.images;
 
@@ -2224,6 +2253,7 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 		state.thinking = result.thinking;
 		state.rawText = result.text;
 		state.textSignature = result.textSignature;
+		state.responseParts = result.responseParts;
 		state.groundingContent = result.groundingContent;
 		state.generatedImages = result.images;
 
