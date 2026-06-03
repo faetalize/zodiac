@@ -45,6 +45,7 @@ export async function constructGeminiChatHistoryForGroupChat(
 
 		const aggregatedParts: any[] = [];
 		const speaker = speakerNameForMessage(dbMessage);
+		let hasThoughtSignature = false;
 
 		for (const part of dbMessage.parts) {
 			const text = (part.text || "").toString();
@@ -60,9 +61,16 @@ export async function constructGeminiChatHistoryForGroupChat(
 				if (part.thought) {
 					partObj.thought = true;
 				}
-				partObj.thoughtSignature =
+				if (args.includeOpenRouterReasoningDetails === true && part.reasoningDetail) {
+					partObj.reasoningDetail = part.reasoningDetail;
+				}
+				const ts =
 					resolvedThoughtSignature ??
 					(!part.thought && shouldEnforceThoughtSignatures ? args.skipThoughtSignatureValidator : undefined);
+				if (ts && !hasThoughtSignature) {
+					partObj.thoughtSignature = ts;
+					hasThoughtSignature = true;
+				}
 				aggregatedParts.push(partObj);
 			}
 
@@ -80,7 +88,8 @@ export async function constructGeminiChatHistoryForGroupChat(
 			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: args.skipThoughtSignatureValidator,
-			includeOpenRouterReasoningDetails: args.includeOpenRouterReasoningDetails === true
+			includeOpenRouterReasoningDetails: args.includeOpenRouterReasoningDetails === true,
+			suppressThoughtSignature: hasThoughtSignature
 		});
 		if (imageParts.length > 0) {
 			genAiMessage.parts?.push(...imageParts);

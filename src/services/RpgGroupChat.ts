@@ -739,7 +739,8 @@ async function executeParticipantTurn(args: {
 		speakerNameById: ctx.speakerNameById,
 		userName: ctx.userName,
 		enforceThoughtSignatures: ctx.shouldEnforceThoughtSignaturesInHistory,
-		includeThoughtParts: !ctx.isPremiumEndpointPreferred && !isOpenRouterModel(ctx.settings.model)
+		includeThoughtParts: !ctx.isPremiumEndpointPreferred,
+		includeOpenRouterReasoningDetails: !ctx.isPremiumEndpointPreferred && isOpenRouterModel(ctx.settings.model)
 	});
 
 	const useIndependentAction = shouldTriggerIndependentAction(meta.independence);
@@ -1231,7 +1232,8 @@ async function handleNarratorBeforeFirst(ctx: RpgContext): Promise<void> {
 			speakerNameById: ctx.speakerNameById,
 			userName: ctx.userName,
 			enforceThoughtSignatures: false,
-			includeThoughtParts: !ctx.isPremiumEndpointPreferred && !isOpenRouterModel(ctx.settings.model)
+			includeThoughtParts: !ctx.isPremiumEndpointPreferred,
+			includeOpenRouterReasoningDetails: !ctx.isPremiumEndpointPreferred && isOpenRouterModel(ctx.settings.model)
 		});
 
 		const before = await generateNarratorMessage({
@@ -1292,7 +1294,8 @@ async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
 		speakerNameById: ctx.speakerNameById,
 		userName: ctx.userName,
 		enforceThoughtSignatures: false,
-		includeThoughtParts: !ctx.isPremiumEndpointPreferred && !isOpenRouterModel(ctx.settings.model)
+		includeThoughtParts: !ctx.isPremiumEndpointPreferred,
+		includeOpenRouterReasoningDetails: !ctx.isPremiumEndpointPreferred && isOpenRouterModel(ctx.settings.model)
 	});
 
 	const interjection = await generateNarratorMessage({
@@ -1360,7 +1363,8 @@ async function handleNarratorAfterRound(ctx: RpgContext): Promise<void> {
 			speakerNameById: ctx.speakerNameById,
 			userName: ctx.userName,
 			enforceThoughtSignatures: false,
-			includeThoughtParts: !ctx.isPremiumEndpointPreferred && !isOpenRouterModel(ctx.settings.model)
+			includeThoughtParts: !ctx.isPremiumEndpointPreferred,
+			includeOpenRouterReasoningDetails: !ctx.isPremiumEndpointPreferred && isOpenRouterModel(ctx.settings.model)
 		});
 
 		const after = await generateNarratorMessageResilient({
@@ -1949,6 +1953,7 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 		userName: string;
 		enforceThoughtSignatures?: boolean;
 		includeThoughtParts?: boolean;
+		includeOpenRouterReasoningDetails?: boolean;
 	}
 ): Promise<{ history: Content[]; pinnedHistoryIndices: number[] }> {
 	const history: Content[] = [];
@@ -1972,6 +1977,7 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 
 		const aggregatedParts: any[] = [];
 		const speaker = speakerNameForMessage(dbMessage);
+		let hasThoughtSignature = false;
 
 		for (const part of dbMessage.parts) {
 			const text = (part.text || "").toString();
@@ -1987,9 +1993,16 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 				if (part.thought) {
 					partObj.thought = true;
 				}
-				partObj.thoughtSignature =
+				if (args.includeOpenRouterReasoningDetails === true && part.reasoningDetail) {
+					partObj.reasoningDetail = part.reasoningDetail;
+				}
+				const ts =
 					resolvedThoughtSignature ??
 					(!part.thought && shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+				if (ts && !hasThoughtSignature) {
+					partObj.thoughtSignature = ts;
+					hasThoughtSignature = true;
+				}
 				aggregatedParts.push(partObj);
 			}
 
@@ -2006,7 +2019,9 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 			images: dbMessage.generatedImages,
 			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
-			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR
+			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+			includeOpenRouterReasoningDetails: args.includeOpenRouterReasoningDetails === true,
+			suppressThoughtSignature: hasThoughtSignature
 		});
 		if (imageParts.length > 0) {
 			genAiMessage.parts?.push(...imageParts);

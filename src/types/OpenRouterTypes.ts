@@ -104,6 +104,7 @@ export type ReasoningDetail =
 			id?: string | null;
 			format: ReasoningDetailFormat;
 			index?: number;
+			[key: string]: unknown;
 	  }
 	| {
 			type?: string;
@@ -114,6 +115,7 @@ export type ReasoningDetail =
 			id?: string | null;
 			format?: ReasoningDetailFormat;
 			index?: number;
+			[key: string]: unknown;
 	  };
 
 export type Message =

@@ -976,6 +976,7 @@ export async function constructGeminiChatHistoryFromLocalChat(
 		if (dbMessage.hidden) continue;
 
 		const aggregatedParts: any[] = [];
+		let hasThoughtSignature = false;
 		for (const part of dbMessage.parts) {
 			const text = part.text || "";
 			const attachments = part.attachments || [];
@@ -990,9 +991,16 @@ export async function constructGeminiChatHistoryFromLocalChat(
 				if (part.thought) {
 					partObj.thought = true;
 				}
-				partObj.thoughtSignature =
+				if (options?.includeOpenRouterReasoningDetails === true && part.reasoningDetail) {
+					partObj.reasoningDetail = part.reasoningDetail;
+				}
+				const ts =
 					resolvedThoughtSignature ??
 					(!part.thought && shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+				if (ts && !hasThoughtSignature) {
+					partObj.thoughtSignature = ts;
+					hasThoughtSignature = true;
+				}
 				aggregatedParts.push(partObj);
 			}
 
@@ -1013,7 +1021,8 @@ export async function constructGeminiChatHistoryFromLocalChat(
 			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
-			includeOpenRouterReasoningDetails: options?.includeOpenRouterReasoningDetails === true
+			includeOpenRouterReasoningDetails: options?.includeOpenRouterReasoningDetails === true,
+			suppressThoughtSignature: hasThoughtSignature
 		});
 		if (imageParts.length > 0) {
 			genAiMessage.parts?.push(...imageParts);
@@ -1668,7 +1677,8 @@ async function buildSendContext(
 		{
 			enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory,
 			includeOpenRouterReasoningDetails: !isPremiumEndpointPreferred && isOpenRouterModel(settings.model),
-			includeThoughtParts: !isPremiumEndpointPreferred && isGeminiModel(settings.model)
+			includeThoughtParts:
+				!isPremiumEndpointPreferred && (isGeminiModel(settings.model) || isOpenRouterModel(settings.model))
 		}
 	);
 
@@ -1868,8 +1878,9 @@ async function finalizeTextChatSuccess(
 	ensureTextSignature: () => void
 ): Promise<HTMLElement> {
 	ensureTextSignature();
-	const parts: Message["parts"] = state.responseParts.length
-		? state.responseParts.map((part) => ({ ...part }))
+	const responseParts = state.responseParts ?? [];
+	const parts: Message["parts"] = responseParts.length
+		? responseParts.map((part) => ({ ...part }))
 		: state.rawText.trim().length > 0 || state.textSignature
 			? [{ text: state.rawText, thoughtSignature: state.textSignature }]
 			: [];
@@ -2155,6 +2166,8 @@ async function handleTextChatOpenRouter(ctx: SendContext, state: TextChatRespons
 
 	state.rawText = result.text;
 	state.thinking = result.thinking;
+	state.textSignature = result.textSignature;
+	state.responseParts = result.responseParts ?? [];
 	state.finishReason = result.finishReason;
 	if (result.images && result.images.length > 0 && state.generatedImages.length === 0) {
 		for (const img of result.images) {
@@ -2228,7 +2241,7 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 		state.thinking = result.thinking;
 		state.rawText = result.text;
 		state.textSignature = result.textSignature;
-		state.responseParts = result.responseParts;
+		state.responseParts = result.responseParts ?? [];
 		state.groundingContent = result.groundingContent;
 		state.generatedImages = result.images;
 
@@ -2253,7 +2266,7 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 		state.thinking = result.thinking;
 		state.rawText = result.text;
 		state.textSignature = result.textSignature;
-		state.responseParts = result.responseParts;
+		state.responseParts = result.responseParts ?? [];
 		state.groundingContent = result.groundingContent;
 		state.generatedImages = result.images;
 

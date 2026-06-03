@@ -110,6 +110,7 @@ export interface GeneratedImageProcessingConfig {
 	enforceThoughtSignatures: boolean;
 	skipThoughtSignatureValidator: string;
 	includeOpenRouterReasoningDetails?: boolean;
+	suppressThoughtSignature?: boolean;
 }
 
 /**
@@ -122,7 +123,8 @@ export async function processGeneratedImagesToParts(config: GeneratedImageProces
 		shouldProcess,
 		enforceThoughtSignatures,
 		skipThoughtSignatureValidator,
-		includeOpenRouterReasoningDetails
+		includeOpenRouterReasoningDetails,
+		suppressThoughtSignature
 	} = config;
 
 	if (!shouldProcess || !images || images.length === 0) {
@@ -146,8 +148,10 @@ export async function processGeneratedImagesToParts(config: GeneratedImageProces
 		const part: any = {
 			inlineData: { data: base64, mimeType: img.mimeType }
 		};
-		part.thoughtSignature =
-			resolvedThoughtSignature ?? (enforceThoughtSignatures ? skipThoughtSignatureValidator : undefined);
+		if (!suppressThoughtSignature) {
+			part.thoughtSignature =
+				resolvedThoughtSignature ?? (enforceThoughtSignatures ? skipThoughtSignatureValidator : undefined);
+		}
 		if (includeOpenRouterReasoningDetails && img.thoughtSignatureReasoningDetail) {
 			part.thoughtSignatureReasoningDetail = img.thoughtSignatureReasoningDetail;
 		}

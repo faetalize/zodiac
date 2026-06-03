@@ -12,12 +12,14 @@ import type {
 	StreamingChoice
 } from "../types/OpenRouterTypes";
 import { getChatModelDefinition, modelSupportsTemperature, type ChatModelDefinition } from "../types/Models";
-import type { GeneratedImage } from "../types/Message";
+import type { GeneratedImage, Message, ReasoningDetailMetadata } from "../types/Message";
 import * as helpers from "../utils/helpers";
 
 export interface OpenRouterCompletionResult {
 	text: string;
 	thinking: string;
+	textSignature?: string;
+	responseParts: Message["parts"];
 	finishReason?: unknown;
 	images?: {
 		mimeType: string;
@@ -194,6 +196,32 @@ function extractReasoningFromDetails(details: unknown): string {
 
 const FALLBACK_GEMINI_REASONING_DETAIL_FORMAT = "google-gemini-v1";
 
+function stripReasoningPayload(detail: OpenRouterReasoningDetail): ReasoningDetailMetadata {
+	const { data, text, summary, ...metadata } = detail;
+	return metadata;
+}
+
+function buildTextReasoningDetail(part: {
+	text: string;
+	reasoningDetail?: ReasoningDetailMetadata;
+}): OpenRouterReasoningDetail {
+	const metadata = part.reasoningDetail;
+	const type = metadata?.type || "reasoning.text";
+	const detail: OpenRouterReasoningDetail = {
+		...metadata,
+		type,
+		format: metadata?.format ?? FALLBACK_GEMINI_REASONING_DETAIL_FORMAT
+	};
+
+	if (type === "reasoning.summary") {
+		detail.summary = part.text;
+	} else {
+		detail.text = part.text;
+	}
+
+	return detail;
+}
+
 export function extractEncryptedReasoningDetailFromDetails(details: unknown): OpenRouterReasoningDetail | undefined {
 	if (!Array.isArray(details)) return undefined;
 
@@ -214,7 +242,7 @@ function getThoughtSignatureReasoningMetadata(
 	detail: OpenRouterReasoningDetail | undefined
 ): GeneratedImage["thoughtSignatureReasoningDetail"] {
 	if (!detail || detail.type !== "reasoning.encrypted") return undefined;
-	const { data, ...metadata } = detail;
+	const metadata = stripReasoningPayload(detail);
 
 	return {
 		...metadata,
@@ -225,10 +253,7 @@ function getThoughtSignatureReasoningMetadata(
 	};
 }
 
-function buildEncryptedReasoningDetail(
-	data: string,
-	metadata?: GeneratedImage["thoughtSignatureReasoningDetail"]
-): OpenRouterReasoningDetail {
+function buildEncryptedReasoningDetail(data: string, metadata?: ReasoningDetailMetadata): OpenRouterReasoningDetail {
 	return {
 		...metadata,
 		type: "reasoning.encrypted",
@@ -237,6 +262,93 @@ function buildEncryptedReasoningDetail(
 		format: metadata?.format ?? FALLBACK_GEMINI_REASONING_DETAIL_FORMAT,
 		index: metadata?.index
 	};
+}
+
+function getReasoningTextFromDetail(detail: OpenRouterReasoningDetail): string {
+	const value = detail as { text?: unknown; summary?: unknown };
+	if (typeof value.text === "string") return value.text;
+	if (typeof value.summary === "string") return value.summary;
+	return "";
+}
+
+function buildResponsePartsFromOpenRouter(args: {
+	text: string;
+	reasoningDetails: OpenRouterReasoningDetail[];
+	fallbackThinking?: string;
+}): { responseParts: Message["parts"]; textSignature?: string } {
+	const responseParts: Message["parts"] = [];
+	let encryptedDetail: OpenRouterReasoningDetail | undefined;
+	let hasReasoningTextPart = false;
+
+	for (const detail of args.reasoningDetails) {
+		if (detail.type === "reasoning.encrypted" && typeof detail.data === "string" && detail.data.length > 0) {
+			encryptedDetail = detail;
+			continue;
+		}
+
+		const reasoningText = getReasoningTextFromDetail(detail);
+		if (!reasoningText) continue;
+		hasReasoningTextPart = true;
+		responseParts.push({ text: reasoningText, thought: true, reasoningDetail: stripReasoningPayload(detail) });
+	}
+
+	if (!hasReasoningTextPart && args.reasoningDetails.length > 0 && args.fallbackThinking) {
+		responseParts.push({ text: args.fallbackThinking, thought: true });
+	}
+
+	const textSignature = encryptedDetail?.data;
+	if (args.text.trim().length > 0 || textSignature) {
+		responseParts.push({
+			text: args.text,
+			thoughtSignature: textSignature,
+			reasoningDetail: encryptedDetail ? stripReasoningPayload(encryptedDetail) : undefined
+		});
+	}
+
+	return { responseParts, textSignature };
+}
+
+function normalizeReasoningDetails(details: unknown): OpenRouterReasoningDetail[] {
+	if (!Array.isArray(details)) return [];
+	return details.filter((detail): detail is OpenRouterReasoningDetail => !!detail && typeof detail === "object");
+}
+
+function mergeReasoningDetails(
+	existing: OpenRouterReasoningDetail[],
+	incoming: OpenRouterReasoningDetail[]
+): OpenRouterReasoningDetail[] {
+	const merged = [...existing];
+
+	for (const detail of incoming) {
+		const index = typeof detail.index === "number" ? detail.index : undefined;
+		const existingIndex =
+			index === undefined ? -1 : merged.findIndex((item) => item.index === index && item.type === detail.type);
+
+		if (existingIndex < 0) {
+			merged.push({ ...detail });
+			continue;
+		}
+
+		const current = merged[existingIndex] as OpenRouterReasoningDetail;
+		merged[existingIndex] = {
+			...current,
+			...detail,
+			text:
+				typeof current.text === "string" || typeof detail.text === "string"
+					? `${current.text || ""}${detail.text || ""}`
+					: undefined,
+			summary:
+				typeof current.summary === "string" || typeof detail.summary === "string"
+					? `${current.summary || ""}${detail.summary || ""}`
+					: undefined,
+			data:
+				typeof current.data === "string" || typeof detail.data === "string"
+					? `${current.data || ""}${detail.data || ""}`
+					: undefined
+		};
+	}
+
+	return merged;
 }
 
 export function extractImageDataFromOpenRouterImageUrl(
@@ -286,17 +398,35 @@ export async function convertGeminiHistoryToOpenRouterMessages(history: Content[
 
 		for (const part of item?.parts || []) {
 			const thoughtSignature = (part as { thoughtSignature?: unknown })?.thoughtSignature;
+			if (role === "assistant" && (part as { thought?: unknown })?.thought === true) {
+				if (part?.text) {
+					reasoningDetails.push(
+						buildTextReasoningDetail({
+							text: String(part.text),
+							reasoningDetail: (part as { reasoningDetail?: ReasoningDetailMetadata }).reasoningDetail
+						})
+					);
+				}
+				continue;
+			}
+
 			if (role === "assistant" && typeof thoughtSignature === "string" && thoughtSignature.length > 0) {
-				reasoningDetails.push(
-					buildEncryptedReasoningDetail(
-						thoughtSignature,
-						(
-							part as {
-								thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
-							}
-						).thoughtSignatureReasoningDetail
-					)
+				const isDuplicate = reasoningDetails.some(
+					(detail) => detail.type === "reasoning.encrypted" && detail.data === thoughtSignature
 				);
+				if (!isDuplicate) {
+					reasoningDetails.push(
+						buildEncryptedReasoningDetail(
+							thoughtSignature,
+							(part as { reasoningDetail?: ReasoningDetailMetadata }).reasoningDetail ??
+								(
+									part as {
+										thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
+									}
+								).thoughtSignatureReasoningDetail
+						)
+					);
+				}
 			}
 
 			if (part?.text) {
@@ -314,8 +444,11 @@ export async function convertGeminiHistoryToOpenRouterMessages(history: Content[
 			}
 		}
 
-		if (contentParts.length === 0) continue;
-		const message: OpenRouterMessage = { role, content: collapseContentParts(contentParts) };
+		if (contentParts.length === 0 && reasoningDetails.length === 0) continue;
+		const message: OpenRouterMessage = {
+			role,
+			content: contentParts.length > 0 ? collapseContentParts(contentParts) : ""
+		};
 		if (role === "assistant" && reasoningDetails.length > 0) {
 			message.reasoning_details = reasoningDetails;
 		}
@@ -456,11 +589,17 @@ export async function requestOpenRouterCompletion(args: OpenRouterCompletionArgs
 			response,
 			signal: args.signal,
 			onText: args.onText,
-			onThinking: args.onThinking
+			onThinking: args.onThinking,
+			onImage: args.onImage
 		});
 	}
 
-	return await processOpenRouterJson({ response, onText: args.onText, onThinking: args.onThinking });
+	return await processOpenRouterJson({
+		response,
+		onText: args.onText,
+		onThinking: args.onThinking,
+		onImage: args.onImage
+	});
 }
 
 async function processOpenRouterJson(args: {
@@ -488,10 +627,16 @@ async function processOpenRouterJson(args: {
 	}
 
 	const text = extractContentText(choice?.message?.content);
-	const thinking = choice?.message?.reasoning || extractReasoningFromDetails(choice?.message?.reasoning_details);
-	const encryptedReasoningDetail = extractEncryptedReasoningDetailFromDetails(choice?.message?.reasoning_details);
+	const reasoningDetails = normalizeReasoningDetails(choice?.message?.reasoning_details);
+	const thinking = choice?.message?.reasoning || extractReasoningFromDetails(reasoningDetails);
+	const encryptedReasoningDetail = extractEncryptedReasoningDetailFromDetails(reasoningDetails);
 	const thoughtSignature = encryptedReasoningDetail?.data;
 	const thoughtSignatureReasoningDetail = getThoughtSignatureReasoningMetadata(encryptedReasoningDetail);
+	const { responseParts, textSignature } = buildResponsePartsFromOpenRouter({
+		text,
+		reasoningDetails,
+		fallbackThinking: thinking
+	});
 
 	const images: OpenRouterCompletionResult["images"] = [];
 	for (const img of choice?.message?.images || []) {
@@ -522,6 +667,8 @@ async function processOpenRouterJson(args: {
 	return {
 		text,
 		thinking,
+		textSignature,
+		responseParts,
 		finishReason: choice?.finish_reason,
 		images
 	};
@@ -535,7 +682,7 @@ async function processOpenRouterStream(args: {
 	onImage?: OpenRouterCompletionArgs["onImage"];
 }): Promise<OpenRouterCompletionResult> {
 	if (!args.response.body) {
-		return { text: "", thinking: "" };
+		return { text: "", thinking: "", responseParts: [] };
 	}
 
 	const reader = args.response.body.getReader();
@@ -547,6 +694,7 @@ async function processOpenRouterStream(args: {
 	let finishReason: unknown;
 	let thoughtSignature: string | undefined;
 	let thoughtSignatureReasoningDetail: GeneratedImage["thoughtSignatureReasoningDetail"];
+	let reasoningDetails: OpenRouterReasoningDetail[] = [];
 	const images: OpenRouterCompletionResult["images"] = [];
 
 	while (true) {
@@ -605,9 +753,12 @@ async function processOpenRouterStream(args: {
 				await args.onThinking?.({ thinking, delta: thinkingDelta });
 			}
 
-			const encryptedReasoningDetail = extractEncryptedReasoningDetailFromDetails(
-				choice.delta?.reasoning_details
-			);
+			const deltaReasoningDetails = normalizeReasoningDetails(choice.delta?.reasoning_details);
+			if (deltaReasoningDetails.length > 0) {
+				reasoningDetails = mergeReasoningDetails(reasoningDetails, deltaReasoningDetails);
+			}
+
+			const encryptedReasoningDetail = extractEncryptedReasoningDetailFromDetails(deltaReasoningDetails);
 			if (encryptedReasoningDetail) {
 				thoughtSignature = encryptedReasoningDetail.data;
 				thoughtSignatureReasoningDetail = getThoughtSignatureReasoningMetadata(encryptedReasoningDetail);
@@ -630,7 +781,13 @@ async function processOpenRouterStream(args: {
 		}
 	}
 
-	return { text, thinking, finishReason, images };
+	const responsePartResult = buildResponsePartsFromOpenRouter({
+		text,
+		reasoningDetails,
+		fallbackThinking: thinking
+	});
+
+	return { text, thinking, finishReason, images, ...responsePartResult };
 }
 
 export function getOpenRouterModelDefinition(model: string): ChatModelDefinition | undefined {

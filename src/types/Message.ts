@@ -1,6 +1,15 @@
 import type { BlobReference } from "./BlobReference";
 import type { ReasoningDetailFormat } from "./OpenRouterTypes";
 
+export interface ReasoningDetailMetadata {
+	type?: string;
+	id?: string | null;
+	format?: ReasoningDetailFormat;
+	index?: number;
+	signature?: string | null;
+	[key: string]: unknown;
+}
+
 /**
  * Text and thinking content extracted from a model response.
  */
@@ -62,6 +71,7 @@ export interface Message {
 	parts: Array<{
 		text: string;
 		thought?: boolean;
+		reasoningDetail?: ReasoningDetailMetadata;
 		attachments?: FileList | File[];
 		thoughtSignature?: string;
 		_thoughtSignatureRef?: BlobReference;
