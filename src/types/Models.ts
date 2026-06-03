@@ -195,6 +195,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		localOnly: true,
 		mega: false,
 		supportsThinking: true,
+		requiresThinking: true,
 		supportsTemperature: true,
 		supportsImageInput: true,
 		supportsFileInput: true,

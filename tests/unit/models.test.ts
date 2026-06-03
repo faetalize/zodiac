@@ -63,6 +63,11 @@ describe("roleplay suggestion models", () => {
 		expect(modelRequiresThinking("google/gemini-3.5-flash")).toBe(true);
 	});
 
+	it("requires thinking for Nano Banana Pro local and OpenRouter variants", () => {
+		expect(modelRequiresThinking("gemini-3-pro-image-preview")).toBe(true);
+		expect(modelRequiresThinking("google/gemini-3-pro-image-preview")).toBe(true);
+	});
+
 	it("includes only models flagged for roleplay suggestions", () => {
 		const fullAccess: ChatModelAccess = { hasGeminiAccess: true, hasOpenRouterAccess: true };
 
