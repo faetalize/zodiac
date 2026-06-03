@@ -2012,6 +2012,19 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
 				state.rawText += json.text;
 				if (ctx.thinkingContentElm) ctx.thinkingContentElm.textContent = state.thinking;
 				state.finishReason = json.finishReason;
+
+				if (Array.isArray(json.images) && json.images.length > 0) {
+					for (const img of json.images) {
+						state.generatedImages.push({
+							mimeType: img.mimeType,
+							base64: img.base64,
+							thoughtSignature:
+								img.thoughtSignature ??
+								(ctx.shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
+							thought: undefined
+						});
+					}
+				}
 			} else {
 				state.finishReason = json.candidates?.[0]?.finishReason || json.promptFeedback?.blockReason;
 				for (const part of json.candidates?.[0]?.content?.parts || []) {

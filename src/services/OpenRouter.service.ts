@@ -184,7 +184,7 @@ function extractReasoningFromDetails(details: unknown): string {
 		.join("");
 }
 
-function extractThoughtSignatureFromDetails(details: unknown): string | undefined {
+export function extractThoughtSignatureFromDetails(details: unknown): string | undefined {
 	if (!Array.isArray(details)) return undefined;
 
 	const encryptedDetail = details.find((detail) => (detail as { type?: string }).type === "reasoning.encrypted");
@@ -195,7 +195,7 @@ function extractThoughtSignatureFromDetails(details: unknown): string | undefine
 	return undefined;
 }
 
-function extractImageDataFromOpenRouterImageUrl(img: any, thoughtSignature?: string) {
+export function extractImageDataFromOpenRouterImageUrl(img: any, thoughtSignature?: string) {
 	const url = img?.image_url?.url;
 	if (typeof url === "string" && url.startsWith("data:")) {
 		const match = url.match(/^data:([^;]+);base64,(.+)$/);

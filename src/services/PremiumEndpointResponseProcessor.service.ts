@@ -5,6 +5,7 @@ import type {
 	PremiumEndpointProcessArgs,
 	PremiumEndpointProcessResult
 } from "../types/PremiumEndpointResponseProcessor";
+import { extractImageDataFromOpenRouterImageUrl, extractThoughtSignatureFromDetails } from "./OpenRouter.service";
 
 function throwAbortError(): never {
 	const err = new Error("Aborted");
@@ -102,6 +103,8 @@ async function applyFallbackDelta(args: {
 	state: {
 		text: string;
 		thinking: string;
+		images: GeneratedImage[];
+		thoughtSignature?: string;
 	};
 }): Promise<void> {
 	const { data, process, state } = args;
@@ -124,6 +127,27 @@ async function applyFallbackDelta(args: {
 		const delta = String(deltaObj.reasoning);
 		state.thinking += delta;
 		await process.callbacks?.onThinking?.({ delta, thinking: state.thinking });
+	}
+
+	const extractedThoughtSignature = extractThoughtSignatureFromDetails(deltaObj?.reasoning_details);
+	if (extractedThoughtSignature) {
+		state.thoughtSignature = extractedThoughtSignature;
+	}
+
+	const deltaImages = deltaObj?.images || [];
+	for (const img of deltaImages) {
+		const imageObj = extractImageDataFromOpenRouterImageUrl(img, state.thoughtSignature);
+		if (imageObj) {
+			const genImage: GeneratedImage = {
+				mimeType: imageObj.mimeType,
+				base64: imageObj.base64,
+				thoughtSignature:
+					imageObj.thoughtSignature ??
+					(process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined)
+			};
+			state.images.push(genImage);
+			await process.callbacks?.onImage?.(genImage);
+		}
 	}
 }
 
@@ -153,6 +177,7 @@ export async function processPremiumEndpointSse(args: {
 		thinking: string;
 		requestId?: string;
 		textSignature?: string;
+		thoughtSignature?: string;
 		finishReason?: unknown;
 		groundingContent: string;
 		images: GeneratedImage[];
