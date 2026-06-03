@@ -66,7 +66,6 @@ import {
 	processGeneratedImagesToParts,
 	extractTextAndThinkingFromResponse
 } from "../utils/chatHistoryBuilder";
-import { resolveThoughtSignature } from "../utils/blobResolver";
 
 import { throwAbortError } from "../utils/abort";
 import { dispatchAppEvent } from "../events";
@@ -738,9 +737,7 @@ async function executeParticipantTurn(args: {
 	const { history } = await constructGeminiChatHistoryForGroupChatRpg(chatSnapshot, {
 		speakerNameById: ctx.speakerNameById,
 		userName: ctx.userName,
-		enforceThoughtSignatures: ctx.shouldEnforceThoughtSignaturesInHistory,
-		includeThoughtParts: !ctx.isPremiumEndpointPreferred,
-		includeOpenRouterReasoningDetails: !ctx.isPremiumEndpointPreferred && isOpenRouterModel(ctx.settings.model)
+		enforceThoughtSignatures: ctx.shouldEnforceThoughtSignaturesInHistory
 	});
 
 	const useIndependentAction = shouldTriggerIndependentAction(meta.independence);
@@ -1231,9 +1228,7 @@ async function handleNarratorBeforeFirst(ctx: RpgContext): Promise<void> {
 		const { history: beforeHistory } = await constructGeminiChatHistoryForGroupChatRpg(ctx.workingChat, {
 			speakerNameById: ctx.speakerNameById,
 			userName: ctx.userName,
-			enforceThoughtSignatures: false,
-			includeThoughtParts: !ctx.isPremiumEndpointPreferred,
-			includeOpenRouterReasoningDetails: !ctx.isPremiumEndpointPreferred && isOpenRouterModel(ctx.settings.model)
+			enforceThoughtSignatures: false
 		});
 
 		const before = await generateNarratorMessage({
@@ -1293,9 +1288,7 @@ async function handleNarratorInterjection(ctx: RpgContext): Promise<void> {
 	const { history: interjectionHistory } = await constructGeminiChatHistoryForGroupChatRpg(chatForInterjection, {
 		speakerNameById: ctx.speakerNameById,
 		userName: ctx.userName,
-		enforceThoughtSignatures: false,
-		includeThoughtParts: !ctx.isPremiumEndpointPreferred,
-		includeOpenRouterReasoningDetails: !ctx.isPremiumEndpointPreferred && isOpenRouterModel(ctx.settings.model)
+		enforceThoughtSignatures: false
 	});
 
 	const interjection = await generateNarratorMessage({
@@ -1362,9 +1355,7 @@ async function handleNarratorAfterRound(ctx: RpgContext): Promise<void> {
 		const { history: afterHistory } = await constructGeminiChatHistoryForGroupChatRpg(chatForAfter, {
 			speakerNameById: ctx.speakerNameById,
 			userName: ctx.userName,
-			enforceThoughtSignatures: false,
-			includeThoughtParts: !ctx.isPremiumEndpointPreferred,
-			includeOpenRouterReasoningDetails: !ctx.isPremiumEndpointPreferred && isOpenRouterModel(ctx.settings.model)
+			enforceThoughtSignatures: false
 		});
 
 		const after = await generateNarratorMessageResilient({
@@ -1952,14 +1943,11 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 		speakerNameById: Map<string, string>;
 		userName: string;
 		enforceThoughtSignatures?: boolean;
-		includeThoughtParts?: boolean;
-		includeOpenRouterReasoningDetails?: boolean;
 	}
 ): Promise<{ history: Content[]; pinnedHistoryIndices: number[] }> {
 	const history: Content[] = [];
 	const pinnedHistoryIndices: number[] = [];
 	const shouldEnforceThoughtSignatures = args.enforceThoughtSignatures === true;
-	const shouldIncludeThoughtParts = args.includeThoughtParts === true;
 
 	const speakerNameForMessage = (m: Message): string => {
 		if (m.role === "user") return (args.userName || "User").toString();
@@ -1983,22 +1971,13 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 			const text = (part.text || "").toString();
 			const attachments = part.attachments || [];
 
-			if (part.thought && !shouldIncludeThoughtParts) {
+			if (part.thought) {
 				continue;
 			}
 
-			if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
-				const resolvedThoughtSignature = await resolveThoughtSignature(part);
-				const partObj: any = { text: part.thought ? text : maybePrefixSpeaker(text, speaker) };
-				if (part.thought) {
-					partObj.thought = true;
-				}
-				if (args.includeOpenRouterReasoningDetails === true && part.reasoningDetail) {
-					partObj.reasoningDetail = part.reasoningDetail;
-				}
-				const ts =
-					resolvedThoughtSignature ??
-					(!part.thought && shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+			if (text.trim().length > 0) {
+				const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
+				const ts = shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined;
 				if (ts && !hasThoughtSignature) {
 					partObj.thoughtSignature = ts;
 					hasThoughtSignature = true;
@@ -2020,7 +1999,6 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
-			includeOpenRouterReasoningDetails: args.includeOpenRouterReasoningDetails === true,
 			suppressThoughtSignature: hasThoughtSignature
 		});
 		if (imageParts.length > 0) {

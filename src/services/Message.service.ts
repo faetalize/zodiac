@@ -60,7 +60,6 @@ import { shouldPreferPremiumEndpoint } from "../components/static/ApiKeyInput.co
 import { getSelectedEditingModel } from "../components/static/ImageEditModelSelector.component";
 
 import { isAbortError, throwAbortError } from "../utils/abort";
-import { resolveThoughtSignature } from "../utils/blobResolver";
 import { dispatchAppEvent } from "../events";
 import { MODEL_IMAGE_LIMITS } from "../constants/ImageModels";
 import {
@@ -920,14 +919,11 @@ export async function constructGeminiChatHistoryFromLocalChat(
 	selectedPersonality: DbPersonality,
 	options?: {
 		enforceThoughtSignatures?: boolean;
-		includeOpenRouterReasoningDetails?: boolean;
-		includeThoughtParts?: boolean;
 	}
 ): Promise<GeminiHistoryBuildResult> {
 	const history: Content[] = [];
 	const pinnedHistoryIndices: number[] = [];
 	const shouldEnforceThoughtSignatures = options?.enforceThoughtSignatures === true;
-	const shouldIncludeThoughtParts = options?.includeThoughtParts === true;
 
 	const migrated = await migrateLegacyPersonalityMarkers(currentChat);
 	const backfilled = await backfillMissingPersonalityMarkers(currentChat);
@@ -981,22 +977,13 @@ export async function constructGeminiChatHistoryFromLocalChat(
 			const text = part.text || "";
 			const attachments = part.attachments || [];
 
-			if (part.thought && !shouldIncludeThoughtParts) {
+			if (part.thought) {
 				continue;
 			}
 
-			if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
-				const resolvedThoughtSignature = await resolveThoughtSignature(part);
+			if (text.trim().length > 0) {
 				const partObj: any = { text };
-				if (part.thought) {
-					partObj.thought = true;
-				}
-				if (options?.includeOpenRouterReasoningDetails === true && part.reasoningDetail) {
-					partObj.reasoningDetail = part.reasoningDetail;
-				}
-				const ts =
-					resolvedThoughtSignature ??
-					(!part.thought && shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+				const ts = shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined;
 				if (ts && !hasThoughtSignature) {
 					partObj.thoughtSignature = ts;
 					hasThoughtSignature = true;
@@ -1021,7 +1008,6 @@ export async function constructGeminiChatHistoryFromLocalChat(
 			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
-			includeOpenRouterReasoningDetails: options?.includeOpenRouterReasoningDetails === true,
 			suppressThoughtSignature: hasThoughtSignature
 		});
 		if (imageParts.length > 0) {
@@ -1675,10 +1661,7 @@ async function buildSendContext(
 		currentChat,
 		selectedPersonaForHistory,
 		{
-			enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory,
-			includeOpenRouterReasoningDetails: !isPremiumEndpointPreferred && isOpenRouterModel(settings.model),
-			includeThoughtParts:
-				!isPremiumEndpointPreferred && (isGeminiModel(settings.model) || isOpenRouterModel(settings.model))
+			enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory
 		}
 	);
 

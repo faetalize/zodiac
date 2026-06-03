@@ -11,7 +11,7 @@
 
 import type { Message, GeneratedImage } from "../types/Message";
 import * as helpers from "./helpers";
-import { resolveAttachmentFile, resolveGeneratedImageSrc, resolveThoughtSignature } from "./blobResolver";
+import { resolveAttachmentFile, resolveGeneratedImageSrc } from "./blobResolver";
 
 // ================================================================================
 // INDEX FINDING
@@ -109,7 +109,6 @@ export interface GeneratedImageProcessingConfig {
 	shouldProcess: boolean;
 	enforceThoughtSignatures: boolean;
 	skipThoughtSignatureValidator: string;
-	includeOpenRouterReasoningDetails?: boolean;
 	suppressThoughtSignature?: boolean;
 }
 
@@ -118,14 +117,8 @@ export interface GeneratedImageProcessingConfig {
  * Returns an array of parts ready to be added to a message.
  */
 export async function processGeneratedImagesToParts(config: GeneratedImageProcessingConfig): Promise<any[]> {
-	const {
-		images,
-		shouldProcess,
-		enforceThoughtSignatures,
-		skipThoughtSignatureValidator,
-		includeOpenRouterReasoningDetails,
-		suppressThoughtSignature
-	} = config;
+	const { images, shouldProcess, enforceThoughtSignatures, skipThoughtSignatureValidator, suppressThoughtSignature } =
+		config;
 
 	if (!shouldProcess || !images || images.length === 0) {
 		return [];
@@ -143,20 +136,11 @@ export async function processGeneratedImagesToParts(config: GeneratedImageProces
 			continue;
 		}
 
-		const resolvedThoughtSignature = await resolveThoughtSignature(img);
-
 		const part: any = {
 			inlineData: { data: base64, mimeType: img.mimeType }
 		};
 		if (!suppressThoughtSignature) {
-			part.thoughtSignature =
-				resolvedThoughtSignature ?? (enforceThoughtSignatures ? skipThoughtSignatureValidator : undefined);
-		}
-		if (includeOpenRouterReasoningDetails && img.thoughtSignatureReasoningDetail) {
-			part.thoughtSignatureReasoningDetail = img.thoughtSignatureReasoningDetail;
-		}
-		if (img.thought) {
-			part.thought = img.thought;
+			part.thoughtSignature = enforceThoughtSignatures ? skipThoughtSignatureValidator : undefined;
 		}
 		parts.push(part);
 	}

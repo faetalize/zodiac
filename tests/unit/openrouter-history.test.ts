@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 describe("OpenRouter history conversion", () => {
-	it("preserves assistant generated-image thought signatures as encrypted reasoning details", async () => {
+	it("sends assistant generated-image history as user messages without reasoning details", async () => {
 		const history = [
 			{
 				role: "user",
@@ -43,21 +43,19 @@ describe("OpenRouter history conversion", () => {
 
 		expect(messages[0]).not.toHaveProperty("reasoning_details");
 		expect(messages[1]).toEqual({
-			role: "assistant",
+			role: "user",
 			content: [
 				{ type: "text", text: "Here is the generated image." },
 				{
 					type: "image_url",
 					image_url: { url: "data:image/png;base64,assistant-image-base64" }
 				}
-			],
-			reasoning_details: [
-				{ type: "reasoning.encrypted", data: "assistant-signature", format: "google-gemini-v1" }
 			]
 		});
+		expect(messages[1]).not.toHaveProperty("reasoning_details");
 	});
 
-	it("keeps the encrypted reasoning metadata provided by the previous OpenRouter response", async () => {
+	it("sends OpenRouter assistant image history as user messages without reasoning metadata", async () => {
 		const history = [
 			{
 				role: "model",
@@ -80,22 +78,20 @@ describe("OpenRouter history conversion", () => {
 
 		const messages = await convertGeminiHistoryToOpenRouterMessages(history);
 
-		expect(messages[0]).toMatchObject({
-			role: "assistant",
-			reasoning_details: [
+		expect(messages[0]).toEqual({
+			role: "user",
+			content: [
+				{ type: "text", text: "Generated from OpenRouter." },
 				{
-					type: "reasoning.encrypted",
-					data: "assistant-signature",
-					id: "reasoning-encrypted-previous",
-					format: "provider-returned-format-v1",
-					index: 7,
-					provider_extra: "kept"
+					type: "image_url",
+					image_url: { url: "data:image/png;base64,assistant-image-base64" }
 				}
 			]
 		});
+		expect(messages[0]).not.toHaveProperty("reasoning_details");
 	});
 
-	it("converts native Gemini thought parts into OpenRouter reasoning details and deduplicates identical encrypted signatures", async () => {
+	it("omits native Gemini thought parts and encrypted signatures from OpenRouter requests", async () => {
 		const history = [
 			{
 				role: "model",
@@ -113,16 +109,26 @@ describe("OpenRouter history conversion", () => {
 		const messages = await convertGeminiHistoryToOpenRouterMessages(history);
 
 		expect(messages[0]).toEqual({
-			role: "assistant",
+			role: "user",
 			content: [
 				{ type: "text", text: "visible answer" },
 				{ type: "image_url", image_url: { url: "data:image/png;base64,image-base64" } }
-			],
-			reasoning_details: [
-				{ type: "reasoning.text", text: "hidden reasoning", format: "google-gemini-v1" },
-				{ type: "reasoning.encrypted", data: "answer-signature", format: "google-gemini-v1" }
 			]
 		});
+		expect(messages[0]).not.toHaveProperty("reasoning_details");
+	});
+
+	it("drops history messages that contain only prior reasoning", async () => {
+		const history = [
+			{
+				role: "model",
+				parts: [{ text: "hidden reasoning only", thought: true }]
+			}
+		] as unknown as Content[];
+
+		const messages = await convertGeminiHistoryToOpenRouterMessages(history);
+
+		expect(messages).toEqual([]);
 	});
 
 	it("preserves OpenRouter response reasoning details as model response parts", async () => {
@@ -199,23 +205,8 @@ describe("OpenRouter history conversion", () => {
 		] as unknown as Content[]);
 		expect(nextMessages[0]).toEqual({
 			role: "assistant",
-			content: "visible answer",
-			reasoning_details: [
-				{
-					type: "reasoning.text",
-					text: "hidden reasoning",
-					format: "google-gemini-v1",
-					index: 0,
-					provider_extra: "text-kept"
-				},
-				{
-					type: "reasoning.encrypted",
-					data: "answer-signature",
-					format: "google-gemini-v1",
-					index: 1,
-					provider_extra: "encrypted-kept"
-				}
-			]
+			content: "visible answer"
 		});
+		expect(nextMessages[0]).not.toHaveProperty("reasoning_details");
 	});
 });

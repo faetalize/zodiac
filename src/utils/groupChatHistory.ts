@@ -11,7 +11,6 @@ import {
 	processAttachmentsToParts,
 	processGeneratedImagesToParts
 } from "./chatHistoryBuilder";
-import { resolveThoughtSignature } from "./blobResolver";
 
 export async function constructGeminiChatHistoryForGroupChat(
 	currentChat: DbChat,
@@ -19,15 +18,12 @@ export async function constructGeminiChatHistoryForGroupChat(
 		speakerNameById: Map<string, string>;
 		userName: string;
 		enforceThoughtSignatures?: boolean;
-		includeOpenRouterReasoningDetails?: boolean;
-		includeThoughtParts?: boolean;
 		skipThoughtSignatureValidator: string;
 	}
 ): Promise<{ history: Content[]; pinnedHistoryIndices: number[] }> {
 	const history: Content[] = [];
 	const pinnedHistoryIndices: number[] = [];
 	const shouldEnforceThoughtSignatures = args.enforceThoughtSignatures === true;
-	const shouldIncludeThoughtParts = args.includeThoughtParts === true;
 
 	const speakerNameForMessage = (m: Message): string => {
 		if (m.role === "user") return (args.userName || "User").toString();
@@ -51,22 +47,13 @@ export async function constructGeminiChatHistoryForGroupChat(
 			const text = (part.text || "").toString();
 			const attachments = part.attachments || [];
 
-			if (part.thought && !shouldIncludeThoughtParts) {
+			if (part.thought) {
 				continue;
 			}
 
-			if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
-				const resolvedThoughtSignature = await resolveThoughtSignature(part);
-				const partObj: any = { text: part.thought ? text : maybePrefixSpeaker(text, speaker) };
-				if (part.thought) {
-					partObj.thought = true;
-				}
-				if (args.includeOpenRouterReasoningDetails === true && part.reasoningDetail) {
-					partObj.reasoningDetail = part.reasoningDetail;
-				}
-				const ts =
-					resolvedThoughtSignature ??
-					(!part.thought && shouldEnforceThoughtSignatures ? args.skipThoughtSignatureValidator : undefined);
+			if (text.trim().length > 0) {
+				const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
+				const ts = shouldEnforceThoughtSignatures ? args.skipThoughtSignatureValidator : undefined;
 				if (ts && !hasThoughtSignature) {
 					partObj.thoughtSignature = ts;
 					hasThoughtSignature = true;
@@ -88,7 +75,6 @@ export async function constructGeminiChatHistoryForGroupChat(
 			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: args.skipThoughtSignatureValidator,
-			includeOpenRouterReasoningDetails: args.includeOpenRouterReasoningDetails === true,
 			suppressThoughtSignature: hasThoughtSignature
 		});
 		if (imageParts.length > 0) {

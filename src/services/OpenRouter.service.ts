@@ -181,6 +181,17 @@ function collapseContentParts(parts: ContentPart[]): string | ContentPart[] {
 	return parts;
 }
 
+function getOpenRouterHistoryRole(args: {
+	role: ReturnType<typeof normalizeMessageRole>;
+	contentParts: ContentPart[];
+}): ReturnType<typeof normalizeMessageRole> {
+	if (args.role === "assistant" && args.contentParts.some((part) => part.type === "image_url")) {
+		return "user";
+	}
+
+	return args.role;
+}
+
 function extractReasoningFromDetails(details: unknown): string {
 	if (!Array.isArray(details)) return "";
 
@@ -194,32 +205,9 @@ function extractReasoningFromDetails(details: unknown): string {
 		.join("");
 }
 
-const FALLBACK_GEMINI_REASONING_DETAIL_FORMAT = "google-gemini-v1";
-
 function stripReasoningPayload(detail: OpenRouterReasoningDetail): ReasoningDetailMetadata {
 	const { data, text, summary, ...metadata } = detail;
 	return metadata;
-}
-
-function buildTextReasoningDetail(part: {
-	text: string;
-	reasoningDetail?: ReasoningDetailMetadata;
-}): OpenRouterReasoningDetail {
-	const metadata = part.reasoningDetail;
-	const type = metadata?.type || "reasoning.text";
-	const detail: OpenRouterReasoningDetail = {
-		...metadata,
-		type,
-		format: metadata?.format ?? FALLBACK_GEMINI_REASONING_DETAIL_FORMAT
-	};
-
-	if (type === "reasoning.summary") {
-		detail.summary = part.text;
-	} else {
-		detail.text = part.text;
-	}
-
-	return detail;
 }
 
 export function extractEncryptedReasoningDetailFromDetails(details: unknown): OpenRouterReasoningDetail | undefined {
@@ -250,17 +238,6 @@ function getThoughtSignatureReasoningMetadata(
 		id: metadata.id,
 		format: metadata.format,
 		index: metadata.index
-	};
-}
-
-function buildEncryptedReasoningDetail(data: string, metadata?: ReasoningDetailMetadata): OpenRouterReasoningDetail {
-	return {
-		...metadata,
-		type: "reasoning.encrypted",
-		data,
-		id: metadata?.id,
-		format: metadata?.format ?? FALLBACK_GEMINI_REASONING_DETAIL_FORMAT,
-		index: metadata?.index
 	};
 }
 
@@ -394,39 +371,10 @@ export async function convertGeminiHistoryToOpenRouterMessages(history: Content[
 	for (const item of history || []) {
 		const role = normalizeMessageRole(item?.role);
 		const contentParts: ContentPart[] = [];
-		const reasoningDetails: OpenRouterReasoningDetail[] = [];
 
 		for (const part of item?.parts || []) {
-			const thoughtSignature = (part as { thoughtSignature?: unknown })?.thoughtSignature;
-			if (role === "assistant" && (part as { thought?: unknown })?.thought === true) {
-				if (part?.text) {
-					reasoningDetails.push(
-						buildTextReasoningDetail({
-							text: String(part.text),
-							reasoningDetail: (part as { reasoningDetail?: ReasoningDetailMetadata }).reasoningDetail
-						})
-					);
-				}
+			if ((part as { thought?: unknown })?.thought === true) {
 				continue;
-			}
-
-			if (role === "assistant" && typeof thoughtSignature === "string" && thoughtSignature.length > 0) {
-				const isDuplicate = reasoningDetails.some(
-					(detail) => detail.type === "reasoning.encrypted" && detail.data === thoughtSignature
-				);
-				if (!isDuplicate) {
-					reasoningDetails.push(
-						buildEncryptedReasoningDetail(
-							thoughtSignature,
-							(part as { reasoningDetail?: ReasoningDetailMetadata }).reasoningDetail ??
-								(
-									part as {
-										thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
-									}
-								).thoughtSignatureReasoningDetail
-						)
-					);
-				}
 			}
 
 			if (part?.text) {
@@ -444,14 +392,12 @@ export async function convertGeminiHistoryToOpenRouterMessages(history: Content[
 			}
 		}
 
-		if (contentParts.length === 0 && reasoningDetails.length === 0) continue;
+		if (contentParts.length === 0) continue;
+		const requestRole = getOpenRouterHistoryRole({ role, contentParts });
 		const message: OpenRouterMessage = {
-			role,
+			role: requestRole,
 			content: contentParts.length > 0 ? collapseContentParts(contentParts) : ""
 		};
-		if (role === "assistant" && reasoningDetails.length > 0) {
-			message.reasoning_details = reasoningDetails;
-		}
 		messages.push(message);
 	}
 
