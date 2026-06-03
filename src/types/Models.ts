@@ -93,7 +93,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		roleplayModeSuggester: true,
 		supportsThinking: true,
 		supportsTemperature: true,
-		supportsImageInput: false,
+		supportsImageInput: true,
 		supportsFileInput: true,
 		supportsImageOutput: false
 	},
