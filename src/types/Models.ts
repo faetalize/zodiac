@@ -177,6 +177,18 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		supportsImageOutput: false
 	},
 	{
+		id: ChatModel.NANO_BANANA,
+		label: "Gemini 2.5 Flash Image (Nano Banana)",
+		provider: "gemini",
+		localOnly: true,
+		mega: false,
+		supportsThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: true,
+		supportsImageOutput: true
+	},
+	{
 		id: ChatModel.NANO_BANANA_PRO,
 		label: "Gemini 3.0 Pro Image (Nano Banana Pro)",
 		provider: "gemini",
@@ -216,19 +228,6 @@ function openRouterGeminiVariant(localModelId: ChatModel, openRouterModelId: str
 	};
 }
 
-const OPENROUTER_NANO_BANANA_MODEL: ChatModelDefinition = {
-	id: "google/gemini-2.5-flash-image",
-	label: "Gemini 2.5 Flash Image (Nano Banana) via OpenRouter",
-	premiumLabel: "Gemini 2.5 Flash Image (Nano Banana)",
-	provider: "openrouter",
-	mega: false,
-	supportsThinking: true,
-	supportsTemperature: true,
-	supportsImageInput: true,
-	supportsFileInput: true,
-	supportsImageOutput: true
-};
-
 export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 	openRouterGeminiVariant(ChatModel.FLASH_LITE, "google/gemini-3.1-flash-lite"),
 	openRouterGeminiVariant(ChatModel.FLASH_3_PREV, "google/gemini-3-flash-preview"),
@@ -237,7 +236,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 	openRouterGeminiVariant(ChatModel.FLASH_LITE_2_5, "google/gemini-2.5-flash-lite"),
 	openRouterGeminiVariant(ChatModel.PRO, "google/gemini-3.1-pro-preview"),
 	openRouterGeminiVariant(ChatModel.PRO_2_5, "google/gemini-2.5-pro"),
-	OPENROUTER_NANO_BANANA_MODEL,
+	openRouterGeminiVariant(ChatModel.NANO_BANANA, "google/gemini-2.5-flash-image"),
 	openRouterGeminiVariant(ChatModel.NANO_BANANA_PRO, "google/gemini-3-pro-image-preview"),
 	openRouterGeminiVariant(ChatModel.NANO_BANANA_2, "google/gemini-3.1-flash-image-preview"),
 	{

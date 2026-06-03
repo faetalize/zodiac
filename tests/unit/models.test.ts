@@ -18,6 +18,14 @@ describe("default model roles", () => {
 });
 
 describe("premium endpoint model mapping", () => {
+	it("keeps local Nano Banana as a local-only Gemini SDK model", () => {
+		const localNanoBanana = getChatModelDefinition("gemini-2.5-flash-image");
+
+		expect(localNanoBanana?.provider).toBe("gemini");
+		expect(localNanoBanana?.localOnly).toBe(true);
+		expect(localNanoBanana?.supportsImageOutput).toBe(true);
+	});
+
 	it("maps Nano Banana hybrid models to OpenRouter variants", () => {
 		const premiumAccess: ChatModelAccess = {
 			hasGeminiAccess: true,
