@@ -316,7 +316,6 @@ export const messageElement = async (message: Message, index: number): Promise<H
 		if (isNarrator) {
 			messageDiv.classList.add("message-narrator");
 		}
-		const visiblePart = getVisibleMessagePart(message);
 		const rawInitial = getVisibleMessageText(message);
 		const initialHtmlRaw = (await helpers.getDecoded(rawInitial)) || "";
 		const initialHtml = await decorateMentions(initialHtmlRaw);

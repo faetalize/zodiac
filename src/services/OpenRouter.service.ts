@@ -206,7 +206,10 @@ function extractReasoningFromDetails(details: unknown): string {
 }
 
 function stripReasoningPayload(detail: OpenRouterReasoningDetail): ReasoningDetailMetadata {
-	const { data, text, summary, ...metadata } = detail;
+	const metadata: ReasoningDetailMetadata = { ...detail };
+	delete metadata["data"];
+	delete metadata["text"];
+	delete metadata["summary"];
 	return metadata;
 }
 
