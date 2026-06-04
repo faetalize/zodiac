@@ -14,58 +14,6 @@ import * as helpers from "./helpers";
 import { resolveAttachmentFile, resolveGeneratedImageSrc } from "./blobResolver";
 
 // ================================================================================
-// INDEX FINDING
-// ================================================================================
-
-/**
- * Finds the index of the last visible message containing generated images.
- * Returns -1 if no such message exists.
- */
-export function findLastGeneratedImageIndex(content: Message[]): number {
-	for (let i = content.length - 1; i >= 0; i--) {
-		const message = content[i];
-		if (message.hidden) continue;
-		if (message.generatedImages && message.generatedImages.length > 0) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-/**
- * Finds the index of the last visible message containing attachments.
- * Returns -1 if no such message exists.
- */
-export function findLastAttachmentIndex(content: Message[]): number {
-	for (let i = content.length - 1; i >= 0; i--) {
-		const message = content[i];
-		if (message.hidden) continue;
-		if (message.parts.some((part) => part.attachments && part.attachments.length > 0)) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-/**
- * Result of finding relevant message indices for history construction.
- */
-export interface MessageIndices {
-	lastImageIndex: number;
-	lastAttachmentIndex: number;
-}
-
-/**
- * Finds both last image and last attachment indices in one pass.
- */
-export function findMediaIndices(content: Message[]): MessageIndices {
-	return {
-		lastImageIndex: findLastGeneratedImageIndex(content),
-		lastAttachmentIndex: findLastAttachmentIndex(content)
-	};
-}
-
-// ================================================================================
 // PART PROCESSING
 // ================================================================================
 

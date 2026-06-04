@@ -5,12 +5,7 @@ import type { DbChat } from "../types/Chat";
 
 import { NARRATOR_PERSONALITY_ID } from "./personalityMarkers";
 import { maybePrefixSpeaker } from "./chatHistory";
-import {
-	findLastAttachmentIndex,
-	findLastGeneratedImageIndex,
-	processAttachmentsToParts,
-	processGeneratedImagesToParts
-} from "./chatHistoryBuilder";
+import { processAttachmentsToParts, processGeneratedImagesToParts } from "./chatHistoryBuilder";
 
 export async function constructGeminiChatHistoryForGroupChat(
 	currentChat: DbChat,
@@ -31,9 +26,6 @@ export async function constructGeminiChatHistoryForGroupChat(
 		const id = (m.personalityid ?? "").toString();
 		return args.speakerNameById.get(id) ?? "Unknown";
 	};
-
-	const lastImageIndex = findLastGeneratedImageIndex(currentChat.content);
-	const lastAttachmentIndex = findLastAttachmentIndex(currentChat.content);
 
 	for (let index = 0; index < currentChat.content.length; index++) {
 		const dbMessage = currentChat.content[index];
@@ -63,7 +55,7 @@ export async function constructGeminiChatHistoryForGroupChat(
 
 			const attachmentParts = await processAttachmentsToParts({
 				attachments,
-				shouldProcess: attachments.length > 0 && index === lastAttachmentIndex
+				shouldProcess: attachments.length > 0
 			});
 			aggregatedParts.push(...attachmentParts);
 		}
@@ -72,7 +64,7 @@ export async function constructGeminiChatHistoryForGroupChat(
 
 		const imageParts = await processGeneratedImagesToParts({
 			images: dbMessage.generatedImages,
-			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
+			shouldProcess: !!dbMessage.generatedImages,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: args.skipThoughtSignatureValidator,
 			suppressThoughtSignature: hasThoughtSignature

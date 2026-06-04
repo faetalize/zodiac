@@ -60,8 +60,6 @@ import {
 } from "../utils/chatHistory";
 
 import {
-	findLastGeneratedImageIndex,
-	findLastAttachmentIndex,
 	processAttachmentsToParts,
 	processGeneratedImagesToParts,
 	extractTextAndThinkingFromResponse
@@ -1956,9 +1954,6 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 		return args.speakerNameById.get(id) ?? "Unknown";
 	};
 
-	const lastImageIndex = findLastGeneratedImageIndex(currentChat.content);
-	const lastAttachmentIndex = findLastAttachmentIndex(currentChat.content);
-
 	for (let index = 0; index < currentChat.content.length; index++) {
 		const dbMessage = currentChat.content[index];
 		if (dbMessage.hidden) continue;
@@ -1987,7 +1982,7 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 
 			const attachmentParts = await processAttachmentsToParts({
 				attachments,
-				shouldProcess: attachments.length > 0 && index === lastAttachmentIndex
+				shouldProcess: attachments.length > 0
 			});
 			aggregatedParts.push(...attachmentParts);
 		}
@@ -1996,7 +1991,7 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 
 		const imageParts = await processGeneratedImagesToParts({
 			images: dbMessage.generatedImages,
-			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
+			shouldProcess: !!dbMessage.generatedImages,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
 			suppressThoughtSignature: hasThoughtSignature

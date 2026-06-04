@@ -72,8 +72,6 @@ import {
 	buildPersonalityInstructionMessages
 } from "../utils/personalityMarkers";
 import {
-	findLastGeneratedImageIndex,
-	findLastAttachmentIndex,
 	processAttachmentsToParts,
 	processGeneratedImagesToParts,
 	renderGroundingToShadowDom,
@@ -932,9 +930,6 @@ export async function constructGeminiChatHistoryFromLocalChat(
 		await chatsService.saveChat(currentChat as any);
 	}
 
-	const lastImageIndex = findLastGeneratedImageIndex(currentChat.content);
-	const lastAttachmentIndex = findLastAttachmentIndex(currentChat.content);
-
 	for (let index = 0; index < currentChat.content.length; index++) {
 		const dbMessage = currentChat.content[index];
 
@@ -993,7 +988,7 @@ export async function constructGeminiChatHistoryFromLocalChat(
 
 			const attachmentParts = await processAttachmentsToParts({
 				attachments,
-				shouldProcess: attachments.length > 0 && index === lastAttachmentIndex
+				shouldProcess: attachments.length > 0
 			});
 			aggregatedParts.push(...attachmentParts);
 		}
@@ -1005,7 +1000,7 @@ export async function constructGeminiChatHistoryFromLocalChat(
 
 		const imageParts = await processGeneratedImagesToParts({
 			images: dbMessage.generatedImages,
-			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
+			shouldProcess: !!dbMessage.generatedImages,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
 			suppressThoughtSignature: hasThoughtSignature
