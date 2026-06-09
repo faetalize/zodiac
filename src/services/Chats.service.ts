@@ -12,6 +12,55 @@ import * as syncService from "./Sync.service";
 import * as toastService from "./Toast.service";
 import * as pinningService from "./Pinning.service";
 import { openDropdownPortal, type DropdownPortal } from "../utils/dropdownPortal";
+import type { BlobReference } from "../types/BlobReference";
+
+/**
+ * `structuredClone` clones `File` objects but silently drops expando properties
+ * such as the `_blobRef` we attach to blob-backed attachment placeholders during
+ * cloud-sync deserialization. Without that ref, the chat snapshot/cache can no
+ * longer resolve the original attachment bytes, so it gets omitted from request
+ * history even though the rendered message still shows the image (the renderer
+ * reads the un-cloned in-memory messages). Re-attach the ref by index after
+ * cloning so write/history paths keep working for cloud-loaded attachments.
+ */
+function reattachAttachmentBlobRefs(source: Message[] | undefined, cloned: Message[] | undefined): void {
+	if (!Array.isArray(source) || !Array.isArray(cloned)) return;
+	for (let i = 0; i < cloned.length; i++) {
+		const sourceParts = source[i]?.parts;
+		const clonedParts = cloned[i]?.parts;
+		if (!Array.isArray(sourceParts) || !Array.isArray(clonedParts)) continue;
+		for (let p = 0; p < clonedParts.length; p++) {
+			const sourceAttachments = Array.from(sourceParts[p]?.attachments ?? []);
+			const clonedAttachments = Array.from(clonedParts[p]?.attachments ?? []);
+			for (let a = 0; a < clonedAttachments.length; a++) {
+				const ref = (sourceAttachments[a] as { _blobRef?: BlobReference } | undefined)?._blobRef;
+				if (ref && clonedAttachments[a]) {
+					(clonedAttachments[a] as { _blobRef?: BlobReference })._blobRef = ref;
+				}
+			}
+		}
+	}
+}
+
+/**
+ * Clone a message array while preserving blob-backed attachment references.
+ */
+export function cloneChatContent(content: Message[] | undefined): Message[] {
+	const cloned = structuredClone(content ?? []);
+	reattachAttachmentBlobRefs(content, cloned);
+	return cloned;
+}
+
+/**
+ * Clone a chat (or chat-shaped object) while preserving blob-backed attachment
+ * references on its message content.
+ */
+function cloneChat<T extends { content?: Message[] }>(chat: T): T {
+	const cloned = structuredClone(chat);
+	reattachAttachmentBlobRefs(chat.content, (cloned as { content?: Message[] }).content);
+	return cloned;
+}
+
 const messageContainer = document.querySelector<HTMLDivElement>(".message-container");
 const scrollableChatContainerSelector = "#scrollable-chat-container";
 const chatHistorySection = document.querySelector<HTMLDivElement>("#chatHistorySection");
@@ -360,7 +409,7 @@ async function persistChatWithinQueue(chat: DbChat): Promise<void> {
 		}
 		upsertRemoteChat(chatToSave);
 		if (currentChatSnapshot?.id === chat.id) {
-			currentChatSnapshot = structuredClone(chatToSave);
+			currentChatSnapshot = cloneChat(chatToSave);
 		}
 		await refreshChatListAfterActivity(db);
 		return;
@@ -408,8 +457,8 @@ function cacheRemoteChats(chats: DbChat[]) {
 
 		const preservedContent =
 			existing && existing.content.length > chat.content.length
-				? structuredClone(existing.content)
-				: structuredClone(chat.content || []);
+				? cloneChatContent(existing.content)
+				: cloneChatContent(chat.content || []);
 
 		nextRemoteChatsById.set(chat.id, {
 			...structuredClone(chat),
@@ -424,7 +473,7 @@ function cacheRemoteChats(chats: DbChat[]) {
 }
 
 function upsertRemoteChat(chat: DbChat) {
-	remoteChatsById.set(chat.id, structuredClone(chat));
+	remoteChatsById.set(chat.id, cloneChat(chat));
 }
 
 function pickRicherChatSnapshot(
@@ -908,14 +957,14 @@ export async function addChatRecord(chat: Chat): Promise<string> {
 export async function getCurrentChat(dbArg: Db = db) {
 	if (syncService.isOnlineSyncEnabled()) {
 		if (!syncService.isSyncActive()) return null;
-		if (currentChatSnapshot) return structuredClone(currentChatSnapshot);
+		if (currentChatSnapshot) return cloneChat(currentChatSnapshot);
 		const id = getCurrentChatId();
 		if (!id) return null;
 		const remote = remoteChatsById.get(id) ?? (await syncService.fetchSyncedChatMetadata(id));
 		if (!remote) return null;
-		currentChatSnapshot = structuredClone(remote);
+		currentChatSnapshot = cloneChat(remote);
 		upsertRemoteChat(remote);
-		return structuredClone(remote);
+		return cloneChat(remote);
 	}
 
 	const id = getCurrentChatId();
@@ -1034,16 +1083,16 @@ export async function getChatById(id: string): Promise<DbChat | undefined> {
 		if (currentChatSnapshot?.id === id) {
 			const richestCurrent = pickRicherChatSnapshot(currentChatSnapshot, remoteChatsById.get(id));
 			if (richestCurrent) {
-				return structuredClone(richestCurrent);
+				return cloneChat(richestCurrent);
 			}
 		}
 		const cached = remoteChatsById.get(id);
-		if (cached) return structuredClone(cached);
+		if (cached) return cloneChat(cached);
 
 		const remote = await syncService.fetchSyncedChatMetadata(id);
 		if (!remote) return undefined;
 		upsertRemoteChat(remote);
-		return structuredClone(remote);
+		return cloneChat(remote);
 	}
 
 	return db.chats.get(id);
@@ -1051,7 +1100,7 @@ export async function getChatById(id: string): Promise<DbChat | undefined> {
 
 export async function replaceCurrentChatMessages(messages: Message[]): Promise<void> {
 	if (!currentChatSnapshot) return;
-	currentChatMessages = structuredClone(messages);
+	currentChatMessages = cloneChatContent(messages);
 	loadedStartIndex = 0;
 	loadedEndIndex = currentChatMessages.length;
 	hasMoreOlder = false;
@@ -1061,7 +1110,7 @@ export async function replaceCurrentChatMessages(messages: Message[]): Promise<v
 
 	currentChatSnapshot = {
 		...currentChatSnapshot,
-		content: structuredClone(currentChatMessages)
+		content: cloneChatContent(currentChatMessages)
 	};
 	upsertRemoteChat(currentChatSnapshot);
 	syncAllChatGenerationIndicators();
@@ -1073,7 +1122,7 @@ export function replaceCachedChatMessages(chatId: string, messages: Message[]): 
 
 	remoteChatsById.set(chatId, {
 		...cached,
-		content: structuredClone(messages)
+		content: cloneChatContent(messages)
 	});
 }
 
@@ -1264,7 +1313,7 @@ async function loadOlderMessages() {
 				if (currentChatSnapshot) {
 					currentChatSnapshot = {
 						...currentChatSnapshot,
-						content: structuredClone(currentChatMessages)
+						content: cloneChatContent(currentChatMessages)
 					};
 					upsertRemoteChat(currentChatSnapshot);
 				}
@@ -1353,7 +1402,7 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
 
 		document.querySelector("#chat-title")!.textContent = chat.title || "";
 		const richestKnownChat = pickRicherChatSnapshot(chat, remoteChatsById.get(chatID));
-		currentChatSnapshot = structuredClone(richestKnownChat ?? chat);
+		currentChatSnapshot = cloneChat(richestKnownChat ?? chat);
 
 		if (syncService.isOnlineSyncEnabled()) {
 			if (!syncService.isSyncActive()) {
@@ -1373,7 +1422,7 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
 				currentChatMessages = latestWindow.messages;
 				currentChatSnapshot = {
 					...chat,
-					content: structuredClone(currentChatMessages)
+					content: cloneChatContent(currentChatMessages)
 				};
 				upsertRemoteChat(currentChatSnapshot);
 				loadedStartIndex = 0;
@@ -1422,7 +1471,7 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
 
 							currentChatSnapshot = {
 								...chat,
-								content: structuredClone(currentChatMessages)
+								content: cloneChatContent(currentChatMessages)
 							};
 							upsertRemoteChat(currentChatSnapshot);
 
@@ -1455,7 +1504,7 @@ export async function loadChat(chatID: string, dbArg: Db = db) {
 		currentChatMessages = chat.content || [];
 		currentChatSnapshot = {
 			...chat,
-			content: structuredClone(currentChatMessages)
+			content: cloneChatContent(currentChatMessages)
 		};
 
 		const total = currentChatMessages.length;
