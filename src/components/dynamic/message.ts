@@ -769,6 +769,24 @@ function setupMessageEditing(messageElement: HTMLElement) {
 	});
 }
 
+function copyRuntimeFileMetadata(source: File, target: File): void {
+	for (const key of Object.keys(source as any)) {
+		(target as any)[key] = (source as any)[key];
+	}
+}
+
+function filesToFileList(files: File[]): FileList {
+	const transfer = new DataTransfer();
+	for (const file of files) {
+		transfer.items.add(file);
+	}
+	files.forEach((file, index) => {
+		const clonedFile = transfer.files[index] as File | undefined;
+		if (clonedFile) copyRuntimeFileMetadata(file, clonedFile);
+	});
+	return transfer.files;
+}
+
 function setupMessageRegeneration(messageElement: HTMLElement, index: number) {
 	const refreshButton = messageElement.querySelector<HTMLButtonElement>(".btn-refresh");
 	if (!refreshButton) {
@@ -853,21 +871,7 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
 		const currentChat = await chatsService.getCurrentChat();
 		if (!currentChat || !markdownContent) return;
 
-		const nextAttachments =
-			attachments === undefined
-				? undefined
-				: (() => {
-						const dataTransfer = new DataTransfer();
-						attachments.forEach((file) => dataTransfer.items.add(file));
-						attachments.forEach((file, index) => {
-							const clonedFile = dataTransfer.files[index] as File | undefined;
-							if (!clonedFile) return;
-							for (const key of Object.keys(file as any)) {
-								(clonedFile as any)[key] = (file as any)[key];
-							}
-						});
-						return dataTransfer.files;
-					})();
+		const nextAttachments = attachments === undefined ? undefined : filesToFileList(attachments);
 
 		const didUpdate = await chatsService.mutateChat(currentChat.id, (chat) => {
 			const targetMessage = chat.content[messageIndex];
@@ -1284,9 +1288,7 @@ function resolveBlobAttachmentPreviews(messageDiv: HTMLElement, message: Message
 				// Replace placeholder in message object so downstream logic
 				// (e.g. edit/save/regenerate paths) sees a real File.
 				attachments[idx] = resolved;
-				const transfer = new DataTransfer();
-				attachments.forEach((file) => transfer.items.add(file));
-				firstPart.attachments = transfer.files;
+				firstPart.attachments = filesToFileList(attachments);
 
 				void settle.finally(markDone);
 			})
