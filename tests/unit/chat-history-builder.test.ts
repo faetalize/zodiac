@@ -5,7 +5,7 @@ vi.mock("../../src/utils/helpers", () => ({
 }));
 
 vi.mock("@google/genai", async (importOriginal) => ({
-	...(await importOriginal<typeof import("@google/genai")>()),
+	...(await importOriginal()),
 	createPartFromBase64: vi.fn(async (data: string, mimeType: string) => ({ inlineData: { data, mimeType } }))
 }));
 
