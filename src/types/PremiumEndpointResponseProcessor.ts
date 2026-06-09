@@ -1,4 +1,4 @@
-import type { GeneratedImage } from "./Message";
+import type { GeneratedImage, Message } from "./Message";
 
 export type PremiumEndpointAbortMode = "throw" | "return";
 
@@ -35,6 +35,7 @@ export type PremiumEndpointProcessResult = {
 	finishReason?: unknown;
 	groundingContent: string;
 	images: GeneratedImage[];
+	responseParts: Message["parts"];
 	wasAborted: boolean;
 	wasFallbackMode: boolean;
 };

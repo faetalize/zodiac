@@ -233,6 +233,33 @@ function getVisibleMessageText(message: Message): string {
 		.join("");
 }
 
+function getThoughtInlineImages(message: Message): Array<{ data: string; mimeType: string }> {
+	const partImages = (message.parts || [])
+		.filter((part) => part.thought && part.inlineData?.data)
+		.map((part) => ({
+			data: part.inlineData!.data,
+			mimeType: part.inlineData!.mimeType || "image/png"
+		}));
+	const legacyGeneratedImages = (message.generatedImages || [])
+		.filter((img) => img.thought && img.base64)
+		.map((img) => ({ data: img.base64, mimeType: img.mimeType || "image/png" }));
+
+	return [...partImages, ...legacyGeneratedImages];
+}
+
+async function buildThinkingContentHtml(message: Message): Promise<string> {
+	const thinkingText = message.thinking?.trim() ? await helpers.getDecoded(message.thinking || "") : "";
+	const thoughtImages = getThoughtInlineImages(message);
+	const imageHtml = thoughtImages
+		.map(
+			(img) =>
+				`<div class="thought-image-wrapper"><img class="thought-image" src="data:${escapeHtml(img.mimeType)};base64,${img.data}" loading="lazy" /></div>`
+		)
+		.join("");
+
+	return `${thinkingText}${imageHtml ? `<div class="thought-images">${imageHtml}</div>` : ""}`;
+}
+
 export const messageElement = async (message: Message, index: number): Promise<HTMLElement> => {
 	const messageDiv = document.createElement("div");
 	//keep the chat index on the DOM node so that downstream logic (e.g.
@@ -319,9 +346,11 @@ export const messageElement = async (message: Message, index: number): Promise<H
 		const initialHtmlRaw = (await helpers.getDecoded(rawInitial)) || "";
 		const initialHtml = await decorateMentions(initialHtmlRaw);
 		// If we already have generated images, don't show loading spinner even if text is empty
-		const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
+		const visibleImages = (message.generatedImages || []).filter((img) => !img.thought);
+		const hasImages = visibleImages.length > 0;
 		const isLoading = rawInitial.trim().length === 0 && !hasImages;
-		const hasThinking = !!message.thinking && message.thinking.trim().length > 0;
+		const thinkingContentHtml = await buildThinkingContentHtml(message);
+		const hasThinking = thinkingContentHtml.trim().length > 0;
 
 		if (isNarrator) {
 			const originModelLabel = formatOriginModelLabel(message.originModel);
@@ -342,7 +371,7 @@ export const messageElement = async (message: Message, index: number): Promise<H
 				hasThinking
 					? `<div class="message-thinking">` +
 						`<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
-						`<div class="thinking-content" hidden>${await helpers.getDecoded(message.thinking || "")}</div>` +
+						`<div class="thinking-content" hidden>${thinkingContentHtml}</div>` +
 						`</div>`
 					: ""
 			}
@@ -388,7 +417,7 @@ export const messageElement = async (message: Message, index: number): Promise<H
 				hasThinking
 					? `<div class="message-thinking">` +
 						`<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
-						`<div class="thinking-content" hidden>${await helpers.getDecoded(message.thinking || "")}</div>` +
+						`<div class="thinking-content" hidden>${thinkingContentHtml}</div>` +
 						`</div>`
 					: ""
 			}
@@ -399,8 +428,8 @@ export const messageElement = async (message: Message, index: number): Promise<H
             <div class="message-images">
                 ${
 					hasImages
-						? message
-								.generatedImages!.map((img, idx) => {
+						? visibleImages
+								.map((img, idx) => {
 									const needsBlob = (!img.base64 || img.base64.length === 0) && !!img._blobRef;
 									const src = needsBlob ? "" : `data:${img.mimeType};base64,${img.base64}`;
 									return `

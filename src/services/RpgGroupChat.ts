@@ -66,6 +66,7 @@ import {
 } from "../utils/chatHistoryBuilder";
 
 import { throwAbortError } from "../utils/abort";
+import { resolveThoughtSignature } from "../utils/blobResolver";
 import { dispatchAppEvent } from "../events";
 
 import {
@@ -1972,7 +1973,12 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 
 			if (text.trim().length > 0) {
 				const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
-				const ts = shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined;
+				const resolvedSignature = dbMessage.role === "model" ? await resolveThoughtSignature(part) : undefined;
+				const ts =
+					resolvedSignature ||
+					(dbMessage.role === "model" && shouldEnforceThoughtSignatures
+						? SKIP_THOUGHT_SIGNATURE_VALIDATOR
+						: undefined);
 				if (ts && !hasThoughtSignature) {
 					partObj.thoughtSignature = ts;
 					hasThoughtSignature = true;

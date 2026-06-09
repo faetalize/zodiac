@@ -40,18 +40,32 @@ function getGroundingRenderedContent(payload: any): string {
 
 function pushInlineImage(args: {
 	images: GeneratedImage[];
+	responseParts: Message["parts"];
 	part: any;
 	useSkipThoughtSignature: boolean;
 	skipThoughtSignatureValidator: string;
 }): void {
-	const { images, part, useSkipThoughtSignature, skipThoughtSignatureValidator } = args;
+	const { images, responseParts, part, useSkipThoughtSignature, skipThoughtSignatureValidator } = args;
+	const thoughtSignature =
+		part.thoughtSignature ?? (useSkipThoughtSignature ? skipThoughtSignatureValidator : undefined);
+
+	if (part.thought) {
+		responseParts.push({
+			inlineData: {
+				data: part.inlineData?.data || "",
+				mimeType: part.inlineData?.mimeType || "image/png"
+			},
+			thoughtSignature,
+			thought: true
+		});
+		return;
+	}
 
 	images.push({
 		mimeType: part.inlineData?.mimeType || "image/png",
 		base64: part.inlineData?.data || "",
-		thoughtSignature:
-			part.thoughtSignature ?? (useSkipThoughtSignature ? skipThoughtSignatureValidator : undefined),
-		thought: part.thought
+		thoughtSignature,
+		thought: undefined
 	});
 }
 
@@ -96,6 +110,7 @@ export async function processGeminiLocalSdkResponse(args: {
 		} else if (part?.inlineData) {
 			pushInlineImage({
 				images,
+				responseParts,
 				part,
 				useSkipThoughtSignature: process.useSkipThoughtSignature,
 				skipThoughtSignatureValidator: process.skipThoughtSignatureValidator
@@ -173,6 +188,7 @@ export async function processGeminiLocalSdkStream(args: {
 			} else if (part?.inlineData) {
 				pushInlineImage({
 					images,
+					responseParts,
 					part,
 					useSkipThoughtSignature: process.useSkipThoughtSignature,
 					skipThoughtSignatureValidator: process.skipThoughtSignatureValidator

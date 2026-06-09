@@ -80,6 +80,7 @@ import {
 	createErrorMessage,
 	UNRESTRICTED_SAFETY_SETTINGS
 } from "../utils/chatHistoryBuilder";
+import { resolveThoughtSignature } from "../utils/blobResolver";
 
 import { sendGroupChatRpg, type RpgInputArgs } from "./RpgGroupChat";
 import { sendGroupChatDynamic, type DynamicInputArgs } from "./DynamicGroupChat";
@@ -948,11 +949,7 @@ export async function constructGeminiChatHistoryFromLocalChat(
 				}
 			}
 			if (persona) {
-				const instructions = buildPersonalityInstructionMessages(persona, {
-					modelTextThoughtSignature: shouldEnforceThoughtSignatures
-						? SKIP_THOUGHT_SIGNATURE_VALIDATOR
-						: undefined
-				});
+				const instructions = buildPersonalityInstructionMessages(persona);
 				const startIndex = history.length;
 				history.push(...instructions);
 				if (markerInfo.personalityId === selectedPersonality.id) {
@@ -978,7 +975,12 @@ export async function constructGeminiChatHistoryFromLocalChat(
 
 			if (text.trim().length > 0) {
 				const partObj: any = { text };
-				const ts = shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined;
+				const resolvedSignature = dbMessage.role === "model" ? await resolveThoughtSignature(part) : undefined;
+				const ts =
+					resolvedSignature ||
+					(dbMessage.role === "model" && shouldEnforceThoughtSignatures
+						? SKIP_THOUGHT_SIGNATURE_VALIDATOR
+						: undefined);
 				if (ts && !hasThoughtSignature) {
 					partObj.thoughtSignature = ts;
 					hasThoughtSignature = true;
@@ -2013,6 +2015,7 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
 		state.thinking = result.thinking;
 		state.rawText = result.text;
 		state.textSignature = result.textSignature;
+		state.responseParts = result.responseParts ?? [];
 		state.groundingContent = result.groundingContent;
 		state.generatedImages = result.images;
 
@@ -2064,14 +2067,26 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
 						}
 						state.rawText += part.text;
 					} else if (part.inlineData) {
-						state.generatedImages.push({
-							mimeType: part.inlineData.mimeType || "image/png",
-							base64: part.inlineData.data || "",
+						const imagePart = {
+							inlineData: {
+								data: part.inlineData.data || "",
+								mimeType: part.inlineData.mimeType || "image/png"
+							},
 							thoughtSignature:
 								part.thoughtSignature ??
 								(ctx.shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
 							thought: part.thought
-						});
+						};
+						if (part.thought) {
+							state.responseParts.push(imagePart);
+						} else {
+							state.generatedImages.push({
+								mimeType: imagePart.inlineData.mimeType,
+								base64: imagePart.inlineData.data,
+								thoughtSignature: imagePart.thoughtSignature,
+								thought: undefined
+							});
+						}
 					}
 				}
 				if (json.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) {

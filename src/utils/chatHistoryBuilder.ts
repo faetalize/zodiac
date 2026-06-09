@@ -11,7 +11,7 @@
 
 import type { Message, GeneratedImage } from "../types/Message";
 import * as helpers from "./helpers";
-import { resolveAttachmentFile, resolveGeneratedImageSrc } from "./blobResolver";
+import { resolveAttachmentFile, resolveGeneratedImageSrc, resolveThoughtSignature } from "./blobResolver";
 
 // ================================================================================
 // PART PROCESSING
@@ -42,6 +42,9 @@ export async function processAttachmentsToParts(config: AttachmentProcessingConf
 	for (const attachment of Array.from(attachments)) {
 		const resolvedAttachment = await resolveAttachmentFile(attachment);
 		const base64 = await helpers.fileToBase64(resolvedAttachment);
+		if (!base64) {
+			continue;
+		}
 		const mimeType = resolvedAttachment.type || "application/octet-stream";
 		parts.push(await createPartFromBase64(base64, mimeType));
 	}
@@ -74,6 +77,10 @@ export async function processGeneratedImagesToParts(config: GeneratedImageProces
 
 	const parts: any[] = [];
 	for (const img of images) {
+		if (img.thought) {
+			continue;
+		}
+
 		let base64 = img.base64 || "";
 		if (base64.length === 0 && img._blobRef) {
 			const dataUri = await resolveGeneratedImageSrc(img);
@@ -87,7 +94,10 @@ export async function processGeneratedImagesToParts(config: GeneratedImageProces
 		const part: any = {
 			inlineData: { data: base64, mimeType: img.mimeType }
 		};
-		if (!suppressThoughtSignature) {
+		const thoughtSignature = await resolveThoughtSignature(img);
+		if (thoughtSignature) {
+			part.thoughtSignature = thoughtSignature;
+		} else if (!suppressThoughtSignature) {
 			part.thoughtSignature = enforceThoughtSignatures ? skipThoughtSignatureValidator : undefined;
 		}
 		parts.push(part);

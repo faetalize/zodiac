@@ -69,7 +69,11 @@ export interface MessageDebugInfo {
 export interface Message {
 	role: "user" | "model";
 	parts: Array<{
-		text: string;
+		text?: string;
+		inlineData?: {
+			data: string;
+			mimeType: string;
+		};
 		thought?: boolean;
 		reasoningDetail?: ReasoningDetailMetadata;
 		attachments?: FileList | File[];
