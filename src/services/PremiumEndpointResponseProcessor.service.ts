@@ -126,6 +126,7 @@ async function applyFallbackDelta(args: {
 		text: string;
 		thinking: string;
 		images: GeneratedImage[];
+		textSignature?: string;
 		thoughtSignature?: string;
 		thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
 	};
@@ -156,6 +157,7 @@ async function applyFallbackDelta(args: {
 	if (encryptedReasoningDetail) {
 		const { data, ...metadata } = encryptedReasoningDetail;
 		state.thoughtSignature = data;
+		state.textSignature = data;
 		state.thoughtSignatureReasoningDetail = {
 			...metadata,
 			type: "reasoning.encrypted",
