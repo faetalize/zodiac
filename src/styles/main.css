@@ -3446,6 +3446,28 @@ body.full-width-chat .message-container {
 	font-family: inherit;
 }
 
+.message-thinking .thought-images {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+}
+
+.message-thinking .thought-image-wrapper {
+	display: inline-flex;
+	max-width: min(16rem, 100%);
+	background: #00000018;
+	border-radius: 0.4rem;
+	overflow: hidden;
+}
+
+.message-thinking .thought-image {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	object-fit: contain;
+}
+
 /* Settings specific */
 /* Generated images in assistant messages */
 .message-images {

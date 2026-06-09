@@ -1,10 +1,14 @@
 import type { GenerateContentResponse } from "@google/genai";
 import type { Response as OpenRouterResponse, StreamingChoice } from "../types/OpenRouterTypes";
-import type { GeneratedImage } from "../types/Message";
+import type { GeneratedImage, Message } from "../types/Message";
 import type {
 	PremiumEndpointProcessArgs,
 	PremiumEndpointProcessResult
 } from "../types/PremiumEndpointResponseProcessor";
+import {
+	extractEncryptedReasoningDetailFromDetails,
+	extractImageDataFromOpenRouterImageUrl
+} from "./OpenRouter.service";
 
 function throwAbortError(): never {
 	const err = new Error("Aborted");
@@ -26,18 +30,32 @@ function getGroundingRenderedContent(payload: any): string {
 
 function pushInlineImage(args: {
 	images: GeneratedImage[];
+	responseParts: Message["parts"];
 	part: any;
 	useSkipThoughtSignature: boolean;
 	skipThoughtSignatureValidator: string;
 }): void {
-	const { images, part, useSkipThoughtSignature, skipThoughtSignatureValidator } = args;
+	const { images, responseParts, part, useSkipThoughtSignature, skipThoughtSignatureValidator } = args;
+	const thoughtSignature =
+		part.thoughtSignature ?? (useSkipThoughtSignature ? skipThoughtSignatureValidator : undefined);
+
+	if (part.thought) {
+		responseParts.push({
+			inlineData: {
+				data: part.inlineData?.data || "",
+				mimeType: part.inlineData?.mimeType || "image/png"
+			},
+			thoughtSignature,
+			thought: true
+		});
+		return;
+	}
 
 	images.push({
 		mimeType: part.inlineData?.mimeType || "image/png",
 		base64: part.inlineData?.data || "",
-		thoughtSignature:
-			part.thoughtSignature ?? (useSkipThoughtSignature ? skipThoughtSignatureValidator : undefined),
-		thought: part.thought
+		thoughtSignature,
+		thought: undefined
 	});
 }
 
@@ -51,6 +69,7 @@ async function applyGeminiPayload(args: {
 		finishReason?: unknown;
 		groundingContent: string;
 		images: GeneratedImage[];
+		responseParts: Message["parts"];
 	};
 }): Promise<void> {
 	const { payload, process, state } = args;
@@ -79,13 +98,17 @@ async function applyGeminiPayload(args: {
 			state.text += delta;
 			await process.callbacks?.onText?.({ delta, text: state.text });
 		} else if (part?.inlineData) {
+			const imageCountBefore = state.images.length;
 			pushInlineImage({
 				images: state.images,
+				responseParts: state.responseParts,
 				part,
 				useSkipThoughtSignature: process.useSkipThoughtSignature,
 				skipThoughtSignatureValidator: process.skipThoughtSignatureValidator
 			});
-			process.callbacks?.onImage?.(state.images[state.images.length - 1]);
+			if (state.images.length > imageCountBefore) {
+				process.callbacks?.onImage?.(state.images[state.images.length - 1]);
+			}
 		}
 	}
 
@@ -102,6 +125,9 @@ async function applyFallbackDelta(args: {
 	state: {
 		text: string;
 		thinking: string;
+		images: GeneratedImage[];
+		thoughtSignature?: string;
+		thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
 	};
 }): Promise<void> {
 	const { data, process, state } = args;
@@ -125,6 +151,37 @@ async function applyFallbackDelta(args: {
 		state.thinking += delta;
 		await process.callbacks?.onThinking?.({ delta, thinking: state.thinking });
 	}
+
+	const encryptedReasoningDetail = extractEncryptedReasoningDetailFromDetails(deltaObj?.reasoning_details);
+	if (encryptedReasoningDetail) {
+		const { data, ...metadata } = encryptedReasoningDetail;
+		state.thoughtSignature = data;
+		state.thoughtSignatureReasoningDetail = {
+			...metadata,
+			type: "reasoning.encrypted",
+			id: metadata.id,
+			format: metadata.format,
+			index: metadata.index
+		};
+	}
+
+	const deltaImages = deltaObj?.images || [];
+	for (const img of deltaImages) {
+		const imageObj = extractImageDataFromOpenRouterImageUrl(
+			img,
+			state.thoughtSignature,
+			state.thoughtSignatureReasoningDetail
+		);
+		if (imageObj) {
+			const genImage: GeneratedImage = {
+				mimeType: imageObj.mimeType,
+				base64: imageObj.base64,
+				thoughtSignature: process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined
+			};
+			state.images.push(genImage);
+			await process.callbacks?.onImage?.(genImage);
+		}
+	}
 }
 
 export async function processPremiumEndpointSse(args: {
@@ -140,6 +197,7 @@ export async function processPremiumEndpointSse(args: {
 			thinking: "",
 			groundingContent: "",
 			images: [],
+			responseParts: [],
 			wasAborted: false,
 			wasFallbackMode: false
 		};
@@ -153,14 +211,18 @@ export async function processPremiumEndpointSse(args: {
 		thinking: string;
 		requestId?: string;
 		textSignature?: string;
+		thoughtSignature?: string;
+		thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
 		finishReason?: unknown;
 		groundingContent: string;
 		images: GeneratedImage[];
+		responseParts: Message["parts"];
 	} = {
 		text: "",
 		thinking: "",
 		groundingContent: "",
-		images: []
+		images: [],
+		responseParts: []
 	};
 
 	let buffer = "";
@@ -225,6 +287,7 @@ export async function processPremiumEndpointSse(args: {
 					finishReason: state.finishReason,
 					groundingContent: state.groundingContent,
 					images: state.images,
+					responseParts: state.responseParts,
 					wasAborted,
 					wasFallbackMode
 				};
@@ -260,6 +323,7 @@ export async function processPremiumEndpointSse(args: {
 				state.finishReason = undefined;
 				state.groundingContent = "";
 				state.images = [];
+				state.responseParts = [];
 				process.callbacks?.onFallbackStart?.(fallbackMeta);
 				continue;
 			}
@@ -285,6 +349,7 @@ export async function processPremiumEndpointSse(args: {
 		finishReason: state.finishReason,
 		groundingContent: state.groundingContent,
 		images: state.images,
+		responseParts: state.responseParts,
 		wasAborted,
 		wasFallbackMode
 	};

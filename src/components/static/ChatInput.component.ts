@@ -81,6 +81,25 @@ let isRpgGroupChatContext = false;
 let isDynamicGroupChatContext = false;
 let allowDynamicPings = false;
 
+function copyRuntimeFileMetadata(source: File, target: File): void {
+	const sourceMetadata = source as any;
+	for (const key of Object.keys(sourceMetadata)) {
+		(target as any)[key] = sourceMetadata[key];
+	}
+}
+
+function filesToFileList(files: File[]): FileList {
+	const dataTransfer = new DataTransfer();
+	for (const file of files) {
+		dataTransfer.items.add(file);
+	}
+	for (let index = 0; index < files.length; index++) {
+		const clonedFile = dataTransfer.files[index] as File | undefined;
+		if (clonedFile) copyRuntimeFileMetadata(files[index], clonedFile);
+	}
+	return dataTransfer.files;
+}
+
 function syncBottomUiHeight(): void {
 	const height = Math.ceil(bottomUiContainer!.getBoundingClientRect().height);
 	const prevHeightStr = document.documentElement.style.getPropertyValue("--bottom-ui-height");
@@ -1168,11 +1187,7 @@ function addAttachments(rawFiles: File[]): void {
 }
 
 function syncAttachmentInput(): void {
-	const dataTransfer = new DataTransfer();
-	for (const file of attachmentState) {
-		dataTransfer.items.add(file);
-	}
-	attachmentsInput!.files = dataTransfer.files;
+	attachmentsInput!.files = filesToFileList(attachmentState);
 }
 
 function collectFilesFromClipboard(event: ClipboardEvent): File[] {

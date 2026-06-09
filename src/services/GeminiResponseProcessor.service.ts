@@ -1,6 +1,6 @@
 import type { GenerateContentResponse } from "@google/genai";
 import { BlockedReason, FinishReason } from "@google/genai";
-import type { GeneratedImage } from "../types/Message";
+import type { GeneratedImage, Message } from "../types/Message";
 import type { GeminiLocalSdkProcessArgs, GeminiLocalSdkProcessResult } from "../types/GeminiResponseProcessor";
 
 export function isGeminiBlockedFinishReason(finishReason: unknown): boolean {
@@ -40,18 +40,32 @@ function getGroundingRenderedContent(payload: any): string {
 
 function pushInlineImage(args: {
 	images: GeneratedImage[];
+	responseParts: Message["parts"];
 	part: any;
 	useSkipThoughtSignature: boolean;
 	skipThoughtSignatureValidator: string;
 }): void {
-	const { images, part, useSkipThoughtSignature, skipThoughtSignatureValidator } = args;
+	const { images, responseParts, part, useSkipThoughtSignature, skipThoughtSignatureValidator } = args;
+	const thoughtSignature =
+		part.thoughtSignature ?? (useSkipThoughtSignature ? skipThoughtSignatureValidator : undefined);
+
+	if (part.thought) {
+		responseParts.push({
+			inlineData: {
+				data: part.inlineData?.data || "",
+				mimeType: part.inlineData?.mimeType || "image/png"
+			},
+			thoughtSignature,
+			thought: true
+		});
+		return;
+	}
 
 	images.push({
 		mimeType: part.inlineData?.mimeType || "image/png",
 		base64: part.inlineData?.data || "",
-		thoughtSignature:
-			part.thoughtSignature ?? (useSkipThoughtSignature ? skipThoughtSignatureValidator : undefined),
-		thought: part.thought
+		thoughtSignature,
+		thought: undefined
 	});
 }
 
@@ -67,6 +81,7 @@ export async function processGeminiLocalSdkResponse(args: {
 	const finishReason = getFinishReason(response);
 	let groundingContent = "";
 	const images: GeneratedImage[] = [];
+	const responseParts: Message["parts"] = [];
 
 	if (process.throwOnBlocked && isGeminiBlockedFinishReason(finishReason)) {
 		throwGeminiBlocked({ finishReason, finishMessage: getFinishMessage(response) });
@@ -74,6 +89,7 @@ export async function processGeminiLocalSdkResponse(args: {
 
 	for (const part of response?.candidates?.[0]?.content?.parts || []) {
 		if (part?.thought && part?.text) {
+			responseParts.push({ text: String(part.text), thought: true });
 			// Never mix thought parts into the main answer.
 			if (process.includeThoughts) {
 				const delta = String(part.text);
@@ -81,17 +97,20 @@ export async function processGeminiLocalSdkResponse(args: {
 				await process.callbacks?.onThinking?.({ delta, thinking });
 			}
 		} else if (part?.text) {
+			const partSignature =
+				part.thoughtSignature ??
+				(process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined);
 			if (!textSignature) {
-				textSignature =
-					part.thoughtSignature ??
-					(process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined);
+				textSignature = partSignature;
 			}
 			const delta = String(part.text);
+			responseParts.push({ text: delta, thoughtSignature: partSignature });
 			text += delta;
 			await process.callbacks?.onText?.({ delta, text });
 		} else if (part?.inlineData) {
 			pushInlineImage({
 				images,
+				responseParts,
 				part,
 				useSkipThoughtSignature: process.useSkipThoughtSignature,
 				skipThoughtSignatureValidator: process.skipThoughtSignatureValidator
@@ -109,6 +128,7 @@ export async function processGeminiLocalSdkResponse(args: {
 		text,
 		thinking,
 		textSignature,
+		responseParts,
 		finishReason,
 		groundingContent,
 		images,
@@ -128,6 +148,7 @@ export async function processGeminiLocalSdkStream(args: {
 	let finishReason: unknown;
 	let groundingContent = "";
 	const images: GeneratedImage[] = [];
+	const responseParts: Message["parts"] = [];
 	let wasAborted = false;
 
 	for await (const chunk of stream) {
@@ -146,6 +167,7 @@ export async function processGeminiLocalSdkStream(args: {
 
 		for (const part of chunk?.candidates?.[0]?.content?.parts || []) {
 			if (part?.thought && part?.text) {
+				responseParts.push({ text: String(part.text), thought: true });
 				// Never mix thought parts into the main answer.
 				if (process.includeThoughts) {
 					const delta = String(part.text);
@@ -153,17 +175,20 @@ export async function processGeminiLocalSdkStream(args: {
 					await process.callbacks?.onThinking?.({ delta, thinking });
 				}
 			} else if (part?.text) {
+				const partSignature =
+					part.thoughtSignature ??
+					(process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined);
 				if (!textSignature) {
-					textSignature =
-						part.thoughtSignature ??
-						(process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined);
+					textSignature = partSignature;
 				}
 				const delta = String(part.text);
+				responseParts.push({ text: delta, thoughtSignature: partSignature });
 				text += delta;
 				await process.callbacks?.onText?.({ delta, text });
 			} else if (part?.inlineData) {
 				pushInlineImage({
 					images,
+					responseParts,
 					part,
 					useSkipThoughtSignature: process.useSkipThoughtSignature,
 					skipThoughtSignatureValidator: process.skipThoughtSignatureValidator
@@ -183,6 +208,7 @@ export async function processGeminiLocalSdkStream(args: {
 		text,
 		thinking,
 		textSignature,
+		responseParts,
 		finishReason,
 		groundingContent,
 		images,

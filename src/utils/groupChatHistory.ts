@@ -5,13 +5,9 @@ import type { DbChat } from "../types/Chat";
 
 import { NARRATOR_PERSONALITY_ID } from "./personalityMarkers";
 import { maybePrefixSpeaker } from "./chatHistory";
-import {
-	findLastAttachmentIndex,
-	findLastGeneratedImageIndex,
-	processAttachmentsToParts,
-	processGeneratedImagesToParts
-} from "./chatHistoryBuilder";
+import { processAttachmentsToParts, processGeneratedImagesToParts } from "./chatHistoryBuilder";
 import { resolveThoughtSignature } from "./blobResolver";
+import { isOpenRouterModel } from "../types/Models";
 
 export async function constructGeminiChatHistoryForGroupChat(
 	currentChat: DbChat,
@@ -33,32 +29,40 @@ export async function constructGeminiChatHistoryForGroupChat(
 		return args.speakerNameById.get(id) ?? "Unknown";
 	};
 
-	const lastImageIndex = findLastGeneratedImageIndex(currentChat.content);
-	const lastAttachmentIndex = findLastAttachmentIndex(currentChat.content);
-
 	for (let index = 0; index < currentChat.content.length; index++) {
 		const dbMessage = currentChat.content[index];
 		if (dbMessage.hidden) continue;
 
 		const aggregatedParts: any[] = [];
 		const speaker = speakerNameForMessage(dbMessage);
+		let hasThoughtSignature = false;
 
 		for (const part of dbMessage.parts) {
 			const text = (part.text || "").toString();
 			const attachments = part.attachments || [];
 
-			if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
-				const resolvedThoughtSignature = await resolveThoughtSignature(part);
+			if (part.thought) {
+				continue;
+			}
+
+			if (text.trim().length > 0) {
 				const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
-				partObj.thoughtSignature =
-					resolvedThoughtSignature ??
-					(shouldEnforceThoughtSignatures ? args.skipThoughtSignatureValidator : undefined);
+				const isModelMessage = dbMessage.role === "model";
+				const canUseStoredSignature = isModelMessage && !isOpenRouterModel(dbMessage.originModel || "");
+				const resolvedSignature = canUseStoredSignature ? await resolveThoughtSignature(part) : undefined;
+				const ts =
+					resolvedSignature ||
+					(isModelMessage && shouldEnforceThoughtSignatures ? args.skipThoughtSignatureValidator : undefined);
+				if (ts && !hasThoughtSignature) {
+					partObj.thoughtSignature = ts;
+					hasThoughtSignature = true;
+				}
 				aggregatedParts.push(partObj);
 			}
 
 			const attachmentParts = await processAttachmentsToParts({
 				attachments,
-				shouldProcess: attachments.length > 0 && index === lastAttachmentIndex
+				shouldProcess: attachments.length > 0
 			});
 			aggregatedParts.push(...attachmentParts);
 		}
@@ -67,9 +71,14 @@ export async function constructGeminiChatHistoryForGroupChat(
 
 		const imageParts = await processGeneratedImagesToParts({
 			images: dbMessage.generatedImages,
-			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
+			shouldProcess: !!dbMessage.generatedImages,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
-			skipThoughtSignatureValidator: args.skipThoughtSignatureValidator
+			skipThoughtSignatureValidator: args.skipThoughtSignatureValidator,
+			suppressThoughtSignature: hasThoughtSignature,
+			// Mirror the single-chat builder: OpenRouter image signatures are
+			// incompatible with Gemini, so disallow reuse (see the
+			// SKIP_THOUGHT_SIGNATURE_VALIDATOR doc in Message.service.ts).
+			allowStoredThoughtSignatures: !isOpenRouterModel(dbMessage.originModel || "")
 		});
 		if (imageParts.length > 0) {
 			genAiMessage.parts?.push(...imageParts);

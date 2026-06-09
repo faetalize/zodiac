@@ -222,6 +222,44 @@ function unwrapMentionsToRaw(html: string): string {
 	return root.innerHTML;
 }
 
+function getVisibleMessagePart(message: Message): Message["parts"][number] | undefined {
+	return message.parts.find((part) => !part.thought) ?? message.parts[0];
+}
+
+function getVisibleMessageText(message: Message): string {
+	return message.parts
+		.filter((part) => !part.thought)
+		.map((part) => part.text || "")
+		.join("");
+}
+
+function getThoughtInlineImages(message: Message): Array<{ data: string; mimeType: string }> {
+	const partImages = (message.parts || [])
+		.filter((part) => part.thought && part.inlineData?.data)
+		.map((part) => ({
+			data: part.inlineData!.data,
+			mimeType: part.inlineData!.mimeType || "image/png"
+		}));
+	const legacyGeneratedImages = (message.generatedImages || [])
+		.filter((img) => img.thought && img.base64)
+		.map((img) => ({ data: img.base64, mimeType: img.mimeType || "image/png" }));
+
+	return [...partImages, ...legacyGeneratedImages];
+}
+
+async function buildThinkingContentHtml(message: Message): Promise<string> {
+	const thinkingText = message.thinking?.trim() ? await helpers.getDecoded(message.thinking || "") : "";
+	const thoughtImages = getThoughtInlineImages(message);
+	const imageHtml = thoughtImages
+		.map(
+			(img) =>
+				`<div class="thought-image-wrapper"><img class="thought-image" src="data:${escapeHtml(img.mimeType)};base64,${img.data}" loading="lazy" /></div>`
+		)
+		.join("");
+
+	return `${thinkingText}${imageHtml ? `<div class="thought-images">${imageHtml}</div>` : ""}`;
+}
+
 export const messageElement = async (message: Message, index: number): Promise<HTMLElement> => {
 	const messageDiv = document.createElement("div");
 	//keep the chat index on the DOM node so that downstream logic (e.g.
@@ -256,7 +294,8 @@ export const messageElement = async (message: Message, index: number): Promise<H
 
 	//user message
 	if (!message.personalityid) {
-		const rawInitial = message.parts[0]?.text || "";
+		const visiblePart = getVisibleMessagePart(message);
+		const rawInitial = getVisibleMessageText(message);
 		const initialHtmlRaw = (await helpers.getDecoded(rawInitial)) || "";
 		const initialHtml = await decorateMentions(initialHtmlRaw);
 		messageDiv.innerHTML = `<div class="message-header">
@@ -271,7 +310,7 @@ export const messageElement = async (message: Message, index: number): Promise<H
         <div class="message-role-api" style="display: none;">${message.role}</div>
         <div class="message-text">${initialHtml}</div>
         <div class="attachment-preview-container">
-            ${Array.from(message.parts[0]?.attachments || [])
+            ${Array.from(visiblePart?.attachments || [])
 				.map((attachment: File, attachmentIndex: number) => {
 					if (attachment.type.startsWith("image/")) {
 						const hasBlobRef = !!(attachment as any)._blobRef;
@@ -303,13 +342,15 @@ export const messageElement = async (message: Message, index: number): Promise<H
 		if (isNarrator) {
 			messageDiv.classList.add("message-narrator");
 		}
-		const rawInitial = message.parts[0]?.text || "";
+		const rawInitial = getVisibleMessageText(message);
 		const initialHtmlRaw = (await helpers.getDecoded(rawInitial)) || "";
 		const initialHtml = await decorateMentions(initialHtmlRaw);
 		// If we already have generated images, don't show loading spinner even if text is empty
-		const hasImages = Array.isArray(message.generatedImages) && message.generatedImages.length > 0;
+		const visibleImages = (message.generatedImages || []).filter((img) => !img.thought);
+		const hasImages = visibleImages.length > 0;
 		const isLoading = rawInitial.trim().length === 0 && !hasImages;
-		const hasThinking = !!message.thinking && message.thinking.trim().length > 0;
+		const thinkingContentHtml = await buildThinkingContentHtml(message);
+		const hasThinking = thinkingContentHtml.trim().length > 0;
 
 		if (isNarrator) {
 			const originModelLabel = formatOriginModelLabel(message.originModel);
@@ -330,7 +371,7 @@ export const messageElement = async (message: Message, index: number): Promise<H
 				hasThinking
 					? `<div class="message-thinking">` +
 						`<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
-						`<div class="thinking-content" hidden>${await helpers.getDecoded(message.thinking || "")}</div>` +
+						`<div class="thinking-content" hidden>${thinkingContentHtml}</div>` +
 						`</div>`
 					: ""
 			}
@@ -376,7 +417,7 @@ export const messageElement = async (message: Message, index: number): Promise<H
 				hasThinking
 					? `<div class="message-thinking">` +
 						`<button class="thinking-toggle btn-textual" aria-expanded="false">Show reasoning</button>` +
-						`<div class="thinking-content" hidden>${await helpers.getDecoded(message.thinking || "")}</div>` +
+						`<div class="thinking-content" hidden>${thinkingContentHtml}</div>` +
 						`</div>`
 					: ""
 			}
@@ -387,8 +428,8 @@ export const messageElement = async (message: Message, index: number): Promise<H
             <div class="message-images">
                 ${
 					hasImages
-						? message
-								.generatedImages!.map((img, idx) => {
+						? visibleImages
+								.map((img, idx) => {
 									const needsBlob = (!img.base64 || img.base64.length === 0) && !!img._blobRef;
 									const src = needsBlob ? "" : `data:${img.mimeType};base64,${img.base64}`;
 									return `
@@ -504,7 +545,7 @@ function setupMessageEditing(messageElement: HTMLElement) {
 				if (messageIndex >= 0) {
 					const currentChat = await chatsService.getCurrentChat();
 					if (currentChat && currentChat.content[messageIndex]) {
-						originalAttachments = currentChat.content[messageIndex].parts[0]?.attachments;
+						originalAttachments = getVisibleMessagePart(currentChat.content[messageIndex])?.attachments;
 						editingAttachments = originalAttachments ? Array.from(originalAttachments) : [];
 					}
 				}
@@ -728,6 +769,24 @@ function setupMessageEditing(messageElement: HTMLElement) {
 	});
 }
 
+function copyRuntimeFileMetadata(source: File, target: File): void {
+	for (const key of Object.keys(source as any)) {
+		(target as any)[key] = (source as any)[key];
+	}
+}
+
+function filesToFileList(files: File[]): FileList {
+	const transfer = new DataTransfer();
+	for (const file of files) {
+		transfer.items.add(file);
+	}
+	files.forEach((file, index) => {
+		const clonedFile = transfer.files[index] as File | undefined;
+		if (clonedFile) copyRuntimeFileMetadata(file, clonedFile);
+	});
+	return transfer.files;
+}
+
 function setupMessageRegeneration(messageElement: HTMLElement, index: number) {
 	const refreshButton = messageElement.querySelector<HTMLButtonElement>(".btn-refresh");
 	if (!refreshButton) {
@@ -812,30 +871,30 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
 		const currentChat = await chatsService.getCurrentChat();
 		if (!currentChat || !markdownContent) return;
 
-		const nextAttachments =
-			attachments === undefined
-				? undefined
-				: (() => {
-						const dataTransfer = new DataTransfer();
-						attachments.forEach((file) => dataTransfer.items.add(file));
-						return dataTransfer.files;
-					})();
+		const nextAttachments = attachments === undefined ? undefined : filesToFileList(attachments);
 
 		const didUpdate = await chatsService.mutateChat(currentChat.id, (chat) => {
 			const targetMessage = chat.content[messageIndex];
 			if (!targetMessage) return undefined;
 
-			if (targetMessage.parts.length === 0) {
+			const visiblePartIndex = targetMessage.parts.findIndex((part) => !part.thought);
+			const visiblePart = visiblePartIndex >= 0 ? targetMessage.parts[visiblePartIndex] : undefined;
+
+			if (!visiblePart) {
 				targetMessage.parts.push({ text: markdownContent });
 			} else {
-				targetMessage.parts[0].text = markdownContent;
+				visiblePart.text = markdownContent;
+				targetMessage.parts = targetMessage.parts.filter(
+					(part, index) => part.thought || index === visiblePartIndex
+				);
 			}
 
 			if (nextAttachments !== undefined) {
-				if (targetMessage.parts.length === 0) {
+				const nextVisiblePart = targetMessage.parts.find((part) => !part.thought);
+				if (!nextVisiblePart) {
 					targetMessage.parts.push({ text: "", attachments: nextAttachments });
 				} else {
-					targetMessage.parts[0].attachments = nextAttachments;
+					nextVisiblePart.attachments = nextAttachments;
 				}
 			}
 
@@ -1181,7 +1240,7 @@ function resolveBlobImages(messageDiv: HTMLElement, message: Message): void {
 function resolveBlobAttachmentPreviews(messageDiv: HTMLElement, message: Message): void {
 	if (message.personalityid) return; // user messages only
 
-	const firstPart = message.parts[0];
+	const firstPart = getVisibleMessagePart(message);
 	if (!firstPart?.attachments || firstPart.attachments.length === 0) return;
 
 	const attachments = Array.from(firstPart.attachments);
@@ -1229,9 +1288,7 @@ function resolveBlobAttachmentPreviews(messageDiv: HTMLElement, message: Message
 				// Replace placeholder in message object so downstream logic
 				// (e.g. edit/save/regenerate paths) sees a real File.
 				attachments[idx] = resolved;
-				const transfer = new DataTransfer();
-				attachments.forEach((file) => transfer.items.add(file));
-				firstPart.attachments = transfer.files;
+				firstPart.attachments = filesToFileList(attachments);
 
 				void settle.finally(markDone);
 			})

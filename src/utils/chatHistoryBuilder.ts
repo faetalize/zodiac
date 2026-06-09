@@ -14,58 +14,6 @@ import * as helpers from "./helpers";
 import { resolveAttachmentFile, resolveGeneratedImageSrc, resolveThoughtSignature } from "./blobResolver";
 
 // ================================================================================
-// INDEX FINDING
-// ================================================================================
-
-/**
- * Finds the index of the last visible message containing generated images.
- * Returns -1 if no such message exists.
- */
-export function findLastGeneratedImageIndex(content: Message[]): number {
-	for (let i = content.length - 1; i >= 0; i--) {
-		const message = content[i];
-		if (message.hidden) continue;
-		if (message.generatedImages && message.generatedImages.length > 0) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-/**
- * Finds the index of the last visible message containing attachments.
- * Returns -1 if no such message exists.
- */
-export function findLastAttachmentIndex(content: Message[]): number {
-	for (let i = content.length - 1; i >= 0; i--) {
-		const message = content[i];
-		if (message.hidden) continue;
-		if (message.parts.some((part) => part.attachments && part.attachments.length > 0)) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-/**
- * Result of finding relevant message indices for history construction.
- */
-export interface MessageIndices {
-	lastImageIndex: number;
-	lastAttachmentIndex: number;
-}
-
-/**
- * Finds both last image and last attachment indices in one pass.
- */
-export function findMediaIndices(content: Message[]): MessageIndices {
-	return {
-		lastImageIndex: findLastGeneratedImageIndex(content),
-		lastAttachmentIndex: findLastAttachmentIndex(content)
-	};
-}
-
-// ================================================================================
 // PART PROCESSING
 // ================================================================================
 
@@ -94,6 +42,9 @@ export async function processAttachmentsToParts(config: AttachmentProcessingConf
 	for (const attachment of Array.from(attachments)) {
 		const resolvedAttachment = await resolveAttachmentFile(attachment);
 		const base64 = await helpers.fileToBase64(resolvedAttachment);
+		if (!base64) {
+			continue;
+		}
 		const mimeType = resolvedAttachment.type || "application/octet-stream";
 		parts.push(await createPartFromBase64(base64, mimeType));
 	}
@@ -109,6 +60,20 @@ export interface GeneratedImageProcessingConfig {
 	shouldProcess: boolean;
 	enforceThoughtSignatures: boolean;
 	skipThoughtSignatureValidator: string;
+	/**
+	 * The owning model message already emitted the skip-validator sentinel on an
+	 * earlier part. When true we avoid stamping that synthetic fallback again on
+	 * image parts. This does NOT suppress real stored signatures — if an image has
+	 * a valid (allowed) `thoughtSignature` it is always emitted.
+	 */
+	suppressThoughtSignature?: boolean;
+	/**
+	 * Whether the image's stored `thoughtSignature` may be replayed to Gemini.
+	 * Set to false for OpenRouter-origin images: their encrypted reasoning
+	 * signatures are incompatible with the Gemini SDK, so we drop them and
+	 * substitute the skip-validator sentinel when Gemini requires a signature.
+	 */
+	allowStoredThoughtSignatures?: boolean;
 }
 
 /**
@@ -116,7 +81,14 @@ export interface GeneratedImageProcessingConfig {
  * Returns an array of parts ready to be added to a message.
  */
 export async function processGeneratedImagesToParts(config: GeneratedImageProcessingConfig): Promise<any[]> {
-	const { images, shouldProcess, enforceThoughtSignatures, skipThoughtSignatureValidator } = config;
+	const {
+		images,
+		shouldProcess,
+		enforceThoughtSignatures,
+		skipThoughtSignatureValidator,
+		suppressThoughtSignature,
+		allowStoredThoughtSignatures = true
+	} = config;
 
 	if (!shouldProcess || !images || images.length === 0) {
 		return [];
@@ -124,6 +96,10 @@ export async function processGeneratedImagesToParts(config: GeneratedImageProces
 
 	const parts: any[] = [];
 	for (const img of images) {
+		if (img.thought) {
+			continue;
+		}
+
 		let base64 = img.base64 || "";
 		if (base64.length === 0 && img._blobRef) {
 			const dataUri = await resolveGeneratedImageSrc(img);
@@ -134,15 +110,21 @@ export async function processGeneratedImagesToParts(config: GeneratedImageProces
 			continue;
 		}
 
-		const resolvedThoughtSignature = await resolveThoughtSignature(img);
-
 		const part: any = {
 			inlineData: { data: base64, mimeType: img.mimeType }
 		};
-		part.thoughtSignature =
-			resolvedThoughtSignature ?? (enforceThoughtSignatures ? skipThoughtSignatureValidator : undefined);
-		if (img.thought) {
-			part.thought = img.thought;
+		// Thought-signature resolution (see SKIP_THOUGHT_SIGNATURE_VALIDATOR doc in
+		// Message.service.ts for the full quirk list):
+		// - Use the stored Gemini signature only when allowed (non-OpenRouter origin).
+		// - Otherwise emit the skip-validator sentinel when Gemini enforces signatures.
+		//   We force the skip-validator even if `suppressThoughtSignature` is set when
+		//   stored signatures are disallowed, because Gemini validates the image part's
+		//   signature independently of the text part.
+		const thoughtSignature = allowStoredThoughtSignatures ? await resolveThoughtSignature(img) : undefined;
+		if (thoughtSignature) {
+			part.thoughtSignature = thoughtSignature;
+		} else if (!suppressThoughtSignature || !allowStoredThoughtSignatures) {
+			part.thoughtSignature = enforceThoughtSignatures ? skipThoughtSignatureValidator : undefined;
 		}
 		parts.push(part);
 	}

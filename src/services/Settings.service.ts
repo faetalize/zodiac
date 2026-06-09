@@ -75,13 +75,18 @@ const DEFAULT_UI_SCALE = 1;
 let isLoadingSettings = false;
 
 function getCurrentModelAccess() {
+	const hasModelOptions = Array.from(modelSelect.options).some((option) => option.value);
+	const isPremiumModelList = hasModelOptions && modelSelect.querySelector("optgroup") === null;
 	return {
 		hasGeminiAccess:
+			isPremiumModelList ||
 			geminiApiKeyInput.value.trim().length > 0 ||
 			(localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "").trim().length > 0,
 		hasOpenRouterAccess:
+			isPremiumModelList ||
 			openRouterApiKeyInput.value.trim().length > 0 ||
-			(localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "").trim().length > 0
+			(localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "").trim().length > 0,
+		isPremiumEndpointPreferred: isPremiumModelList
 	};
 }
 

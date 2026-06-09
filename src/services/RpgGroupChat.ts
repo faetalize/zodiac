@@ -13,6 +13,7 @@ import type { Message } from "../types/Message";
 import type { DbChat } from "../types/Chat";
 import {
 	ChatModel,
+	getPremiumEndpointChatModel,
 	getPreferredNarratorLocalModel,
 	isOpenRouterModel,
 	modelSupportsTemperature,
@@ -59,15 +60,13 @@ import {
 } from "../utils/chatHistory";
 
 import {
-	findLastGeneratedImageIndex,
-	findLastAttachmentIndex,
 	processAttachmentsToParts,
 	processGeneratedImagesToParts,
 	extractTextAndThinkingFromResponse
 } from "../utils/chatHistoryBuilder";
-import { resolveThoughtSignature } from "../utils/blobResolver";
 
 import { throwAbortError } from "../utils/abort";
+import { resolveThoughtSignature } from "../utils/blobResolver";
 import { dispatchAppEvent } from "../events";
 
 import {
@@ -1468,7 +1467,7 @@ async function generateNarratorMessage(args: NarratorGenerationArgs): Promise<Na
 	).trim();
 
 	const narratorModel = isPremiumEndpointPreferred
-		? ChatModel.FLASH
+		? (getPremiumEndpointChatModel(ChatModel.FLASH) ?? ChatModel.FLASH)
 		: getPreferredNarratorLocalModel({
 				geminiApiKey: settings.geminiApiKey || settings.apiKey,
 				openRouterApiKey: settings.openRouterApiKey
@@ -1956,32 +1955,40 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 		return args.speakerNameById.get(id) ?? "Unknown";
 	};
 
-	const lastImageIndex = findLastGeneratedImageIndex(currentChat.content);
-	const lastAttachmentIndex = findLastAttachmentIndex(currentChat.content);
-
 	for (let index = 0; index < currentChat.content.length; index++) {
 		const dbMessage = currentChat.content[index];
 		if (dbMessage.hidden) continue;
 
 		const aggregatedParts: any[] = [];
 		const speaker = speakerNameForMessage(dbMessage);
+		let hasThoughtSignature = false;
 
 		for (const part of dbMessage.parts) {
 			const text = (part.text || "").toString();
 			const attachments = part.attachments || [];
 
-			if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
-				const resolvedThoughtSignature = await resolveThoughtSignature(part);
+			if (part.thought) {
+				continue;
+			}
+
+			if (text.trim().length > 0) {
 				const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
-				partObj.thoughtSignature =
-					resolvedThoughtSignature ??
-					(shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+				const isModelMessage = dbMessage.role === "model";
+				const canUseStoredSignature = isModelMessage && !isOpenRouterModel(dbMessage.originModel || "");
+				const resolvedSignature = canUseStoredSignature ? await resolveThoughtSignature(part) : undefined;
+				const ts =
+					resolvedSignature ||
+					(isModelMessage && shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+				if (ts && !hasThoughtSignature) {
+					partObj.thoughtSignature = ts;
+					hasThoughtSignature = true;
+				}
 				aggregatedParts.push(partObj);
 			}
 
 			const attachmentParts = await processAttachmentsToParts({
 				attachments,
-				shouldProcess: attachments.length > 0 && index === lastAttachmentIndex
+				shouldProcess: attachments.length > 0
 			});
 			aggregatedParts.push(...attachmentParts);
 		}
@@ -1990,9 +1997,14 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 
 		const imageParts = await processGeneratedImagesToParts({
 			images: dbMessage.generatedImages,
-			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
+			shouldProcess: !!dbMessage.generatedImages,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
-			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR
+			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+			suppressThoughtSignature: hasThoughtSignature,
+			// Mirror the single-chat builder: OpenRouter image signatures are
+			// incompatible with Gemini, so disallow reuse (see the
+			// SKIP_THOUGHT_SIGNATURE_VALIDATOR doc in Message.service.ts).
+			allowStoredThoughtSignatures: !isOpenRouterModel(dbMessage.originModel || "")
 		});
 		if (imageParts.length > 0) {
 			genAiMessage.parts?.push(...imageParts);

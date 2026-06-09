@@ -11,6 +11,19 @@ export enum ChatModel {
 	FLASH_LITE_2_5 = "gemini-2.5-flash-lite"
 }
 
+const GEMINI_TO_OPENROUTER_CHAT_MODEL_IDS = new Map<string, string>([
+	[ChatModel.FLASH_LITE, "google/gemini-3.1-flash-lite"],
+	[ChatModel.FLASH_3_PREV, "google/gemini-3-flash-preview"],
+	[ChatModel.FLASH, "google/gemini-3.5-flash"],
+	[ChatModel.FLASH_2_5, "google/gemini-2.5-flash"],
+	[ChatModel.FLASH_LITE_2_5, "google/gemini-2.5-flash-lite"],
+	[ChatModel.PRO, "google/gemini-3.1-pro-preview"],
+	[ChatModel.PRO_2_5, "google/gemini-2.5-pro"],
+	[ChatModel.NANO_BANANA, "google/gemini-2.5-flash-image"],
+	[ChatModel.NANO_BANANA_PRO, "google/gemini-3-pro-image-preview"],
+	[ChatModel.NANO_BANANA_2, "google/gemini-3.1-flash-image-preview"]
+]);
+
 export enum ImageModel {
 	ULTRA = "imagen-4.0-ultra-generate-001",
 	ILLUSTRIOUS = "illustrious",
@@ -40,7 +53,9 @@ export type ModelProvider = "gemini" | "openrouter";
 export interface ChatModelDefinition {
 	id: string;
 	label: string;
+	premiumLabel?: string;
 	provider: ModelProvider;
+	localOnly?: boolean;
 	mega?: boolean;
 	supportsThinking: boolean;
 	requiresThinking?: boolean;
@@ -55,11 +70,13 @@ export interface ChatModelDefinition {
 export interface ChatModelAccess {
 	hasGeminiAccess: boolean;
 	hasOpenRouterAccess: boolean;
+	isPremiumEndpointPreferred?: boolean;
 }
 
 export const DEFAULT_GEMINI_CHAT_MODEL = ChatModel.FLASH;
 export const DEFAULT_OPENROUTER_CHAT_MODEL = "openai/gpt-5.4";
 export const DEFAULT_OPENROUTER_NARRATOR_MODEL = DEFAULT_OPENROUTER_CHAT_MODEL;
+export const DEFAULT_OPENROUTER_TITLE_MODEL = "z-ai/glm-5";
 const UI_DISABLED_CHAT_MODELS = new Set(["openai/gpt-5.4-pro"]);
 
 export function requiresThoughtSignaturesInHistory(model: string): boolean {
@@ -71,18 +88,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		id: ChatModel.FLASH_LITE,
 		label: "Gemini 3.1 Flash Lite",
 		provider: "gemini",
-		mega: false,
-		roleplayModeSuggester: true,
-		supportsThinking: true,
-		supportsTemperature: true,
-		supportsImageInput: false,
-		supportsFileInput: true,
-		supportsImageOutput: false
-	},
-	{
-		id: ChatModel.FLASH,
-		label: "Gemini 3.5 Flash",
-		provider: "gemini",
+		localOnly: true,
 		mega: false,
 		roleplayModeSuggester: true,
 		supportsThinking: true,
@@ -92,9 +98,24 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		supportsImageOutput: false
 	},
 	{
+		id: ChatModel.FLASH,
+		label: "Gemini 3.5 Flash",
+		provider: "gemini",
+		localOnly: true,
+		mega: false,
+		roleplayModeSuggester: true,
+		supportsThinking: true,
+		requiresThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: true,
+		supportsImageOutput: false
+	},
+	{
 		id: ChatModel.FLASH_3_PREV,
 		label: "Gemini 3 Flash Preview",
 		provider: "gemini",
+		localOnly: true,
 		mega: false,
 		roleplayModeSuggester: true,
 		supportsThinking: true,
@@ -107,6 +128,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		id: ChatModel.PRO,
 		label: "Gemini 3.1 Pro Preview",
 		provider: "gemini",
+		localOnly: true,
 		mega: false,
 		roleplayModeSuggester: true,
 		supportsThinking: true,
@@ -121,6 +143,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		id: ChatModel.PRO_2_5,
 		label: "Gemini 2.5 Pro",
 		provider: "gemini",
+		localOnly: true,
 		mega: false,
 		supportsThinking: true,
 		requiresThinking: true,
@@ -133,6 +156,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		id: ChatModel.FLASH_2_5,
 		label: "Gemini 2.5 Flash",
 		provider: "gemini",
+		localOnly: true,
 		mega: false,
 		supportsThinking: false,
 		supportsTemperature: true,
@@ -144,6 +168,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		id: ChatModel.FLASH_LITE_2_5,
 		label: "Gemini 2.5 Flash Lite",
 		provider: "gemini",
+		localOnly: true,
 		mega: false,
 		supportsThinking: false,
 		supportsTemperature: true,
@@ -152,11 +177,25 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		supportsImageOutput: false
 	},
 	{
+		id: ChatModel.NANO_BANANA,
+		label: "Gemini 2.5 Flash Image (Nano Banana)",
+		provider: "gemini",
+		localOnly: true,
+		mega: false,
+		supportsThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: true,
+		supportsImageOutput: true
+	},
+	{
 		id: ChatModel.NANO_BANANA_PRO,
 		label: "Gemini 3.0 Pro Image (Nano Banana Pro)",
 		provider: "gemini",
+		localOnly: true,
 		mega: false,
 		supportsThinking: true,
+		requiresThinking: true,
 		supportsTemperature: true,
 		supportsImageInput: true,
 		supportsFileInput: true,
@@ -166,6 +205,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		id: ChatModel.NANO_BANANA_2,
 		label: "Gemini 3.1 Flash Image (Nano Banana 2)",
 		provider: "gemini",
+		localOnly: true,
 		mega: false,
 		supportsThinking: true,
 		supportsTemperature: true,
@@ -175,7 +215,31 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 	}
 ];
 
+function openRouterGeminiVariant(localModelId: ChatModel, openRouterModelId: string): ChatModelDefinition {
+	const localModel = GEMINI_CHAT_MODELS.find((model) => model.id === localModelId);
+	if (!localModel) throw new Error(`Missing local Gemini model: ${localModelId}`);
+
+	return {
+		...localModel,
+		id: openRouterModelId,
+		label: `${localModel.label} via OpenRouter`,
+		premiumLabel: localModel.label,
+		provider: "openrouter",
+		localOnly: undefined
+	};
+}
+
 export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
+	openRouterGeminiVariant(ChatModel.FLASH_LITE, "google/gemini-3.1-flash-lite"),
+	openRouterGeminiVariant(ChatModel.FLASH_3_PREV, "google/gemini-3-flash-preview"),
+	openRouterGeminiVariant(ChatModel.FLASH, "google/gemini-3.5-flash"),
+	openRouterGeminiVariant(ChatModel.FLASH_2_5, "google/gemini-2.5-flash"),
+	openRouterGeminiVariant(ChatModel.FLASH_LITE_2_5, "google/gemini-2.5-flash-lite"),
+	openRouterGeminiVariant(ChatModel.PRO, "google/gemini-3.1-pro-preview"),
+	openRouterGeminiVariant(ChatModel.PRO_2_5, "google/gemini-2.5-pro"),
+	openRouterGeminiVariant(ChatModel.NANO_BANANA, "google/gemini-2.5-flash-image"),
+	openRouterGeminiVariant(ChatModel.NANO_BANANA_PRO, "google/gemini-3-pro-image-preview"),
+	openRouterGeminiVariant(ChatModel.NANO_BANANA_2, "google/gemini-3.1-flash-image-preview"),
 	{
 		id: "openai/gpt-5.4",
 		label: "GPT-5.4",
@@ -351,6 +415,10 @@ export function getAccessibleChatModels(access: ChatModelAccess): ChatModelDefin
 			return false;
 		}
 
+		if (access.isPremiumEndpointPreferred && model.localOnly) {
+			return false;
+		}
+
 		if (model.provider === "gemini") return access.hasGeminiAccess;
 		return access.hasOpenRouterAccess;
 	});
@@ -360,8 +428,21 @@ export function getAccessibleRoleplaySuggestionModels(access: ChatModelAccess): 
 	return getAccessibleChatModels(access).filter((model) => model.roleplayModeSuggester === true);
 }
 
-export function formatChatModelLabel(model: Pick<ChatModelDefinition, "label" | "mega">): string {
-	return model.mega ? `${model.label} [MEGA]` : model.label;
+export function formatChatModelLabel(
+	model: Pick<ChatModelDefinition, "label" | "premiumLabel" | "mega">,
+	options: { usePremiumLabel?: boolean } = {}
+): string {
+	const label = options.usePremiumLabel ? (model.premiumLabel ?? model.label) : model.label;
+	return model.mega ? `${label} [MEGA]` : label;
+}
+
+export function getPremiumEndpointChatModel(model: string | null | undefined): string | undefined {
+	if (!model) return undefined;
+	const definition = getChatModelDefinition(model);
+	const mappedModel = GEMINI_TO_OPENROUTER_CHAT_MODEL_IDS.get(model);
+	if (mappedModel && (definition?.localOnly || !definition)) return mappedModel;
+	if (!definition?.localOnly) return model;
+	return mappedModel;
 }
 
 const imageModelLabelMap = new Map<string, string>([
@@ -385,6 +466,10 @@ export function formatOriginModelLabel(originModel: string | null | undefined): 
 }
 
 export function getDefaultChatModel(access: ChatModelAccess): string {
+	if (access.isPremiumEndpointPreferred && access.hasOpenRouterAccess) {
+		return getPremiumEndpointChatModel(DEFAULT_GEMINI_CHAT_MODEL) ?? DEFAULT_OPENROUTER_CHAT_MODEL;
+	}
+
 	if (access.hasGeminiAccess) {
 		return DEFAULT_GEMINI_CHAT_MODEL;
 	}
@@ -398,8 +483,9 @@ export function getDefaultChatModel(access: ChatModelAccess): string {
 
 export function getValidChatModel(model: string | null | undefined, access: ChatModelAccess): string {
 	const availableModels = getAccessibleChatModels(access);
-	if (model && availableModels.some((candidate) => candidate.id === model)) {
-		return model;
+	const preferredModel = access.isPremiumEndpointPreferred ? getPremiumEndpointChatModel(model) : model;
+	if (preferredModel && availableModels.some((candidate) => candidate.id === preferredModel)) {
+		return preferredModel;
 	}
 
 	return availableModels[0]?.id ?? getDefaultChatModel(access);
@@ -407,8 +493,9 @@ export function getValidChatModel(model: string | null | undefined, access: Chat
 
 export function getValidRoleplaySuggestionModel(model: string | null | undefined, access: ChatModelAccess): string {
 	const availableModels = getAccessibleRoleplaySuggestionModels(access);
-	if (model && availableModels.some((candidate) => candidate.id === model)) {
-		return model;
+	const preferredModel = access.isPremiumEndpointPreferred ? getPremiumEndpointChatModel(model) : model;
+	if (preferredModel && availableModels.some((candidate) => candidate.id === preferredModel)) {
+		return preferredModel;
 	}
 
 	return availableModels[0]?.id ?? getDefaultChatModel(access);

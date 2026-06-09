@@ -1,4 +1,14 @@
 import type { BlobReference } from "./BlobReference";
+import type { ReasoningDetailFormat } from "./OpenRouterTypes";
+
+export interface ReasoningDetailMetadata {
+	type?: string;
+	id?: string | null;
+	format?: ReasoningDetailFormat;
+	index?: number;
+	signature?: string | null;
+	[key: string]: unknown;
+}
 
 /**
  * Text and thinking content extracted from a model response.
@@ -12,6 +22,13 @@ export interface GeneratedImage {
 	mimeType: string;
 	base64: string; // raw base64 bytes without data: prefix
 	thoughtSignature?: string;
+	thoughtSignatureReasoningDetail?: {
+		type: "reasoning.encrypted";
+		id?: string | null;
+		format?: ReasoningDetailFormat;
+		index?: number;
+		[key: string]: unknown;
+	};
 	thought?: boolean;
 	/**
 	 * Runtime-only blob reference for images stored in encrypted blob storage.
@@ -52,7 +69,13 @@ export interface MessageDebugInfo {
 export interface Message {
 	role: "user" | "model";
 	parts: Array<{
-		text: string;
+		text?: string;
+		inlineData?: {
+			data: string;
+			mimeType: string;
+		};
+		thought?: boolean;
+		reasoningDetail?: ReasoningDetailMetadata;
 		attachments?: FileList | File[];
 		thoughtSignature?: string;
 		_thoughtSignatureRef?: BlobReference;

@@ -49,6 +49,8 @@ export type Request = {
 	// https://platform.openai.com/docs/guides/latency-optimization#use-predicted-outputs
 	prediction?: { type: "content"; content: string };
 
+	modalities?: string[]; // E.g., ["text", "image"]
+
 	// OpenRouter-only parameters
 	// See "Prompt Transforms" section: openrouter.ai/docs/transforms
 	transforms?: string[];
@@ -86,11 +88,42 @@ export type FileContentPart = {
 
 export type ContentPart = TextContent | ImageContentPart | FileContentPart;
 
+export type ReasoningDetailFormat =
+	| "unknown"
+	| "openai-responses-v1"
+	| "azure-openai-responses-v1"
+	| "xai-responses-v1"
+	| "anthropic-claude-v1"
+	| "google-gemini-v1"
+	| (string & {});
+
+export type ReasoningDetail =
+	| {
+			type: "reasoning.encrypted";
+			data: string;
+			id?: string | null;
+			format: ReasoningDetailFormat;
+			index?: number;
+			[key: string]: unknown;
+	  }
+	| {
+			type?: string;
+			text?: string;
+			summary?: string;
+			data?: string;
+			signature?: string | null;
+			id?: string | null;
+			format?: ReasoningDetailFormat;
+			index?: number;
+			[key: string]: unknown;
+	  };
+
 export type Message =
 	| {
 			role: "user" | "assistant" | "system" | "developer";
 			// ContentParts are only for the "user" role:
 			content: string | ContentPart[];
+			reasoning_details?: ReasoningDetail[];
 			// If "name" is included, it will be prepended like this
 			// for non-OpenAI models: `{name}: {content}`
 			name?: string;
@@ -272,6 +305,12 @@ export type NonStreamingChoice = {
 		reasoning?: string | null;
 		reasoning_details?: ReasoningDetail[];
 		tool_calls?: ToolCall[];
+		images?: {
+			type: "image_url";
+			image_url: {
+				url: string;
+			};
+		}[];
 	};
 	error?: ErrorResponse;
 };
@@ -284,6 +323,13 @@ export type StreamingChoice = {
 		role?: string;
 		tool_calls?: ToolCall[];
 		reasoning?: string; // Optional chain-of-thought / reasoning text
+		reasoning_details?: ReasoningDetail[];
+		images?: {
+			type: "image_url";
+			image_url: {
+				url: string;
+			};
+		}[];
 	};
 	error?: ErrorResponse;
 };
@@ -313,10 +359,3 @@ type ResponseUsage = {
 };
 //alias to any for now
 type FunctionCall = any; // See "Tool Calling" section
-
-type ReasoningDetail = {
-	type?: string;
-	text?: string;
-	summary?: string;
-	data?: string;
-};

@@ -20,6 +20,7 @@ import {
 	getValidChatModel,
 	modelRequiresThinking,
 	modelSupportsThinking,
+	type ChatModelDefinition,
 	type ChatModelAccess
 } from "../../types/Models";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
@@ -265,6 +266,11 @@ function hasAnyValidatedApiKey(): boolean {
 	return onboardingService.getState().apiKeyValidated;
 }
 
+function shouldUsePremiumEndpointForOnboarding(hasPremiumAccess: boolean): boolean {
+	const saved = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
+	return hasPremiumAccess && (saved === null || saved === "true");
+}
+
 async function getOnboardingModelAccess(): Promise<ChatModelAccess> {
 	const currentUser = await supabaseService.getCurrentUser();
 	const subscription = currentUser ? await supabaseService.getUserSubscription() : null;
@@ -279,19 +285,25 @@ async function getOnboardingModelAccess(): Promise<ChatModelAccess> {
 		hasGeminiAccess:
 			hasPremiumAccess || (localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "").trim().length > 0,
 		hasOpenRouterAccess:
-			hasPremiumAccess || (localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "").trim().length > 0
+			hasPremiumAccess ||
+			(localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "").trim().length > 0,
+		isPremiumEndpointPreferred: shouldUsePremiumEndpointForOnboarding(hasPremiumAccess)
 	};
 }
 
-function buildOptionGroup(label: string, options: { id: string; label: string }[]): HTMLOptGroupElement {
+function createModelOption(model: ChatModelDefinition, usePremiumLabel: boolean): HTMLOptionElement {
+	const element = document.createElement("option");
+	element.value = model.id;
+	element.textContent = formatChatModelLabel(model, { usePremiumLabel });
+	return element;
+}
+
+function buildOptionGroup(label: string, options: ChatModelDefinition[]): HTMLOptGroupElement {
 	const optGroup = document.createElement("optgroup");
 	optGroup.label = label;
 
 	for (const option of options) {
-		const element = document.createElement("option");
-		element.value = option.id;
-		element.textContent = formatChatModelLabel(option);
-		optGroup.append(element);
+		optGroup.append(createModelOption(option, false));
 	}
 
 	return optGroup;
@@ -305,17 +317,25 @@ async function refreshOnboardingModelOptions(preferredModel?: string): Promise<v
 
 	advancedModelSelect!.replaceChildren();
 
-	const geminiModels = available.filter((model) => GEMINI_CHAT_MODELS.some((candidate) => candidate.id === model.id));
-	const openRouterModels = available.filter((model) =>
-		OPENROUTER_CHAT_MODELS.some((candidate) => candidate.id === model.id)
-	);
+	if (access.isPremiumEndpointPreferred) {
+		for (const model of available) {
+			advancedModelSelect!.append(createModelOption(model, true));
+		}
+	} else {
+		const geminiModels = available.filter((model) =>
+			GEMINI_CHAT_MODELS.some((candidate) => candidate.id === model.id)
+		);
+		const openRouterModels = available.filter((model) =>
+			OPENROUTER_CHAT_MODELS.some((candidate) => candidate.id === model.id)
+		);
 
-	if (geminiModels.length > 0) {
-		advancedModelSelect!.append(buildOptionGroup("Gemini", geminiModels));
-	}
+		if (geminiModels.length > 0) {
+			advancedModelSelect!.append(buildOptionGroup("Gemini", geminiModels));
+		}
 
-	if (openRouterModels.length > 0) {
-		advancedModelSelect!.append(buildOptionGroup("OpenRouter", openRouterModels));
+		if (openRouterModels.length > 0) {
+			advancedModelSelect!.append(buildOptionGroup("OpenRouter", openRouterModels));
+		}
 	}
 
 	if (available.length === 0) {

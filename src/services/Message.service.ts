@@ -22,9 +22,11 @@ import type { Chat, DbChat } from "../types/Chat";
 import type { DbPersonality } from "../types/Personality";
 import {
 	ChatModel,
-	getPreferredNarratorLocalModel,
+	DEFAULT_OPENROUTER_TITLE_MODEL,
+	getValidChatModel,
 	isGeminiModel,
 	isOpenRouterModel,
+	modelRequiresThinking,
 	modelSupportsThinking,
 	modelSupportsTemperature,
 	requiresThoughtSignaturesInHistory
@@ -58,7 +60,6 @@ import { shouldPreferPremiumEndpoint } from "../components/static/ApiKeyInput.co
 import { getSelectedEditingModel } from "../components/static/ImageEditModelSelector.component";
 
 import { isAbortError, throwAbortError } from "../utils/abort";
-import { resolveThoughtSignature } from "../utils/blobResolver";
 import { dispatchAppEvent } from "../events";
 import { MODEL_IMAGE_LIMITS } from "../constants/ImageModels";
 import {
@@ -71,8 +72,6 @@ import {
 	buildPersonalityInstructionMessages
 } from "../utils/personalityMarkers";
 import {
-	findLastGeneratedImageIndex,
-	findLastAttachmentIndex,
 	processAttachmentsToParts,
 	processGeneratedImagesToParts,
 	renderGroundingToShadowDom,
@@ -81,6 +80,7 @@ import {
 	createErrorMessage,
 	UNRESTRICTED_SAFETY_SETTINGS
 } from "../utils/chatHistoryBuilder";
+import { resolveAttachmentFile, resolveThoughtSignature } from "../utils/blobResolver";
 
 import { sendGroupChatRpg, type RpgInputArgs } from "./RpgGroupChat";
 import { sendGroupChatDynamic, type DynamicInputArgs } from "./DynamicGroupChat";
@@ -90,6 +90,56 @@ import { sendGroupChatDynamic, type DynamicInputArgs } from "./DynamicGroupChat"
 // ================================================================================
 
 export const USER_SKIP_TURN_MARKER_TEXT = "__user_skip_turn__";
+
+/**
+ * THOUGHT SIGNATURE QUIRKS (read before touching history-building signature logic)
+ *
+ * Background:
+ * - The Gemini API can require a `thoughtSignature` on model-authored text/image
+ *   parts in request history. When a model message that originally came back with
+ *   thinking is replayed without its signature, Gemini rejects the request with
+ *   "Text/Image part is missing a thought_signature in content position X...".
+ * - `SKIP_THOUGHT_SIGNATURE_VALIDATOR` is a sentinel value Gemini accepts in place
+ *   of a real signature to bypass that validation. We use it whenever we must send
+ *   a signed-looking part but do not have a valid Gemini signature to provide.
+ *
+ * Quirk 1 — Only model parts ever get signatures.
+ * - User messages and persona scaffold messages must NEVER receive a synthetic
+ *   signature (real or skip-validator). Signatures are model-authored metadata.
+ *
+ * Quirk 2 — OpenRouter signatures are NOT Gemini signatures.
+ * - OpenRouter returns `reasoning.encrypted` data that we historically stored in
+ *   `thoughtSignature` fields. That value is incompatible with the Gemini SDK
+ *   (wrong format / invalid TYPE_BYTES base64) and must never be replayed to
+ *   Gemini. For any message whose `originModel` is an OpenRouter model, we ignore
+ *   the stored signature and fall back to `SKIP_THOUGHT_SIGNATURE_VALIDATOR` when
+ *   Gemini history requires one. See `isOpenRouterModel(originModel)` guards and
+ *   the `allowStoredThoughtSignatures` flag in `processGeneratedImagesToParts`.
+ * - OpenRouter requests themselves strip signatures during conversion, so storing
+ *   them was never useful in the first place.
+ *
+ * Quirk 3 — Signatures are per-part, but the skip-validator is applied sparingly.
+ * - Gemini attaches a `thoughtSignature` to each part it wants signed: a model
+ *   message can legitimately have multiple signed parts (text and/or images), and
+ *   we preserve every real per-part signature when replaying history.
+ * - The `hasThoughtSignature` / `suppressThoughtSignature` tracking does NOT strip
+ *   real signatures. It only avoids stamping the synthetic
+ *   `SKIP_THOUGHT_SIGNATURE_VALIDATOR` fallback onto additional parts once some
+ *   part in the message is already signed — real stored signatures (e.g. on an
+ *   image part) are still emitted regardless.
+ * - Exception: when stored signatures are disallowed (OpenRouter origin), image
+ *   parts still get the skip-validator because Gemini validates each image part's
+ *   signature independently.
+ *
+ * Quirk 4 — Thought (reasoning) parts are never signed and are excluded from
+ * rebuilt history entirely.
+ * - In practice Gemini only attaches a `thoughtSignature` to *contentful* parts:
+ *   non-thought text parts and generated-image (inlineData) parts. Parts flagged
+ *   `thought: true` are not signed.
+ * - Either way, thought parts are reasoning content and are dropped when
+ *   rebuilding request history, so they are never replayed to the provider and
+ *   never need a signature.
+ */
 export const SKIP_THOUGHT_SIGNATURE_VALIDATOR = "skip_thought_signature_validator";
 
 export { NARRATOR_PERSONALITY_ID, createPersonalityMarkerMessage };
@@ -367,10 +417,43 @@ function getSelectedPersonalityId(): string {
 
 function cloneFilesToFileList(files?: Iterable<File> | ArrayLike<File> | null): FileList {
 	const dt = new DataTransfer();
-	for (const file of Array.from(files ?? [])) {
+	const sourceFiles = Array.from(files ?? []);
+	for (const file of sourceFiles) {
 		dt.items.add(file);
 	}
+	for (let index = 0; index < sourceFiles.length; index++) {
+		const sourceMetadata = sourceFiles[index] as any;
+		const clonedFile = dt.files[index] as File | undefined;
+		if (!clonedFile) continue;
+		for (const key of Object.keys(sourceMetadata)) {
+			(clonedFile as any)[key] = sourceMetadata[key];
+		}
+	}
 	return dt.files;
+}
+
+function normalizeMessageAttachmentsForStorage(message: Message): Message {
+	return {
+		...message,
+		parts: message.parts.map((part) => ({
+			...part,
+			attachments: part.attachments ? Array.from(part.attachments) : part.attachments
+		}))
+	};
+}
+
+async function materializeFilesForRegenerate(files?: Iterable<File> | ArrayLike<File> | null): Promise<FileList> {
+	const resolvedFiles: File[] = [];
+	for (const file of Array.from(files ?? [])) {
+		const originalBlobRef = (file as any)._blobRef;
+		const resolvedFile = await resolveAttachmentFile(file);
+		if (originalBlobRef && resolvedFile.size === 0) {
+			throw new Error("Unable to restore the original attachment for regeneration.");
+		}
+		delete (resolvedFile as any)._blobRef;
+		resolvedFiles.push(resolvedFile);
+	}
+	return cloneFilesToFileList(resolvedFiles);
 }
 
 function createModelPlaceholderMessage(
@@ -510,9 +593,10 @@ export async function persistMessagesToChat(
 	messages: Message[]
 ): Promise<{ startIndex: number } | null> {
 	await ensureChatFullyHydratedForWrite(chatId);
+	const storableMessages = messages.map(normalizeMessageAttachmentsForStorage);
 	const startIndex = await chatsService.mutateChat(chatId, (chat) => {
 		const nextStartIndex = chat.content.length;
-		chat.content.push(...messages);
+		chat.content.push(...storableMessages);
 		chat.lastModified = new Date();
 		return nextStartIndex;
 	});
@@ -530,7 +614,7 @@ async function updateChatMessage(chatId: string, messageIndex: number, message: 
 	const didUpdate = await chatsService.mutateChat(chatId, (chat) => {
 		if (messageIndex < 0 || messageIndex >= chat.content.length) return undefined;
 
-		chat.content[messageIndex] = message;
+		chat.content[messageIndex] = normalizeMessageAttachmentsForStorage(message);
 		chat.lastModified = new Date();
 		return true;
 	});
@@ -586,15 +670,26 @@ function showGeminiProhibitedContentToast(args: { finishReason?: unknown; detail
 }
 
 function generateThinkingConfig(model: string, enableThinking: boolean, settings: any) {
-	if (!enableThinking && model !== ChatModel.NANO_BANANA) {
+	if (model === ChatModel.NANO_BANANA) {
+		return undefined;
+	}
+
+	if (modelRequiresThinking(model)) {
+		const thinkingBudget =
+			Number.isFinite(settings.thinkingBudget) && settings.thinkingBudget > 0 ? settings.thinkingBudget : 128;
+		return {
+			includeThoughts: enableThinking,
+			thinkingBudget
+		};
+	}
+
+	if (!enableThinking) {
 		return {
 			includeThoughts: false,
 			thinkingBudget: 0
 		};
 	}
-	if (model === ChatModel.NANO_BANANA) {
-		return undefined;
-	}
+
 	return {
 		includeThoughts: true,
 		thinkingBudget: settings.thinkingBudget
@@ -734,15 +829,21 @@ function createInterruptedModelMessage(args: {
 	personalityId: string;
 	text: string;
 	textSignature?: string;
+	responseParts?: Message["parts"];
 	thinking?: string;
 	groundingContent?: string;
 	generatedImages?: GeneratedImage[];
 	originModel?: string;
 }): Message {
 	const hasImages = (args.generatedImages?.length ?? 0) > 0;
-	const parts: Array<{ text: string; thoughtSignature?: string }> = [];
+	const parts: Message["parts"] = args.responseParts?.length ? [...args.responseParts] : [];
 
-	if (args.text.trim().length > 0 || args.textSignature) {
+	if (parts.length > 0) {
+		const visiblePart = parts.find((part) => !part.thought);
+		if (visiblePart && args.textSignature && !visiblePart.thoughtSignature) {
+			visiblePart.thoughtSignature = args.textSignature;
+		}
+	} else if (args.text.trim().length > 0 || args.textSignature) {
 		parts.push({ text: args.text, thoughtSignature: args.textSignature });
 	} else if (!hasImages) {
 		parts.push({ text: "*Response interrupted.*" });
@@ -899,7 +1000,9 @@ async function insertHiddenMessageIntoDom(message: Message, index: number): Prom
 export async function constructGeminiChatHistoryFromLocalChat(
 	currentChat: Chat,
 	selectedPersonality: DbPersonality,
-	options?: { enforceThoughtSignatures?: boolean }
+	options?: {
+		enforceThoughtSignatures?: boolean;
+	}
 ): Promise<GeminiHistoryBuildResult> {
 	const history: Content[] = [];
 	const pinnedHistoryIndices: number[] = [];
@@ -911,9 +1014,6 @@ export async function constructGeminiChatHistoryFromLocalChat(
 	if (migrated || backfilled || markerEnsured) {
 		await chatsService.saveChat(currentChat as any);
 	}
-
-	const lastImageIndex = findLastGeneratedImageIndex(currentChat.content);
-	const lastAttachmentIndex = findLastAttachmentIndex(currentChat.content);
 
 	for (let index = 0; index < currentChat.content.length; index++) {
 		const dbMessage = currentChat.content[index];
@@ -933,11 +1033,7 @@ export async function constructGeminiChatHistoryFromLocalChat(
 				}
 			}
 			if (persona) {
-				const instructions = buildPersonalityInstructionMessages(persona, {
-					modelTextThoughtSignature: shouldEnforceThoughtSignatures
-						? SKIP_THOUGHT_SIGNATURE_VALIDATOR
-						: undefined
-				});
+				const instructions = buildPersonalityInstructionMessages(persona);
 				const startIndex = history.length;
 				history.push(...instructions);
 				if (markerInfo.personalityId === selectedPersonality.id) {
@@ -952,22 +1048,40 @@ export async function constructGeminiChatHistoryFromLocalChat(
 		if (dbMessage.hidden) continue;
 
 		const aggregatedParts: any[] = [];
+		let hasThoughtSignature = false;
 		for (const part of dbMessage.parts) {
 			const text = part.text || "";
 			const attachments = part.attachments || [];
 
-			if (text.trim().length > 0 || part.thoughtSignature || part._thoughtSignatureRef) {
-				const resolvedThoughtSignature = await resolveThoughtSignature(part);
+			if (part.thought) {
+				continue;
+			}
+
+			if (text.trim().length > 0) {
 				const partObj: any = { text };
-				partObj.thoughtSignature =
-					resolvedThoughtSignature ??
-					(shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+				const isModelMessage = dbMessage.role === "model";
+				// Thought-signature quirk: only model messages may carry a signature, and
+				// OpenRouter-origin signatures are incompatible with Gemini (see the
+				// SKIP_THOUGHT_SIGNATURE_VALIDATOR doc block). For OpenRouter origin we
+				// ignore the stored signature and fall back to the skip-validator below.
+				const canUseStoredSignature = isModelMessage && !isOpenRouterModel(dbMessage.originModel || "");
+				const resolvedSignature = canUseStoredSignature ? await resolveThoughtSignature(part) : undefined;
+				const ts =
+					resolvedSignature ||
+					(isModelMessage && shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+				// Quirk: only stamp the skip-validator fallback once per message. Real
+				// per-part signatures are preserved elsewhere; this guard just avoids
+				// redundant synthetic sentinels when no real signature exists.
+				if (ts && !hasThoughtSignature) {
+					partObj.thoughtSignature = ts;
+					hasThoughtSignature = true;
+				}
 				aggregatedParts.push(partObj);
 			}
 
 			const attachmentParts = await processAttachmentsToParts({
 				attachments,
-				shouldProcess: attachments.length > 0 && index === lastAttachmentIndex
+				shouldProcess: attachments.length > 0
 			});
 			aggregatedParts.push(...attachmentParts);
 		}
@@ -979,9 +1093,15 @@ export async function constructGeminiChatHistoryFromLocalChat(
 
 		const imageParts = await processGeneratedImagesToParts({
 			images: dbMessage.generatedImages,
-			shouldProcess: !!dbMessage.generatedImages && index === lastImageIndex,
+			shouldProcess: !!dbMessage.generatedImages,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
-			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR
+			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+			// A text part already carries the skip-validator fallback? Don't stamp it
+			// again on images. (Real per-part image signatures are still emitted.)
+			suppressThoughtSignature: hasThoughtSignature,
+			// OpenRouter image signatures are incompatible with Gemini; disallow reusing
+			// them so the builder substitutes the skip-validator when required.
+			allowStoredThoughtSignatures: !isOpenRouterModel(dbMessage.originModel || "")
 		});
 		if (imageParts.length > 0) {
 			genAiMessage.parts?.push(...imageParts);
@@ -1036,7 +1156,7 @@ async function createChatIfAbsentOpenRouter(apiKey: string, msg: string): Promis
 	const response = await requestOpenRouterCompletion({
 		apiKey,
 		request: buildOpenRouterRequest({
-			model: getPreferredNarratorLocalModel({ geminiApiKey: "", openRouterApiKey: apiKey }),
+			model: DEFAULT_OPENROUTER_TITLE_MODEL,
 			messages: [
 				{ role: "system", content: CHAT_TITLE_SYSTEM_INSTRUCTION },
 				{ role: "user", content: msg }
@@ -1340,26 +1460,28 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 		deletionStart = i;
 	}
 
-	chat.content = chat.content.slice(0, deletionStart);
-	pruneTrailingPersonalityMarkers(chat);
-	await chatsService.saveChat(chat as any);
-
-	const container = isViewingChat(targetChatId) ? document.querySelector<HTMLDivElement>(".message-container") : null;
-	if (container) {
-		const toRemove: Element[] = [];
-		for (const child of Array.from(container.children)) {
-			const indexAttr = child.getAttribute("data-chat-index");
-			if (!indexAttr) continue;
-			const chatIndex = Number.parseInt(indexAttr, 10);
-			if (!Number.isFinite(chatIndex)) continue;
-			if (chatIndex >= deletionStart) toRemove.push(child);
-		}
-		for (const node of toRemove) node.remove();
-	}
-
-	const attachments = cloneFilesToFileList(message.parts[0]?.attachments);
-
 	try {
+		const attachments = await materializeFilesForRegenerate(message.parts[0]?.attachments);
+
+		chat.content = chat.content.slice(0, deletionStart);
+		pruneTrailingPersonalityMarkers(chat);
+		await chatsService.saveChat(chat as any);
+
+		const container = isViewingChat(targetChatId)
+			? document.querySelector<HTMLDivElement>(".message-container")
+			: null;
+		if (container) {
+			const toRemove: Element[] = [];
+			for (const child of Array.from(container.children)) {
+				const indexAttr = child.getAttribute("data-chat-index");
+				if (!indexAttr) continue;
+				const chatIndex = Number.parseInt(indexAttr, 10);
+				if (!Number.isFinite(chatIndex)) continue;
+				if (chatIndex >= deletionStart) toRemove.push(child);
+			}
+			for (const node of toRemove) node.remove();
+		}
+
 		await send(message.parts[0]?.text || "", {
 			targetChatId,
 			selectedPersonalityId: targetPersonalityId,
@@ -1459,8 +1581,6 @@ function isViewingChat(chatId: string): boolean {
 async function performEarlyValidation(msg: string, options: SendOptions = {}): Promise<EarlyValidationResult> {
 	await ensureChatFullyHydratedForWrite(options.targetChatId);
 	const settings = settingsService.getSettings();
-	const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
-	const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 	const selectedPersonalityId = options.selectedPersonalityId ?? getSelectedPersonalityId();
 	const selectedPersonality = await personalityService.get(selectedPersonalityId);
 	const isInternetSearchEnabled =
@@ -1490,6 +1610,15 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 	const tier = await supabaseService.getSubscriptionTier(subscription);
 	const hasSubscription = tier === "pro" || tier === "pro_plus" || tier === "max";
 	const isPremiumEndpointPreferred = hasSubscription && shouldPreferPremiumEndpoint();
+	if (isPremiumEndpointPreferred) {
+		settings.model = getValidChatModel(settings.model, {
+			hasGeminiAccess: true,
+			hasOpenRouterAccess: true,
+			isPremiumEndpointPreferred: true
+		});
+	}
+	const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
+	const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 	const imageGenerationAvailability = await supabaseService.isImageGenerationAvailable();
 	const isImagePremiumEndpointPreferred = imageGenerationAvailability.type === "all";
 	const isImageRequest = isImageModeActive() || isImageEditingActive();
@@ -1626,7 +1755,9 @@ async function buildSendContext(
 	const { history: chatHistory, pinnedHistoryIndices } = await constructGeminiChatHistoryFromLocalChat(
 		currentChat,
 		selectedPersonaForHistory,
-		{ enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory }
+		{
+			enforceThoughtSignatures: shouldEnforceThoughtSignaturesInHistory
+		}
 	);
 
 	const userMessage: Message = {
@@ -1717,6 +1848,7 @@ interface TextChatResponseState {
 	thinking: string;
 	rawText: string;
 	textSignature: string | undefined;
+	responseParts: Message["parts"];
 	finishReason: unknown;
 	groundingContent: string;
 	generatedImages: GeneratedImage[];
@@ -1727,6 +1859,7 @@ async function handleTextChat(ctx: SendContext): Promise<HTMLElement | undefined
 		thinking: "",
 		rawText: "",
 		textSignature: undefined,
+		responseParts: [],
 		finishReason: undefined,
 		groundingContent: "",
 		generatedImages: []
@@ -1785,6 +1918,7 @@ async function handleAbort(
 		personalityId: ctx.selectedPersonalityId,
 		text: state.rawText,
 		textSignature: state.textSignature,
+		responseParts: state.responseParts,
 		thinking: state.thinking,
 		groundingContent: state.groundingContent,
 		generatedImages: state.generatedImages,
@@ -1822,14 +1956,21 @@ async function finalizeTextChatSuccess(
 	ensureTextSignature: () => void
 ): Promise<HTMLElement> {
 	ensureTextSignature();
+	const responseParts = state.responseParts ?? [];
+	const parts: Message["parts"] = responseParts.length
+		? responseParts.map((part) => ({ ...part }))
+		: state.rawText.trim().length > 0 || state.textSignature
+			? [{ text: state.rawText, thoughtSignature: state.textSignature }]
+			: [];
+	const visiblePart = parts.find((part) => !part.thought);
+	if (visiblePart && state.textSignature && !visiblePart.thoughtSignature) {
+		visiblePart.thoughtSignature = state.textSignature;
+	}
 
 	const modelMessage: Message = {
 		role: "model",
 		personalityid: ctx.selectedPersonalityId,
-		parts:
-			state.rawText.trim().length > 0 || state.textSignature
-				? [{ text: state.rawText, thoughtSignature: state.textSignature }]
-				: [],
+		parts,
 		groundingContent: state.groundingContent || "",
 		thinking: state.thinking || undefined,
 		generatedImages: state.generatedImages.length > 0 ? state.generatedImages : undefined,
@@ -1972,6 +2113,7 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
 		state.thinking = result.thinking;
 		state.rawText = result.text;
 		state.textSignature = result.textSignature;
+		state.responseParts = result.responseParts ?? [];
 		state.groundingContent = result.groundingContent;
 		state.generatedImages = result.images;
 
@@ -1992,6 +2134,19 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
 				state.rawText += json.text;
 				if (ctx.thinkingContentElm) ctx.thinkingContentElm.textContent = state.thinking;
 				state.finishReason = json.finishReason;
+
+				if (Array.isArray(json.images) && json.images.length > 0) {
+					for (const img of json.images) {
+						state.generatedImages.push({
+							mimeType: img.mimeType,
+							base64: img.base64,
+							thoughtSignature:
+								img.thoughtSignature ??
+								(ctx.shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
+							thought: undefined
+						});
+					}
+				}
 			} else {
 				state.finishReason = json.candidates?.[0]?.finishReason || json.promptFeedback?.blockReason;
 				for (const part of json.candidates?.[0]?.content?.parts || []) {
@@ -2010,14 +2165,26 @@ async function handleTextChatPremium(ctx: SendContext, state: TextChatResponseSt
 						}
 						state.rawText += part.text;
 					} else if (part.inlineData) {
-						state.generatedImages.push({
-							mimeType: part.inlineData.mimeType || "image/png",
-							base64: part.inlineData.data || "",
+						const imagePart = {
+							inlineData: {
+								data: part.inlineData.data || "",
+								mimeType: part.inlineData.mimeType || "image/png"
+							},
 							thoughtSignature:
 								part.thoughtSignature ??
 								(ctx.shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
 							thought: part.thought
-						});
+						};
+						if (part.thought) {
+							state.responseParts.push(imagePart);
+						} else {
+							state.generatedImages.push({
+								mimeType: imagePart.inlineData.mimeType,
+								base64: imagePart.inlineData.data,
+								thoughtSignature: imagePart.thoughtSignature,
+								thought: undefined
+							});
+						}
 					}
 				}
 				if (json.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent) {
@@ -2074,12 +2241,38 @@ async function handleTextChatOpenRouter(ctx: SendContext, state: TextChatRespons
 		onThinking: async ({ thinking }) => {
 			state.thinking = thinking;
 			await renderStreamingTextState(ctx, state);
+		},
+		onImage: (img) => {
+			state.generatedImages.push({
+				mimeType: img.mimeType,
+				base64: img.base64,
+				thoughtSignature:
+					img.thoughtSignature ??
+					(ctx.shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
+				thoughtSignatureReasoningDetail: img.thoughtSignatureReasoningDetail,
+				thought: undefined
+			});
 		}
 	});
 
 	state.rawText = result.text;
 	state.thinking = result.thinking;
+	state.textSignature = result.textSignature;
+	state.responseParts = result.responseParts ?? [];
 	state.finishReason = result.finishReason;
+	if (result.images && result.images.length > 0 && state.generatedImages.length === 0) {
+		for (const img of result.images) {
+			state.generatedImages.push({
+				mimeType: img.mimeType,
+				base64: img.base64,
+				thoughtSignature:
+					img.thoughtSignature ??
+					(ctx.shouldUseSkipThoughtSignature ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined),
+				thoughtSignatureReasoningDetail: img.thoughtSignatureReasoningDetail,
+				thought: undefined
+			});
+		}
+	}
 }
 
 async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseState): Promise<void> {
@@ -2139,6 +2332,7 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 		state.thinking = result.thinking;
 		state.rawText = result.text;
 		state.textSignature = result.textSignature;
+		state.responseParts = result.responseParts ?? [];
 		state.groundingContent = result.groundingContent;
 		state.generatedImages = result.images;
 
@@ -2163,6 +2357,7 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 		state.thinking = result.thinking;
 		state.rawText = result.text;
 		state.textSignature = result.textSignature;
+		state.responseParts = result.responseParts ?? [];
 		state.groundingContent = result.groundingContent;
 		state.generatedImages = result.images;
 
