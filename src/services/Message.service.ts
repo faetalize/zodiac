@@ -80,7 +80,7 @@ import {
 	createErrorMessage,
 	UNRESTRICTED_SAFETY_SETTINGS
 } from "../utils/chatHistoryBuilder";
-import { resolveThoughtSignature } from "../utils/blobResolver";
+import { resolveAttachmentFile, resolveThoughtSignature } from "../utils/blobResolver";
 
 import { sendGroupChatRpg, type RpgInputArgs } from "./RpgGroupChat";
 import { sendGroupChatDynamic, type DynamicInputArgs } from "./DynamicGroupChat";
@@ -367,10 +367,32 @@ function getSelectedPersonalityId(): string {
 
 function cloneFilesToFileList(files?: Iterable<File> | ArrayLike<File> | null): FileList {
 	const dt = new DataTransfer();
-	for (const file of Array.from(files ?? [])) {
+	const sourceFiles = Array.from(files ?? []);
+	for (const file of sourceFiles) {
 		dt.items.add(file);
 	}
+	for (let index = 0; index < sourceFiles.length; index++) {
+		const sourceRef = (sourceFiles[index] as any)._blobRef;
+		const clonedFile = dt.files[index] as File | undefined;
+		if (sourceRef && clonedFile) {
+			(clonedFile as any)._blobRef = sourceRef;
+		}
+	}
 	return dt.files;
+}
+
+async function materializeFilesForRegenerate(files?: Iterable<File> | ArrayLike<File> | null): Promise<FileList> {
+	const resolvedFiles: File[] = [];
+	for (const file of Array.from(files ?? [])) {
+		const originalBlobRef = (file as any)._blobRef;
+		const resolvedFile = await resolveAttachmentFile(file);
+		if (originalBlobRef && resolvedFile.size === 0) {
+			throw new Error("Unable to restore the original attachment for regeneration.");
+		}
+		delete (resolvedFile as any)._blobRef;
+		resolvedFiles.push(resolvedFile);
+	}
+	return cloneFilesToFileList(resolvedFiles);
 }
 
 function createModelPlaceholderMessage(
@@ -1364,26 +1386,28 @@ export async function regenerate(modelMessageIndex: number): Promise<void> {
 		deletionStart = i;
 	}
 
-	chat.content = chat.content.slice(0, deletionStart);
-	pruneTrailingPersonalityMarkers(chat);
-	await chatsService.saveChat(chat as any);
-
-	const container = isViewingChat(targetChatId) ? document.querySelector<HTMLDivElement>(".message-container") : null;
-	if (container) {
-		const toRemove: Element[] = [];
-		for (const child of Array.from(container.children)) {
-			const indexAttr = child.getAttribute("data-chat-index");
-			if (!indexAttr) continue;
-			const chatIndex = Number.parseInt(indexAttr, 10);
-			if (!Number.isFinite(chatIndex)) continue;
-			if (chatIndex >= deletionStart) toRemove.push(child);
-		}
-		for (const node of toRemove) node.remove();
-	}
-
-	const attachments = cloneFilesToFileList(message.parts[0]?.attachments);
-
 	try {
+		const attachments = await materializeFilesForRegenerate(message.parts[0]?.attachments);
+
+		chat.content = chat.content.slice(0, deletionStart);
+		pruneTrailingPersonalityMarkers(chat);
+		await chatsService.saveChat(chat as any);
+
+		const container = isViewingChat(targetChatId)
+			? document.querySelector<HTMLDivElement>(".message-container")
+			: null;
+		if (container) {
+			const toRemove: Element[] = [];
+			for (const child of Array.from(container.children)) {
+				const indexAttr = child.getAttribute("data-chat-index");
+				if (!indexAttr) continue;
+				const chatIndex = Number.parseInt(indexAttr, 10);
+				if (!Number.isFinite(chatIndex)) continue;
+				if (chatIndex >= deletionStart) toRemove.push(child);
+			}
+			for (const node of toRemove) node.remove();
+		}
+
 		await send(message.parts[0]?.text || "", {
 			targetChatId,
 			selectedPersonalityId: targetPersonalityId,
