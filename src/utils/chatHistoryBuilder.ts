@@ -61,6 +61,7 @@ export interface GeneratedImageProcessingConfig {
 	enforceThoughtSignatures: boolean;
 	skipThoughtSignatureValidator: string;
 	suppressThoughtSignature?: boolean;
+	allowStoredThoughtSignatures?: boolean;
 }
 
 /**
@@ -68,8 +69,14 @@ export interface GeneratedImageProcessingConfig {
  * Returns an array of parts ready to be added to a message.
  */
 export async function processGeneratedImagesToParts(config: GeneratedImageProcessingConfig): Promise<any[]> {
-	const { images, shouldProcess, enforceThoughtSignatures, skipThoughtSignatureValidator, suppressThoughtSignature } =
-		config;
+	const {
+		images,
+		shouldProcess,
+		enforceThoughtSignatures,
+		skipThoughtSignatureValidator,
+		suppressThoughtSignature,
+		allowStoredThoughtSignatures = true
+	} = config;
 
 	if (!shouldProcess || !images || images.length === 0) {
 		return [];
@@ -94,10 +101,10 @@ export async function processGeneratedImagesToParts(config: GeneratedImageProces
 		const part: any = {
 			inlineData: { data: base64, mimeType: img.mimeType }
 		};
-		const thoughtSignature = await resolveThoughtSignature(img);
+		const thoughtSignature = allowStoredThoughtSignatures ? await resolveThoughtSignature(img) : undefined;
 		if (thoughtSignature) {
 			part.thoughtSignature = thoughtSignature;
-		} else if (!suppressThoughtSignature) {
+		} else if (!suppressThoughtSignature || !allowStoredThoughtSignatures) {
 			part.thoughtSignature = enforceThoughtSignatures ? skipThoughtSignatureValidator : undefined;
 		}
 		parts.push(part);

@@ -74,7 +74,8 @@ export async function constructGeminiChatHistoryForGroupChat(
 			shouldProcess: !!dbMessage.generatedImages,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: args.skipThoughtSignatureValidator,
-			suppressThoughtSignature: hasThoughtSignature
+			suppressThoughtSignature: hasThoughtSignature,
+			allowStoredThoughtSignatures: !isOpenRouterModel(dbMessage.originModel || "")
 		});
 		if (imageParts.length > 0) {
 			genAiMessage.parts?.push(...imageParts);

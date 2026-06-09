@@ -382,6 +382,16 @@ function cloneFilesToFileList(files?: Iterable<File> | ArrayLike<File> | null): 
 	return dt.files;
 }
 
+function normalizeMessageAttachmentsForStorage(message: Message): Message {
+	return {
+		...message,
+		parts: message.parts.map((part) => ({
+			...part,
+			attachments: part.attachments ? Array.from(part.attachments) : part.attachments
+		}))
+	};
+}
+
 async function materializeFilesForRegenerate(files?: Iterable<File> | ArrayLike<File> | null): Promise<FileList> {
 	const resolvedFiles: File[] = [];
 	for (const file of Array.from(files ?? [])) {
@@ -533,9 +543,10 @@ export async function persistMessagesToChat(
 	messages: Message[]
 ): Promise<{ startIndex: number } | null> {
 	await ensureChatFullyHydratedForWrite(chatId);
+	const storableMessages = messages.map(normalizeMessageAttachmentsForStorage);
 	const startIndex = await chatsService.mutateChat(chatId, (chat) => {
 		const nextStartIndex = chat.content.length;
-		chat.content.push(...messages);
+		chat.content.push(...storableMessages);
 		chat.lastModified = new Date();
 		return nextStartIndex;
 	});
@@ -553,7 +564,7 @@ async function updateChatMessage(chatId: string, messageIndex: number, message: 
 	const didUpdate = await chatsService.mutateChat(chatId, (chat) => {
 		if (messageIndex < 0 || messageIndex >= chat.content.length) return undefined;
 
-		chat.content[messageIndex] = message;
+		chat.content[messageIndex] = normalizeMessageAttachmentsForStorage(message);
 		chat.lastModified = new Date();
 		return true;
 	});
@@ -1028,7 +1039,8 @@ export async function constructGeminiChatHistoryFromLocalChat(
 			shouldProcess: !!dbMessage.generatedImages,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
-			suppressThoughtSignature: hasThoughtSignature
+			suppressThoughtSignature: hasThoughtSignature,
+			allowStoredThoughtSignatures: !isOpenRouterModel(dbMessage.originModel || "")
 		});
 		if (imageParts.length > 0) {
 			genAiMessage.parts?.push(...imageParts);

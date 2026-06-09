@@ -80,6 +80,30 @@ describe("processGeneratedImagesToParts", () => {
 			}
 		]);
 	});
+
+	it("uses the skip validator when stored generated-image signatures are disallowed", async () => {
+		const parts = await processGeneratedImagesToParts({
+			images: [
+				{
+					mimeType: "image/png",
+					base64: "openrouter-image-base64",
+					thoughtSignature: "openrouter-encrypted-signature"
+				}
+			],
+			shouldProcess: true,
+			enforceThoughtSignatures: true,
+			skipThoughtSignatureValidator: "skip_thought_signature_validator",
+			suppressThoughtSignature: true,
+			allowStoredThoughtSignatures: false
+		});
+
+		expect(parts).toEqual([
+			{
+				inlineData: { data: "openrouter-image-base64", mimeType: "image/png" },
+				thoughtSignature: "skip_thought_signature_validator"
+			}
+		]);
+	});
 });
 
 describe("processAttachmentsToParts", () => {

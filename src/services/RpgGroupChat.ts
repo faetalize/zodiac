@@ -2000,7 +2000,8 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 			shouldProcess: !!dbMessage.generatedImages,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
-			suppressThoughtSignature: hasThoughtSignature
+			suppressThoughtSignature: hasThoughtSignature,
+			allowStoredThoughtSignatures: !isOpenRouterModel(dbMessage.originModel || "")
 		});
 		if (imageParts.length > 0) {
 			genAiMessage.parts?.push(...imageParts);
