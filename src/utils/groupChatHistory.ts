@@ -47,14 +47,12 @@ export async function constructGeminiChatHistoryForGroupChat(
 
 			if (text.trim().length > 0) {
 				const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
-				const canUseStoredSignature =
-					dbMessage.role === "model" && !isOpenRouterModel(dbMessage.originModel || "");
+				const isModelMessage = dbMessage.role === "model";
+				const canUseStoredSignature = isModelMessage && !isOpenRouterModel(dbMessage.originModel || "");
 				const resolvedSignature = canUseStoredSignature ? await resolveThoughtSignature(part) : undefined;
 				const ts =
 					resolvedSignature ||
-					(canUseStoredSignature && shouldEnforceThoughtSignatures
-						? args.skipThoughtSignatureValidator
-						: undefined);
+					(isModelMessage && shouldEnforceThoughtSignatures ? args.skipThoughtSignatureValidator : undefined);
 				if (ts && !hasThoughtSignature) {
 					partObj.thoughtSignature = ts;
 					hasThoughtSignature = true;

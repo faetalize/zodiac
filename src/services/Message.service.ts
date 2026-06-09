@@ -998,14 +998,12 @@ export async function constructGeminiChatHistoryFromLocalChat(
 
 			if (text.trim().length > 0) {
 				const partObj: any = { text };
-				const canUseStoredSignature =
-					dbMessage.role === "model" && !isOpenRouterModel(dbMessage.originModel || "");
+				const isModelMessage = dbMessage.role === "model";
+				const canUseStoredSignature = isModelMessage && !isOpenRouterModel(dbMessage.originModel || "");
 				const resolvedSignature = canUseStoredSignature ? await resolveThoughtSignature(part) : undefined;
 				const ts =
 					resolvedSignature ||
-					(canUseStoredSignature && shouldEnforceThoughtSignatures
-						? SKIP_THOUGHT_SIGNATURE_VALIDATOR
-						: undefined);
+					(isModelMessage && shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
 				if (ts && !hasThoughtSignature) {
 					partObj.thoughtSignature = ts;
 					hasThoughtSignature = true;
