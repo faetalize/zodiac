@@ -227,11 +227,10 @@ function getVisibleMessagePart(message: Message): Message["parts"][number] | und
 }
 
 function getVisibleMessageText(message: Message): string {
-	const visibleText = message.parts
+	return message.parts
 		.filter((part) => !part.thought)
 		.map((part) => part.text || "")
 		.join("");
-	return visibleText || message.parts[0]?.text || "";
 }
 
 export const messageElement = async (message: Message, index: number): Promise<HTMLElement> => {
