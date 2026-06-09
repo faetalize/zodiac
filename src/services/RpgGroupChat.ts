@@ -1973,10 +1973,12 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 
 			if (text.trim().length > 0) {
 				const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
-				const resolvedSignature = dbMessage.role === "model" ? await resolveThoughtSignature(part) : undefined;
+				const canUseStoredSignature =
+					dbMessage.role === "model" && !isOpenRouterModel(dbMessage.originModel || "");
+				const resolvedSignature = canUseStoredSignature ? await resolveThoughtSignature(part) : undefined;
 				const ts =
 					resolvedSignature ||
-					(dbMessage.role === "model" && shouldEnforceThoughtSignatures
+					(canUseStoredSignature && shouldEnforceThoughtSignatures
 						? SKIP_THOUGHT_SIGNATURE_VALIDATOR
 						: undefined);
 				if (ts && !hasThoughtSignature) {

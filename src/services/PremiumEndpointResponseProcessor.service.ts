@@ -126,7 +126,6 @@ async function applyFallbackDelta(args: {
 		text: string;
 		thinking: string;
 		images: GeneratedImage[];
-		textSignature?: string;
 		thoughtSignature?: string;
 		thoughtSignatureReasoningDetail?: GeneratedImage["thoughtSignatureReasoningDetail"];
 	};
@@ -157,7 +156,6 @@ async function applyFallbackDelta(args: {
 	if (encryptedReasoningDetail) {
 		const { data, ...metadata } = encryptedReasoningDetail;
 		state.thoughtSignature = data;
-		state.textSignature = data;
 		state.thoughtSignatureReasoningDetail = {
 			...metadata,
 			type: "reasoning.encrypted",
@@ -178,10 +176,7 @@ async function applyFallbackDelta(args: {
 			const genImage: GeneratedImage = {
 				mimeType: imageObj.mimeType,
 				base64: imageObj.base64,
-				thoughtSignature:
-					imageObj.thoughtSignature ??
-					(process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined),
-				thoughtSignatureReasoningDetail: imageObj.thoughtSignatureReasoningDetail
+				thoughtSignature: process.useSkipThoughtSignature ? process.skipThoughtSignatureValidator : undefined
 			};
 			state.images.push(genImage);
 			await process.callbacks?.onImage?.(genImage);

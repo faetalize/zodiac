@@ -229,21 +229,6 @@ export function extractThoughtSignatureFromDetails(details: unknown): string | u
 	return extractEncryptedReasoningDetailFromDetails(details)?.data;
 }
 
-function getThoughtSignatureReasoningMetadata(
-	detail: OpenRouterReasoningDetail | undefined
-): GeneratedImage["thoughtSignatureReasoningDetail"] {
-	if (!detail || detail.type !== "reasoning.encrypted") return undefined;
-	const metadata = stripReasoningPayload(detail);
-
-	return {
-		...metadata,
-		type: "reasoning.encrypted",
-		id: metadata.id,
-		format: metadata.format,
-		index: metadata.index
-	};
-}
-
 function getReasoningTextFromDetail(detail: OpenRouterReasoningDetail): string {
 	const value = detail as { text?: unknown; summary?: unknown };
 	if (typeof value.text === "string") return value.text;
@@ -255,14 +240,12 @@ function buildResponsePartsFromOpenRouter(args: {
 	text: string;
 	reasoningDetails: OpenRouterReasoningDetail[];
 	fallbackThinking?: string;
-}): { responseParts: Message["parts"]; textSignature?: string } {
+}): { responseParts: Message["parts"] } {
 	const responseParts: Message["parts"] = [];
-	let encryptedDetail: OpenRouterReasoningDetail | undefined;
 	let hasReasoningTextPart = false;
 
 	for (const detail of args.reasoningDetails) {
 		if (detail.type === "reasoning.encrypted" && typeof detail.data === "string" && detail.data.length > 0) {
-			encryptedDetail = detail;
 			continue;
 		}
 
@@ -276,16 +259,13 @@ function buildResponsePartsFromOpenRouter(args: {
 		responseParts.push({ text: args.fallbackThinking, thought: true });
 	}
 
-	const textSignature = encryptedDetail?.data;
-	if (args.text.trim().length > 0 || textSignature) {
+	if (args.text.trim().length > 0) {
 		responseParts.push({
-			text: args.text,
-			thoughtSignature: textSignature,
-			reasoningDetail: encryptedDetail ? stripReasoningPayload(encryptedDetail) : undefined
+			text: args.text
 		});
 	}
 
-	return { responseParts, textSignature };
+	return { responseParts };
 }
 
 function normalizeReasoningDetails(details: unknown): OpenRouterReasoningDetail[] {
@@ -578,10 +558,7 @@ async function processOpenRouterJson(args: {
 	const text = extractContentText(choice?.message?.content);
 	const reasoningDetails = normalizeReasoningDetails(choice?.message?.reasoning_details);
 	const thinking = choice?.message?.reasoning || extractReasoningFromDetails(reasoningDetails);
-	const encryptedReasoningDetail = extractEncryptedReasoningDetailFromDetails(reasoningDetails);
-	const thoughtSignature = encryptedReasoningDetail?.data;
-	const thoughtSignatureReasoningDetail = getThoughtSignatureReasoningMetadata(encryptedReasoningDetail);
-	const { responseParts, textSignature } = buildResponsePartsFromOpenRouter({
+	const { responseParts } = buildResponsePartsFromOpenRouter({
 		text,
 		reasoningDetails,
 		fallbackThinking: thinking
@@ -589,11 +566,7 @@ async function processOpenRouterJson(args: {
 
 	const images: OpenRouterCompletionResult["images"] = [];
 	for (const img of choice?.message?.images || []) {
-		const extracted = extractImageDataFromOpenRouterImageUrl(
-			img,
-			thoughtSignature,
-			thoughtSignatureReasoningDetail
-		);
+		const extracted = extractImageDataFromOpenRouterImageUrl(img);
 		if (extracted) {
 			images.push(extracted);
 		}
@@ -616,7 +589,6 @@ async function processOpenRouterJson(args: {
 	return {
 		text,
 		thinking,
-		textSignature,
 		responseParts,
 		finishReason: choice?.finish_reason,
 		images
@@ -641,8 +613,6 @@ async function processOpenRouterStream(args: {
 	let text = "";
 	let thinking = "";
 	let finishReason: unknown;
-	let thoughtSignature: string | undefined;
-	let thoughtSignatureReasoningDetail: GeneratedImage["thoughtSignatureReasoningDetail"];
 	let reasoningDetails: OpenRouterReasoningDetail[] = [];
 	const images: OpenRouterCompletionResult["images"] = [];
 
@@ -707,19 +677,9 @@ async function processOpenRouterStream(args: {
 				reasoningDetails = mergeReasoningDetails(reasoningDetails, deltaReasoningDetails);
 			}
 
-			const encryptedReasoningDetail = extractEncryptedReasoningDetailFromDetails(deltaReasoningDetails);
-			if (encryptedReasoningDetail) {
-				thoughtSignature = encryptedReasoningDetail.data;
-				thoughtSignatureReasoningDetail = getThoughtSignatureReasoningMetadata(encryptedReasoningDetail);
-			}
-
 			const deltaImages = choice.delta?.images || [];
 			for (const img of deltaImages) {
-				const imageObj = extractImageDataFromOpenRouterImageUrl(
-					img,
-					thoughtSignature,
-					thoughtSignatureReasoningDetail
-				);
+				const imageObj = extractImageDataFromOpenRouterImageUrl(img);
 				if (imageObj) {
 					images.push(imageObj);
 					if (args.onImage) {

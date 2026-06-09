@@ -131,7 +131,7 @@ describe("OpenRouter history conversion", () => {
 		expect(messages).toEqual([]);
 	});
 
-	it("preserves OpenRouter response reasoning details as model response parts", async () => {
+	it("omits OpenRouter encrypted reasoning from saved model response signatures", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockResolvedValue(
@@ -176,7 +176,7 @@ describe("OpenRouter history conversion", () => {
 
 		expect(result.text).toBe("visible answer");
 		expect(result.thinking).toBe("hidden reasoning");
-		expect(result.textSignature).toBe("answer-signature");
+		expect(result.textSignature).toBeUndefined();
 		expect(result.responseParts).toEqual([
 			{
 				text: "hidden reasoning",
@@ -189,14 +189,7 @@ describe("OpenRouter history conversion", () => {
 				}
 			},
 			{
-				text: "visible answer",
-				thoughtSignature: "answer-signature",
-				reasoningDetail: {
-					type: "reasoning.encrypted",
-					format: "google-gemini-v1",
-					index: 1,
-					provider_extra: "encrypted-kept"
-				}
+				text: "visible answer"
 			}
 		]);
 

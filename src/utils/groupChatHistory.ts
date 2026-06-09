@@ -7,6 +7,7 @@ import { NARRATOR_PERSONALITY_ID } from "./personalityMarkers";
 import { maybePrefixSpeaker } from "./chatHistory";
 import { processAttachmentsToParts, processGeneratedImagesToParts } from "./chatHistoryBuilder";
 import { resolveThoughtSignature } from "./blobResolver";
+import { isOpenRouterModel } from "../types/Models";
 
 export async function constructGeminiChatHistoryForGroupChat(
 	currentChat: DbChat,
@@ -46,10 +47,12 @@ export async function constructGeminiChatHistoryForGroupChat(
 
 			if (text.trim().length > 0) {
 				const partObj: any = { text: maybePrefixSpeaker(text, speaker) };
-				const resolvedSignature = dbMessage.role === "model" ? await resolveThoughtSignature(part) : undefined;
+				const canUseStoredSignature =
+					dbMessage.role === "model" && !isOpenRouterModel(dbMessage.originModel || "");
+				const resolvedSignature = canUseStoredSignature ? await resolveThoughtSignature(part) : undefined;
 				const ts =
 					resolvedSignature ||
-					(dbMessage.role === "model" && shouldEnforceThoughtSignatures
+					(canUseStoredSignature && shouldEnforceThoughtSignatures
 						? args.skipThoughtSignatureValidator
 						: undefined);
 				if (ts && !hasThoughtSignature) {

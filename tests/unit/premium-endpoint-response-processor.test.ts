@@ -19,7 +19,7 @@ function sseResponse(blocks: string[]): Response {
 }
 
 describe("premium endpoint response processing", () => {
-	it("preserves fallback encrypted reasoning as the final text signature", async () => {
+	it("does not save OpenRouter fallback encrypted reasoning as a Gemini text signature", async () => {
 		const response = sseResponse([
 			`event: fallback\ndata: ${JSON.stringify({ mode: "restart", reason: "direct_openrouter" })}\n\n`,
 			`data: ${JSON.stringify({
@@ -58,6 +58,6 @@ describe("premium endpoint response processing", () => {
 
 		expect(result.wasFallbackMode).toBe(true);
 		expect(result.text).toBe("visible answer");
-		expect(result.textSignature).toBe("fallback-signature");
+		expect(result.textSignature).toBeUndefined();
 	});
 });
