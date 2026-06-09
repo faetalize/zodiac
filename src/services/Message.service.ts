@@ -90,6 +90,56 @@ import { sendGroupChatDynamic, type DynamicInputArgs } from "./DynamicGroupChat"
 // ================================================================================
 
 export const USER_SKIP_TURN_MARKER_TEXT = "__user_skip_turn__";
+
+/**
+ * THOUGHT SIGNATURE QUIRKS (read before touching history-building signature logic)
+ *
+ * Background:
+ * - The Gemini API can require a `thoughtSignature` on model-authored text/image
+ *   parts in request history. When a model message that originally came back with
+ *   thinking is replayed without its signature, Gemini rejects the request with
+ *   "Text/Image part is missing a thought_signature in content position X...".
+ * - `SKIP_THOUGHT_SIGNATURE_VALIDATOR` is a sentinel value Gemini accepts in place
+ *   of a real signature to bypass that validation. We use it whenever we must send
+ *   a signed-looking part but do not have a valid Gemini signature to provide.
+ *
+ * Quirk 1 — Only model parts ever get signatures.
+ * - User messages and persona scaffold messages must NEVER receive a synthetic
+ *   signature (real or skip-validator). Signatures are model-authored metadata.
+ *
+ * Quirk 2 — OpenRouter signatures are NOT Gemini signatures.
+ * - OpenRouter returns `reasoning.encrypted` data that we historically stored in
+ *   `thoughtSignature` fields. That value is incompatible with the Gemini SDK
+ *   (wrong format / invalid TYPE_BYTES base64) and must never be replayed to
+ *   Gemini. For any message whose `originModel` is an OpenRouter model, we ignore
+ *   the stored signature and fall back to `SKIP_THOUGHT_SIGNATURE_VALIDATOR` when
+ *   Gemini history requires one. See `isOpenRouterModel(originModel)` guards and
+ *   the `allowStoredThoughtSignatures` flag in `processGeneratedImagesToParts`.
+ * - OpenRouter requests themselves strip signatures during conversion, so storing
+ *   them was never useful in the first place.
+ *
+ * Quirk 3 — Signatures are per-part, but the skip-validator is applied sparingly.
+ * - Gemini attaches a `thoughtSignature` to each part it wants signed: a model
+ *   message can legitimately have multiple signed parts (text and/or images), and
+ *   we preserve every real per-part signature when replaying history.
+ * - The `hasThoughtSignature` / `suppressThoughtSignature` tracking does NOT strip
+ *   real signatures. It only avoids stamping the synthetic
+ *   `SKIP_THOUGHT_SIGNATURE_VALIDATOR` fallback onto additional parts once some
+ *   part in the message is already signed — real stored signatures (e.g. on an
+ *   image part) are still emitted regardless.
+ * - Exception: when stored signatures are disallowed (OpenRouter origin), image
+ *   parts still get the skip-validator because Gemini validates each image part's
+ *   signature independently.
+ *
+ * Quirk 4 — Thought (reasoning) parts are never signed and are excluded from
+ * rebuilt history entirely.
+ * - In practice Gemini only attaches a `thoughtSignature` to *contentful* parts:
+ *   non-thought text parts and generated-image (inlineData) parts. Parts flagged
+ *   `thought: true` are not signed.
+ * - Either way, thought parts are reasoning content and are dropped when
+ *   rebuilding request history, so they are never replayed to the provider and
+ *   never need a signature.
+ */
 export const SKIP_THOUGHT_SIGNATURE_VALIDATOR = "skip_thought_signature_validator";
 
 export { NARRATOR_PERSONALITY_ID, createPersonalityMarkerMessage };
@@ -1010,11 +1060,18 @@ export async function constructGeminiChatHistoryFromLocalChat(
 			if (text.trim().length > 0) {
 				const partObj: any = { text };
 				const isModelMessage = dbMessage.role === "model";
+				// Thought-signature quirk: only model messages may carry a signature, and
+				// OpenRouter-origin signatures are incompatible with Gemini (see the
+				// SKIP_THOUGHT_SIGNATURE_VALIDATOR doc block). For OpenRouter origin we
+				// ignore the stored signature and fall back to the skip-validator below.
 				const canUseStoredSignature = isModelMessage && !isOpenRouterModel(dbMessage.originModel || "");
 				const resolvedSignature = canUseStoredSignature ? await resolveThoughtSignature(part) : undefined;
 				const ts =
 					resolvedSignature ||
 					(isModelMessage && shouldEnforceThoughtSignatures ? SKIP_THOUGHT_SIGNATURE_VALIDATOR : undefined);
+				// Quirk: only stamp the skip-validator fallback once per message. Real
+				// per-part signatures are preserved elsewhere; this guard just avoids
+				// redundant synthetic sentinels when no real signature exists.
 				if (ts && !hasThoughtSignature) {
 					partObj.thoughtSignature = ts;
 					hasThoughtSignature = true;
@@ -1039,7 +1096,11 @@ export async function constructGeminiChatHistoryFromLocalChat(
 			shouldProcess: !!dbMessage.generatedImages,
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+			// A text part already carries the skip-validator fallback? Don't stamp it
+			// again on images. (Real per-part image signatures are still emitted.)
 			suppressThoughtSignature: hasThoughtSignature,
+			// OpenRouter image signatures are incompatible with Gemini; disallow reusing
+			// them so the builder substitutes the skip-validator when required.
 			allowStoredThoughtSignatures: !isOpenRouterModel(dbMessage.originModel || "")
 		});
 		if (imageParts.length > 0) {

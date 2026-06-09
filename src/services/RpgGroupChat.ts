@@ -2001,6 +2001,9 @@ async function constructGeminiChatHistoryForGroupChatRpg(
 			enforceThoughtSignatures: shouldEnforceThoughtSignatures,
 			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
 			suppressThoughtSignature: hasThoughtSignature,
+			// Mirror the single-chat builder: OpenRouter image signatures are
+			// incompatible with Gemini, so disallow reuse (see the
+			// SKIP_THOUGHT_SIGNATURE_VALIDATOR doc in Message.service.ts).
 			allowStoredThoughtSignatures: !isOpenRouterModel(dbMessage.originModel || "")
 		});
 		if (imageParts.length > 0) {

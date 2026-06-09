@@ -60,7 +60,19 @@ export interface GeneratedImageProcessingConfig {
 	shouldProcess: boolean;
 	enforceThoughtSignatures: boolean;
 	skipThoughtSignatureValidator: string;
+	/**
+	 * The owning model message already emitted the skip-validator sentinel on an
+	 * earlier part. When true we avoid stamping that synthetic fallback again on
+	 * image parts. This does NOT suppress real stored signatures — if an image has
+	 * a valid (allowed) `thoughtSignature` it is always emitted.
+	 */
 	suppressThoughtSignature?: boolean;
+	/**
+	 * Whether the image's stored `thoughtSignature` may be replayed to Gemini.
+	 * Set to false for OpenRouter-origin images: their encrypted reasoning
+	 * signatures are incompatible with the Gemini SDK, so we drop them and
+	 * substitute the skip-validator sentinel when Gemini requires a signature.
+	 */
 	allowStoredThoughtSignatures?: boolean;
 }
 
@@ -101,6 +113,13 @@ export async function processGeneratedImagesToParts(config: GeneratedImageProces
 		const part: any = {
 			inlineData: { data: base64, mimeType: img.mimeType }
 		};
+		// Thought-signature resolution (see SKIP_THOUGHT_SIGNATURE_VALIDATOR doc in
+		// Message.service.ts for the full quirk list):
+		// - Use the stored Gemini signature only when allowed (non-OpenRouter origin).
+		// - Otherwise emit the skip-validator sentinel when Gemini enforces signatures.
+		//   We force the skip-validator even if `suppressThoughtSignature` is set when
+		//   stored signatures are disallowed, because Gemini validates the image part's
+		//   signature independently of the text part.
 		const thoughtSignature = allowStoredThoughtSignatures ? await resolveThoughtSignature(img) : undefined;
 		if (thoughtSignature) {
 			part.thoughtSignature = thoughtSignature;
