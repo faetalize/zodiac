@@ -102,12 +102,21 @@ export function clearAttachmentPreviews() {
 function removeFileFromInput(file: File): void {
 	const signatureToRemove = getFileSignature(file);
 	const dataTransfer = new DataTransfer();
+	const keptFiles: File[] = [];
 	for (const existing of Array.from(input!.files || [])) {
 		if (getFileSignature(existing) === signatureToRemove) {
 			continue;
 		}
+		keptFiles.push(existing);
 		dataTransfer.items.add(existing);
 	}
+	keptFiles.forEach((existing, index) => {
+		const clonedFile = dataTransfer.files[index] as File | undefined;
+		if (!clonedFile) return;
+		for (const key of Object.keys(existing as any)) {
+			(clonedFile as any)[key] = (existing as any)[key];
+		}
+	});
 	input!.files = dataTransfer.files;
 }
 

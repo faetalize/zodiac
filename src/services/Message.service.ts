@@ -372,10 +372,11 @@ function cloneFilesToFileList(files?: Iterable<File> | ArrayLike<File> | null): 
 		dt.items.add(file);
 	}
 	for (let index = 0; index < sourceFiles.length; index++) {
-		const sourceRef = (sourceFiles[index] as any)._blobRef;
+		const sourceMetadata = sourceFiles[index] as any;
 		const clonedFile = dt.files[index] as File | undefined;
-		if (sourceRef && clonedFile) {
-			(clonedFile as any)._blobRef = sourceRef;
+		if (!clonedFile) continue;
+		for (const key of Object.keys(sourceMetadata)) {
+			(clonedFile as any)[key] = sourceMetadata[key];
 		}
 	}
 	return dt.files;

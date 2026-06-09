@@ -859,6 +859,13 @@ async function updateMessageInDatabase(markdownContent: string, messageIndex: nu
 				: (() => {
 						const dataTransfer = new DataTransfer();
 						attachments.forEach((file) => dataTransfer.items.add(file));
+						attachments.forEach((file, index) => {
+							const clonedFile = dataTransfer.files[index] as File | undefined;
+							if (!clonedFile) return;
+							for (const key of Object.keys(file as any)) {
+								(clonedFile as any)[key] = (file as any)[key];
+							}
+						});
 						return dataTransfer.files;
 					})();
 
