@@ -441,6 +441,19 @@
 												</span>
 											</label>
 											<select id="selectedModel" class="input-field"></select>
+											<button
+												id="model-picker-trigger"
+												class="input-field model-picker-trigger hidden"
+												type="button"
+												aria-haspopup="dialog"
+												aria-expanded="false"
+												aria-controls="model-picker-sheet"
+											>
+												<span class="model-picker-trigger__label">Select a model</span>
+												<span class="material-symbols-outlined model-picker-trigger__icon"
+													>expand_more</span
+												>
+											</button>
 										</div>
 										<div>
 											<label class="setting-label" for="maxTokens"
@@ -3188,6 +3201,26 @@
 					<button id="btn-roleplay-add-modal-cancel" class="btn btn-secondary" type="button">Cancel</button>
 				</div>
 			</div>
+		</div>
+
+		<div
+			id="model-picker-sheet"
+			class="adaptive-sheet model-picker-sheet hidden"
+			role="dialog"
+			aria-labelledby="model-picker-title"
+		>
+			<h1 id="model-picker-title">Select a model</h1>
+			<input
+				id="model-picker-search"
+				class="input-field model-picker-search"
+				type="search"
+				placeholder="Search models…"
+				autocomplete="off"
+				aria-label="Search models"
+			/>
+			<div id="model-picker-filters" class="model-picker-filters"></div>
+			<div id="model-picker-grid" class="model-picker-grid" role="listbox" aria-label="Models"></div>
+			<p id="model-picker-empty" class="model-picker-empty hidden">No models match your filters.</p>
 		</div>
 
 		<script type="module" src="main.ts" defer></script>
