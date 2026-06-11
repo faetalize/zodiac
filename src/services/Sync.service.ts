@@ -96,8 +96,7 @@ const LEGACY_MEDIA_MIGRATION_COMPLETION_VALUE = "true";
 const LEGACY_MEDIA_MIGRATION_MIN_HEX_CANDIDATE_LENGTH = 8_000;
 const MESSAGE_UPSERT_MAX_ROWS = 1000;
 const MESSAGE_UPSERT_MAX_BYTES = 6_500_000;
-const MESSAGE_DELETE_MARK_BATCH_SIZE = 500;
-const CHAT_DELETE_MARK_BATCH_SIZE = 500;
+const MESSAGE_DELETE_BATCH_SIZE = 500;
 const MESSAGE_DECRYPT_CONCURRENCY = 4;
 const MAX_OFFLINE_RETRIES = 5;
 const QUOTA_TOAST_DEDUP_MS = 30_000;
@@ -1490,7 +1489,7 @@ function firstDifferentMessageIndex(previous: Message[], current: Message[]): nu
 	return shared;
 }
 
-async function markDeletedMessages(
+async function deleteSyncedMessagesFrom(
 	chatId: string,
 	fromIndexInclusive: number,
 	toIndexExclusive?: number
@@ -1502,10 +1501,10 @@ async function markDeletedMessages(
 	const startIndex = Math.max(0, fromIndexInclusive);
 	const boundedEnd = typeof toIndexExclusive === "number" ? Math.max(startIndex, toIndexExclusive) : null;
 
-	const markRange = async (rangeStart: number, rangeEndExclusive?: number): Promise<boolean> => {
+	const deleteRange = async (rangeStart: number, rangeEndExclusive?: number): Promise<boolean> => {
 		let query = supabase
 			.from("user_synced_messages")
-			.update({ deleted: true })
+			.delete()
 			.eq("user_id", user.id)
 			.eq("chat_id", chatId)
 			.gte("message_index", rangeStart);
@@ -1517,7 +1516,7 @@ async function markDeletedMessages(
 		const { error } = await query;
 		if (error) {
 			console.error(
-				"markDeletedMessages failed (chat=%s, from=%s, to=%s):",
+				"deleteSyncedMessagesFrom failed (chat=%s, from=%s, to=%s):",
 				chatId,
 				rangeStart,
 				rangeEndExclusive ?? "∞",
@@ -1530,13 +1529,13 @@ async function markDeletedMessages(
 	};
 
 	if (boundedEnd === null) {
-		await markRange(startIndex);
+		await deleteRange(startIndex);
 		return;
 	}
 
-	for (let chunkStart = startIndex; chunkStart < boundedEnd; chunkStart += MESSAGE_DELETE_MARK_BATCH_SIZE) {
-		const chunkEnd = Math.min(boundedEnd, chunkStart + MESSAGE_DELETE_MARK_BATCH_SIZE);
-		const ok = await markRange(chunkStart, chunkEnd);
+	for (let chunkStart = startIndex; chunkStart < boundedEnd; chunkStart += MESSAGE_DELETE_BATCH_SIZE) {
+		const chunkEnd = Math.min(boundedEnd, chunkStart + MESSAGE_DELETE_BATCH_SIZE);
+		const ok = await deleteRange(chunkStart, chunkEnd);
 		if (!ok) {
 			break;
 		}
@@ -1572,7 +1571,7 @@ async function pushChatIncremental(previous: DbChat | undefined, current: DbChat
 
 	const failures = await pushChatMessagesRange(current, diffStart, currentMessages.length);
 	if (currentMessages.length < previousMessages.length) {
-		await markDeletedMessages(current.id, currentMessages.length, previousMessages.length);
+		await deleteSyncedMessagesFrom(current.id, currentMessages.length, previousMessages.length);
 
 		// Clean up blobs from deleted messages (fire-and-forget).
 		// The previous messages are in memory so we can extract blob refs directly.
@@ -1679,7 +1678,7 @@ async function extractBlobIdsFromEncryptedMessages(
 }
 
 /**
- * Mark a chat as deleted on Supabase (soft delete).
+ * Permanently delete a chat and all of its messages from Supabase.
  * Also cleans up any associated encrypted blobs in storage.
  */
 export async function deleteSyncedChat(chatId: string): Promise<boolean> {
@@ -1688,8 +1687,8 @@ export async function deleteSyncedChat(chatId: string): Promise<boolean> {
 	if (!user) return false;
 
 	try {
-		// ── Collect blob IDs from messages before soft-deleting ─────────
-		// We need to read the encrypted messages BEFORE marking them deleted
+		// ── Collect blob IDs from messages before deleting ─────────────
+		// We need to read the encrypted messages BEFORE deleting them
 		// so we can extract any blob references for cleanup.
 		const blobIdsToDelete: string[] = [];
 		try {
@@ -1718,58 +1717,32 @@ export async function deleteSyncedChat(chatId: string): Promise<boolean> {
 			console.warn("deleteSyncedChat: blob ID extraction failed (will skip blob cleanup):", err);
 		}
 
-		// ── Soft-delete the chat ───────────────────────────────────────
-		const { error: chatError } = await supabase
-			.from("user_synced_chats")
-			.update({ deleted: true })
+		// ── Delete all messages for the chat ───────────────────────────
+		// Messages are deleted first so that a failure leaves the chat row
+		// intact (and therefore retryable) rather than orphaning messages.
+		const { error: messagesError } = await supabase
+			.from("user_synced_messages")
+			.delete()
 			.eq("user_id", user.id)
-			.eq("id", chatId);
+			.eq("chat_id", chatId);
 
-		if (chatError) {
-			console.error("deleteSyncedChat failed to mark chat deleted:", chatError);
+		if (messagesError) {
+			console.error("deleteSyncedChat failed to delete messages (chat=%s):", chatId, messagesError);
 			enqueue({ table: "chats", operation: "delete", entityId: chatId });
 			return false;
 		}
 
-		// ── Soft-delete all messages ───────────────────────────────────
-		const { data: latestMessage, error: latestError } = await supabase
-			.from("user_synced_messages")
-			.select("message_index")
+		// ── Delete the chat row ────────────────────────────────────────
+		const { error: chatError } = await supabase
+			.from("user_synced_chats")
+			.delete()
 			.eq("user_id", user.id)
-			.eq("chat_id", chatId)
-			.eq("deleted", false)
-			.order("message_index", { ascending: false })
-			.limit(1)
-			.maybeSingle();
+			.eq("id", chatId);
 
-		if (latestError) {
-			console.error("deleteSyncedChat failed to read latest message index:", latestError);
+		if (chatError) {
+			console.error("deleteSyncedChat failed to delete chat (chat=%s):", chatId, chatError);
 			enqueue({ table: "chats", operation: "delete", entityId: chatId });
-		} else if (latestMessage && typeof latestMessage.message_index === "number") {
-			const maxIndex = latestMessage.message_index;
-			for (let start = 0; start <= maxIndex; start += CHAT_DELETE_MARK_BATCH_SIZE) {
-				const endExclusive = start + CHAT_DELETE_MARK_BATCH_SIZE;
-				const { error: messagesError } = await supabase
-					.from("user_synced_messages")
-					.update({ deleted: true })
-					.eq("user_id", user.id)
-					.eq("chat_id", chatId)
-					.eq("deleted", false)
-					.gte("message_index", start)
-					.lt("message_index", endExclusive);
-
-				if (messagesError) {
-					console.error(
-						"deleteSyncedChat failed while marking message chunk deleted (chat=%s, start=%s, end=%s):",
-						chatId,
-						start,
-						endExclusive,
-						messagesError
-					);
-					enqueue({ table: "chats", operation: "delete", entityId: chatId });
-					break;
-				}
-			}
+			return false;
 		}
 
 		// ── Clean up blobs (fire-and-forget) ───────────────────────────
@@ -1827,7 +1800,7 @@ export async function pushPersona(persona: DbPersonality): Promise<boolean> {
 }
 
 /**
- * Mark a persona as deleted on Supabase (soft delete).
+ * Permanently delete a persona from Supabase.
  */
 export async function deleteSyncedPersona(personaId: string): Promise<boolean> {
 	if (!isSyncActive()) return false;
@@ -1837,7 +1810,7 @@ export async function deleteSyncedPersona(personaId: string): Promise<boolean> {
 	try {
 		const { error } = await supabase
 			.from("user_synced_personas")
-			.update({ deleted: true })
+			.delete()
 			.eq("user_id", user.id)
 			.eq("id", personaId);
 
