@@ -3209,18 +3209,24 @@
 			role="dialog"
 			aria-labelledby="model-picker-title"
 		>
-			<h1 id="model-picker-title">Select a model</h1>
-			<input
-				id="model-picker-search"
-				class="input-field model-picker-search"
-				type="search"
-				placeholder="Search models…"
-				autocomplete="off"
-				aria-label="Search models"
-			/>
-			<div id="model-picker-filters" class="model-picker-filters"></div>
-			<div id="model-picker-grid" class="model-picker-grid" role="listbox" aria-label="Models"></div>
-			<p id="model-picker-empty" class="model-picker-empty hidden">No models match your filters.</p>
+			<div id="model-picker-families" class="model-picker-view">
+				<h1 id="model-picker-title">Select a model</h1>
+				<div id="model-picker-family-list" class="settings-list" aria-label="Model families"></div>
+			</div>
+			<div id="model-picker-family-detail" class="model-picker-view hidden">
+				<div class="settings-page-header">
+					<button
+						id="model-picker-back"
+						class="settings-page-back btn-textual"
+						type="button"
+						aria-label="Back to model families"
+					>
+						<span class="material-symbols-outlined">arrow_back</span>
+					</button>
+					<h3 id="model-picker-family-title" class="settings-page-title">Models</h3>
+				</div>
+				<div id="model-picker-model-list" class="settings-list" role="listbox" aria-label="Models"></div>
+			</div>
 		</div>
 
 		<script type="module" src="main.ts" defer></script>
