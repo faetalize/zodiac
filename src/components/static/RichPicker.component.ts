@@ -195,7 +195,8 @@ function createModelRow(entry: ModelEntry): HTMLButtonElement {
 	title.className = "settings-list-item-title model-picker-row__title";
 
 	const name = document.createElement("span");
-	name.textContent = entry.label;
+	// MEGA tier is shown as a dedicated chip below, so drop the " [MEGA]" suffix the label carries.
+	name.textContent = entry.definition?.mega ? entry.label.replace(/\s*\[MEGA\]\s*$/, "") : entry.label;
 	title.append(name);
 
 	if (entry.definition?.mega) {
