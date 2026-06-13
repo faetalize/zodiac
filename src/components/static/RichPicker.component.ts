@@ -8,12 +8,25 @@ const modelSelect = document.querySelector<HTMLSelectElement>("#selectedModel");
 const trigger = document.querySelector<HTMLButtonElement>("#model-picker-trigger");
 const triggerLabel = trigger?.querySelector<HTMLElement>(".model-picker-trigger__label") ?? null;
 const sheet = document.querySelector<HTMLElement>("#model-picker-sheet");
-const searchInput = document.querySelector<HTMLInputElement>("#model-picker-search");
-const filtersContainer = document.querySelector<HTMLElement>("#model-picker-filters");
-const grid = document.querySelector<HTMLElement>("#model-picker-grid");
-const emptyState = document.querySelector<HTMLElement>("#model-picker-empty");
+const familiesView = document.querySelector<HTMLElement>("#model-picker-families");
+const familyList = document.querySelector<HTMLElement>("#model-picker-family-list");
+const detailView = document.querySelector<HTMLElement>("#model-picker-family-detail");
+const backButton = document.querySelector<HTMLButtonElement>("#model-picker-back");
+const familyTitle = document.querySelector<HTMLElement>("#model-picker-family-title");
+const modelList = document.querySelector<HTMLElement>("#model-picker-model-list");
 
-if (!modelSelect || !trigger || !triggerLabel || !sheet || !searchInput || !filtersContainer || !grid || !emptyState) {
+if (
+	!modelSelect ||
+	!trigger ||
+	!triggerLabel ||
+	!sheet ||
+	!familiesView ||
+	!familyList ||
+	!detailView ||
+	!backButton ||
+	!familyTitle ||
+	!modelList
+) {
 	console.error("Rich model picker initialization failed");
 	throw new Error("Missing DOM element for the rich model picker");
 }
@@ -21,20 +34,26 @@ if (!modelSelect || !trigger || !triggerLabel || !sheet || !searchInput || !filt
 const ensuredSelect = modelSelect;
 const ensuredTrigger = trigger;
 const ensuredTriggerLabel = triggerLabel;
-const ensuredSearch = searchInput;
-const ensuredFilters = filtersContainer;
-const ensuredGrid = grid;
-const ensuredEmpty = emptyState;
-
-type ProviderFilter = "all" | "gemini" | "openrouter";
-
-type CapabilityKey = "vision" | "imageOut" | "thinking" | "files";
+const ensuredSheet = sheet;
+const ensuredFamiliesView = familiesView;
+const ensuredFamilyList = familyList;
+const ensuredDetailView = detailView;
+const ensuredBack = backButton;
+const ensuredFamilyTitle = familyTitle;
+const ensuredModelList = modelList;
 
 interface CapabilityDescriptor {
-	key: CapabilityKey;
 	label: string;
 	icon: string;
 	test: (definition: ChatModelDefinition) => boolean;
+}
+
+interface ModelFamily {
+	key: string;
+	label: string;
+	icon: string;
+	/** Matched against the lowercased model id. */
+	test: (id: string) => boolean;
 }
 
 interface ModelEntry {
@@ -43,25 +62,43 @@ interface ModelEntry {
 	definition: ChatModelDefinition | undefined;
 }
 
-const PROVIDER_FILTERS: { key: ProviderFilter; label: string }[] = [
-	{ key: "all", label: "All" },
-	{ key: "gemini", label: "Gemini" },
-	{ key: "openrouter", label: "OpenRouter" }
-];
+interface FamilyGroup {
+	family: ModelFamily;
+	models: ModelEntry[];
+}
 
 const CAPABILITIES: CapabilityDescriptor[] = [
-	{ key: "vision", label: "Vision", icon: "visibility", test: (model) => model.supportsImageInput },
-	{ key: "imageOut", label: "Image gen", icon: "image", test: (model) => model.supportsImageOutput },
-	{ key: "thinking", label: "Thinking", icon: "neurology", test: (model) => model.supportsThinking },
-	{ key: "files", label: "Files", icon: "description", test: (model) => model.supportsFileInput }
+	{ label: "Vision", icon: "visibility", test: (model) => model.supportsImageInput },
+	{ label: "Image gen", icon: "image", test: (model) => model.supportsImageOutput },
+	{ label: "Thinking", icon: "neurology", test: (model) => model.supportsThinking },
+	{ label: "Files", icon: "description", test: (model) => model.supportsFileInput }
 ];
 
-const filterState = {
-	search: "",
-	provider: "all" as ProviderFilter,
-	capabilities: new Set<CapabilityKey>(),
-	megaOnly: false
-};
+// Families are matched in order; the first hit wins. Anything unmatched lands in OTHER_FAMILY.
+const FAMILIES: ModelFamily[] = [
+	{ key: "gemini", label: "Gemini", icon: "auto_awesome", test: (id) => id.includes("gemini") },
+	{ key: "gpt", label: "GPT", icon: "blur_on", test: (id) => id.includes("gpt") || id.startsWith("openai/") },
+	{
+		key: "claude",
+		label: "Claude",
+		icon: "psychology",
+		test: (id) => id.includes("claude") || id.startsWith("anthropic/")
+	},
+	{ key: "qwen", label: "Qwen", icon: "language", test: (id) => id.includes("qwen") },
+	{ key: "glm", label: "GLM", icon: "hub", test: (id) => id.includes("glm") || id.startsWith("z-ai/") },
+	{
+		key: "mercury",
+		label: "Mercury",
+		icon: "bolt",
+		test: (id) => id.includes("mercury") || id.startsWith("inception/")
+	}
+];
+
+const OTHER_FAMILY: ModelFamily = { key: "other", label: "Other", icon: "category", test: () => true };
+
+// Which family page is currently shown, and whether we skipped the family list because only one exists.
+let activeFamily: string | null = null;
+let singleFamilyMode = false;
 
 function readEntries(): ModelEntry[] {
 	const entries: ModelEntry[] = [];
@@ -76,98 +113,157 @@ function readEntries(): ModelEntry[] {
 	return entries;
 }
 
-function matchesFilters(entry: ModelEntry): boolean {
-	const { definition } = entry;
+function familyKeyOf(entry: ModelEntry): string {
+	const id = entry.id.toLowerCase();
+	for (const family of FAMILIES) {
+		if (family.test(id)) return family.key;
+	}
+	return OTHER_FAMILY.key;
+}
 
-	if (filterState.search) {
-		const haystack = `${entry.label} ${entry.id}`.toLowerCase();
-		if (!haystack.includes(filterState.search)) return false;
+function groupByFamily(entries: ModelEntry[]): FamilyGroup[] {
+	const groups: FamilyGroup[] = [];
+	for (const family of [...FAMILIES, OTHER_FAMILY]) {
+		const models = entries.filter((entry) => familyKeyOf(entry) === family.key);
+		if (models.length > 0) groups.push({ family, models });
+	}
+	return groups;
+}
+
+function createFamilyRow(group: FamilyGroup): HTMLButtonElement {
+	const { family, models } = group;
+	const row = document.createElement("button");
+	row.type = "button";
+	row.className = "settings-list-item model-picker-family";
+	row.dataset.familyKey = family.key;
+
+	const selectedModel = models.find((entry) => entry.id === ensuredSelect.value);
+	row.classList.toggle("selected", Boolean(selectedModel));
+
+	const icon = document.createElement("span");
+	icon.className = "settings-list-item-icon material-symbols-outlined";
+	icon.textContent = family.icon;
+	row.append(icon);
+
+	const text = document.createElement("span");
+	text.className = "settings-list-item-text";
+
+	const title = document.createElement("span");
+	title.className = "settings-list-item-title";
+	title.textContent = family.label;
+	text.append(title);
+
+	const subtitle = document.createElement("span");
+	subtitle.className = "settings-list-item-subtitle";
+	subtitle.textContent = selectedModel
+		? selectedModel.label
+		: `${models.length} ${models.length === 1 ? "model" : "models"}`;
+	text.append(subtitle);
+
+	row.append(text);
+
+	const chevron = document.createElement("span");
+	chevron.className = "settings-list-item-chevron material-symbols-outlined";
+	chevron.textContent = "chevron_right";
+	row.append(chevron);
+
+	row.addEventListener("click", () => navigateToFamily(family.key));
+
+	return row;
+}
+
+function createModelRow(entry: ModelEntry): HTMLButtonElement {
+	const row = document.createElement("button");
+	row.type = "button";
+	row.className = "settings-list-item model-picker-row";
+	row.dataset.modelId = entry.id;
+	row.setAttribute("role", "option");
+
+	const isSelected = entry.id === ensuredSelect.value;
+	row.classList.toggle("selected", isSelected);
+	row.setAttribute("aria-selected", isSelected ? "true" : "false");
+
+	const icon = document.createElement("span");
+	icon.className = "settings-list-item-icon material-symbols-outlined";
+	icon.textContent = isSelected ? "check_circle" : "radio_button_unchecked";
+	row.append(icon);
+
+	const text = document.createElement("span");
+	text.className = "settings-list-item-text";
+
+	const title = document.createElement("span");
+	title.className = "settings-list-item-title model-picker-row__title";
+
+	const name = document.createElement("span");
+	name.textContent = entry.label;
+	title.append(name);
+
+	if (entry.definition?.mega) {
+		const mega = document.createElement("span");
+		mega.className = "model-picker-mega";
+		mega.textContent = "MEGA";
+		title.append(mega);
 	}
 
-	if (filterState.provider !== "all" && definition?.provider !== filterState.provider) return false;
+	text.append(title);
 
-	if (filterState.megaOnly && !definition?.mega) return false;
-
-	if (filterState.capabilities.size > 0) {
-		if (!definition) return false;
-		for (const key of filterState.capabilities) {
-			const capability = CAPABILITIES.find((candidate) => candidate.key === key);
-			if (capability && !capability.test(definition)) return false;
+	if (entry.definition) {
+		const supported = CAPABILITIES.filter((capability) => capability.test(entry.definition!));
+		if (supported.length > 0) {
+			const caps = document.createElement("span");
+			caps.className = "settings-list-item-subtitle model-picker-caps";
+			for (const capability of supported) {
+				const capIcon = document.createElement("span");
+				capIcon.className = "material-symbols-outlined";
+				capIcon.textContent = capability.icon;
+				capIcon.title = capability.label;
+				caps.append(capIcon);
+			}
+			text.append(caps);
 		}
 	}
+
+	row.append(text);
+	row.addEventListener("click", () => selectModel(entry.id));
+
+	return row;
+}
+
+function showView(view: "families" | "detail"): void {
+	ensuredFamiliesView.classList.toggle("hidden", view !== "families");
+	ensuredDetailView.classList.toggle("hidden", view !== "detail");
+}
+
+function renderFamilyList(): void {
+	const groups = groupByFamily(readEntries());
+	ensuredFamilyList.replaceChildren();
+	for (const group of groups) ensuredFamilyList.append(createFamilyRow(group));
+}
+
+function renderFamilyDetail(): boolean {
+	const groups = groupByFamily(readEntries());
+	const group = groups.find((candidate) => candidate.family.key === activeFamily);
+	if (!group) return false;
+
+	activeFamily = group.family.key;
+	ensuredFamilyTitle.textContent = group.family.label;
+	ensuredBack.classList.toggle("hidden", singleFamilyMode);
+
+	ensuredModelList.replaceChildren();
+	for (const entry of group.models) ensuredModelList.append(createModelRow(entry));
 
 	return true;
 }
 
-function createCapabilityBadge(capability: CapabilityDescriptor): HTMLElement {
-	const badge = document.createElement("span");
-	badge.className = "model-card__cap";
-	badge.title = capability.label;
-
-	const icon = document.createElement("span");
-	icon.className = "material-symbols-outlined";
-	icon.textContent = capability.icon;
-	badge.append(icon);
-
-	return badge;
+function navigateToFamily(key: string): void {
+	activeFamily = key;
+	if (renderFamilyDetail()) showView("detail");
 }
 
-function createCard(entry: ModelEntry): HTMLButtonElement {
-	const card = document.createElement("button");
-	card.type = "button";
-	card.className = "model-card";
-	card.dataset.modelId = entry.id;
-	card.setAttribute("role", "option");
-
-	const isSelected = entry.id === ensuredSelect.value;
-	card.classList.toggle("selected", isSelected);
-	card.setAttribute("aria-selected", isSelected ? "true" : "false");
-
-	const header = document.createElement("span");
-	header.className = "model-card__header";
-
-	const name = document.createElement("span");
-	name.className = "model-card__name";
-	name.textContent = entry.label;
-	header.append(name);
-
-	if (entry.definition?.mega) {
-		const mega = document.createElement("span");
-		mega.className = "model-card__mega";
-		mega.textContent = "MEGA";
-		header.append(mega);
-	}
-
-	card.append(header);
-
-	if (entry.definition) {
-		const provider = document.createElement("span");
-		provider.className = "model-card__provider";
-		provider.textContent = entry.definition.provider === "gemini" ? "Gemini" : "OpenRouter";
-		card.append(provider);
-
-		const supported = CAPABILITIES.filter((capability) => capability.test(entry.definition!));
-		if (supported.length > 0) {
-			const caps = document.createElement("span");
-			caps.className = "model-card__caps";
-			for (const capability of supported) caps.append(createCapabilityBadge(capability));
-			card.append(caps);
-		}
-	}
-
-	card.addEventListener("click", () => selectModel(entry.id));
-
-	return card;
-}
-
-function renderGrid(): void {
-	const entries = readEntries();
-	const visible = entries.filter(matchesFilters);
-
-	ensuredGrid.replaceChildren();
-	for (const entry of visible) ensuredGrid.append(createCard(entry));
-
-	ensuredEmpty.classList.toggle("hidden", visible.length > 0);
+function navigateToFamilyList(): void {
+	activeFamily = null;
+	renderFamilyList();
+	showView("families");
 }
 
 function selectModel(id: string): void {
@@ -185,181 +281,63 @@ function updateTrigger(): void {
 	ensuredTrigger.disabled = ensuredSelect.disabled;
 }
 
-function buildFilters(): void {
-	const row = document.createElement("div");
-	row.className = "model-picker-filter-row";
-
-	row.append(buildProviderSelect(), buildCapabilitiesDropdown());
-
-	ensuredFilters.replaceChildren(row);
-}
-
-function buildProviderSelect(): HTMLSelectElement {
-	const select = document.createElement("select");
-	select.className = "input-field model-picker-provider";
-	select.setAttribute("aria-label", "Filter by provider");
-
-	for (const provider of PROVIDER_FILTERS) {
-		const option = document.createElement("option");
-		option.value = provider.key;
-		option.textContent = provider.key === "all" ? "All providers" : provider.label;
-		select.append(option);
-	}
-
-	select.value = filterState.provider;
-	select.addEventListener("change", () => {
-		filterState.provider = select.value as ProviderFilter;
-		renderGrid();
-	});
-
-	return select;
-}
-
-function buildCapabilitiesDropdown(): HTMLElement {
-	const wrap = document.createElement("div");
-	wrap.className = "model-picker-dropdown";
-
-	const button = document.createElement("button");
-	button.type = "button";
-	button.className = "input-field model-picker-dropdown__button";
-	button.setAttribute("aria-haspopup", "true");
-	button.setAttribute("aria-expanded", "false");
-
-	const label = document.createElement("span");
-	label.className = "model-picker-dropdown__label";
-	label.textContent = "Capabilities";
-
-	const badge = document.createElement("span");
-	badge.className = "model-picker-dropdown__badge hidden";
-
-	const chevron = document.createElement("span");
-	chevron.className = "material-symbols-outlined model-picker-dropdown__chevron";
-	chevron.textContent = "expand_more";
-
-	button.append(label, badge, chevron);
-
-	const panel = document.createElement("div");
-	panel.className = "model-picker-dropdown__panel hidden";
-	panel.setAttribute("role", "group");
-	panel.setAttribute("aria-label", "Filter by capability");
-
-	const updateBadge = () => {
-		const count = filterState.capabilities.size + (filterState.megaOnly ? 1 : 0);
-		badge.textContent = String(count);
-		badge.classList.toggle("hidden", count === 0);
-	};
-
-	for (const capability of CAPABILITIES) {
-		panel.append(
-			buildCapabilityOption(
-				capability.label,
-				capability.icon,
-				() => filterState.capabilities.has(capability.key),
-				(checked) => {
-					if (checked) filterState.capabilities.add(capability.key);
-					else filterState.capabilities.delete(capability.key);
-					updateBadge();
-					renderGrid();
-				}
-			)
-		);
-	}
-
-	const divider = document.createElement("span");
-	divider.className = "model-picker-dropdown__divider";
-	divider.setAttribute("aria-hidden", "true");
-	panel.append(divider);
-
-	panel.append(
-		buildCapabilityOption(
-			"MEGA tier only",
-			"bolt",
-			() => filterState.megaOnly,
-			(checked) => {
-				filterState.megaOnly = checked;
-				updateBadge();
-				renderGrid();
-			}
-		)
-	);
-
-	const setOpen = (open: boolean) => {
-		panel.classList.toggle("hidden", !open);
-		wrap.classList.toggle("open", open);
-		button.setAttribute("aria-expanded", open ? "true" : "false");
-	};
-
-	button.addEventListener("click", (event) => {
-		event.stopPropagation();
-		setOpen(panel.classList.contains("hidden"));
-	});
-
-	// Keep the panel open while toggling checkboxes; close on outside click or Escape.
-	panel.addEventListener("click", (event) => event.stopPropagation());
-	document.addEventListener("click", () => setOpen(false));
-	wrap.addEventListener("keydown", (event) => {
-		if (event.key === "Escape" && !panel.classList.contains("hidden")) {
-			event.stopPropagation();
-			setOpen(false);
-			button.focus();
-		}
-	});
-
-	wrap.append(button, panel);
-	return wrap;
-}
-
-function buildCapabilityOption(
-	text: string,
-	icon: string,
-	isChecked: () => boolean,
-	onToggle: (checked: boolean) => void
-): HTMLLabelElement {
-	const option = document.createElement("label");
-	option.className = "model-picker-dropdown__option";
-
-	const checkbox = document.createElement("input");
-	checkbox.type = "checkbox";
-	checkbox.checked = isChecked();
-	checkbox.addEventListener("change", () => onToggle(checkbox.checked));
-
-	const iconEl = document.createElement("span");
-	iconEl.className = "material-symbols-outlined";
-	iconEl.textContent = icon;
-
-	const textEl = document.createElement("span");
-	textEl.textContent = text;
-
-	option.append(checkbox, iconEl, textEl);
-	return option;
-}
-
 function openSheet(): void {
-	renderGrid();
+	const groups = groupByFamily(readEntries());
+	singleFamilyMode = groups.length === 1;
+
+	if (singleFamilyMode) {
+		// Skip the family list when there is nothing to choose between; drill straight in.
+		activeFamily = groups[0].family.key;
+		renderFamilyDetail();
+		showView("detail");
+	} else {
+		navigateToFamilyList();
+	}
+
 	surfaceService.show(SHEET_ID);
 	ensuredTrigger.setAttribute("aria-expanded", "true");
-	requestAnimationFrame(() => ensuredSearch.focus());
+}
+
+// Keep an open sheet in sync when the underlying option list changes (access gating, premium endpoint, etc.).
+function refreshOpenSheet(): void {
+	if (ensuredSheet.classList.contains("hidden")) return;
+
+	const groups = groupByFamily(readEntries());
+	singleFamilyMode = groups.length === 1;
+
+	if (singleFamilyMode) {
+		activeFamily = groups[0].family.key;
+		renderFamilyDetail();
+		showView("detail");
+		return;
+	}
+
+	renderFamilyList();
+	if (activeFamily && renderFamilyDetail()) showView("detail");
+	else navigateToFamilyList();
 }
 
 ensuredTrigger.addEventListener("click", openSheet);
+ensuredBack.addEventListener("click", navigateToFamilyList);
 
-ensuredSearch.addEventListener("input", () => {
-	filterState.search = ensuredSearch.value.trim().toLowerCase();
-	renderGrid();
-});
-
-sheet.addEventListener("surface-closed", () => {
+ensuredSheet.addEventListener("surface-closed", () => {
 	ensuredTrigger.setAttribute("aria-expanded", "false");
 });
 
-ensuredSelect.addEventListener("change", updateTrigger);
-onDocumentEvent("chat-model-changed", updateTrigger);
+ensuredSelect.addEventListener("change", () => {
+	updateTrigger();
+	refreshOpenSheet();
+});
+onDocumentEvent("chat-model-changed", () => {
+	updateTrigger();
+	refreshOpenSheet();
+});
 
 // The native select is rebuilt when access changes (API keys, auth, premium endpoint).
-// Mirror those updates: keep the trigger label correct and refresh the grid if it's open.
+// Mirror those updates: keep the trigger label correct and refresh the picker if it's open.
 const selectObserver = new MutationObserver(() => {
 	updateTrigger();
-	if (!sheet.classList.contains("hidden")) renderGrid();
+	refreshOpenSheet();
 });
 selectObserver.observe(ensuredSelect, { childList: true, attributes: true, attributeFilter: ["disabled"] });
 
@@ -367,5 +345,4 @@ selectObserver.observe(ensuredSelect, { childList: true, attributes: true, attri
 ensuredSelect.classList.add("model-picker-native-hidden");
 ensuredTrigger.classList.remove("hidden");
 
-buildFilters();
 updateTrigger();
