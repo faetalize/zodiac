@@ -2587,6 +2587,109 @@ form {
 	display: none;
 }
 
+/* Rich model picker */
+.model-picker-native-hidden {
+	display: none !important;
+}
+
+/* The trigger should look like a native select (the .input-field class carries no box styling on its own) */
+.model-picker-trigger {
+	border: 1px solid var(--input-text-border);
+	border-radius: 0.5rem;
+	background-color: var(--input-bg);
+	color: var(--input-fg);
+	padding: 0.5rem;
+	font-size: 1rem;
+	cursor: pointer;
+}
+
+.model-picker-trigger:focus-visible {
+	border-color: var(--input-text-border-focus);
+	outline: none;
+}
+
+.model-picker-trigger {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	width: 100%;
+	text-align: left;
+	font-weight: normal;
+}
+
+.model-picker-trigger__label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.model-picker-trigger__icon {
+	flex-shrink: 0;
+	font-size: 1.25rem;
+	opacity: 0.7;
+}
+
+.model-picker-trigger:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.model-picker-sheet {
+	gap: 1rem;
+}
+
+/* Drill-down views: family list and the per-family model list, reusing the settings menu mechanics. */
+.model-picker-view {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.model-picker-sheet h1 {
+	margin: 0;
+}
+
+/* Highlight the family that holds the current selection, and the selected model row. */
+.model-picker-family.selected,
+.model-picker-row.selected {
+	border-color: var(--primary);
+}
+
+.model-picker-row.selected .settings-list-item-icon {
+	color: var(--primary);
+	opacity: 1;
+}
+
+.model-picker-row__title {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.model-picker-mega {
+	flex-shrink: 0;
+	padding: 0.05rem 0.35rem;
+	border-radius: 0.4rem;
+	background: var(--primary);
+	color: #fff;
+	font-size: 0.6rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+}
+
+.model-picker-caps {
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+	margin-top: 0.15rem;
+}
+
+.model-picker-caps .material-symbols-outlined {
+	font-size: 1rem;
+	opacity: 0.7;
+}
+
 .message-debug-modal {
 	width: min(42rem, 100%);
 	display: flex;

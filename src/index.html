@@ -441,6 +441,19 @@
 												</span>
 											</label>
 											<select id="selectedModel" class="input-field"></select>
+											<button
+												id="model-picker-trigger"
+												class="input-field model-picker-trigger hidden"
+												type="button"
+												aria-haspopup="dialog"
+												aria-expanded="false"
+												aria-controls="model-picker-sheet"
+											>
+												<span class="model-picker-trigger__label">Select a model</span>
+												<span class="material-symbols-outlined model-picker-trigger__icon"
+													>expand_more</span
+												>
+											</button>
 										</div>
 										<div>
 											<label class="setting-label" for="maxTokens"
@@ -3187,6 +3200,32 @@
 					<button id="btn-roleplay-add-modal-submit" class="btn btn-primary" type="button">Add</button>
 					<button id="btn-roleplay-add-modal-cancel" class="btn btn-secondary" type="button">Cancel</button>
 				</div>
+			</div>
+		</div>
+
+		<div
+			id="model-picker-sheet"
+			class="adaptive-sheet model-picker-sheet hidden"
+			role="dialog"
+			aria-labelledby="model-picker-title"
+		>
+			<div id="model-picker-families" class="model-picker-view">
+				<h1 id="model-picker-title">Select a model</h1>
+				<div id="model-picker-family-list" class="settings-list" aria-label="Model families"></div>
+			</div>
+			<div id="model-picker-family-detail" class="model-picker-view hidden">
+				<div class="settings-page-header">
+					<button
+						id="model-picker-back"
+						class="settings-page-back btn-textual"
+						type="button"
+						aria-label="Back to model families"
+					>
+						<span class="material-symbols-outlined">arrow_back</span>
+					</button>
+					<h3 id="model-picker-family-title" class="settings-page-title">Models</h3>
+				</div>
+				<div id="model-picker-model-list" class="settings-list" role="listbox" aria-label="Models"></div>
 			</div>
 		</div>
 
