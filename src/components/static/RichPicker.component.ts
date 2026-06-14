@@ -2,6 +2,13 @@ import * as surfaceService from "../../services/Surface.service";
 import { onDocumentEvent } from "../../events";
 import { getChatModelDefinition, type ChatModelDefinition } from "../../types/Models";
 import { transitionSheetHeight } from "./AdaptiveSheet.component";
+import claudeIconUrl from "../../assets/model-family-icons/claude.svg?url";
+import geminiIconUrl from "../../assets/model-family-icons/gemini.svg?url";
+import inceptionIconUrl from "../../assets/model-family-icons/inception.png?url";
+import openAiIconUrl from "../../assets/model-family-icons/openai.svg?url";
+import openRouterIconUrl from "../../assets/model-family-icons/openrouter.svg?url";
+import qwenIconUrl from "../../assets/model-family-icons/qwen.svg?url";
+import zhipuIconUrl from "../../assets/model-family-icons/zhipu.svg?url";
 
 const SHEET_ID = "model-picker-sheet";
 
@@ -49,10 +56,21 @@ interface CapabilityDescriptor {
 	test: (definition: ChatModelDefinition) => boolean;
 }
 
+type ModelFamilyIcon =
+	| {
+			alt: string;
+			src: string;
+			type: "image" | "mask";
+	  }
+	| {
+			name: string;
+			type: "symbol";
+	  };
+
 interface ModelFamily {
 	key: string;
 	label: string;
-	icon: string;
+	icon: ModelFamilyIcon;
 	/** Matched against the lowercased model id. */
 	test: (id: string) => boolean;
 }
@@ -75,27 +93,55 @@ const CAPABILITIES: CapabilityDescriptor[] = [
 	{ label: "Files", icon: "description", test: (model) => model.supportsFileInput }
 ];
 
+const OPENROUTER_SUFFIX_PATTERN = /\s+via OpenRouter$/i;
+const MEGA_SUFFIX_PATTERN = /\s*\[MEGA\]\s*$/i;
+
 // Families are matched in order; the first hit wins. Anything unmatched lands in OTHER_FAMILY.
 const FAMILIES: ModelFamily[] = [
-	{ key: "gemini", label: "Gemini", icon: "auto_awesome", test: (id) => id.includes("gemini") },
-	{ key: "gpt", label: "GPT", icon: "blur_on", test: (id) => id.includes("gpt") || id.startsWith("openai/") },
+	{
+		key: "gemini",
+		label: "Gemini",
+		icon: { alt: "Gemini", src: geminiIconUrl, type: "image" },
+		test: (id) => id.includes("gemini")
+	},
+	{
+		key: "gpt",
+		label: "GPT",
+		icon: { alt: "OpenAI", src: openAiIconUrl, type: "mask" },
+		test: (id) => id.includes("gpt") || id.startsWith("openai/")
+	},
 	{
 		key: "claude",
 		label: "Claude",
-		icon: "psychology",
+		icon: { alt: "Claude", src: claudeIconUrl, type: "image" },
 		test: (id) => id.includes("claude") || id.startsWith("anthropic/")
 	},
-	{ key: "qwen", label: "Qwen", icon: "language", test: (id) => id.includes("qwen") },
-	{ key: "glm", label: "GLM", icon: "hub", test: (id) => id.includes("glm") || id.startsWith("z-ai/") },
+	{
+		key: "qwen",
+		label: "Qwen",
+		icon: { alt: "Qwen", src: qwenIconUrl, type: "image" },
+		test: (id) => id.includes("qwen")
+	},
+	{
+		key: "glm",
+		label: "GLM",
+		icon: { alt: "Zhipu", src: zhipuIconUrl, type: "image" },
+		test: (id) => id.includes("glm") || id.startsWith("z-ai/")
+	},
 	{
 		key: "mercury",
 		label: "Mercury",
-		icon: "bolt",
+		icon: { alt: "Inception", src: inceptionIconUrl, type: "image" },
 		test: (id) => id.includes("mercury") || id.startsWith("inception/")
 	}
 ];
 
-const OTHER_FAMILY: ModelFamily = { key: "other", label: "Other", icon: "category", test: () => true };
+const OTHER_FAMILY: ModelFamily = {
+	key: "other",
+	label: "Other",
+	icon: { name: "category", type: "symbol" },
+	test: () => true
+};
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 // Which family page is currently shown, and whether we skipped the family list because only one exists.
@@ -128,10 +174,67 @@ function groupByFamily(entries: ModelEntry[]): FamilyGroup[] {
 	for (const family of [...FAMILIES, OTHER_FAMILY]) {
 		const models = entries
 			.filter((entry) => familyKeyOf(entry) === family.key)
-			.sort((a, b) => collator.compare(b.label, a.label));
+			.sort((a, b) => collator.compare(getEntryDisplayLabel(b), getEntryDisplayLabel(a)));
 		if (models.length > 0) groups.push({ family, models });
 	}
 	return groups;
+}
+
+function formatModelDisplayLabel(label: string, definition: ChatModelDefinition | undefined): string {
+	let displayLabel = label;
+	if (definition?.mega) displayLabel = displayLabel.replace(MEGA_SUFFIX_PATTERN, "");
+	if (definition?.provider === "openrouter") displayLabel = displayLabel.replace(OPENROUTER_SUFFIX_PATTERN, "");
+	return displayLabel.trim();
+}
+
+function getEntryDisplayLabel(entry: ModelEntry): string {
+	return formatModelDisplayLabel(entry.label, entry.definition);
+}
+
+function createFamilyIcon(icon: ModelFamilyIcon): HTMLElement {
+	if (icon.type === "symbol") {
+		const element = document.createElement("span");
+		element.className = "settings-list-item-icon material-symbols-outlined model-picker-family-icon";
+		element.textContent = icon.name;
+		element.setAttribute("aria-hidden", "true");
+		return element;
+	}
+
+	if (icon.type === "image") {
+		const element = document.createElement("img");
+		element.className = "settings-list-item-icon model-picker-family-icon model-picker-family-icon--image";
+		element.src = icon.src;
+		element.alt = "";
+		element.title = icon.alt;
+		element.setAttribute("aria-hidden", "true");
+		return element;
+	}
+
+	const element = document.createElement("span");
+	element.className = "settings-list-item-icon model-picker-family-icon model-picker-family-icon--mask";
+	element.style.setProperty("--model-picker-family-icon-url", `url("${icon.src}")`);
+	element.title = icon.alt;
+	element.setAttribute("aria-hidden", "true");
+	return element;
+}
+
+function createChip(className: string, label: string, iconUrl?: string): HTMLSpanElement {
+	const chip = document.createElement("span");
+	chip.className = `model-picker-chip ${className}`;
+
+	if (iconUrl) {
+		const icon = document.createElement("span");
+		icon.className = "model-picker-chip__icon";
+		icon.style.setProperty("--model-picker-chip-icon-url", `url("${iconUrl}")`);
+		icon.setAttribute("aria-hidden", "true");
+		chip.append(icon);
+	}
+
+	const text = document.createElement("span");
+	text.textContent = label;
+	chip.append(text);
+
+	return chip;
 }
 
 function createFamilyRow(group: FamilyGroup): HTMLButtonElement {
@@ -144,10 +247,7 @@ function createFamilyRow(group: FamilyGroup): HTMLButtonElement {
 	const selectedModel = models.find((entry) => entry.id === ensuredSelect.value);
 	row.classList.toggle("selected", Boolean(selectedModel));
 
-	const icon = document.createElement("span");
-	icon.className = "settings-list-item-icon material-symbols-outlined";
-	icon.textContent = family.icon;
-	row.append(icon);
+	row.append(createFamilyIcon(family.icon));
 
 	const text = document.createElement("span");
 	text.className = "settings-list-item-text";
@@ -160,7 +260,7 @@ function createFamilyRow(group: FamilyGroup): HTMLButtonElement {
 	const subtitle = document.createElement("span");
 	subtitle.className = "settings-list-item-subtitle";
 	subtitle.textContent = selectedModel
-		? selectedModel.label
+		? getEntryDisplayLabel(selectedModel)
 		: `${models.length} ${models.length === 1 ? "model" : "models"}`;
 	text.append(subtitle);
 
@@ -199,15 +299,15 @@ function createModelRow(entry: ModelEntry): HTMLButtonElement {
 	title.className = "settings-list-item-title model-picker-row__title";
 
 	const name = document.createElement("span");
-	// MEGA tier is shown as a dedicated chip below, so drop the " [MEGA]" suffix the label carries.
-	name.textContent = entry.definition?.mega ? entry.label.replace(/\s*\[MEGA\]\s*$/, "") : entry.label;
+	name.textContent = getEntryDisplayLabel(entry);
 	title.append(name);
 
 	if (entry.definition?.mega) {
-		const mega = document.createElement("span");
-		mega.className = "model-picker-mega";
-		mega.textContent = "MEGA";
-		title.append(mega);
+		title.append(createChip("model-picker-mega", "MEGA"));
+	}
+
+	if (entry.definition?.provider === "openrouter") {
+		title.append(createChip("model-picker-openrouter", "OpenRouter", openRouterIconUrl));
 	}
 
 	text.append(title);
@@ -284,7 +384,10 @@ function selectModel(id: string): void {
 
 function updateTrigger(): void {
 	const selected = ensuredSelect.selectedOptions[0];
-	ensuredTriggerLabel.textContent = selected?.textContent?.trim() || "Select a model";
+	const selectedLabel = selected?.textContent?.trim();
+	ensuredTriggerLabel.textContent = selectedLabel
+		? formatModelDisplayLabel(selectedLabel, getChatModelDefinition(selected.value))
+		: "Select a model";
 	ensuredTrigger.disabled = ensuredSelect.disabled;
 }
 
