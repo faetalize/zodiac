@@ -1,6 +1,7 @@
 import * as surfaceService from "../../services/Surface.service";
 import { onDocumentEvent } from "../../events";
 import { getChatModelDefinition, type ChatModelDefinition } from "../../types/Models";
+import { transitionSheetHeight } from "./AdaptiveSheet.component";
 
 const SHEET_ID = "model-picker-sheet";
 
@@ -95,6 +96,7 @@ const FAMILIES: ModelFamily[] = [
 ];
 
 const OTHER_FAMILY: ModelFamily = { key: "other", label: "Other", icon: "category", test: () => true };
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 // Which family page is currently shown, and whether we skipped the family list because only one exists.
 let activeFamily: string | null = null;
@@ -124,7 +126,9 @@ function familyKeyOf(entry: ModelEntry): string {
 function groupByFamily(entries: ModelEntry[]): FamilyGroup[] {
 	const groups: FamilyGroup[] = [];
 	for (const family of [...FAMILIES, OTHER_FAMILY]) {
-		const models = entries.filter((entry) => familyKeyOf(entry) === family.key);
+		const models = entries
+			.filter((entry) => familyKeyOf(entry) === family.key)
+			.sort((a, b) => collator.compare(b.label, a.label));
 		if (models.length > 0) groups.push({ family, models });
 	}
 	return groups;
@@ -231,8 +235,10 @@ function createModelRow(entry: ModelEntry): HTMLButtonElement {
 }
 
 function showView(view: "families" | "detail"): void {
-	ensuredFamiliesView.classList.toggle("hidden", view !== "families");
-	ensuredDetailView.classList.toggle("hidden", view !== "detail");
+	transitionSheetHeight(ensuredSheet, () => {
+		ensuredFamiliesView.classList.toggle("hidden", view !== "families");
+		ensuredDetailView.classList.toggle("hidden", view !== "detail");
+	});
 }
 
 function renderFamilyList(): void {

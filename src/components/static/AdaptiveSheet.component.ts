@@ -1,9 +1,12 @@
 import * as surfaceService from "../../services/Surface.service";
 
 const adaptiveSheetMediaQuery = window.matchMedia("(max-width: 640px)");
+const reducedMotionMediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 const surfacePlane = document.querySelector<HTMLElement>("#surface-plane");
 
 if (!surfacePlane) throw new Error("Missing DOM element: #surface-plane");
+
+const sheetHeightAnimationDurationMs = 180;
 
 type AdaptiveSheetDragState = {
 	sheet: HTMLElement;
@@ -14,6 +17,80 @@ type AdaptiveSheetDragState = {
 };
 
 let dragState: AdaptiveSheetDragState | null = null;
+const heightAnimationTimers = new WeakMap<HTMLElement, number>();
+
+function readSheetHeight(sheet: HTMLElement): number {
+	return sheet.getBoundingClientRect().height;
+}
+
+function canAnimateSheetHeight(sheet: HTMLElement): boolean {
+	return (
+		!reducedMotionMediaQuery.matches &&
+		dragState?.sheet !== sheet &&
+		!sheet.classList.contains("hidden") &&
+		!sheet.classList.contains("surface-closing") &&
+		sheet.classList.contains("surface-open")
+	);
+}
+
+function clearHeightAnimationTimer(sheet: HTMLElement): void {
+	const timer = heightAnimationTimers.get(sheet);
+	if (!timer) return;
+	window.clearTimeout(timer);
+	heightAnimationTimers.delete(sheet);
+}
+
+function finishHeightAnimation(sheet: HTMLElement): void {
+	clearHeightAnimationTimer(sheet);
+	sheet.style.height = "";
+	sheet.style.maxHeight = "";
+	sheet.style.transition = "";
+	sheet.style.willChange = "";
+}
+
+function animateSheetHeight(sheet: HTMLElement, previousHeight: number, nextHeight: number): void {
+	if (Math.abs(previousHeight - nextHeight) < 1) return;
+
+	clearHeightAnimationTimer(sheet);
+	sheet.style.transition = "none";
+	sheet.style.willChange = "height, max-height";
+	sheet.style.height = `${previousHeight}px`;
+	sheet.style.maxHeight = `${previousHeight}px`;
+	sheet.getBoundingClientRect();
+	sheet.style.transition = "";
+
+	requestAnimationFrame(() => {
+		sheet.style.height = `${nextHeight}px`;
+		sheet.style.maxHeight = `${nextHeight}px`;
+	});
+
+	const handleTransitionEnd = (event: TransitionEvent): void => {
+		if (event.target !== sheet || event.propertyName !== "height") return;
+		sheet.removeEventListener("transitionend", handleTransitionEnd);
+		finishHeightAnimation(sheet);
+	};
+
+	sheet.addEventListener("transitionend", handleTransitionEnd);
+	const timer = window.setTimeout(() => {
+		sheet.removeEventListener("transitionend", handleTransitionEnd);
+		finishHeightAnimation(sheet);
+	}, sheetHeightAnimationDurationMs + 80);
+	heightAnimationTimers.set(sheet, timer);
+}
+
+function transitionSheetHeight(sheet: HTMLElement, update: () => void): void {
+	if (!canAnimateSheetHeight(sheet)) {
+		update();
+		return;
+	}
+
+	const previousHeight = readSheetHeight(sheet);
+	finishHeightAnimation(sheet);
+	update();
+
+	const nextHeight = readSheetHeight(sheet);
+	animateSheetHeight(sheet, previousHeight, nextHeight);
+}
 
 function resetSheetPosition(sheet: HTMLElement): void {
 	sheet.style.transition = "";
@@ -124,4 +201,4 @@ document.addEventListener("pointercancel", finishDrag);
 document.addEventListener("mousemove", handleDragMove);
 document.addEventListener("mouseup", finishDrag);
 
-export { prepareSheets };
+export { prepareSheets, transitionSheetHeight };

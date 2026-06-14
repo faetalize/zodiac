@@ -83,3 +83,8 @@ export function closeAll(): void {
 document.addEventListener("keydown", (event) => {
 	if (event.key === "Escape" && activeSurface) close();
 });
+
+surfacePlane.addEventListener("pointerdown", (event) => {
+	if (!activeSurface || event.button !== 0) return;
+	if (event.target instanceof Node && !activeSurface.contains(event.target)) close();
+});
