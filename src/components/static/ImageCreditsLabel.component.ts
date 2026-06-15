@@ -170,6 +170,14 @@ function getAllowanceMode(): AllowanceMode {
 		return "image";
 	}
 
+	// The chat-model allowances below (image-credit models, mega credits, the Nano Banana daily
+	// allowance) are metered server-side and only consumed when the request goes through the premium
+	// endpoint. With it disabled the request uses the user's own API key and nothing is charged, so
+	// don't surface these allowance labels.
+	if (!shouldPreferPremiumEndpoint()) {
+		return null;
+	}
+
 	const selectedModel = getSelectedChatModel();
 	const modelDefinition = getChatModelDefinition(selectedModel);
 
