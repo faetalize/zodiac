@@ -14,6 +14,7 @@ import { ChatModel, getChatModelDefinition, getPremiumEndpointChatModel, ImageMo
 import * as overlayService from "../../services/Overlay.service";
 import * as helpers from "../../utils/helpers";
 import { dispatchAppEvent } from "../../events";
+import { shouldPreferPremiumEndpoint } from "./ApiKeyInput.component";
 
 const imageCreditsLabel = document.querySelector<HTMLDivElement>("#image-credits-label");
 const imageCreditsPopover = document.querySelector<HTMLDivElement>("#image-credits-popover");
@@ -120,6 +121,11 @@ window.addEventListener("chat-model-changed", () => {
 	renderLabel();
 });
 
+window.addEventListener("premium-endpoint-preference-changed", () => {
+	updateImageCreditsLabelVisibility();
+	renderLabel();
+});
+
 window.addEventListener(
 	"subscription-updated",
 	() =>
@@ -151,6 +157,14 @@ function getSelectedChatModel(): string | null {
 	return modelSelector?.value || null;
 }
 
+function selectedChatModelConsumesImageCredits(): boolean {
+	if (subscriptionTier === "free" || !shouldPreferPremiumEndpoint()) {
+		return false;
+	}
+
+	return getChatModelDefinition(getSelectedChatModel())?.consumesImageCredits === true;
+}
+
 function getAllowanceMode(): AllowanceMode {
 	if (isImageEditingActive() || isImageModeActive()) {
 		return "image";
@@ -158,6 +172,10 @@ function getAllowanceMode(): AllowanceMode {
 
 	const selectedModel = getSelectedChatModel();
 	const modelDefinition = getChatModelDefinition(selectedModel);
+
+	if (selectedChatModelConsumesImageCredits()) {
+		return "image";
+	}
 
 	if (modelDefinition?.mega && (subscriptionTier === "pro" || subscriptionTier === "pro_plus")) {
 		return "mega";
@@ -233,6 +251,10 @@ function isImagenModel(): boolean {
 function calculateCreditsNeeded(): number {
 	const isEditing = isImageEditingActive();
 	const isGenerating = isImageModeActive();
+
+	if (selectedChatModelConsumesImageCredits() && !isEditing && !isGenerating) {
+		return 1;
+	}
 
 	if (!isEditing && !isGenerating) {
 		return 0;

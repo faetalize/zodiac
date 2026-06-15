@@ -144,7 +144,11 @@ describe("roleplay suggestion model dropdown", () => {
 			"Gemini 3.1 Pro Preview via OpenRouter",
 			"GPT-OSS 120B",
 			"Claude Sonnet 4.6",
+			"Claude Haiku 4.5",
+			"DeepSeek V4 Flash",
 			"GLM 5",
+			"GLM 5.1",
+			"Gemma 4 31B",
 			"Qwen3.5 397B",
 			"Qwen3.5 Plus"
 		];

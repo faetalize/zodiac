@@ -63,6 +63,8 @@ export interface ChatModelDefinition {
 	supportsImageInput: boolean;
 	supportsFileInput: boolean;
 	supportsImageOutput: boolean;
+	outputModalities?: ("text" | "image")[];
+	consumesImageCredits?: boolean;
 	roleplayModeSuggester?: boolean;
 	roleplaySuggestionThinkingCap?: number;
 }
@@ -252,6 +254,17 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		supportsImageOutput: false
 	},
 	{
+		id: "openai/gpt-5.5",
+		label: "GPT-5.5",
+		provider: "openrouter",
+		mega: true,
+		supportsThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: true,
+		supportsImageOutput: false
+	},
+	{
 		id: "openai/gpt-5.4-pro",
 		label: "GPT-5.4 Pro",
 		provider: "openrouter",
@@ -313,6 +326,18 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		supportsImageOutput: false
 	},
 	{
+		id: "anthropic/claude-haiku-4.5",
+		label: "Claude Haiku 4.5",
+		provider: "openrouter",
+		mega: false,
+		roleplayModeSuggester: true,
+		supportsThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: false,
+		supportsImageOutput: false
+	},
+	{
 		id: "anthropic/claude-opus-4.6",
 		label: "Claude Opus 4.6",
 		provider: "openrouter",
@@ -324,8 +349,90 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		supportsImageOutput: false
 	},
 	{
+		id: "anthropic/claude-opus-4.7",
+		label: "Claude Opus 4.7",
+		provider: "openrouter",
+		mega: true,
+		supportsThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: false,
+		supportsImageOutput: false
+	},
+	{
+		id: "anthropic/claude-opus-4.8",
+		label: "Claude Opus 4.8",
+		provider: "openrouter",
+		mega: true,
+		supportsThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: false,
+		supportsImageOutput: false
+	},
+	{
+		id: "deepseek/deepseek-v4-pro",
+		label: "DeepSeek V4 Pro",
+		provider: "openrouter",
+		mega: true,
+		supportsThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: false,
+		supportsFileInput: false,
+		supportsImageOutput: false
+	},
+	{
+		id: "deepseek/deepseek-v4-flash",
+		label: "DeepSeek V4 Flash",
+		provider: "openrouter",
+		mega: false,
+		roleplayModeSuggester: true,
+		supportsThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: false,
+		supportsFileInput: false,
+		supportsImageOutput: false
+	},
+	{
+		id: "x-ai/grok-imagine-image-quality",
+		label: "Grok Imagine Image Quality",
+		provider: "openrouter",
+		mega: false,
+		supportsThinking: false,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: false,
+		supportsImageOutput: true,
+		outputModalities: ["image"],
+		consumesImageCredits: true
+	},
+	{
+		id: "google/gemma-4-31b-it",
+		label: "Gemma 4 31B",
+		provider: "openrouter",
+		mega: false,
+		roleplayModeSuggester: true,
+		supportsThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: true,
+		supportsFileInput: false,
+		supportsImageOutput: false
+	},
+	{
 		id: "z-ai/glm-5",
 		label: "GLM 5",
+		provider: "openrouter",
+		mega: false,
+		roleplayModeSuggester: true,
+		supportsThinking: true,
+		supportsTemperature: true,
+		supportsImageInput: false,
+		supportsFileInput: false,
+		supportsImageOutput: false
+	},
+	{
+		id: "z-ai/glm-5.1",
+		label: "GLM 5.1",
 		provider: "openrouter",
 		mega: false,
 		roleplayModeSuggester: true,
