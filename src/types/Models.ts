@@ -64,6 +64,7 @@ export interface ChatModelDefinition {
 	supportsFileInput: boolean;
 	supportsImageOutput: boolean;
 	outputModalities?: ("text" | "image")[];
+	consumesImageCredits?: boolean;
 	roleplayModeSuggester?: boolean;
 	roleplaySuggestionThinkingCap?: number;
 }
@@ -402,7 +403,8 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		supportsImageInput: true,
 		supportsFileInput: false,
 		supportsImageOutput: true,
-		outputModalities: ["image"]
+		outputModalities: ["image"],
+		consumesImageCredits: true
 	},
 	{
 		id: "google/gemma-4-31b-it",

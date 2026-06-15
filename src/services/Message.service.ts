@@ -23,6 +23,7 @@ import type { DbPersonality } from "../types/Personality";
 import {
 	ChatModel,
 	DEFAULT_OPENROUTER_TITLE_MODEL,
+	getChatModelDefinition,
 	getValidChatModel,
 	isGeminiModel,
 	isOpenRouterModel,
@@ -1988,6 +1989,13 @@ async function finalizeTextChatSuccess(
 	hljs.highlightAll();
 	helpers.messageContainerScrollToBottom();
 	endGeneration(ctx.chatId);
+	if (
+		ctx.isPremiumEndpointPreferred &&
+		state.generatedImages.length > 0 &&
+		getChatModelDefinition(ctx.settings.model)?.consumesImageCredits
+	) {
+		void supabaseService.refreshImageGenerationRecord();
+	}
 
 	return ctx.userMessageElement;
 }
