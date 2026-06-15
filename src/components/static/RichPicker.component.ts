@@ -3,7 +3,9 @@ import { onDocumentEvent } from "../../events";
 import { getChatModelDefinition, type ChatModelDefinition } from "../../types/Models";
 import { transitionSheetHeight } from "./AdaptiveSheet.component";
 import claudeIconUrl from "../../assets/model-family-icons/claude.svg?url";
-import geminiIconUrl from "../../assets/model-family-icons/gemini.svg?url";
+import deepseekIconUrl from "../../assets/model-family-icons/deepseek.svg?url";
+import googleIconUrl from "../../assets/model-family-icons/google.svg?url";
+import grokIconUrl from "../../assets/model-family-icons/grok.svg?url";
 import inceptionIconUrl from "../../assets/model-family-icons/inception.png?url";
 import openAiIconUrl from "../../assets/model-family-icons/openai.svg?url";
 import openRouterIconUrl from "../../assets/model-family-icons/openrouter.svg?url";
@@ -99,10 +101,11 @@ const MEGA_SUFFIX_PATTERN = /\s*\[MEGA\]\s*$/i;
 // Families are matched in order; the first hit wins. Anything unmatched lands in OTHER_FAMILY.
 const FAMILIES: ModelFamily[] = [
 	{
-		key: "gemini",
-		label: "Gemini",
-		icon: { alt: "Gemini", src: geminiIconUrl, type: "image" },
-		test: (id) => id.includes("gemini")
+		key: "google",
+		label: "Google",
+		icon: { alt: "Google", src: googleIconUrl, type: "image" },
+		// Google's families: Gemini and the open Gemma models.
+		test: (id) => id.includes("gemini") || id.includes("gemma")
 	},
 	{
 		key: "gpt",
@@ -121,6 +124,18 @@ const FAMILIES: ModelFamily[] = [
 		label: "Qwen",
 		icon: { alt: "Qwen", src: qwenIconUrl, type: "image" },
 		test: (id) => id.includes("qwen")
+	},
+	{
+		key: "deepseek",
+		label: "DeepSeek",
+		icon: { alt: "DeepSeek", src: deepseekIconUrl, type: "image" },
+		test: (id) => id.includes("deepseek")
+	},
+	{
+		key: "grok",
+		label: "Grok",
+		icon: { alt: "Grok", src: grokIconUrl, type: "mask" },
+		test: (id) => id.includes("grok") || id.startsWith("x-ai/")
 	},
 	{
 		key: "glm",

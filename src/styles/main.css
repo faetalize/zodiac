@@ -2590,7 +2590,7 @@ form {
 	flex-direction: column;
 	gap: 0.75rem;
 	width: min(32rem, calc(100dvw - 2rem));
-	max-height: min(50dvh, 50%);
+	max-height: min(80dvh, 40rem);
 	overflow: hidden;
 	padding: 2rem;
 	border: var(--elevated-ui-outline);
@@ -2670,10 +2670,11 @@ form {
 	min-height: 0;
 }
 
-#model-picker-family-detail:not(.hidden) {
+.model-picker-view:not(.hidden) {
 	flex: 1;
 }
 
+#model-picker-family-list,
 #model-picker-model-list {
 	min-height: 0;
 	overflow-y: auto;
