@@ -43,11 +43,12 @@ describe("premium endpoint model mapping", () => {
 		);
 	});
 
-	it("keeps OpenRouter Nano Banana variants as image-output chat models", () => {
+	it("keeps OpenRouter image-output variants as image-output chat models", () => {
 		const models = [
 			"google/gemini-2.5-flash-image",
 			"google/gemini-3-pro-image-preview",
-			"google/gemini-3.1-flash-image-preview"
+			"google/gemini-3.1-flash-image-preview",
+			"x-ai/grok-imagine-image-quality"
 		];
 
 		for (const model of models) {
@@ -82,7 +83,11 @@ describe("roleplay suggestion models", () => {
 			"Gemini 3.1 Pro Preview via OpenRouter",
 			"GPT-OSS 120B",
 			"Claude Sonnet 4.6",
+			"Claude Haiku 4.5",
+			"DeepSeek V4 Flash",
 			"GLM 5",
+			"GLM 5.1",
+			"Gemma 4 31B",
 			"Qwen3.5 397B",
 			"Qwen3.5 Plus"
 		];
