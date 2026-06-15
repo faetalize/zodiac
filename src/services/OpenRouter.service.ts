@@ -490,7 +490,7 @@ export function buildOpenRouterRequest(args: {
 		plugins: buildOpenRouterPlugins({ isInternetSearchEnabled: args.isInternetSearchEnabled }),
 		response_format: args.responseFormat,
 		provider: definition?.provider === "openrouter" ? { require_parameters: false } : undefined,
-		modalities: definition?.supportsImageOutput ? ["text", "image"] : undefined
+		modalities: definition?.supportsImageOutput ? (definition.outputModalities ?? ["text", "image"]) : undefined
 	};
 }
 
