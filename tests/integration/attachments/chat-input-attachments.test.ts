@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MAX_ATTACHMENT_BYTES } from "../../../src/utils/attachments";
+import { MAX_ATTACHMENTS } from "../../../src/utils/attachments";
 import { bootstrapDom } from "../../helpers/dom";
 import { MockDataTransfer, makeEmptyFileList } from "../../helpers/files";
 
@@ -14,6 +14,7 @@ vi.mock("../../../src/services/Message.service", () => ({
 
 vi.mock("../../../src/utils/helpers", () => ({
 	getClientScrollbarWidth: vi.fn(() => 0),
+	getEncoded: vi.fn((html: string) => html),
 	showElement: vi.fn(),
 	messageContainerScrollToBottom: vi.fn()
 }));
@@ -97,8 +98,8 @@ function createFile(name: string, type: string, contents: string): File {
 	return new File([contents], name, { type, lastModified: 1 });
 }
 
-function createOversizedTextFile(name = "too-large.txt"): File {
-	return createFile(name, "text/plain", "x".repeat(MAX_ATTACHMENT_BYTES + 1));
+function createSizedFile(name: string, type: string, size: number): File {
+	return new File([new Uint8Array(size)], name, { type, lastModified: 1 });
 }
 
 function getAttachmentsInput(): HTMLInputElement {
@@ -187,14 +188,65 @@ describe("ChatInput attachment drop workflow", () => {
 		vi.clearAllMocks();
 	});
 
-	it("drop attaches files to the backing input", async () => {
+	it("drop attaches supported files to the backing input", async () => {
 		const notesFile = createFile("notes.txt", "text/plain", "hello world");
+		const markdownFile = createFile("notes.md", "text/markdown", "# hello");
+		const jsonFile = createFile("data.json", "application/json", '{"ok":true}');
 		const pdfFile = createFile("guide.pdf", "application/pdf", "pdf-content");
+		const jpegFile = createFile("photo.jpg", "image/jpeg", "jpeg-content");
 
-		dispatchDrop([notesFile, pdfFile]);
+		dispatchDrop([notesFile, markdownFile, jsonFile, pdfFile, jpegFile]);
 
-		expect(getInputFiles().map((file) => file.name)).toEqual(["notes.txt", "guide.pdf"]);
-		expect(getPreviewNames()).toEqual(["notes.txt", "guide.pdf"]);
+		expect(getInputFiles().map((file) => file.name)).toEqual([
+			"notes.txt",
+			"notes.md",
+			"data.json",
+			"guide.pdf",
+			"photo.jpg"
+		]);
+		expect(getPreviewNames()).toEqual(["notes.txt", "notes.md", "data.json", "guide.pdf"]);
+	});
+
+	it("drop accepts png and jpeg extensions with matching MIME types", async () => {
+		const pngFile = createFile("image.png", "image/png", "png-content");
+		const jpegFile = createFile("photo.jpeg", "image/jpeg", "jpeg-content");
+
+		dispatchDrop([pngFile, jpegFile]);
+
+		expect(getInputFiles().map((file) => file.name)).toEqual(["image.png", "photo.jpeg"]);
+	});
+
+	it("drop accepts supported extensions when the browser reports an unknown MIME type", async () => {
+		const markdownFile = createFile("notes.md", "", "# hello");
+		const jsonFile = createFile("data.json", "application/octet-stream", '{"ok":true}');
+		const textFile = createFile("notes.txt", "", "hello world");
+
+		dispatchDrop([markdownFile, jsonFile, textFile]);
+
+		expect(getInputFiles().map((file) => file.name)).toEqual(["notes.md", "data.json", "notes.txt"]);
+		expect(getPreviewNames()).toEqual(["notes.md", "data.json", "notes.txt"]);
+	});
+
+	it("drop enforces the five file attachment limit", async () => {
+		const toastService = await import("../../../src/services/Toast.service");
+		const files = Array.from({ length: MAX_ATTACHMENTS + 1 }, (_, index) =>
+			createFile(`notes-${index + 1}.txt`, "text/plain", "hello")
+		);
+
+		dispatchDrop(files);
+
+		expect(getInputFiles().map((file) => file.name)).toEqual([
+			"notes-1.txt",
+			"notes-2.txt",
+			"notes-3.txt",
+			"notes-4.txt",
+			"notes-5.txt"
+		]);
+		expect(vi.mocked(toastService.warn)).toHaveBeenCalledWith(
+			expect.objectContaining({
+				title: "Attachment limit reached"
+			})
+		);
 	});
 
 	it("drop dedupes duplicate files", async () => {
@@ -215,7 +267,7 @@ describe("ChatInput attachment drop workflow", () => {
 
 	it("drop rejects unsupported files", async () => {
 		const toastService = await import("../../../src/services/Toast.service");
-		const unsupportedFile = createFile("data.json", "application/json", '{"ok":true}');
+		const unsupportedFile = createFile("data.csv", "text/csv", "ok,true");
 
 		dispatchDrop([unsupportedFile]);
 
@@ -228,17 +280,44 @@ describe("ChatInput attachment drop workflow", () => {
 		);
 	});
 
-	it("drop rejects oversized files", async () => {
+	it("drop rejects files with mismatched extension and MIME type", async () => {
 		const toastService = await import("../../../src/services/Toast.service");
-		const oversizedFile = createOversizedTextFile();
+		const mismatchedFile = createFile("notes.txt", "application/json", '{"ok":true}');
 
-		dispatchDrop([oversizedFile]);
+		dispatchDrop([mismatchedFile]);
+
+		expect(getInputFiles()).toHaveLength(0);
+		expect(getPreviewNames()).toEqual([]);
+		expect(vi.mocked(toastService.danger)).toHaveBeenCalledWith(
+			expect.objectContaining({
+				title: "File type mismatch"
+			})
+		);
+	});
+
+	it("drop rejects files over their per-type size caps", async () => {
+		const toastService = await import("../../../src/services/Toast.service");
+		const oversizedTextFile = createSizedFile("too-large.txt", "text/plain", 512 * 1024 + 1);
+		const oversizedMarkdownFile = createSizedFile("too-large.md", "text/markdown", 512 * 1024 + 1);
+		const oversizedJsonFile = createSizedFile("too-large.json", "application/json", 512 * 1024 + 1);
+		const oversizedPdfFile = createSizedFile("too-large.pdf", "application/pdf", 1024 * 1024 + 1);
+		const oversizedPngFile = createSizedFile("too-large.png", "image/png", 5 * 1024 * 1024 + 1);
+		const oversizedJpegFile = createSizedFile("too-large.jpg", "image/jpeg", 5 * 1024 * 1024 + 1);
+
+		dispatchDrop([
+			oversizedTextFile,
+			oversizedMarkdownFile,
+			oversizedJsonFile,
+			oversizedPdfFile,
+			oversizedPngFile,
+			oversizedJpegFile
+		]);
 
 		expect(getInputFiles()).toHaveLength(0);
 		expect(getPreviewNames()).toEqual([]);
 		expect(vi.mocked(toastService.warn)).toHaveBeenCalledWith(
 			expect.objectContaining({
-				title: "File exceeds 5 MB limit"
+				title: "Files exceed type limits"
 			})
 		);
 	});

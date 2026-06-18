@@ -6,8 +6,7 @@ import * as toastService from "../../services/Toast.service";
 import {
 	formatFileListForToast,
 	getFileSignature,
-	isSupportedFileType,
-	MAX_ATTACHMENT_BYTES,
+	validateAttachmentFile,
 	MAX_ATTACHMENTS,
 	SUPPORTED_ACCEPT_ATTRIBUTE,
 	SUPPORTED_TYPES_LABEL
@@ -17,6 +16,15 @@ import * as chatsService from "../../services/Chats.service";
 import { getSelectedEditingModel } from "./ImageEditModelSelector.component";
 import { updateImageCreditsLabelVisibility } from "./ImageCreditsLabel.component";
 import { MODEL_IMAGE_LIMITS } from "../../constants/ImageModels";
+import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
+import { openCustomerPortal } from "../../services/Supabase.service";
+import type { SubscriptionTier } from "../../types/Supabase";
+import {
+	countMessageCharacters,
+	getMessagePayloadLimitState,
+	getPremiumMessageCharacterLimit,
+	truncateToCharacterLimit
+} from "../../utils/payloadLimits";
 
 interface AttachmentRemovedDetail {
 	signature: string;
@@ -30,6 +38,7 @@ const attachmentPreview = document.querySelector<HTMLDivElement>("#attachment-pr
 const sendMessageButton = document.querySelector<HTMLButtonElement>("#btn-send");
 const internetSearchToggle = document.querySelector<HTMLButtonElement>("#btn-internet");
 const roleplayActionsMenu = document.querySelector<HTMLButtonElement>("#btn-roleplay");
+const messageBoxRight = document.querySelector<HTMLDivElement>(".message-box-right");
 
 //turn control elements (optional - for group chats)
 const turnControlPanel = document.querySelector<HTMLDivElement>("#turn-control-panel");
@@ -74,12 +83,22 @@ let isImageEditingActive = false;
 let isComposerAllowanceBlocked = false;
 let composerAllowanceBlockTitle = "Request unavailable";
 let composerAllowanceBlockText = "This request is currently unavailable.";
+let isMessagePayloadOverLimit = false;
+let activeSubscriptionTier: SubscriptionTier = "free";
+let isPremiumEndpointPreferred = getStoredPremiumEndpointPreference();
 
 let isUserTurnInRpg = true;
 let isGroupChatContext = false;
 let isRpgGroupChatContext = false;
 let isDynamicGroupChatContext = false;
 let allowDynamicPings = false;
+
+const messageLimitIndicator = document.createElement("span");
+messageLimitIndicator.id = "message-limit-indicator";
+messageLimitIndicator.className = "message-limit-indicator hidden";
+messageLimitIndicator.setAttribute("aria-live", "polite");
+messageLimitIndicator.setAttribute("role", "status");
+messageBoxRight?.prepend(messageLimitIndicator);
 
 function copyRuntimeFileMetadata(source: File, target: File): void {
 	const sourceMetadata = source as any;
@@ -126,12 +145,270 @@ const bottomUiResizeObserver = new ResizeObserver(() => {
 
 bottomUiResizeObserver.observe(bottomUiContainer);
 
+function getStoredPremiumEndpointPreference(): boolean {
+	const savedPreference = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
+	return savedPreference === null ? true : savedPreference === "true";
+}
+
+function getActiveMessageCharacterLimit(): number | null {
+	return getPremiumMessageCharacterLimit(activeSubscriptionTier, isPremiumEndpointPreferred);
+}
+
+function getCurrentMessageCharacterCount(): number {
+	return countMessageCharacters(serializeMessageInput());
+}
+
+function getSelectedInputCharacterCount(): number {
+	const input = messageInput as HTMLDivElement;
+	const selection = window.getSelection();
+	if (!selection || selection.rangeCount === 0) return 0;
+	const range = selection.getRangeAt(0);
+	if (!input.contains(range.commonAncestorContainer)) return 0;
+
+	const fragment = range.cloneContents();
+	fragment.querySelectorAll(".mention-chip-input").forEach((node) => node.remove());
+	return countMessageCharacters(fragment.textContent ?? "");
+}
+
+function getRemainingCharacterBudgetForInsertion(): number | null {
+	const limit = getActiveMessageCharacterLimit();
+	if (limit === null) return null;
+
+	const selectedCount = getSelectedInputCharacterCount();
+	const currentCount = getCurrentMessageCharacterCount();
+	return Math.max(0, limit - Math.max(0, currentCount - selectedCount));
+}
+
+function formatCompactCharacterLimit(limit: number): string {
+	return limit >= 1000 && limit % 1000 === 0 ? `${limit / 1000}K` : limit.toLocaleString();
+}
+
+function showMessageLimitToast(): void {
+	const limit = getActiveMessageCharacterLimit();
+	if (limit === null) return;
+
+	const actions =
+		activeSubscriptionTier === "pro"
+			? [
+					{
+						label: "Upgrade to Pro+",
+						onClick: async (dismiss: () => void) => {
+							dismiss();
+							try {
+								await openCustomerPortal();
+							} catch (error) {
+								console.error(error);
+								toastService.danger({
+									title: "Portal unavailable",
+									text: "Unable to open your customer portal right now. Please try again in a moment."
+								});
+							}
+						}
+					}
+				]
+			: [];
+
+	toastService.warn({
+		title: "Message limit reached",
+		text: `Premium endpoint messages are limited to ${limit.toLocaleString()} characters on your current plan.`,
+		actions
+	});
+}
+
+function insertTextRespectingMessageLimit(text: string): void {
+	const normalizedText = text.replace(/\r/g, "");
+	const remaining = getRemainingCharacterBudgetForInsertion();
+	if (remaining === null) {
+		document.execCommand("insertText", false, normalizedText);
+		updateMessageLimitIndicator();
+		return;
+	}
+
+	if (remaining <= 0) {
+		showMessageLimitToast();
+		updateMessageLimitIndicator();
+		return;
+	}
+
+	const truncatedText = truncateToCharacterLimit(normalizedText, remaining);
+	if (countMessageCharacters(truncatedText) < countMessageCharacters(normalizedText)) {
+		showMessageLimitToast();
+	}
+
+	if (truncatedText) {
+		document.execCommand("insertText", false, truncatedText);
+	}
+	updateMessageLimitIndicator();
+}
+
+function getMentionMarkerLength(element: HTMLElement): number | null {
+	if (!element.classList.contains("mention-chip-input")) return null;
+	const personaId = element.dataset.personaId;
+	return personaId ? countMessageCharacters(`@<${personaId}>`) : 0;
+}
+
+function getAtomicNodeCharacterLength(node: Node): number | null {
+	if (node.nodeType === Node.TEXT_NODE) {
+		return countMessageCharacters(node.textContent ?? "");
+	}
+
+	if (!(node instanceof HTMLElement)) {
+		return null;
+	}
+
+	const mentionLength = getMentionMarkerLength(node);
+	if (mentionLength !== null) {
+		return mentionLength;
+	}
+
+	if (node.tagName === "BR") {
+		return 1;
+	}
+
+	return null;
+}
+
+function trimLiveComposerNodeFromEnd(node: Node, charactersToRemove: { value: number }): boolean {
+	if (charactersToRemove.value <= 0) return false;
+
+	const atomicLength = getAtomicNodeCharacterLength(node);
+	if (atomicLength !== null) {
+		if (atomicLength <= 0) {
+			node.parentNode?.removeChild(node);
+			return true;
+		}
+
+		if (node.nodeType === Node.TEXT_NODE) {
+			const text = node.textContent ?? "";
+			if (atomicLength <= charactersToRemove.value) {
+				node.parentNode?.removeChild(node);
+				charactersToRemove.value -= atomicLength;
+			} else {
+				node.textContent = truncateToCharacterLimit(text, atomicLength - charactersToRemove.value);
+				charactersToRemove.value = 0;
+			}
+			return true;
+		}
+
+		node.parentNode?.removeChild(node);
+		charactersToRemove.value = Math.max(0, charactersToRemove.value - atomicLength);
+		return true;
+	}
+
+	const children = Array.from(node.childNodes);
+	let didTrim = false;
+	for (let index = children.length - 1; index >= 0 && charactersToRemove.value > 0; index--) {
+		didTrim = trimLiveComposerNodeFromEnd(children[index], charactersToRemove) || didTrim;
+	}
+
+	if (node !== messageInput && node instanceof HTMLElement && node.childNodes.length === 0) {
+		node.remove();
+	}
+
+	return didTrim;
+}
+
+function moveCaretToComposerEnd(): void {
+	const input = messageInput as HTMLDivElement;
+	const selection = window.getSelection();
+	if (!selection) return;
+
+	const range = document.createRange();
+	range.selectNodeContents(input);
+	range.collapse(false);
+	selection.removeAllRanges();
+	selection.addRange(range);
+}
+
+function trimLiveComposerToSerializedLimit(limit: number): boolean {
+	let didTrim = false;
+
+	for (let attempts = 0; attempts < 20; attempts++) {
+		const serializedMessage = serializeMessageInput();
+		const overage = countMessageCharacters(serializedMessage) - limit;
+		if (overage <= 0) {
+			return didTrim;
+		}
+
+		const removed = trimLiveComposerNodeFromEnd(messageInput as HTMLDivElement, { value: overage });
+		if (!removed) {
+			return didTrim;
+		}
+		didTrim = true;
+	}
+
+	return didTrim;
+}
+
+function enforceCurrentMessageLimit(options: { showToast?: boolean } = {}): void {
+	const limit = getActiveMessageCharacterLimit();
+	if (limit === null) return;
+
+	const serializedMessage = serializeMessageInput();
+	const state = getMessagePayloadLimitState(serializedMessage, limit);
+	if (!state.isOverLimit) return;
+
+	if (!trimLiveComposerToSerializedLimit(limit)) return;
+	moveCaretToComposerEnd();
+	closeMentionMenu();
+	if (options.showToast) {
+		showMessageLimitToast();
+	}
+}
+
+function updateMessageLimitIndicator(
+	options: { enforceCurrentContent?: boolean; showLimitToast?: boolean } = {}
+): void {
+	if (options.enforceCurrentContent) {
+		enforceCurrentMessageLimit({ showToast: options.showLimitToast });
+	}
+
+	const indicator = messageLimitIndicator;
+	const limit = getActiveMessageCharacterLimit();
+	const state = getMessagePayloadLimitState(serializeMessageInput(), limit);
+	isMessagePayloadOverLimit = state.isOverLimit;
+
+	if (limit === null || !state.isNearLimit) {
+		indicator.classList.add("hidden");
+		indicator.textContent = "";
+		indicator.title = "";
+		indicator.classList.remove(
+			"message-limit-indicator-near",
+			"message-limit-indicator-over",
+			"message-limit-indicator-upsell"
+		);
+		syncComposerInteractivity();
+		return;
+	}
+
+	indicator.classList.remove("hidden");
+	const remaining = state.remaining ?? 0;
+	indicator.textContent =
+		remaining === 0
+			? `${formatCompactCharacterLimit(limit)} character limit`
+			: `${state.characterCount.toLocaleString()} / ${limit.toLocaleString()}`;
+	indicator.classList.toggle("message-limit-indicator-near", state.isNearLimit);
+	indicator.classList.toggle("message-limit-indicator-over", state.isOverLimit);
+
+	const shouldUpsell = activeSubscriptionTier === "pro" && state.isNearLimit;
+	indicator.classList.toggle("message-limit-indicator-upsell", shouldUpsell);
+	indicator.title = shouldUpsell
+		? "Pro+ allows longer premium endpoint messages."
+		: `${(state.remaining ?? 0).toLocaleString()} characters remaining`;
+	syncComposerInteractivity();
+}
+
+function refreshMessageLimitFromPreference(): void {
+	isPremiumEndpointPreferred = getStoredPremiumEndpointPreference();
+	updateMessageLimitIndicator({ enforceCurrentContent: true, showLimitToast: true });
+}
+
 function syncComposerInteractivity(): void {
 	const canEdit = !isRpgGroupChatContext || (!isCurrentlyGenerating && isUserTurnInRpg);
 	messageInput!.contentEditable = String(canEdit);
 	messageInput!.classList.toggle("disabled", !canEdit);
 
-	const isSendActionBlocked = isComposerAllowanceBlocked && !isCurrentlyGenerating;
+	const isSendActionBlocked = (isComposerAllowanceBlocked || isMessagePayloadOverLimit) && !isCurrentlyGenerating;
 	const isSendUiDisabled =
 		isSendActionBlocked || (isRpgGroupChatContext && !isUserTurnInRpg && !isCurrentlyGenerating);
 
@@ -139,7 +416,9 @@ function syncComposerInteractivity(): void {
 	sendMessageButton!.classList.toggle("disabled", isSendUiDisabled);
 	sendMessageButton!.setAttribute("aria-disabled", isSendActionBlocked ? "true" : "false");
 
-	if (isSendActionBlocked) {
+	if (isMessagePayloadOverLimit) {
+		sendMessageButton!.title = "Message is over the character limit.";
+	} else if (isSendActionBlocked) {
 		sendMessageButton!.title = composerAllowanceBlockTitle;
 	} else if (!isCurrentlyGenerating) {
 		sendMessageButton!.title = "";
@@ -524,23 +803,53 @@ messageInput.addEventListener("focus", () => {
 	});
 });
 
+messageInput.addEventListener("beforeinput", (event: InputEvent) => {
+	if (event.isComposing || !event.inputType.startsWith("insert")) {
+		return;
+	}
+
+	const remaining = getRemainingCharacterBudgetForInsertion();
+	if (remaining === null) {
+		return;
+	}
+
+	const incomingText =
+		event.inputType === "insertParagraph" || event.inputType === "insertLineBreak" ? "\n" : event.data;
+	if (incomingText === null) {
+		if (remaining <= 0) {
+			event.preventDefault();
+			showMessageLimitToast();
+			updateMessageLimitIndicator();
+		}
+		return;
+	}
+
+	const normalizedText = incomingText.replace(/\r/g, "");
+	if (countMessageCharacters(normalizedText) <= remaining) {
+		return;
+	}
+
+	event.preventDefault();
+	insertTextRespectingMessageLimit(normalizedText);
+});
+
 messageInput.addEventListener("paste", (event: ClipboardEvent) => {
 	const files = collectFilesFromClipboard(event);
 	const text = event.clipboardData?.getData("text/plain") ?? "";
 	const hasFiles = files.length > 0;
-	const hasText = text.trim().length > 0;
+	const hasText = text.length > 0;
 
 	if (!hasFiles) {
 		if (hasText) {
 			event.preventDefault();
-			document.execCommand("insertText", false, text.replace(/\r/g, ""));
+			insertTextRespectingMessageLimit(text);
 		}
 		return;
 	}
 
 	event.preventDefault();
 	if (hasText) {
-		document.execCommand("insertText", false, text.replace(/\r/g, ""));
+		insertTextRespectingMessageLimit(text);
 	}
 	addAttachments(files);
 });
@@ -549,6 +858,7 @@ messageInput.addEventListener("input", () => {
 	if (messageInput.innerHTML.trim() === "<br>" || messageInput.innerHTML.trim() === "<p><br></p>") {
 		messageInput.innerHTML = "";
 	}
+	updateMessageLimitIndicator();
 	updateMentionMenu();
 });
 
@@ -664,6 +974,11 @@ sendMessageButton.addEventListener(
 					title: composerAllowanceBlockTitle,
 					text: composerAllowanceBlockText
 				});
+				return;
+			}
+
+			if (isMessagePayloadOverLimit) {
+				showMessageLimitToast();
 				return;
 			}
 
@@ -1002,6 +1317,7 @@ document.querySelector<HTMLDivElement>("#personalitiesDiv")!.addEventListener(
 		})()
 );
 
+updateMessageLimitIndicator();
 await setupBottomBar();
 
 // Listen for image editing toggle events
@@ -1046,6 +1362,27 @@ window.addEventListener("history-image-removed", () => {
 	currentHistoryImagePreview = null;
 });
 
+window.addEventListener("auth-state-changed", (event: any) => {
+	const subscription = event.detail?.subscription ?? null;
+	if (!event.detail?.loggedIn || !subscription) {
+		activeSubscriptionTier = "free";
+		updateMessageLimitIndicator();
+		return;
+	}
+
+	// subscription-updated follows this event after Supabase UI refresh; keep this as a quick fallback.
+	activeSubscriptionTier = event.detail?.tier ?? activeSubscriptionTier;
+	updateMessageLimitIndicator({ enforceCurrentContent: true, showLimitToast: true });
+});
+
+window.addEventListener("subscription-updated", (event: any) => {
+	activeSubscriptionTier = event.detail?.tier ?? "free";
+	updateMessageLimitIndicator({ enforceCurrentContent: true, showLimitToast: true });
+});
+
+window.addEventListener("premium-endpoint-preference-changed", refreshMessageLimitFromPreference);
+window.addEventListener("settings-loaded-from-storage", refreshMessageLimitFromPreference);
+
 // Listen for attach-image-from-chat event (from Edit/Attach buttons in messages)
 window.addEventListener("attach-image-from-chat", (event: any) => {
 	const { file, toggleEditing } = event.detail;
@@ -1088,8 +1425,10 @@ function addAttachments(rawFiles: File[]): void {
 
 	const files = dedupeFiles(rawFiles);
 	const duplicateNames: string[] = [];
-	const oversizedNames: string[] = [];
-	const unsupportedNames: string[] = [];
+	const oversizedMessages: string[] = [];
+	const absoluteOversizedMessages: string[] = [];
+	const unsupportedMessages: string[] = [];
+	const mimeMismatchMessages: string[] = [];
 	let limitReached = false;
 	const added: File[] = [];
 	const existingSignatures = new Set(attachmentState.map(getFileSignature));
@@ -1101,14 +1440,18 @@ function addAttachments(rawFiles: File[]): void {
 		}
 
 		const displayName = getDisplayName(file);
+		const validation = validateAttachmentFile(file);
 
-		if (!isSupportedFileType(file)) {
-			unsupportedNames.push(displayName);
-			continue;
-		}
-
-		if (file.size > MAX_ATTACHMENT_BYTES) {
-			oversizedNames.push(displayName);
+		if (!validation.ok) {
+			if (validation.reason === "too-large") {
+				oversizedMessages.push(validation.message);
+			} else if (validation.reason === "absolute-too-large") {
+				absoluteOversizedMessages.push(validation.message);
+			} else if (validation.reason === "mime-mismatch") {
+				mimeMismatchMessages.push(validation.message);
+			} else {
+				unsupportedMessages.push(validation.message);
+			}
 			continue;
 		}
 
@@ -1164,17 +1507,34 @@ function addAttachments(rawFiles: File[]): void {
 		});
 	}
 
-	if (oversizedNames.length) {
+	if (oversizedMessages.length) {
 		toastService.warn({
-			title: oversizedNames.length === 1 ? "File exceeds 5 MB limit" : "Files exceed 5 MB limit",
-			text: formatFileListForToast(oversizedNames)
+			title: oversizedMessages.length === 1 ? "File exceeds type limit" : "Files exceed type limits",
+			text: formatFileListForToast(oversizedMessages)
 		});
 	}
 
-	if (unsupportedNames.length) {
+	if (absoluteOversizedMessages.length) {
+		toastService.warn({
+			title:
+				absoluteOversizedMessages.length === 1
+					? "File exceeds 10 MB attachment cap"
+					: "Files exceed 10 MB attachment cap",
+			text: formatFileListForToast(absoluteOversizedMessages)
+		});
+	}
+
+	if (mimeMismatchMessages.length) {
 		toastService.danger({
-			title: unsupportedNames.length === 1 ? "Unsupported file type" : "Unsupported file types",
-			text: `${formatFileListForToast(unsupportedNames)}\nSupported types: ${SUPPORTED_TYPES_LABEL}.`
+			title: mimeMismatchMessages.length === 1 ? "File type mismatch" : "File type mismatches",
+			text: formatFileListForToast(mimeMismatchMessages)
+		});
+	}
+
+	if (unsupportedMessages.length) {
+		toastService.danger({
+			title: unsupportedMessages.length === 1 ? "Unsupported file type" : "Unsupported file types",
+			text: `${formatFileListForToast(unsupportedMessages)}\nSupported types: ${SUPPORTED_TYPES_LABEL}.`
 		});
 	}
 

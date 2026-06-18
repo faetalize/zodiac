@@ -1,33 +1,131 @@
-const SUPPORTED_MIME_PATTERNS: RegExp[] = [/^image\//i, /^application\/pdf$/i, /^text\/plain$/i];
+export type AttachmentValidationFailureReason = "unsupported" | "mime-mismatch" | "too-large" | "absolute-too-large";
 
-const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "avif", "heic", "heif"];
-const VIDEO_EXTENSIONS = ["mp4", "mov", "mkv", "webm", "avi", "m4v", "mpg", "mpeg"];
-const AUDIO_EXTENSIONS = ["mp3", "wav", "ogg", "m4a", "flac", "aac", "opus", "oga"];
-const TEXT_EXTENSIONS = ["txt", "text"];
-const PDF_EXTENSIONS = ["pdf"];
+export interface AttachmentPolicy {
+	extensions: string[];
+	mimeTypes: string[];
+	maxBytes: number;
+	label: string;
+}
 
-const EXTENSION_CATALOG = new Map<string, string>();
-IMAGE_EXTENSIONS.forEach((ext) => EXTENSION_CATALOG.set(ext, "image"));
-VIDEO_EXTENSIONS.forEach((ext) => EXTENSION_CATALOG.set(ext, "video"));
-AUDIO_EXTENSIONS.forEach((ext) => EXTENSION_CATALOG.set(ext, "audio"));
-TEXT_EXTENSIONS.forEach((ext) => EXTENSION_CATALOG.set(ext, "text"));
-PDF_EXTENSIONS.forEach((ext) => EXTENSION_CATALOG.set(ext, "pdf"));
+export interface AttachmentValidationSuccess {
+	ok: true;
+	policy: AttachmentPolicy;
+	extension: string;
+}
 
-export const SUPPORTED_ACCEPT_ATTRIBUTE = "image/*,application/pdf,text/plain";
-export const SUPPORTED_TYPES_LABEL = "images, PDF, plain text";
-export const MAX_ATTACHMENTS = 6;
-export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; //10MB
+export interface AttachmentValidationFailure {
+	ok: false;
+	reason: AttachmentValidationFailureReason;
+	extension?: string;
+	expectedMimeTypes?: string[];
+	maxBytes?: number;
+	message: string;
+}
+
+export type AttachmentValidationResult = AttachmentValidationSuccess | AttachmentValidationFailure;
+
+const KIB = 1024;
+const MIB = 1024 * 1024;
+
+const TEXT_FILE_BYTES = 512 * KIB;
+const PDF_FILE_BYTES = 1 * MIB;
+const IMAGE_FILE_BYTES = 5 * MIB;
+
+const ATTACHMENT_POLICIES: AttachmentPolicy[] = [
+	{ extensions: ["txt"], mimeTypes: ["text/plain"], maxBytes: TEXT_FILE_BYTES, label: "TXT" },
+	{ extensions: ["md"], mimeTypes: ["text/markdown", "text/plain"], maxBytes: TEXT_FILE_BYTES, label: "Markdown" },
+	{ extensions: ["json"], mimeTypes: ["application/json"], maxBytes: TEXT_FILE_BYTES, label: "JSON" },
+	{ extensions: ["pdf"], mimeTypes: ["application/pdf"], maxBytes: PDF_FILE_BYTES, label: "PDF" },
+	{ extensions: ["jpg", "jpeg"], mimeTypes: ["image/jpeg"], maxBytes: IMAGE_FILE_BYTES, label: "JPEG" },
+	{ extensions: ["png"], mimeTypes: ["image/png"], maxBytes: IMAGE_FILE_BYTES, label: "PNG" }
+];
+
+const POLICY_BY_EXTENSION = new Map<string, AttachmentPolicy>();
+for (const policy of ATTACHMENT_POLICIES) {
+	for (const extension of policy.extensions) {
+		POLICY_BY_EXTENSION.set(extension, policy);
+	}
+}
+
+export const SUPPORTED_ACCEPT_ATTRIBUTE =
+	".txt,.md,.json,.pdf,.jpg,.jpeg,.png,text/plain,text/markdown,application/json,application/pdf,image/jpeg,image/png";
+export const SUPPORTED_TYPES_LABEL = "TXT, Markdown, JSON, PDF, JPEG, and PNG files";
+export const MAX_ATTACHMENTS = 5;
+export const MAX_ATTACHMENT_BYTES = 10 * MIB; // 10MB absolute backstop
 
 export function isSupportedFileType(file: File): boolean {
-	if (SUPPORTED_MIME_PATTERNS.some((pattern) => pattern.test(file.type))) {
-		return true;
-	}
+	return validateAttachmentFile(file).ok;
+}
 
+export function validateAttachmentFile(file: File): AttachmentValidationResult {
+	const displayName = getDisplayName(file);
 	const extension = getExtension(file.name);
 	if (!extension) {
-		return false;
+		return {
+			ok: false,
+			reason: "unsupported",
+			message: `${displayName} has no supported file extension. Supported types: ${SUPPORTED_TYPES_LABEL}.`
+		};
 	}
-	return EXTENSION_CATALOG.has(extension);
+
+	const policy = POLICY_BY_EXTENSION.get(extension);
+	if (!policy) {
+		return {
+			ok: false,
+			reason: "unsupported",
+			extension,
+			message: `${displayName} uses .${extension}, which is not supported. Supported types: ${SUPPORTED_TYPES_LABEL}.`
+		};
+	}
+
+	const mimeType = file.type.trim().toLowerCase();
+	if (!isUnknownMimeType(mimeType) && !policy.mimeTypes.includes(mimeType)) {
+		return {
+			ok: false,
+			reason: "mime-mismatch",
+			extension,
+			expectedMimeTypes: policy.mimeTypes,
+			message: `${displayName} must be a .${extension} file with ${formatMimeTypes(policy.mimeTypes)}.`
+		};
+	}
+
+	if (file.size > MAX_ATTACHMENT_BYTES) {
+		return {
+			ok: false,
+			reason: "absolute-too-large",
+			extension,
+			maxBytes: MAX_ATTACHMENT_BYTES,
+			message: `${displayName} exceeds the 10 MB attachment cap.`
+		};
+	}
+
+	if (file.size > policy.maxBytes) {
+		return {
+			ok: false,
+			reason: "too-large",
+			extension,
+			maxBytes: policy.maxBytes,
+			message: `${displayName} exceeds the ${formatBytes(policy.maxBytes)} limit for ${policy.label} files.`
+		};
+	}
+
+	return { ok: true, policy, extension };
+}
+
+export function getAttachmentValidationSummary(files: ArrayLike<File> | Iterable<File>): {
+	ok: boolean;
+	errors: AttachmentValidationFailure[];
+	tooMany: boolean;
+} {
+	const fileList = Array.from(files);
+	const errors = fileList
+		.map(validateAttachmentFile)
+		.filter((result): result is AttachmentValidationFailure => !result.ok);
+	return {
+		ok: fileList.length <= MAX_ATTACHMENTS && errors.length === 0,
+		errors,
+		tooMany: fileList.length > MAX_ATTACHMENTS
+	};
 }
 
 export function getFileSignature(file: File): string {
@@ -42,9 +140,34 @@ export function formatFileListForToast(fileNames: string[]): string {
 	return fileNames.map((name) => `• ${name}`).join("\n");
 }
 
+export function formatBytes(bytes: number): string {
+	if (bytes % MIB === 0) {
+		return `${bytes / MIB} MB`;
+	}
+	if (bytes % KIB === 0) {
+		return `${bytes / KIB} KB`;
+	}
+	return `${bytes} bytes`;
+}
+
+function getDisplayName(file: File): string {
+	return file.name?.trim() ? file.name : "Unnamed file";
+}
+
 function getExtension(name: string): string | undefined {
 	if (!name.includes(".")) {
 		return undefined;
 	}
 	return name.split(".").pop()?.toLowerCase();
+}
+
+function formatMimeTypes(mimeTypes: string[]): string {
+	if (mimeTypes.length === 1) {
+		return mimeTypes[0];
+	}
+	return mimeTypes.slice(0, -1).join(", ") + " or " + mimeTypes[mimeTypes.length - 1];
+}
+
+function isUnknownMimeType(mimeType: string): boolean {
+	return mimeType === "" || mimeType === "application/octet-stream";
 }

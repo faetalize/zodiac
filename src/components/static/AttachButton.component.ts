@@ -1,3 +1,5 @@
+import { SUPPORTED_ACCEPT_ATTRIBUTE } from "../../utils/attachments";
+
 const attachButton = document.querySelector<HTMLButtonElement>("#btn-attach");
 
 if (!attachButton) {
@@ -11,7 +13,7 @@ attachButton.addEventListener("click", () => {
 		return;
 	}
 	input.value = ""; // Clear the input value to allow re-selection of the same file
-	input.accept = "image/*,application/pdf,text/plain"; // Accept images, PDFs, and text files
+	input.accept = SUPPORTED_ACCEPT_ATTRIBUTE;
 	input.multiple = true; // Allow multiple files to be selected
 	input.click();
 });

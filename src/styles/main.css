@@ -4668,8 +4668,12 @@ body.full-width-chat #message-box {
 	margin-left: auto;
 }
 
-.image-credits-label {
+.image-credits-label,
+.message-limit-indicator {
+	box-sizing: border-box;
 	font-size: 0.8rem;
+	font-family: inherit;
+	font-weight: inherit;
 	line-height: 1.2;
 	padding: 0.25rem 0.6rem;
 	border-radius: 999px;
@@ -4679,6 +4683,7 @@ body.full-width-chat #message-box {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.35rem;
+	min-height: 0;
 	cursor: pointer;
 	user-select: none;
 	transition:
@@ -4689,6 +4694,20 @@ body.full-width-chat #message-box {
 .image-credits-label:hover {
 	background: var(--badge-bg-hover);
 	border-color: var(--badge-border-hover);
+}
+
+.message-limit-indicator {
+	cursor: default;
+}
+
+.message-limit-indicator-near {
+	border-color: var(--warning-border);
+	color: var(--warning-fg);
+}
+
+.message-limit-indicator-over {
+	border-color: var(--danger);
+	color: var(--danger);
 }
 
 .image-credits-label:active {

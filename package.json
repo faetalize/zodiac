@@ -56,7 +56,8 @@
 		"prepare": "husky",
 		"preview": "vite preview",
 		"sync-db-types": "node scripts/sync-db-types.mjs",
-		"create-worktree": "node scripts/create-worktree.mjs"
+		"create-worktree": "node scripts/create-worktree.mjs",
+		"create-worktree:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-worktree.ps1"
 	},
 	"lint-staged": {
 		"*.{ts,tsx,js,mjs,cjs,json,css,html,md,yml,yaml}": [

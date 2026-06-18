@@ -82,6 +82,13 @@ import {
 	UNRESTRICTED_SAFETY_SETTINGS
 } from "../utils/chatHistoryBuilder";
 import { resolveAttachmentFile, resolveThoughtSignature } from "../utils/blobResolver";
+import {
+	formatFileListForToast,
+	getAttachmentValidationSummary,
+	MAX_ATTACHMENTS,
+	SUPPORTED_TYPES_LABEL
+} from "../utils/attachments";
+import { getPremiumMessageCharacterLimit, validateMessagePayloadLimit } from "../utils/payloadLimits";
 
 import { sendGroupChatRpg, type RpgInputArgs } from "./RpgGroupChat";
 import { sendGroupChatDynamic, type DynamicInputArgs } from "./DynamicGroupChat";
@@ -1579,6 +1586,35 @@ function isViewingChat(chatId: string): boolean {
 	return chatsService.getCurrentChatId() === chatId;
 }
 
+function showAttachmentValidationFailures(errors: ReturnType<typeof getAttachmentValidationSummary>["errors"]): void {
+	const unsupportedMessages = errors.filter((error) => error.reason === "unsupported").map((error) => error.message);
+	const mismatchMessages = errors.filter((error) => error.reason === "mime-mismatch").map((error) => error.message);
+	const sizeMessages = errors
+		.filter((error) => error.reason === "too-large" || error.reason === "absolute-too-large")
+		.map((error) => error.message);
+
+	if (sizeMessages.length) {
+		warn({
+			title: sizeMessages.length === 1 ? "Attachment too large" : "Attachments too large",
+			text: formatFileListForToast(sizeMessages)
+		});
+	}
+
+	if (mismatchMessages.length) {
+		danger({
+			title: mismatchMessages.length === 1 ? "File type mismatch" : "File type mismatches",
+			text: formatFileListForToast(mismatchMessages)
+		});
+	}
+
+	if (unsupportedMessages.length) {
+		danger({
+			title: unsupportedMessages.length === 1 ? "Unsupported file type" : "Unsupported file types",
+			text: `${formatFileListForToast(unsupportedMessages)}\nSupported types: ${SUPPORTED_TYPES_LABEL}.`
+		});
+	}
+}
+
 async function performEarlyValidation(msg: string, options: SendOptions = {}): Promise<EarlyValidationResult> {
 	await ensureChatFullyHydratedForWrite(options.targetChatId);
 	const settings = settingsService.getSettings();
@@ -1597,12 +1633,6 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 
 	const attachmentFiles: FileList = options.attachmentFiles ?? cloneFilesToFileList(attachmentsInput.files);
 
-	if (!options.attachmentFiles) {
-		attachmentsInput.value = "";
-		attachmentsInput.files = new DataTransfer().files;
-		clearAttachmentPreviews();
-	}
-
 	if (!selectedPersonality) {
 		return { canProceed: false };
 	}
@@ -1611,6 +1641,29 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 	const tier = await supabaseService.getSubscriptionTier(subscription);
 	const hasSubscription = tier === "pro" || tier === "pro_plus" || tier === "max";
 	const isPremiumEndpointPreferred = hasSubscription && shouldPreferPremiumEndpoint();
+	const messageLimit = getPremiumMessageCharacterLimit(tier, isPremiumEndpointPreferred);
+	const messageLimitState = validateMessagePayloadLimit(msg, messageLimit);
+	if (messageLimitState.isOverLimit && messageLimit !== null) {
+		warn({
+			title: "Message too long",
+			text: `Premium endpoint messages are limited to ${messageLimit.toLocaleString()} characters on your current plan.`
+		});
+		return { canProceed: false };
+	}
+
+	const attachmentValidation = getAttachmentValidationSummary(attachmentFiles);
+	if (attachmentValidation.tooMany) {
+		warn({
+			title: "Attachment limit reached",
+			text: `You can attach up to ${MAX_ATTACHMENTS} files per message.`
+		});
+		return { canProceed: false };
+	}
+	if (attachmentValidation.errors.length) {
+		showAttachmentValidationFailures(attachmentValidation.errors);
+		return { canProceed: false };
+	}
+
 	if (isPremiumEndpointPreferred) {
 		settings.model = getValidChatModel(settings.model, {
 			hasGeminiAccess: true,
@@ -1655,6 +1708,12 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 
 	if (!msg && !allowsEmptyMessage && (attachmentFiles?.length ?? 0) === 0) {
 		return { canProceed: false };
+	}
+
+	if (!options.attachmentFiles) {
+		attachmentsInput.value = "";
+		attachmentsInput.files = new DataTransfer().files;
+		clearAttachmentPreviews();
 	}
 
 	return {

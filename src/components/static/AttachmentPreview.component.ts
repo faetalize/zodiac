@@ -1,4 +1,4 @@
-import { getFileSignature } from "../../utils/attachments";
+import { getFileSignature, validateAttachmentFile } from "../../utils/attachments";
 import { dispatchAppEvent, dispatchElementEvent } from "../../events";
 
 const input = document.querySelector<HTMLInputElement>("#attachments");
@@ -17,8 +17,12 @@ export const attachmentPreviewElement = (file: File) => {
 
 	// Check if this file is from chat history
 	const isFromChatHistory = (file as any)._fromChatHistory === true;
+	const validation = validateAttachmentFile(file);
+	const policy = validation.ok ? validation.policy : null;
+	const isImageAttachment = !!policy?.mimeTypes.some((mimeType) => mimeType.startsWith("image/"));
+	const isPreviewableFile = !!policy;
 
-	if (file.type.startsWith("image/")) {
+	if (isImageAttachment) {
 		const reader = new FileReader();
 		reader.onload = (e) => {
 			const removeButton = document.createElement("button");
@@ -50,8 +54,8 @@ export const attachmentPreviewElement = (file: File) => {
 		};
 		reader.readAsDataURL(file);
 	}
-	//text and pdf files
-	else if (file.type === "application/pdf" || file.type === "text/plain") {
+	//text-like and pdf files
+	else if (isPreviewableFile) {
 		container.classList.add("attachment-preview-container");
 		const removeButton = document.createElement("button");
 		removeButton.classList.add("btn-textual", "material-symbols-outlined", "btn-remove-attachment");
@@ -66,7 +70,7 @@ export const attachmentPreviewElement = (file: File) => {
 		const fileName = document.createElement("span");
 		const fileType = document.createElement("span");
 		fileName.textContent = file.name;
-		fileType.textContent = file.type;
+		fileType.textContent = file.type || policy.label;
 		fileName.classList.add("attachment-name");
 		fileType.classList.add("attachment-type");
 		fileIcon.classList.add("material-symbols-outlined", "attachment-icon");
@@ -147,5 +151,8 @@ export function getAttachmentCount(): number {
 	if (!input || !input.files) {
 		return 0;
 	}
-	return Array.from(input.files).filter((f) => f.type.startsWith("image/")).length;
+	return Array.from(input.files).filter((file) => {
+		const validation = validateAttachmentFile(file);
+		return validation.ok && validation.policy.mimeTypes.some((mimeType) => mimeType.startsWith("image/"));
+	}).length;
 }
