@@ -3198,7 +3198,7 @@
 			>
 				<h1 id="roleplay-add-modal-title">Add</h1>
 				<input id="roleplay-add-modal-label-input" class="input-field hidden" type="text" />
-				<input id="roleplay-add-modal-input" class="input-field" type="text" />
+				<input id="roleplay-add-modal-input" class="input-field" type="text" data-surface-initial-focus />
 				<div id="roleplay-add-modal-error" class="error-message hidden">
 					<span class="material-symbols-outlined">error</span>
 					<span id="roleplay-add-modal-error-message">Unable to save.</span>
@@ -3215,12 +3215,18 @@
 			class="adaptive-sheet model-picker-sheet hidden"
 			role="dialog"
 			aria-labelledby="model-picker-title"
+			data-dismiss-on-outside="true"
 		>
 			<div id="model-picker-families" class="model-picker-view">
 				<h1 id="model-picker-title">Select a model</h1>
 				<div class="chat-search-wrapper model-picker-search-wrapper">
 					<span class="material-symbols-outlined chat-search-icon">search</span>
-					<input type="text" id="model-picker-search-input" placeholder="Search models..." />
+					<input
+						type="text"
+						id="model-picker-search-input"
+						placeholder="Search models..."
+						data-surface-initial-focus
+					/>
 				</div>
 				<div id="model-picker-family-list" class="settings-list" aria-label="Model families"></div>
 			</div>

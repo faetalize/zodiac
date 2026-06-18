@@ -201,6 +201,7 @@ function groupByFamily(entries: ModelEntry[]): FamilyGroup[] {
 	for (const family of [...FAMILIES, OTHER_FAMILY]) {
 		const models = entries
 			.filter((entry) => familyKeyOf(entry) === family.key)
+			// Newer/high-version models should appear first inside each provider.
 			.sort((a, b) => collator.compare(getEntryDisplayLabel(b), getEntryDisplayLabel(a)));
 		if (models.length > 0) groups.push({ family, models });
 	}
@@ -345,6 +346,7 @@ function createFamilyRow(group: FamilyGroup): HTMLButtonElement {
 	const chevron = document.createElement("span");
 	chevron.className = "settings-list-item-chevron material-symbols-outlined";
 	chevron.textContent = "chevron_right";
+	chevron.setAttribute("aria-hidden", "true");
 	row.append(chevron);
 
 	row.addEventListener("click", () => navigateToFamily(family.key));
@@ -380,6 +382,7 @@ function createModelRow(entry: ModelEntry): HTMLButtonElement {
 	const icon = document.createElement("span");
 	icon.className = "settings-list-item-icon material-symbols-outlined";
 	icon.textContent = isSelected ? "check_circle" : "radio_button_unchecked";
+	icon.setAttribute("aria-hidden", "true");
 	row.append(icon);
 
 	const text = document.createElement("span");
@@ -412,6 +415,7 @@ function createModelRow(entry: ModelEntry): HTMLButtonElement {
 				capIcon.className = "material-symbols-outlined";
 				capIcon.textContent = capability.icon;
 				capIcon.title = capability.label;
+				capIcon.setAttribute("aria-hidden", "true");
 				caps.append(capIcon);
 			}
 			text.append(caps);
