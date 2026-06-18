@@ -68,12 +68,23 @@ function Invoke-OutputCommand {
 
 	Push-Location $WorkingDirectory
 	try {
-		$output = & $Command @Arguments 2>&1
-		if ($LASTEXITCODE -ne 0) {
-			throw "Command failed with exit code ${LASTEXITCODE}: $Command $($Arguments -join ' ')`n$output"
+		$previousErrorActionPreference = $ErrorActionPreference
+		$ErrorActionPreference = "Continue"
+		try {
+			$mergedOutput = & $Command @Arguments 2>&1
+		}
+		finally {
+			$ErrorActionPreference = $previousErrorActionPreference
 		}
 
-		return ($output -join "`n")
+		$stdout = $mergedOutput | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }
+		$stderr = $mergedOutput | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }
+
+		if ($LASTEXITCODE -ne 0) {
+			throw "Command failed with exit code ${LASTEXITCODE}: $Command $($Arguments -join ' ')`n$($stderr -join "`n")"
+		}
+
+		return ($stdout -join "`n")
 	}
 	finally {
 		Pop-Location
@@ -286,17 +297,10 @@ function Test-ShouldPrompt {
 	return $Options.interactive -or (-not $Options.showHelp -and -not $Options.branchName)
 }
 
-function Get-EmptyHooksPath {
-	$hooksPath = Join-Path ([System.IO.Path]::GetTempPath()) "zodiac-empty-git-hooks"
-	New-Item -ItemType Directory -Force -Path $hooksPath | Out-Null
-	return $hooksPath
-}
-
 function Invoke-GitWorktreeAdd {
 	param([string[]] $Arguments)
 
-	$emptyHooksPath = Get-EmptyHooksPath
-	Invoke-CheckedCommand -Command "git" -Arguments (@("-c", "core.hooksPath=$emptyHooksPath", "worktree", "add") + $Arguments)
+	Invoke-CheckedCommand -Command "git" -Arguments (@("worktree", "add") + $Arguments)
 }
 
 function Open-Opencode {
@@ -304,7 +308,7 @@ function Open-Opencode {
 
 	$windowsTerminal = Get-Command "wt.exe" -ErrorAction SilentlyContinue
 	if ($windowsTerminal) {
-		Start-Process -FilePath $windowsTerminal.Source -ArgumentList @("-d", $WorktreePath, "opencode")
+		Start-Process -FilePath $windowsTerminal.Source -ArgumentList "-d `"$WorktreePath`" opencode"
 		return
 	}
 
