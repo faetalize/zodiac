@@ -2681,8 +2681,39 @@ form {
 	padding-right: 0.25rem;
 }
 
+#model-picker-family-list {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	align-content: start;
+}
+
+#model-picker-family-list .settings-list-item {
+	height: 100%;
+}
+
+#model-picker-family-list.model-picker-search-results {
+	display: flex;
+	flex-direction: column;
+}
+
 .model-picker-sheet h1 {
 	margin: 0;
+}
+
+.model-picker-search-wrapper {
+	flex: 0 0 auto;
+}
+
+.chat-search-wrapper input#model-picker-search-input {
+	flex: 1 1 auto;
+	border: none;
+	background: transparent;
+	padding: 0;
+	font-size: 0.9rem;
+}
+
+.chat-search-wrapper input#model-picker-search-input:focus-visible {
+	outline: none;
 }
 
 /* Highlight the family that holds the current selection, and the selected model row. */
@@ -2694,6 +2725,39 @@ form {
 .model-picker-row.selected .settings-list-item-icon {
 	color: var(--primary);
 	opacity: 1;
+}
+
+.model-picker-sheet .settings-page-title {
+	margin-right: auto;
+}
+
+.model-picker-mega-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.25rem 0.5rem;
+	border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+	border-radius: 0.45rem;
+	background: transparent;
+	color: inherit;
+	font-size: 0.65rem;
+	font-weight: 800;
+	letter-spacing: 0.04em;
+	line-height: 1;
+	cursor: pointer;
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease,
+		color 0.15s ease;
+}
+
+.model-picker-mega-toggle:hover,
+.model-picker-mega-toggle:focus-visible,
+.model-picker-mega-toggle.selected {
+	border-color: var(--primary);
+	background: var(--primary);
+	color: #fff;
+	outline: none;
 }
 
 .model-picker-family-icon {
@@ -2758,6 +2822,26 @@ form {
 .model-picker-caps .material-symbols-outlined {
 	font-size: 1rem;
 	opacity: 0.7;
+}
+
+.model-picker-group-divider {
+	margin-top: 0.55rem;
+}
+
+.model-picker-empty {
+	grid-column: 1 / -1;
+	padding: 0.75rem;
+	border: 1px dashed color-mix(in srgb, currentColor 18%, transparent);
+	border-radius: 0.625rem;
+	font-size: 0.875rem;
+	opacity: 0.65;
+	text-align: center;
+}
+
+@media (max-width: 420px) {
+	#model-picker-family-list {
+		grid-template-columns: 1fr;
+	}
 }
 
 .message-debug-modal {

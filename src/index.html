@@ -3218,6 +3218,10 @@
 		>
 			<div id="model-picker-families" class="model-picker-view">
 				<h1 id="model-picker-title">Select a model</h1>
+				<div class="chat-search-wrapper model-picker-search-wrapper">
+					<span class="material-symbols-outlined chat-search-icon">search</span>
+					<input type="text" id="model-picker-search-input" placeholder="Search models..." />
+				</div>
 				<div id="model-picker-family-list" class="settings-list" aria-label="Model families"></div>
 			</div>
 			<div id="model-picker-family-detail" class="model-picker-view hidden">
@@ -3231,6 +3235,14 @@
 						<span class="material-symbols-outlined">arrow_back</span>
 					</button>
 					<h3 id="model-picker-family-title" class="settings-page-title">Models</h3>
+					<button
+						id="model-picker-mega-toggle"
+						class="model-picker-mega-toggle"
+						type="button"
+						aria-pressed="false"
+					>
+						MEGA
+					</button>
 				</div>
 				<div id="model-picker-model-list" class="settings-list" role="listbox" aria-label="Models"></div>
 			</div>
