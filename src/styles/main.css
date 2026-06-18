@@ -4518,6 +4518,40 @@ body.full-width-chat #message-box {
 	border-color: var(--badge-border-hover);
 }
 
+.message-limit-indicator {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.25rem 0.55rem;
+	border: 1px solid var(--badge-border);
+	border-radius: 999px;
+	background: var(--badge-bg);
+	color: var(--badge-fg);
+	font-size: 0.78rem;
+	line-height: 1.2;
+	white-space: nowrap;
+	cursor: default;
+}
+
+.message-limit-indicator-near {
+	border-color: var(--warning-border);
+	color: var(--warning-fg);
+}
+
+.message-limit-indicator-over {
+	border-color: var(--danger);
+	color: var(--danger);
+}
+
+.message-limit-indicator-upsell {
+	cursor: pointer;
+}
+
+.message-limit-indicator-upsell:hover {
+	background: var(--badge-bg-hover);
+	border-color: var(--badge-border-hover);
+}
+
 .image-credits-label:active {
 	transform: scale(0.98);
 }

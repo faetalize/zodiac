@@ -50,8 +50,13 @@ export const attachmentPreviewElement = (file: File) => {
 		};
 		reader.readAsDataURL(file);
 	}
-	//text and pdf files
-	else if (file.type === "application/pdf" || file.type === "text/plain") {
+	//text-like and pdf files
+	else if (
+		file.type === "application/pdf" ||
+		file.type === "text/plain" ||
+		file.type === "text/markdown" ||
+		file.type === "application/json"
+	) {
 		container.classList.add("attachment-preview-container");
 		const removeButton = document.createElement("button");
 		removeButton.classList.add("btn-textual", "material-symbols-outlined", "btn-remove-attachment");
