@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "../../../src/services/Db.service";
 import type { Chat, GroupChatConfig } from "../../../src/types/Chat";
 import type { Personality } from "../../../src/types/Personality";
+import { PRO_MESSAGE_CHARACTER_LIMIT } from "../../../src/utils/payloadLimits";
 import { makeChat } from "../../fixtures/chats";
 import { makeModelMessage, makeUserMessage } from "../../fixtures/messages";
 import { waitForCondition } from "../../helpers/async";
@@ -476,6 +477,67 @@ describe("Message send lifecycle", () => {
 		expect(visibleDomMessages).toHaveLength(2);
 		expect(getVisibleMessageTexts()).toEqual(["Hello normal chat", "Mocked assistant reply"]);
 		expect(document.querySelector("#chat-title")?.textContent).toBe("Normal Chat");
+	});
+
+	it("blocks over-limit Pro premium endpoint messages before persistence or fetch", async () => {
+		seedMockPersonas([
+			{
+				id: "persona-premium-limit",
+				persona: {
+					name: "Premium Limit Persona",
+					description: "Used for payload limit tests."
+				}
+			}
+		]);
+
+		const { db: testDb, chatsService, messageService } = await loadServices();
+		db = testDb;
+		const supabaseService = await import("../../../src/services/Supabase.service");
+		const apiKeyInput = await import("../../../src/components/static/ApiKeyInput.component");
+		const toastService = await import("../../../src/services/Toast.service");
+
+		vi.mocked(supabaseService.getUserSubscription).mockResolvedValue({
+			id: "sub-pro",
+			user_id: "user-pro",
+			status: "active",
+			price_id: "price-pro"
+		} as any);
+		vi.mocked(supabaseService.getSubscriptionTier).mockReturnValue("pro");
+		vi.mocked(apiKeyInput.shouldPreferPremiumEndpoint).mockReturnValue(true);
+
+		const chatId = await createAndLoadChat({
+			chatsService,
+			chat: makeChat({
+				id: "chat-premium-limit",
+				title: "Premium Limit Chat",
+				content: []
+			})
+		});
+
+		const fetchMock = vi.fn();
+		vi.stubGlobal("fetch", fetchMock);
+
+		try {
+			await messageService.send("x".repeat(PRO_MESSAGE_CHARACTER_LIMIT + 1), {
+				targetChatId: chatId,
+				selectedPersonalityId: "persona-premium-limit",
+				attachmentFiles: makeEmptyFileList()
+			});
+		} finally {
+			vi.unstubAllGlobals();
+		}
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(toastService.warn).toHaveBeenCalledWith(
+			expect.objectContaining({
+				title: "Message too long"
+			})
+		);
+
+		const persistedChat = await testDb.chats.get(chatId);
+		expect(persistedChat?.content ?? []).toHaveLength(0);
+		expect(getVisibleMessageElements()).toHaveLength(0);
+		expect(messageService.getIsGenerating(chatId)).toBe(false);
 	});
 
 	it("allows image generation with credits without a Gemini API key", async () => {
