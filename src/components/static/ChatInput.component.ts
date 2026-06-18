@@ -17,6 +17,7 @@ import { getSelectedEditingModel } from "./ImageEditModelSelector.component";
 import { updateImageCreditsLabelVisibility } from "./ImageCreditsLabel.component";
 import { MODEL_IMAGE_LIMITS } from "../../constants/ImageModels";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
+import { openCustomerPortal } from "../../services/Supabase.service";
 import type { SubscriptionTier } from "../../types/Supabase";
 import {
 	countMessageCharacters,
@@ -92,12 +93,11 @@ let isRpgGroupChatContext = false;
 let isDynamicGroupChatContext = false;
 let allowDynamicPings = false;
 
-const messageLimitIndicator = document.createElement("button");
-messageLimitIndicator.type = "button";
+const messageLimitIndicator = document.createElement("span");
 messageLimitIndicator.id = "message-limit-indicator";
 messageLimitIndicator.className = "message-limit-indicator hidden";
 messageLimitIndicator.setAttribute("aria-live", "polite");
-messageLimitIndicator.setAttribute("aria-disabled", "true");
+messageLimitIndicator.setAttribute("role", "status");
 messageBoxRight?.prepend(messageLimitIndicator);
 
 function copyRuntimeFileMetadata(source: File, target: File): void {
@@ -179,13 +179,39 @@ function getRemainingCharacterBudgetForInsertion(): number | null {
 	return Math.max(0, limit - Math.max(0, currentCount - selectedCount));
 }
 
+function formatCompactCharacterLimit(limit: number): string {
+	return limit >= 1000 && limit % 1000 === 0 ? `${limit / 1000}K` : limit.toLocaleString();
+}
+
 function showMessageLimitToast(): void {
 	const limit = getActiveMessageCharacterLimit();
 	if (limit === null) return;
 
+	const actions =
+		activeSubscriptionTier === "pro"
+			? [
+					{
+						label: "Upgrade to Pro+",
+						onClick: async (dismiss: () => void) => {
+							dismiss();
+							try {
+								await openCustomerPortal();
+							} catch (error) {
+								console.error(error);
+								toastService.danger({
+									title: "Portal unavailable",
+									text: "Unable to open your customer portal right now. Please try again in a moment."
+								});
+							}
+						}
+					}
+				]
+			: [];
+
 	toastService.warn({
 		title: "Message limit reached",
-		text: `Premium endpoint messages are limited to ${limit.toLocaleString()} characters on your current plan.`
+		text: `Premium endpoint messages are limited to ${limit.toLocaleString()} characters on your current plan.`,
+		actions
 	});
 }
 
@@ -215,39 +241,66 @@ function insertTextRespectingMessageLimit(text: string): void {
 	updateMessageLimitIndicator();
 }
 
-function updateMessageLimitIndicator(): void {
+function enforceCurrentMessageLimit(options: { showToast?: boolean } = {}): void {
+	const limit = getActiveMessageCharacterLimit();
+	if (limit === null) return;
+
+	const serializedMessage = serializeMessageInput();
+	const state = getMessagePayloadLimitState(serializedMessage, limit);
+	if (!state.isOverLimit) return;
+
+	(messageInput as HTMLDivElement).innerText = truncateToCharacterLimit(serializedMessage, limit);
+	closeMentionMenu();
+	if (options.showToast) {
+		showMessageLimitToast();
+	}
+}
+
+function updateMessageLimitIndicator(
+	options: { enforceCurrentContent?: boolean; showLimitToast?: boolean } = {}
+): void {
+	if (options.enforceCurrentContent) {
+		enforceCurrentMessageLimit({ showToast: options.showLimitToast });
+	}
+
 	const indicator = messageLimitIndicator;
 	const limit = getActiveMessageCharacterLimit();
 	const state = getMessagePayloadLimitState(serializeMessageInput(), limit);
 	isMessagePayloadOverLimit = state.isOverLimit;
 
-	if (limit === null) {
+	if (limit === null || !state.isNearLimit) {
 		indicator.classList.add("hidden");
 		indicator.textContent = "";
 		indicator.title = "";
-		indicator.setAttribute("aria-disabled", "true");
-		indicator.classList.remove("message-limit-indicator-near", "message-limit-indicator-over", "message-limit-indicator-upsell");
+		indicator.classList.remove(
+			"message-limit-indicator-near",
+			"message-limit-indicator-over",
+			"message-limit-indicator-upsell"
+		);
 		syncComposerInteractivity();
 		return;
 	}
 
 	indicator.classList.remove("hidden");
-	indicator.textContent = `${state.characterCount.toLocaleString()} / ${limit.toLocaleString()}`;
+	const remaining = state.remaining ?? 0;
+	indicator.textContent =
+		remaining === 0
+			? `${formatCompactCharacterLimit(limit)} character limit`
+			: `${state.characterCount.toLocaleString()} / ${limit.toLocaleString()}`;
 	indicator.classList.toggle("message-limit-indicator-near", state.isNearLimit);
 	indicator.classList.toggle("message-limit-indicator-over", state.isOverLimit);
 
 	const shouldUpsell = activeSubscriptionTier === "pro" && state.isNearLimit;
 	indicator.classList.toggle("message-limit-indicator-upsell", shouldUpsell);
 	indicator.title = shouldUpsell
-		? "Need more? Switch to Pro+ messaging."
+		? "Pro+ allows longer premium endpoint messages."
 		: `${(state.remaining ?? 0).toLocaleString()} characters remaining`;
-	indicator.setAttribute("aria-disabled", shouldUpsell ? "false" : "true");
 	syncComposerInteractivity();
 }
 
 function refreshMessageLimitFromPreference(): void {
 	isPremiumEndpointPreferred = getStoredPremiumEndpointPreference();
-	updateMessageLimitIndicator();
+	updateMessageLimitIndicator({ enforceCurrentContent: true, showLimitToast: true });
 }
 
 function syncComposerInteractivity(): void {
@@ -1209,14 +1262,6 @@ window.addEventListener("history-image-removed", () => {
 	currentHistoryImagePreview = null;
 });
 
-messageLimitIndicator.addEventListener("click", () => {
-	if (!messageLimitIndicator.classList.contains("message-limit-indicator-upsell")) {
-		return;
-	}
-
-	document.querySelector<HTMLButtonElement>("#btn-show-subscription-options")?.click();
-});
-
 window.addEventListener("auth-state-changed", (event: any) => {
 	const subscription = event.detail?.subscription ?? null;
 	if (!event.detail?.loggedIn || !subscription) {
@@ -1227,12 +1272,12 @@ window.addEventListener("auth-state-changed", (event: any) => {
 
 	// subscription-updated follows this event after Supabase UI refresh; keep this as a quick fallback.
 	activeSubscriptionTier = event.detail?.tier ?? activeSubscriptionTier;
-	updateMessageLimitIndicator();
+	updateMessageLimitIndicator({ enforceCurrentContent: true, showLimitToast: true });
 });
 
 window.addEventListener("subscription-updated", (event: any) => {
 	activeSubscriptionTier = event.detail?.tier ?? "free";
-	updateMessageLimitIndicator();
+	updateMessageLimitIndicator({ enforceCurrentContent: true, showLimitToast: true });
 });
 
 window.addEventListener("premium-endpoint-preference-changed", refreshMessageLimitFromPreference);

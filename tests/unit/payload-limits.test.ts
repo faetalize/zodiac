@@ -45,5 +45,15 @@ describe("payload limits", () => {
 			isOverLimit: true,
 			remaining: 0
 		});
+		expect(getMessagePayloadLimitState("x".repeat(13999), PRO_PLUS_MESSAGE_CHARACTER_LIMIT)).toMatchObject({
+			isNearLimit: false,
+			isOverLimit: false,
+			remaining: 1001
+		});
+		expect(getMessagePayloadLimitState("x".repeat(14000), PRO_PLUS_MESSAGE_CHARACTER_LIMIT)).toMatchObject({
+			isNearLimit: true,
+			isOverLimit: false,
+			remaining: 1000
+		});
 	});
 });

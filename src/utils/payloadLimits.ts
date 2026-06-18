@@ -2,7 +2,7 @@ import type { SubscriptionTier } from "../types/Supabase";
 
 export const PRO_MESSAGE_CHARACTER_LIMIT = 5000;
 export const PRO_PLUS_MESSAGE_CHARACTER_LIMIT = 15000;
-export const MESSAGE_LIMIT_UPSELL_THRESHOLD = 0.8;
+export const MESSAGE_LIMIT_INDICATOR_REMAINING_THRESHOLD = 1000;
 
 export interface MessagePayloadLimitState {
 	limit: number | null;
@@ -59,7 +59,7 @@ export function getMessagePayloadLimitState(message: string, limit: number | nul
 		limit,
 		characterCount,
 		remaining: Math.max(0, limit - characterCount),
-		isNearLimit: characterCount >= Math.floor(limit * MESSAGE_LIMIT_UPSELL_THRESHOLD),
+		isNearLimit: limit - characterCount <= MESSAGE_LIMIT_INDICATOR_REMAINING_THRESHOLD,
 		isOverLimit: characterCount > limit
 	};
 }
