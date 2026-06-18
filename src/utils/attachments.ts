@@ -1,8 +1,4 @@
-export type AttachmentValidationFailureReason =
-	| "unsupported"
-	| "mime-mismatch"
-	| "too-large"
-	| "absolute-too-large";
+export type AttachmentValidationFailureReason = "unsupported" | "mime-mismatch" | "too-large" | "absolute-too-large";
 
 export interface AttachmentPolicy {
 	extensions: string[];
@@ -83,7 +79,7 @@ export function validateAttachmentFile(file: File): AttachmentValidationResult {
 	}
 
 	const mimeType = file.type.trim().toLowerCase();
-	if (!policy.mimeTypes.includes(mimeType)) {
+	if (!isUnknownMimeType(mimeType) && !policy.mimeTypes.includes(mimeType)) {
 		return {
 			ok: false,
 			reason: "mime-mismatch",
@@ -122,7 +118,9 @@ export function getAttachmentValidationSummary(files: ArrayLike<File> | Iterable
 	tooMany: boolean;
 } {
 	const fileList = Array.from(files);
-	const errors = fileList.map(validateAttachmentFile).filter((result): result is AttachmentValidationFailure => !result.ok);
+	const errors = fileList
+		.map(validateAttachmentFile)
+		.filter((result): result is AttachmentValidationFailure => !result.ok);
 	return {
 		ok: fileList.length <= MAX_ATTACHMENTS && errors.length === 0,
 		errors,
@@ -168,4 +166,8 @@ function formatMimeTypes(mimeTypes: string[]): string {
 		return mimeTypes[0];
 	}
 	return mimeTypes.slice(0, -1).join(", ") + " or " + mimeTypes[mimeTypes.length - 1];
+}
+
+function isUnknownMimeType(mimeType: string): boolean {
+	return mimeType === "" || mimeType === "application/octet-stream";
 }

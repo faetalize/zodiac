@@ -241,6 +241,105 @@ function insertTextRespectingMessageLimit(text: string): void {
 	updateMessageLimitIndicator();
 }
 
+function getMentionMarkerLength(element: HTMLElement): number | null {
+	if (!element.classList.contains("mention-chip-input")) return null;
+	const personaId = element.dataset.personaId;
+	return personaId ? countMessageCharacters(`@<${personaId}>`) : 0;
+}
+
+function getAtomicNodeCharacterLength(node: Node): number | null {
+	if (node.nodeType === Node.TEXT_NODE) {
+		return countMessageCharacters(node.textContent ?? "");
+	}
+
+	if (!(node instanceof HTMLElement)) {
+		return null;
+	}
+
+	const mentionLength = getMentionMarkerLength(node);
+	if (mentionLength !== null) {
+		return mentionLength;
+	}
+
+	if (node.tagName === "BR") {
+		return 1;
+	}
+
+	return null;
+}
+
+function trimLiveComposerNodeFromEnd(node: Node, charactersToRemove: { value: number }): boolean {
+	if (charactersToRemove.value <= 0) return false;
+
+	const atomicLength = getAtomicNodeCharacterLength(node);
+	if (atomicLength !== null) {
+		if (atomicLength <= 0) {
+			node.parentNode?.removeChild(node);
+			return true;
+		}
+
+		if (node.nodeType === Node.TEXT_NODE) {
+			const text = node.textContent ?? "";
+			if (atomicLength <= charactersToRemove.value) {
+				node.parentNode?.removeChild(node);
+				charactersToRemove.value -= atomicLength;
+			} else {
+				node.textContent = truncateToCharacterLimit(text, atomicLength - charactersToRemove.value);
+				charactersToRemove.value = 0;
+			}
+			return true;
+		}
+
+		node.parentNode?.removeChild(node);
+		charactersToRemove.value = Math.max(0, charactersToRemove.value - atomicLength);
+		return true;
+	}
+
+	const children = Array.from(node.childNodes);
+	let didTrim = false;
+	for (let index = children.length - 1; index >= 0 && charactersToRemove.value > 0; index--) {
+		didTrim = trimLiveComposerNodeFromEnd(children[index], charactersToRemove) || didTrim;
+	}
+
+	if (node !== messageInput && node instanceof HTMLElement && node.childNodes.length === 0) {
+		node.remove();
+	}
+
+	return didTrim;
+}
+
+function moveCaretToComposerEnd(): void {
+	const input = messageInput as HTMLDivElement;
+	const selection = window.getSelection();
+	if (!selection) return;
+
+	const range = document.createRange();
+	range.selectNodeContents(input);
+	range.collapse(false);
+	selection.removeAllRanges();
+	selection.addRange(range);
+}
+
+function trimLiveComposerToSerializedLimit(limit: number): boolean {
+	let didTrim = false;
+
+	for (let attempts = 0; attempts < 20; attempts++) {
+		const serializedMessage = serializeMessageInput();
+		const overage = countMessageCharacters(serializedMessage) - limit;
+		if (overage <= 0) {
+			return didTrim;
+		}
+
+		const removed = trimLiveComposerNodeFromEnd(messageInput as HTMLDivElement, { value: overage });
+		if (!removed) {
+			return didTrim;
+		}
+		didTrim = true;
+	}
+
+	return didTrim;
+}
+
 function enforceCurrentMessageLimit(options: { showToast?: boolean } = {}): void {
 	const limit = getActiveMessageCharacterLimit();
 	if (limit === null) return;
@@ -249,7 +348,8 @@ function enforceCurrentMessageLimit(options: { showToast?: boolean } = {}): void
 	const state = getMessagePayloadLimitState(serializedMessage, limit);
 	if (!state.isOverLimit) return;
 
-	(messageInput as HTMLDivElement).innerText = truncateToCharacterLimit(serializedMessage, limit);
+	if (!trimLiveComposerToSerializedLimit(limit)) return;
+	moveCaretToComposerEnd();
 	closeMentionMenu();
 	if (options.showToast) {
 		showMessageLimitToast();

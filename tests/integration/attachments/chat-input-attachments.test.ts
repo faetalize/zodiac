@@ -216,6 +216,17 @@ describe("ChatInput attachment drop workflow", () => {
 		expect(getInputFiles().map((file) => file.name)).toEqual(["image.png", "photo.jpeg"]);
 	});
 
+	it("drop accepts supported extensions when the browser reports an unknown MIME type", async () => {
+		const markdownFile = createFile("notes.md", "", "# hello");
+		const jsonFile = createFile("data.json", "application/octet-stream", '{"ok":true}');
+		const textFile = createFile("notes.txt", "", "hello world");
+
+		dispatchDrop([markdownFile, jsonFile, textFile]);
+
+		expect(getInputFiles().map((file) => file.name)).toEqual(["notes.md", "data.json", "notes.txt"]);
+		expect(getPreviewNames()).toEqual(["notes.md", "data.json", "notes.txt"]);
+	});
+
 	it("drop enforces the five file attachment limit", async () => {
 		const toastService = await import("../../../src/services/Toast.service");
 		const files = Array.from({ length: MAX_ATTACHMENTS + 1 }, (_, index) =>
