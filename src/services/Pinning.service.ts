@@ -129,16 +129,6 @@ export async function removePersonaPin(personaId: string): Promise<void> {
 	queueSyncSettingsPush();
 }
 
-export async function removeModelPin(modelId: string): Promise<void> {
-	const pinned = getPinnedModelIds();
-	if (!pinned.includes(modelId)) return;
-	writePinnedIds(
-		SETTINGS_STORAGE_KEYS.PINNED_MODEL_IDS,
-		pinned.filter((id) => id !== modelId)
-	);
-	queueSyncSettingsPush();
-}
-
 export async function clearChatPins(): Promise<void> {
 	localStorage.removeItem(SETTINGS_STORAGE_KEYS.PINNED_CHAT_IDS);
 	queueSyncSettingsPush();
@@ -146,10 +136,5 @@ export async function clearChatPins(): Promise<void> {
 
 export async function clearPersonaPins(): Promise<void> {
 	localStorage.removeItem(SETTINGS_STORAGE_KEYS.PINNED_PERSONA_IDS);
-	queueSyncSettingsPush();
-}
-
-export async function clearModelPins(): Promise<void> {
-	localStorage.removeItem(SETTINGS_STORAGE_KEYS.PINNED_MODEL_IDS);
 	queueSyncSettingsPush();
 }

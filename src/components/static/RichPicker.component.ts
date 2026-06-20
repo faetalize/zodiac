@@ -516,7 +516,13 @@ function renderFamilyList(): void {
 }
 
 function renderFamilyDetail(): boolean {
-	const groups = groupByFamily(filterEntries(readEntries(), { megaOnly: detailMegaOnly }));
+	const entries = readEntries();
+	const availableGroups = groupByFamily(filterEntries(entries));
+	const activeFamilyStillAvailable =
+		!activeFamily || availableGroups.some((candidate) => candidate.family.key === activeFamily);
+	if (!activeFamilyStillAvailable) return false;
+
+	const groups = groupByFamily(filterEntries(entries, { megaOnly: detailMegaOnly }));
 	const group = groups.find((candidate) => candidate.family.key === activeFamily);
 
 	const family = activeFamily ? getFamilyByKey(activeFamily) : OTHER_FAMILY;
@@ -674,6 +680,9 @@ ensuredSearchInput.addEventListener("input", () => {
 
 ensuredSheet.addEventListener("surface-closed", () => {
 	ensuredTrigger.setAttribute("aria-expanded", "false");
+	clearTimeout(searchDebounceTimer);
+	ensuredSearchInput.value = "";
+	searchTerm = "";
 });
 
 ensuredSelect.addEventListener("change", () => {

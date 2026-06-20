@@ -19,6 +19,12 @@ const FOCUSABLE_SELECTOR = [
 	"[tabindex]:not([tabindex='-1'])"
 ].join(",");
 
+function isAvailableFocusTarget(candidate: HTMLElement): boolean {
+	if (candidate.hasAttribute("disabled")) return false;
+	if (candidate.closest(".hidden")) return false;
+	return true;
+}
+
 function getSurface(elementId: string): HTMLElement | null {
 	const element = document.querySelector<HTMLElement>(`#${elementId}`);
 	if (!element) {
@@ -42,11 +48,12 @@ function finishClose(element: HTMLElement): void {
 }
 
 function getInitialFocusTarget(element: HTMLElement): HTMLElement {
-	const focusTarget = Array.from(element.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).find((candidate) => {
-		if (candidate.hasAttribute("disabled")) return false;
-		if (candidate.closest(".hidden")) return false;
-		return true;
-	});
+	const explicitTarget = element.querySelector<HTMLElement>("[data-surface-initial-focus]");
+	if (explicitTarget && isAvailableFocusTarget(explicitTarget)) return explicitTarget;
+
+	const focusTarget = Array.from(element.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).find(
+		isAvailableFocusTarget
+	);
 
 	return focusTarget ?? element;
 }
