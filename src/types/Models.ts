@@ -135,7 +135,7 @@ export const GEMINI_CHAT_MODELS: ChatModelDefinition[] = [
 		label: "Gemini 3.1 Pro Preview",
 		provider: "gemini",
 		localOnly: true,
-		mega: false,
+		mega: true,
 		modelPickerGroup: "Pro",
 		roleplayModeSuggester: true,
 		supportsThinking: true,
