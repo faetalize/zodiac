@@ -7,6 +7,7 @@ const surfacePlane = surfacePlaneElement;
 const closeTimers = new WeakMap<HTMLElement, number>();
 const focusRestoreTargets = new WeakMap<HTMLElement, HTMLElement>();
 let activeSurface: HTMLElement | null = null;
+let outsideDismissPointerStart: { surface: HTMLElement; startedOutside: boolean } | null = null;
 
 const FOCUSABLE_SELECTOR = [
 	"[data-surface-initial-focus]",
@@ -123,7 +124,29 @@ document.addEventListener("keydown", (event) => {
 	if (event.key === "Escape" && activeSurface) close();
 });
 
+surfacePlane.addEventListener("pointerdown", (event) => {
+	if (!activeSurface || event.button !== 0 || activeSurface.dataset.dismissOnOutside !== "true") {
+		outsideDismissPointerStart = null;
+		return;
+	}
+
+	outsideDismissPointerStart = {
+		surface: activeSurface,
+		startedOutside: event.target instanceof Node && !activeSurface.contains(event.target)
+	};
+});
+
 surfacePlane.addEventListener("click", (event) => {
 	if (!activeSurface || event.button !== 0 || activeSurface.dataset.dismissOnOutside !== "true") return;
-	if (event.target instanceof Node && !activeSurface.contains(event.target)) close();
+
+	const endedOutside = event.target instanceof Node && !activeSurface.contains(event.target);
+	if (!endedOutside) {
+		outsideDismissPointerStart = null;
+		return;
+	}
+
+	const startedOutside =
+		outsideDismissPointerStart?.surface === activeSurface ? outsideDismissPointerStart.startedOutside : true;
+	outsideDismissPointerStart = null;
+	if (startedOutside) close();
 });

@@ -1,5 +1,6 @@
 import * as surfaceService from "../../services/Surface.service";
-import { onDocumentEvent } from "../../events";
+import * as pinningService from "../../services/Pinning.service";
+import { onAppEvent, onDocumentEvent } from "../../events";
 import * as helpers from "../../utils/helpers";
 import { getChatModelDefinition, type ChatModelDefinition } from "../../types/Models";
 import { transitionSheetHeight } from "./AdaptiveSheet.component";
@@ -257,6 +258,14 @@ function getSearchResults(entries: ModelEntry[]): ModelEntry[] {
 		.map((item) => item.entry);
 }
 
+function getPinnedEntries(entries: ModelEntry[]): ModelEntry[] {
+	const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+	return pinningService
+		.getPinnedModelIds()
+		.map((id) => entriesById.get(id))
+		.filter((entry): entry is ModelEntry => Boolean(entry));
+}
+
 function formatModelDisplayLabel(label: string, definition: ChatModelDefinition | undefined): string {
 	let displayLabel = label;
 	if (definition?.mega) displayLabel = displayLabel.replace(MEGA_SUFFIX_PATTERN, "");
@@ -368,12 +377,12 @@ function createEmptyState(message: string): HTMLDivElement {
 	return empty;
 }
 
-function createModelRow(entry: ModelEntry): HTMLButtonElement {
-	const row = document.createElement("button");
-	row.type = "button";
+function createModelRow(entry: ModelEntry): HTMLDivElement {
+	const row = document.createElement("div");
 	row.className = "settings-list-item model-picker-row";
 	row.dataset.modelId = entry.id;
 	row.setAttribute("role", "option");
+	row.tabIndex = 0;
 
 	const isSelected = entry.id === ensuredSelect.value;
 	row.classList.toggle("selected", isSelected);
@@ -395,37 +404,71 @@ function createModelRow(entry: ModelEntry): HTMLButtonElement {
 	name.textContent = getEntryDisplayLabel(entry);
 	title.append(name);
 
-	if (entry.definition?.mega) {
-		title.append(createChip("model-picker-mega", "MEGA"));
-	}
-
-	if (entry.definition?.provider === "openrouter") {
-		title.append(createChip("model-picker-openrouter", "OpenRouter", openRouterIconUrl));
-	}
-
 	text.append(title);
 
 	if (entry.definition) {
 		const supported = CAPABILITIES.filter((capability) => capability.test(entry.definition!));
-		if (supported.length > 0) {
-			const caps = document.createElement("span");
-			caps.className = "settings-list-item-subtitle model-picker-caps";
+		const hasChips = entry.definition.mega || entry.definition.provider === "openrouter";
+
+		if (supported.length > 0 || hasChips) {
+			const meta = document.createElement("span");
+			meta.className = "settings-list-item-subtitle model-picker-meta";
+
 			for (const capability of supported) {
 				const capIcon = document.createElement("span");
 				capIcon.className = "material-symbols-outlined";
 				capIcon.textContent = capability.icon;
 				capIcon.title = capability.label;
 				capIcon.setAttribute("aria-hidden", "true");
-				caps.append(capIcon);
+				meta.append(capIcon);
 			}
-			text.append(caps);
+
+			if (entry.definition.mega) {
+				meta.append(createChip("model-picker-mega", "MEGA"));
+			}
+
+			if (entry.definition.provider === "openrouter") {
+				meta.append(createChip("model-picker-openrouter", "OpenRouter", openRouterIconUrl));
+			}
+
+			text.append(meta);
 		}
 	}
 
 	row.append(text);
 	row.addEventListener("click", () => selectModel(entry.id));
 
+	const isPinned = pinningService.isModelPinned(entry.id);
+	const pinButton = document.createElement("button");
+	pinButton.type = "button";
+	pinButton.className = "model-picker-pin material-symbols-outlined";
+	pinButton.classList.toggle("selected", isPinned);
+	pinButton.textContent = "star";
+	pinButton.title = isPinned ? "Unpin model" : "Pin model";
+	pinButton.setAttribute("aria-label", `${isPinned ? "Unpin" : "Pin"} ${getEntryDisplayLabel(entry)}`);
+	pinButton.setAttribute("aria-pressed", isPinned ? "true" : "false");
+	pinButton.addEventListener("click", (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+		void pinningService.toggleModelPinned(entry.id).then(() => refreshOpenSheet());
+	});
+
+	row.append(pinButton);
+	row.addEventListener("keydown", (event) => {
+		if (event.key !== "Enter" && event.key !== " ") return;
+		event.preventDefault();
+		selectModel(entry.id);
+	});
+
 	return row;
+}
+
+function createPinnedSection(entries: ModelEntry[]): HTMLDivElement {
+	const section = document.createElement("div");
+	section.className = "model-picker-pinned-section";
+	section.append(createGroupDivider("Pinned"));
+	for (const entry of entries) section.append(createModelRow(entry));
+	return section;
 }
 
 function showView(view: "families" | "detail"): void {
@@ -436,26 +479,39 @@ function showView(view: "families" | "detail"): void {
 }
 
 function renderFamilyList(): void {
+	const entries = readEntries();
+	const groups = groupByFamily(filterEntries(entries));
+	const pinnedEntries = getPinnedEntries(filterEntries(entries));
+
 	ensuredFamilyList.classList.toggle("model-picker-search-results", Boolean(searchTerm));
-	const groups = groupByFamily(filterEntries(readEntries()));
 	ensuredFamilyList.replaceChildren();
 
 	if (searchTerm) {
-		const results = getSearchResults(readEntries());
+		const results = getSearchResults(entries);
+		const pinnedResults = getPinnedEntries(results);
+		const pinnedIds = new Set(pinnedResults.map((entry) => entry.id));
+		const unpinnedResults = results.filter((entry) => !pinnedIds.has(entry.id));
+
 		if (results.length === 0) {
 			ensuredFamilyList.append(createEmptyState("No matching models"));
 			return;
 		}
 
-		for (const entry of results) ensuredFamilyList.append(createModelRow(entry));
+		if (pinnedResults.length > 0) ensuredFamilyList.append(createPinnedSection(pinnedResults));
+		if (pinnedResults.length > 0 && unpinnedResults.length > 0) {
+			ensuredFamilyList.append(createGroupDivider("All models"));
+		}
+		for (const entry of unpinnedResults) ensuredFamilyList.append(createModelRow(entry));
 		return;
 	}
 
-	if (groups.length === 0) {
+	if (groups.length === 0 && pinnedEntries.length === 0) {
 		ensuredFamilyList.append(createEmptyState("No matching providers"));
 		return;
 	}
 
+	if (pinnedEntries.length > 0) ensuredFamilyList.append(createPinnedSection(pinnedEntries));
+	if (pinnedEntries.length > 0 && groups.length > 0) ensuredFamilyList.append(createGroupDivider("All models"));
 	for (const group of groups) ensuredFamilyList.append(createFamilyRow(group));
 }
 
@@ -556,8 +612,10 @@ function updateTrigger(): void {
 
 function openSheet(): void {
 	searchTerm = ensuredSearchInput.value.trim();
-	const groups = groupByFamily(filterEntries(readEntries()));
-	singleFamilyMode = !searchTerm && groups.length === 1;
+	const entries = readEntries();
+	const groups = groupByFamily(filterEntries(entries));
+	const hasPinnedModels = getPinnedEntries(entries).length > 0;
+	singleFamilyMode = !searchTerm && !hasPinnedModels && groups.length === 1;
 
 	if (singleFamilyMode) {
 		// Skip the family list when there is nothing to choose between; drill straight in.
@@ -576,8 +634,10 @@ function openSheet(): void {
 function refreshOpenSheet(): void {
 	if (ensuredSheet.classList.contains("hidden")) return;
 
-	const groups = groupByFamily(filterEntries(readEntries()));
-	singleFamilyMode = !searchTerm && groups.length === 1;
+	const entries = readEntries();
+	const groups = groupByFamily(filterEntries(entries));
+	const hasPinnedModels = getPinnedEntries(entries).length > 0;
+	singleFamilyMode = !searchTerm && !hasPinnedModels && groups.length === 1;
 
 	if (searchTerm) {
 		activeFamily = null;
@@ -624,6 +684,7 @@ onDocumentEvent("chat-model-changed", () => {
 	updateTrigger();
 	refreshOpenSheet();
 });
+onAppEvent("settings-loaded-from-storage", refreshOpenSheet);
 
 // The native select is rebuilt when access changes (API keys, auth, premium endpoint).
 // Mirror those updates: keep the trigger label correct and refresh the picker if it's open.
