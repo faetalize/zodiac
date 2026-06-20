@@ -42,12 +42,20 @@ export function getPinnedPersonaIds(): string[] {
 	return readPinnedIds(SETTINGS_STORAGE_KEYS.PINNED_PERSONA_IDS);
 }
 
+export function getPinnedModelIds(): string[] {
+	return readPinnedIds(SETTINGS_STORAGE_KEYS.PINNED_MODEL_IDS);
+}
+
 export function isChatPinned(chatId: string): boolean {
 	return getPinnedChatIds().includes(chatId);
 }
 
 export function isPersonaPinned(personaId: string): boolean {
 	return getPinnedPersonaIds().includes(personaId);
+}
+
+export function isModelPinned(modelId: string): boolean {
+	return getPinnedModelIds().includes(modelId);
 }
 
 export async function toggleChatPinned(chatId: string): Promise<boolean> {
@@ -80,6 +88,23 @@ export async function togglePersonaPinned(personaId: string): Promise<boolean> {
 	}
 
 	writePinnedIds(SETTINGS_STORAGE_KEYS.PINNED_PERSONA_IDS, Array.from(pinned));
+	queueSyncSettingsPush();
+	return isPinned;
+}
+
+export async function toggleModelPinned(modelId: string): Promise<boolean> {
+	const pinned = new Set(getPinnedModelIds());
+	let isPinned: boolean;
+
+	if (pinned.has(modelId)) {
+		pinned.delete(modelId);
+		isPinned = false;
+	} else {
+		pinned.add(modelId);
+		isPinned = true;
+	}
+
+	writePinnedIds(SETTINGS_STORAGE_KEYS.PINNED_MODEL_IDS, Array.from(pinned));
 	queueSyncSettingsPush();
 	return isPinned;
 }

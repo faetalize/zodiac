@@ -23,6 +23,14 @@
 	--modal-fg: var(--dropdown-menu-fg);
 	--modal-shadow: var(--dropdown-menu-shadow);
 
+	--model-picker-sheet-border: color-mix(in srgb, var(--primary) 18%, rgba(0, 0, 0, 0.12));
+	--model-picker-row-bg: color-mix(in srgb, var(--card-bg) 82%, var(--modal-bg) 18%);
+	--model-picker-row-border: color-mix(in srgb, var(--primary) 16%, rgba(0, 0, 0, 0.12));
+	--model-picker-row-hover-bg: color-mix(in srgb, var(--card-bg) 78%, var(--primary) 12%);
+	--model-picker-row-hover-border: color-mix(in srgb, var(--primary) 36%, rgba(0, 0, 0, 0.18));
+	--card-hover-bg: color-mix(in srgb, var(--card-bg) 90%, var(--primary) 10%);
+	--card-border-hover: color-mix(in srgb, var(--card-border) 70%, var(--primary) 30%);
+
 	/* dropdown */
 	--dropdown-menu-bg: #ffffff73;
 	--dropdown-menu-fg: #000000;

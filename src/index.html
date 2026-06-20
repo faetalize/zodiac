@@ -441,6 +441,19 @@
 												</span>
 											</label>
 											<select id="selectedModel" class="input-field"></select>
+											<button
+												id="model-picker-trigger"
+												class="input-field model-picker-trigger hidden"
+												type="button"
+												aria-haspopup="dialog"
+												aria-expanded="false"
+												aria-controls="model-picker-sheet"
+											>
+												<span class="model-picker-trigger__label">Select a model</span>
+												<span class="material-symbols-outlined model-picker-trigger__icon"
+													>expand_more</span
+												>
+											</button>
 										</div>
 										<div>
 											<label class="setting-label" for="maxTokens"
@@ -3185,7 +3198,7 @@
 			>
 				<h1 id="roleplay-add-modal-title">Add</h1>
 				<input id="roleplay-add-modal-label-input" class="input-field hidden" type="text" />
-				<input id="roleplay-add-modal-input" class="input-field" type="text" />
+				<input id="roleplay-add-modal-input" class="input-field" type="text" data-surface-initial-focus />
 				<div id="roleplay-add-modal-error" class="error-message hidden">
 					<span class="material-symbols-outlined">error</span>
 					<span id="roleplay-add-modal-error-message">Unable to save.</span>
@@ -3194,6 +3207,50 @@
 					<button id="btn-roleplay-add-modal-submit" class="btn btn-primary" type="button">Add</button>
 					<button id="btn-roleplay-add-modal-cancel" class="btn btn-secondary" type="button">Cancel</button>
 				</div>
+			</div>
+		</div>
+
+		<div
+			id="model-picker-sheet"
+			class="adaptive-sheet model-picker-sheet hidden"
+			role="dialog"
+			aria-labelledby="model-picker-title"
+			data-dismiss-on-outside="true"
+		>
+			<div id="model-picker-families" class="model-picker-view">
+				<h1 id="model-picker-title">Select a model</h1>
+				<div class="chat-search-wrapper model-picker-search-wrapper">
+					<span class="material-symbols-outlined chat-search-icon">search</span>
+					<input
+						type="text"
+						id="model-picker-search-input"
+						placeholder="Search models..."
+						data-surface-initial-focus
+					/>
+				</div>
+				<div id="model-picker-family-list" class="settings-list" aria-label="Model families"></div>
+			</div>
+			<div id="model-picker-family-detail" class="model-picker-view hidden">
+				<div class="settings-page-header">
+					<button
+						id="model-picker-back"
+						class="settings-page-back btn-textual"
+						type="button"
+						aria-label="Back to model families"
+					>
+						<span class="material-symbols-outlined">arrow_back</span>
+					</button>
+					<h3 id="model-picker-family-title" class="settings-page-title">Models</h3>
+					<button
+						id="model-picker-mega-toggle"
+						class="model-picker-mega-toggle"
+						type="button"
+						aria-pressed="false"
+					>
+						MEGA
+					</button>
+				</div>
+				<div id="model-picker-model-list" class="settings-list" role="listbox" aria-label="Models"></div>
 			</div>
 		</div>
 
