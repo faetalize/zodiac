@@ -82,6 +82,24 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - If tags are meant to represent the exact commit deployed by Cloudflare Pages, tag the release branch commit that was actually deployed.
 - Do not tag `main` before the backmerge if `main` does not yet contain the final release changelog/version bump.
 
+### Creating the GitHub Release
+
+- After the release tag has been pushed, create a GitHub Release from that tag so every shipped version has a published release entry on GitHub.
+- Create the release only once the tag exists, and respect the same constraints as the tagging step: do not publish the release while the release PR is still open unless the user explicitly chose to tag/release the deployed release-branch artifact instead.
+- Point the GitHub Release at the same tag chosen in the tagging step. By default that is the `vX.Y.Z` tag on the `main` backmerge commit; use the release-branch commit only if the user opted to tag the exact deployed artifact.
+- Title the release to match that version tag (for example, `v1.8.5`).
+- The GitHub Release notes should mirror the in-app changelog from the `#whats-new` section in [src/index.html](src/index.html). Do not use raw PR titles or commit messages.
+- Reformat the changelog entries as a Markdown list under a `## What's New` heading, keeping the same user-facing, product-focused phrasing (bold the feature name, then the benefit):
+
+    ```markdown
+    ## What's New
+
+    - **Richer model picker:** Browse models by provider family, search faster, and pin favorites for quicker access.
+    - **More model choices:** New OpenRouter options are available, including expanded Gemini, Grok, Qwen, DeepSeek, and Inception models.
+    ```
+
+- Create the release with `gh release create <tag> --title <tag> --notes "..."`, reusing the changelog copy already written for the in-app `#whats-new` section so the GitHub Release and the in-app changelog stay in sync.
+
 ## Conventions
 
 ### Component Pattern
