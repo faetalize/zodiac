@@ -13,6 +13,7 @@ vi.mock("../../../src/services/ApiKeyValidation.service", () => ({
 }));
 
 vi.mock("../../../src/services/Sync.service", () => ({
+	isSyncActive: vi.fn(() => true),
 	applySyncedSettingsToLocalStorage: vi.fn(async () => {
 		localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "false");
 		return true;
@@ -80,6 +81,30 @@ describe("premium endpoint synced settings", () => {
 
 		expect(apiKeyInputComponent.shouldPreferPremiumEndpoint()).toBe(false);
 		expect(toggle?.checked).toBe(false);
+	});
+
+	it("pushes synced settings when the user changes the premium endpoint toggle", async () => {
+		const apiKeyInputComponent = await import("../../../src/components/static/ApiKeyInput.component");
+		const syncService = await import("../../../src/services/Sync.service");
+		const toggle = document.querySelector<HTMLInputElement>("#preferPremiumEndpoint");
+
+		expect(apiKeyInputComponent.shouldPreferPremiumEndpoint()).toBe(true);
+
+		toggle!.checked = false;
+		toggle!.dispatchEvent(new Event("change", { bubbles: true }));
+
+		expect(apiKeyInputComponent.shouldPreferPremiumEndpoint()).toBe(false);
+		expect(syncService.pushCurrentSettings).toHaveBeenCalledTimes(1);
+	});
+
+	it("pushes synced settings when a paid account defaults the premium endpoint preference", async () => {
+		const apiKeyInputComponent = await import("../../../src/components/static/ApiKeyInput.component");
+		const syncService = await import("../../../src/services/Sync.service");
+
+		window.dispatchEvent(new CustomEvent("auth-state-changed", { detail: { loggedIn: true, subscription: {} } }));
+
+		expect(apiKeyInputComponent.shouldPreferPremiumEndpoint()).toBe(true);
+		expect(syncService.pushCurrentSettings).toHaveBeenCalledTimes(1);
 	});
 
 	it("reapplies model-driven thinking constraints after synced settings replace stale local state", async () => {

@@ -2,6 +2,7 @@ import { getSubscriptionTier, type SubscriptionTier } from "../../services/Supab
 import { dispatchAppEvent, onAppEvent } from "../../events";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 import { validateGeminiApiKey, validateOpenRouterApiKey } from "../../services/ApiKeyValidation.service";
+import * as syncService from "../../services/Sync.service";
 
 const geminiApiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
 const openRouterApiKeyInput = document.querySelector<HTMLInputElement>("#openRouterApiKeyInput");
@@ -89,6 +90,7 @@ ensuredPreferPremiumCheckbox.addEventListener("change", () => {
 		ensuredPreferPremiumCheckbox.checked.toString()
 	);
 	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
+	queuePremiumEndpointSettingsSync();
 });
 
 onAppEvent("auth-state-changed", (event) => {
@@ -106,6 +108,7 @@ onAppEvent("auth-state-changed", (event) => {
 		if (savedPreference === null) {
 			ensuredPreferPremiumCheckbox.checked = true;
 			localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "true");
+			queuePremiumEndpointSettingsSync();
 		}
 	} else {
 		ensuredPreferPremiumToggle.classList.add("hidden");
@@ -136,4 +139,11 @@ attachValidation({
 export function shouldPreferPremiumEndpoint(): boolean {
 	const saved = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
 	return saved === null ? true : saved === "true";
+}
+
+function queuePremiumEndpointSettingsSync(): void {
+	if (!syncService.isSyncActive()) return;
+	syncService.pushCurrentSettings().catch((error) => {
+		console.warn("Failed to sync premium endpoint settings", error);
+	});
 }

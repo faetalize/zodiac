@@ -2,6 +2,8 @@ import { themeService } from "../../services/Theme.service";
 import type { ColorTheme } from "../../types/Theme";
 import * as toastService from "../../services/Toast.service";
 import { ToastSeverity } from "../../types/Toast";
+import { onAppEvent } from "../../events";
+import * as syncService from "../../services/Sync.service";
 
 // Query all required elements
 const modeInput = document.querySelector<HTMLInputElement>("#themeMode");
@@ -45,16 +47,21 @@ initialize();
 
 function handleModeInput(event: Event) {
 	const input = event.currentTarget as HTMLInputElement;
+	let didUpdateTheme = false;
 
 	if (input.value === MODE_TO_VALUE.auto) {
 		themeService.setAutoMode();
+		didUpdateTheme = true;
 	} else if (input.value === MODE_TO_VALUE.light) {
 		themeService.setMode("light", "manual");
+		didUpdateTheme = true;
 	} else if (input.value === MODE_TO_VALUE.dark) {
 		themeService.setMode("dark", "manual");
+		didUpdateTheme = true;
 	}
 
 	updateUI();
+	if (didUpdateTheme) queueThemeSettingsSync();
 }
 
 function handleThemeClick(event: Event) {
@@ -75,6 +82,7 @@ function handleThemeClick(event: Event) {
 
 	themeService.setColorTheme(theme);
 	updateUI();
+	queueThemeSettingsSync();
 }
 
 function updateUI() {
@@ -89,5 +97,20 @@ function updateUI() {
 	themeButtons.forEach((button) => {
 		const theme = button.getAttribute("data-theme");
 		button.classList.toggle("active", theme === currentTheme.colorTheme);
+	});
+}
+
+function rehydrateFromStorage() {
+	themeService.reloadFromStorage();
+	updateUI();
+}
+
+onAppEvent("settings-loaded-from-storage", rehydrateFromStorage);
+onAppEvent("sync-data-pulled", rehydrateFromStorage);
+
+function queueThemeSettingsSync() {
+	if (!syncService.isSyncActive()) return;
+	syncService.pushCurrentSettings().catch((error) => {
+		console.warn("Failed to sync theme settings", error);
 	});
 }
