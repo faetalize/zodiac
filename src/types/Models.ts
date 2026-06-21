@@ -523,7 +523,7 @@ export const OPENROUTER_CHAT_MODELS: ChatModelDefinition[] = [
 		id: "qwen/qwen3.6-max-preview",
 		label: "Qwen3.6 Max Preview",
 		provider: "openrouter",
-		mega: false,
+		mega: true,
 		roleplayModeSuggester: true,
 		supportsThinking: true,
 		supportsTemperature: true,
