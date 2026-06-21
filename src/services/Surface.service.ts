@@ -8,6 +8,8 @@ const closeTimers = new WeakMap<HTMLElement, number>();
 const focusRestoreTargets = new WeakMap<HTMLElement, HTMLElement>();
 let activeSurface: HTMLElement | null = null;
 let outsideDismissPointerStart: { surface: HTMLElement; startedOutside: boolean } | null = null;
+const surfaceActiveClass = "surface-plane--active";
+const surfaceBlurredClass = "surface-plane--blurred";
 
 const FOCUSABLE_SELECTOR = [
 	"[data-surface-initial-focus]",
@@ -39,12 +41,23 @@ function prepareSurface(element: HTMLElement): void {
 	if (!element.hasAttribute("tabindex")) element.tabIndex = -1;
 }
 
+function refreshSurfacePlaneState(): void {
+	const openSurfaces = Array.from(surfacePlane.querySelectorAll<HTMLElement>(".surface-plane__item")).filter(
+		(element) => !element.classList.contains("hidden") && !element.classList.contains("surface-closing")
+	);
+	const hasOpenAdaptiveSheet = openSurfaces.some((element) => element.classList.contains("adaptive-sheet"));
+
+	surfacePlane.classList.toggle(surfaceActiveClass, openSurfaces.length > 0);
+	surfacePlane.classList.toggle(surfaceBlurredClass, hasOpenAdaptiveSheet);
+}
+
 function finishClose(element: HTMLElement): void {
 	element.classList.add("hidden");
 	element.classList.remove("surface-open", "surface-closing");
 	element.dispatchEvent(new CustomEvent("surface-closed"));
 	restoreFocus(element);
 	if (activeSurface === element) activeSurface = null;
+	refreshSurfacePlaneState();
 }
 
 function getInitialFocusTarget(element: HTMLElement): HTMLElement {
@@ -75,6 +88,7 @@ function hideSurface(element: HTMLElement, immediate = false): void {
 
 	element.classList.remove("surface-open");
 	element.classList.add("surface-closing");
+	refreshSurfacePlaneState();
 
 	if (immediate) {
 		finishClose(element);
@@ -108,9 +122,11 @@ export function show(elementId: string): void {
 		focusRestoreTargets.set(element, previousFocus);
 	}
 	element.classList.remove("hidden", "surface-closing", "surface-open");
+	refreshSurfacePlaneState();
 
 	requestAnimationFrame(() => {
 		element.classList.add("surface-open");
+		refreshSurfacePlaneState();
 		moveFocusIntoSurface(element);
 	});
 }
