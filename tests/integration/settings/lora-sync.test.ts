@@ -6,7 +6,7 @@ import type { LoRAInfo } from "../../../src/types/Lora";
 
 const syncServiceMock = vi.hoisted(() => ({
 	isSyncActive: vi.fn(() => true),
-	pushCurrentSettings: vi.fn(async () => true)
+	queueSettingsPush: vi.fn()
 }));
 
 const supabaseMock = vi.hoisted(() => ({
@@ -36,7 +36,7 @@ describe("LoRA synced settings", () => {
 		vi.resetModules();
 		localStorage.clear();
 		syncServiceMock.isSyncActive.mockReturnValue(true);
-		syncServiceMock.pushCurrentSettings.mockClear();
+		syncServiceMock.queueSettingsPush.mockClear();
 		supabaseMock.functions.invoke.mockReset();
 		supabaseMock.functions.invoke.mockResolvedValue({ data: [loraFixture], error: null });
 	});
@@ -47,7 +47,8 @@ describe("LoRA synced settings", () => {
 		await loraService.add(loraFixture.url);
 
 		expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS.LORAS) ?? "[]")).toEqual([loraFixture.url]);
-		expect(syncServiceMock.pushCurrentSettings).toHaveBeenCalledTimes(1);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenCalledTimes(1);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenLastCalledWith({ label: "LoRA settings" });
 	});
 
 	it("pushes current settings when a LoRA URL is deleted", async () => {
@@ -57,6 +58,7 @@ describe("LoRA synced settings", () => {
 		loraService.deleteLora(loraFixture.modelVersionId);
 
 		expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS.LORAS) ?? "[]")).toEqual([]);
-		expect(syncServiceMock.pushCurrentSettings).toHaveBeenCalledTimes(1);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenCalledTimes(1);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenLastCalledWith({ label: "LoRA settings" });
 	});
 });

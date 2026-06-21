@@ -49,7 +49,7 @@ vi.mock("../../../src/services/Supabase.service", () => ({
 
 vi.mock("../../../src/services/Sync.service", () => ({
 	isSyncActive: vi.fn(() => false),
-	pushCurrentSettings: vi.fn(async () => true)
+	queueSettingsPush: vi.fn()
 }));
 
 vi.mock("../../../src/services/Toast.service", () => ({

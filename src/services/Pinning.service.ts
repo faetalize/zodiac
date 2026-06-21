@@ -28,10 +28,7 @@ function writePinnedIds(storageKey: string, ids: string[]): void {
 }
 
 function queueSyncSettingsPush(): void {
-	if (!syncService.isSyncActive()) return;
-	syncService.pushCurrentSettings().catch((error) => {
-		console.warn("Failed to sync pinning settings", error);
-	});
+	syncService.queueSettingsPush({ label: "pinning settings" });
 }
 
 export function getPinnedChatIds(): string[] {

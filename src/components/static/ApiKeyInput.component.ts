@@ -29,6 +29,8 @@ const ensuredGeminiError = geminiError;
 const ensuredOpenRouterError = openRouterError;
 const ensuredPreferPremiumToggle = preferPremiumToggle;
 const ensuredPreferPremiumCheckbox = preferPremiumCheckbox;
+let isPaidAccount = false;
+let hasObservedSyncedSettingsPull = false;
 
 function applyPremiumPreferenceFromStorage(): void {
 	const savedPreference = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
@@ -42,6 +44,16 @@ function applyPremiumPreferenceFromStorage(): void {
 function rehydratePremiumPreferenceFromStorage(): void {
 	applyPremiumPreferenceFromStorage();
 	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
+}
+
+function persistDefaultPremiumPreferenceAfterSyncedSettingsPull(): void {
+	if (!isPaidAccount || !hasObservedSyncedSettingsPull) return;
+	if (localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT) !== null) return;
+
+	ensuredPreferPremiumCheckbox.checked = true;
+	localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "true");
+	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: true });
+	queuePremiumEndpointSettingsSync();
 }
 
 function clearValidationState(input: HTMLInputElement, errorElement: HTMLElement): void {
@@ -97,6 +109,7 @@ onAppEvent("auth-state-changed", (event) => {
 	const { subscription: sub } = event.detail;
 	const savedPreference = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
 	if (!sub) {
+		isPaidAccount = false;
 		ensuredPreferPremiumToggle.classList.add("hidden");
 		ensuredPreferPremiumCheckbox.checked = false;
 		return;
@@ -104,20 +117,22 @@ onAppEvent("auth-state-changed", (event) => {
 
 	const tier: SubscriptionTier = getSubscriptionTier(sub);
 	if (tier === "pro" || tier === "pro_plus" || tier === "max") {
+		isPaidAccount = true;
 		ensuredPreferPremiumToggle.classList.remove("hidden");
 		if (savedPreference === null) {
 			ensuredPreferPremiumCheckbox.checked = true;
-			localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "true");
-			queuePremiumEndpointSettingsSync();
 		}
 	} else {
+		isPaidAccount = false;
 		ensuredPreferPremiumToggle.classList.add("hidden");
 		ensuredPreferPremiumCheckbox.checked = false;
 	}
 });
 
 onAppEvent("sync-data-pulled", () => {
+	hasObservedSyncedSettingsPull = true;
 	rehydratePremiumPreferenceFromStorage();
+	persistDefaultPremiumPreferenceAfterSyncedSettingsPull();
 });
 
 onAppEvent("settings-loaded-from-storage", () => {
@@ -142,8 +157,5 @@ export function shouldPreferPremiumEndpoint(): boolean {
 }
 
 function queuePremiumEndpointSettingsSync(): void {
-	if (!syncService.isSyncActive()) return;
-	syncService.pushCurrentSettings().catch((error) => {
-		console.warn("Failed to sync premium endpoint settings", error);
-	});
+	syncService.queueSettingsPush({ label: "premium endpoint settings" });
 }

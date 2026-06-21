@@ -783,7 +783,7 @@ function setupApiKeySetup(): void {
 	// Reset next button state when input changes
 	const handleApiKeyInputChange = async (args: { statusElement: HTMLDivElement; storageKey: string }) => {
 		localStorage.removeItem(args.storageKey);
-		queueOnboardingSettingsSync();
+		queueOnboardingSettingsSync({ debounceMs: syncService.SETTINGS_PUSH_DEBOUNCE_MS });
 		hideApiKeyStatus(args.statusElement);
 		const hasValidatedKey =
 			apiKeyStatus!.classList.contains("status-success") ||
@@ -1271,10 +1271,10 @@ function applyThemeSettings(): void {
 	}
 }
 
-function queueOnboardingSettingsSync(): void {
-	if (!syncService.isSyncActive()) return;
-	syncService.pushCurrentSettings().catch((error) => {
-		console.warn("Failed to sync onboarding settings", error);
+function queueOnboardingSettingsSync(options: { debounceMs?: number } = {}): void {
+	syncService.queueSettingsPush({
+		label: "onboarding settings",
+		debounceMs: options.debounceMs
 	});
 }
 

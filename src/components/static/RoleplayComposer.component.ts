@@ -426,10 +426,7 @@ function persistFavoriteActions(): void {
 }
 
 function queueRoleplaySettingsSync(): void {
-	if (!syncService.isSyncActive()) return;
-	syncService.pushCurrentSettings().catch((error) => {
-		console.warn("Failed to sync roleplay settings", error);
-	});
+	syncService.queueSettingsPush({ label: "roleplay settings" });
 }
 
 function discardActionState(actionIds: Iterable<string>): void {

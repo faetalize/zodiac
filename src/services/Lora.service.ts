@@ -50,10 +50,7 @@ function writeToLocalstorage(list: string[]): void {
 }
 
 function queueLoraSettingsSync(): void {
-	if (!syncService.isSyncActive()) return;
-	syncService.pushCurrentSettings().catch((error) => {
-		console.warn("Failed to sync LoRA settings", error);
-	});
+	syncService.queueSettingsPush({ label: "LoRA settings" });
 }
 
 function deleteFromLocalstorage(modelVersionId: string): void {

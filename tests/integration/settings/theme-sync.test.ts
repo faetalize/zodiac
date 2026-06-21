@@ -5,7 +5,7 @@ import { addHighlightThemeLink, bootstrapDom } from "../../helpers/dom";
 
 const syncServiceMock = vi.hoisted(() => ({
 	isSyncActive: vi.fn(() => true),
-	pushCurrentSettings: vi.fn(async () => true)
+	queueSettingsPush: vi.fn()
 }));
 
 vi.mock("../../../src/services/Sync.service", () => syncServiceMock);
@@ -43,7 +43,7 @@ describe("synced theme settings", () => {
 	beforeEach(() => {
 		vi.resetModules();
 		syncServiceMock.isSyncActive.mockReturnValue(true);
-		syncServiceMock.pushCurrentSettings.mockClear();
+		syncServiceMock.queueSettingsPush.mockClear();
 		bootstrapThemeControlsDom();
 		addHighlightThemeLink();
 	});
@@ -70,7 +70,7 @@ describe("synced theme settings", () => {
 		expect(
 			document.querySelector<HTMLButtonElement>('.theme-btn[data-theme="blue"]')?.classList.contains("active")
 		).toBe(true);
-		expect(syncServiceMock.pushCurrentSettings).not.toHaveBeenCalled();
+		expect(syncServiceMock.queueSettingsPush).not.toHaveBeenCalled();
 	});
 
 	it("pushes current settings when the user changes theme color or mode", async () => {
@@ -84,11 +84,13 @@ describe("synced theme settings", () => {
 		document.querySelector<HTMLButtonElement>('.theme-btn[data-theme="red"]')?.click();
 
 		expect(themeService.getSettings().colorTheme).toBe("red");
-		expect(syncServiceMock.pushCurrentSettings).toHaveBeenCalledTimes(1);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenCalledTimes(1);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenLastCalledWith({ label: "theme settings" });
 
 		document.querySelector<HTMLButtonElement>('[data-value="2"]')?.click();
 
 		expect(themeService.getSettings().mode).toBe("dark");
-		expect(syncServiceMock.pushCurrentSettings).toHaveBeenCalledTimes(2);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenCalledTimes(2);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenLastCalledWith({ label: "theme settings" });
 	});
 });

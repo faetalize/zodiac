@@ -109,8 +109,5 @@ onAppEvent("settings-loaded-from-storage", rehydrateFromStorage);
 onAppEvent("sync-data-pulled", rehydrateFromStorage);
 
 function queueThemeSettingsSync() {
-	if (!syncService.isSyncActive()) return;
-	syncService.pushCurrentSettings().catch((error) => {
-		console.warn("Failed to sync theme settings", error);
-	});
+	syncService.queueSettingsPush({ label: "theme settings" });
 }

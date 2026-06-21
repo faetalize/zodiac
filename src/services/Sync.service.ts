@@ -101,11 +101,16 @@ const CHAT_DELETE_MARK_BATCH_SIZE = 500;
 const MESSAGE_DECRYPT_CONCURRENCY = 4;
 const MAX_OFFLINE_RETRIES = 5;
 const QUOTA_TOAST_DEDUP_MS = 30_000;
+export const SETTINGS_PUSH_DEBOUNCE_MS = 2_000;
 /** Client-side page size for reading messages from Supabase. Independent of
  *  the server-side PostgREST max-rows setting (typically 1000 on hosted
  *  Supabase). Cursor-based paging handles lower server caps safely. */
 const READ_PAGE_SIZE = 500;
 let quotaToastShownAt = 0;
+let settingsPushTimer: ReturnType<typeof setTimeout> | null = null;
+let settingsPushInFlight = false;
+let settingsPushPending = false;
+let settingsPushPendingLabel = "settings";
 
 function areSyncHooksSuppressed(): boolean {
 	return suppressSyncHooksDepth > 0;
@@ -1952,6 +1957,53 @@ export async function pushCurrentSettings(): Promise<boolean> {
 	}
 
 	return pushSettings(settings);
+}
+
+export function queueSettingsPush(options: { label?: string; debounceMs?: number } = {}): void {
+	if (!isSyncActive()) return;
+
+	const label = options.label ?? "settings";
+	const debounceMs = options.debounceMs ?? 0;
+	if (debounceMs > 0) {
+		if (settingsPushTimer) clearTimeout(settingsPushTimer);
+		settingsPushPendingLabel = label;
+		settingsPushTimer = setTimeout(() => {
+			settingsPushTimer = null;
+			enqueueSettingsPush(label);
+		}, debounceMs);
+		return;
+	}
+
+	if (settingsPushTimer) {
+		clearTimeout(settingsPushTimer);
+		settingsPushTimer = null;
+	}
+	enqueueSettingsPush(label);
+}
+
+function enqueueSettingsPush(label: string): void {
+	settingsPushPending = true;
+	settingsPushPendingLabel = label;
+	void drainQueuedSettingsPush();
+}
+
+async function drainQueuedSettingsPush(): Promise<void> {
+	if (settingsPushInFlight) return;
+
+	settingsPushInFlight = true;
+	try {
+		while (settingsPushPending && isSyncActive()) {
+			settingsPushPending = false;
+			const label = settingsPushPendingLabel;
+			try {
+				await pushCurrentSettings();
+			} catch (error) {
+				console.warn(`Failed to sync ${label}`, error);
+			}
+		}
+	} finally {
+		settingsPushInFlight = false;
+	}
 }
 
 function hasInlineMediaAboveThreshold(message: any): boolean {

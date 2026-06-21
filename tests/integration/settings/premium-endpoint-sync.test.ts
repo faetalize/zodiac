@@ -18,7 +18,7 @@ vi.mock("../../../src/services/Sync.service", () => ({
 		localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "false");
 		return true;
 	}),
-	pushCurrentSettings: vi.fn(async () => true)
+	queueSettingsPush: vi.fn()
 }));
 
 function bootstrapSettingsDom(): void {
@@ -61,6 +61,7 @@ function bootstrapSettingsDom(): void {
 describe("premium endpoint synced settings", () => {
 	beforeEach(() => {
 		vi.resetModules();
+		vi.clearAllMocks();
 		localStorage.clear();
 		bootstrapSettingsDom();
 	});
@@ -94,17 +95,38 @@ describe("premium endpoint synced settings", () => {
 		toggle!.dispatchEvent(new Event("change", { bubbles: true }));
 
 		expect(apiKeyInputComponent.shouldPreferPremiumEndpoint()).toBe(false);
-		expect(syncService.pushCurrentSettings).toHaveBeenCalledTimes(1);
+		expect(syncService.queueSettingsPush).toHaveBeenCalledTimes(1);
+		expect(syncService.queueSettingsPush).toHaveBeenLastCalledWith({ label: "premium endpoint settings" });
 	});
 
-	it("pushes synced settings when a paid account defaults the premium endpoint preference", async () => {
+	it("waits for synced settings to pull before pushing a paid account premium endpoint default", async () => {
 		const apiKeyInputComponent = await import("../../../src/components/static/ApiKeyInput.component");
 		const syncService = await import("../../../src/services/Sync.service");
 
 		window.dispatchEvent(new CustomEvent("auth-state-changed", { detail: { loggedIn: true, subscription: {} } }));
 
 		expect(apiKeyInputComponent.shouldPreferPremiumEndpoint()).toBe(true);
-		expect(syncService.pushCurrentSettings).toHaveBeenCalledTimes(1);
+		expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT)).toBeNull();
+		expect(syncService.queueSettingsPush).not.toHaveBeenCalled();
+
+		window.dispatchEvent(new CustomEvent("sync-data-pulled", { detail: {} }));
+
+		expect(apiKeyInputComponent.shouldPreferPremiumEndpoint()).toBe(true);
+		expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT)).toBe("true");
+		expect(syncService.queueSettingsPush).toHaveBeenCalledTimes(1);
+		expect(syncService.queueSettingsPush).toHaveBeenLastCalledWith({ label: "premium endpoint settings" });
+	});
+
+	it("does not overwrite a pulled premium endpoint preference with the paid account default", async () => {
+		const apiKeyInputComponent = await import("../../../src/components/static/ApiKeyInput.component");
+		const syncService = await import("../../../src/services/Sync.service");
+
+		window.dispatchEvent(new CustomEvent("auth-state-changed", { detail: { loggedIn: true, subscription: {} } }));
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "false");
+		window.dispatchEvent(new CustomEvent("sync-data-pulled", { detail: {} }));
+
+		expect(apiKeyInputComponent.shouldPreferPremiumEndpoint()).toBe(false);
+		expect(syncService.queueSettingsPush).not.toHaveBeenCalled();
 	});
 
 	it("reapplies model-driven thinking constraints after synced settings replace stale local state", async () => {
