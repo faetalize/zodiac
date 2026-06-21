@@ -34,8 +34,8 @@ describe("Surface service", () => {
 
 		surfaceService.close("adaptive-test-sheet");
 
-		expect(surfacePlane?.classList.contains("surface-plane--active")).toBe(true);
-		expect(surfacePlane?.classList.contains("surface-plane--blurred")).toBe(true);
+		expect(surfacePlane?.classList.contains("surface-plane--active")).toBe(false);
+		expect(surfacePlane?.classList.contains("surface-plane--blurred")).toBe(false);
 
 		await vi.runOnlyPendingTimersAsync();
 

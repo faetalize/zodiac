@@ -42,13 +42,13 @@ function prepareSurface(element: HTMLElement): void {
 }
 
 function refreshSurfacePlaneState(): void {
-	const visibleSurfaces = Array.from(surfacePlane.querySelectorAll<HTMLElement>(".surface-plane__item")).filter(
-		(element) => !element.classList.contains("hidden")
+	const openSurfaces = Array.from(surfacePlane.querySelectorAll<HTMLElement>(".surface-plane__item")).filter(
+		(element) => !element.classList.contains("hidden") && !element.classList.contains("surface-closing")
 	);
-	const hasVisibleAdaptiveSheet = visibleSurfaces.some((element) => element.classList.contains("adaptive-sheet"));
+	const hasOpenAdaptiveSheet = openSurfaces.some((element) => element.classList.contains("adaptive-sheet"));
 
-	surfacePlane.classList.toggle(surfaceActiveClass, visibleSurfaces.length > 0);
-	surfacePlane.classList.toggle(surfaceBlurredClass, hasVisibleAdaptiveSheet);
+	surfacePlane.classList.toggle(surfaceActiveClass, openSurfaces.length > 0);
+	surfacePlane.classList.toggle(surfaceBlurredClass, hasOpenAdaptiveSheet);
 }
 
 function finishClose(element: HTMLElement): void {
