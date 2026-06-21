@@ -148,9 +148,15 @@ describe("roleplay suggestion model dropdown", () => {
 			"DeepSeek V4 Flash",
 			"GLM 5",
 			"GLM 5.1",
+			"GLM 5.2",
 			"Gemma 4 31B",
+			"Grok 4.3",
 			"Qwen3.5 397B",
-			"Qwen3.5 Plus"
+			"Qwen3.5 Plus",
+			"Qwen3.6 Max Preview [MEGA]",
+			"Qwen3.6 Plus",
+			"Qwen3.7 Max",
+			"Qwen3.7 Plus"
 		];
 		const receivedModels = options.map((option) => option.textContent);
 
