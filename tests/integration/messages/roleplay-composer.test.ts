@@ -76,9 +76,8 @@ vi.mock("../../../src/services/Supabase.service", () => ({
 
 vi.mock("../../../src/services/Sync.service", () => ({
 	isSyncActive: vi.fn(() => testState.syncActive),
-	pushCurrentSettings: vi.fn(async () => {
+	queueSettingsPush: vi.fn(() => {
 		testState.syncPushCount += 1;
-		return true;
 	})
 }));
 

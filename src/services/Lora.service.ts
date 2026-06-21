@@ -2,6 +2,7 @@ import type { LoRAInfo, LoRAState } from "../types/Lora";
 import { LORA_STORAGE_KEY } from "../types/Lora";
 import { supabase } from "./Supabase.service";
 import { dispatchEmptyAppEvent } from "../events";
+import * as syncService from "./Sync.service";
 
 let loras: LoRAInfo[] = [];
 let loraState: LoRAState[] = [];
@@ -47,11 +48,17 @@ function readFromLocalstorage(): string[] {
 function writeToLocalstorage(list: string[]): void {
 	localStorage.setItem(LORA_STORAGE_KEY, JSON.stringify(list));
 }
+
+function queueLoraSettingsSync(): void {
+	syncService.queueSettingsPush({ label: "LoRA settings" });
+}
+
 function deleteFromLocalstorage(modelVersionId: string): void {
 	console.log("Deleting LoRA from localstorage:", modelVersionId);
 	const urls = readFromLocalstorage();
 	const filtered = urls.filter((url) => !url.includes(modelVersionId));
 	writeToLocalstorage(filtered);
+	queueLoraSettingsSync();
 }
 
 export function getAll(): LoRAInfo[] {
@@ -70,6 +77,7 @@ export async function add(url: string): Promise<LoRAInfo | void> {
 	if (loraDetails && loraDetails.length > 0) {
 		urls.push(loraDetails[0].url);
 		writeToLocalstorage(urls);
+		queueLoraSettingsSync();
 
 		loras.push(...loraDetails);
 		return loraDetails[0];

@@ -460,12 +460,8 @@ export function saveSettings() {
 	debouncedSyncPush();
 }
 
-let syncPushTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedSyncPush() {
-	if (syncPushTimer) clearTimeout(syncPushTimer);
-	syncPushTimer = setTimeout(() => {
-		syncService.pushCurrentSettings().catch(() => {});
-	}, 2000);
+	syncService.queueSettingsPush({ label: "settings", debounceMs: syncService.SETTINGS_PUSH_DEBOUNCE_MS });
 }
 
 export function getSettings() {

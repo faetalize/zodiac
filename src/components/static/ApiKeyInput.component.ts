@@ -2,6 +2,7 @@ import { getSubscriptionTier, type SubscriptionTier } from "../../services/Supab
 import { dispatchAppEvent, onAppEvent } from "../../events";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 import { validateGeminiApiKey, validateOpenRouterApiKey } from "../../services/ApiKeyValidation.service";
+import * as syncService from "../../services/Sync.service";
 
 const geminiApiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
 const openRouterApiKeyInput = document.querySelector<HTMLInputElement>("#openRouterApiKeyInput");
@@ -28,6 +29,8 @@ const ensuredGeminiError = geminiError;
 const ensuredOpenRouterError = openRouterError;
 const ensuredPreferPremiumToggle = preferPremiumToggle;
 const ensuredPreferPremiumCheckbox = preferPremiumCheckbox;
+let isPaidAccount = false;
+let hasObservedSyncedSettingsPull = false;
 
 function applyPremiumPreferenceFromStorage(): void {
 	const savedPreference = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
@@ -41,6 +44,16 @@ function applyPremiumPreferenceFromStorage(): void {
 function rehydratePremiumPreferenceFromStorage(): void {
 	applyPremiumPreferenceFromStorage();
 	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
+}
+
+function persistDefaultPremiumPreferenceAfterSyncedSettingsPull(): void {
+	if (!isPaidAccount || !hasObservedSyncedSettingsPull) return;
+	if (localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT) !== null) return;
+
+	ensuredPreferPremiumCheckbox.checked = true;
+	localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "true");
+	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: true });
+	queuePremiumEndpointSettingsSync();
 }
 
 function clearValidationState(input: HTMLInputElement, errorElement: HTMLElement): void {
@@ -89,12 +102,14 @@ ensuredPreferPremiumCheckbox.addEventListener("change", () => {
 		ensuredPreferPremiumCheckbox.checked.toString()
 	);
 	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
+	queuePremiumEndpointSettingsSync();
 });
 
 onAppEvent("auth-state-changed", (event) => {
 	const { subscription: sub } = event.detail;
 	const savedPreference = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
 	if (!sub) {
+		isPaidAccount = false;
 		ensuredPreferPremiumToggle.classList.add("hidden");
 		ensuredPreferPremiumCheckbox.checked = false;
 		return;
@@ -102,19 +117,22 @@ onAppEvent("auth-state-changed", (event) => {
 
 	const tier: SubscriptionTier = getSubscriptionTier(sub);
 	if (tier === "pro" || tier === "pro_plus" || tier === "max") {
+		isPaidAccount = true;
 		ensuredPreferPremiumToggle.classList.remove("hidden");
 		if (savedPreference === null) {
 			ensuredPreferPremiumCheckbox.checked = true;
-			localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "true");
 		}
 	} else {
+		isPaidAccount = false;
 		ensuredPreferPremiumToggle.classList.add("hidden");
 		ensuredPreferPremiumCheckbox.checked = false;
 	}
 });
 
 onAppEvent("sync-data-pulled", () => {
+	hasObservedSyncedSettingsPull = true;
 	rehydratePremiumPreferenceFromStorage();
+	persistDefaultPremiumPreferenceAfterSyncedSettingsPull();
 });
 
 onAppEvent("settings-loaded-from-storage", () => {
@@ -136,4 +154,8 @@ attachValidation({
 export function shouldPreferPremiumEndpoint(): boolean {
 	const saved = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
 	return saved === null ? true : saved === "true";
+}
+
+function queuePremiumEndpointSettingsSync(): void {
+	syncService.queueSettingsPush({ label: "premium endpoint settings" });
 }

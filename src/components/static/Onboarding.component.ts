@@ -701,6 +701,7 @@ function setupApiKeySetup(): void {
 
 			showApiKeyStatus(args.statusElement, args.successMessage, "success");
 			localStorage.setItem(args.storageKey, apiKey);
+			queueOnboardingSettingsSync();
 			settingsService.loadSettings();
 			await refreshOnboardingModelOptions(localStorage.getItem(SETTINGS_STORAGE_KEYS.MODEL) || undefined);
 			updateApiKeyNextState();
@@ -782,6 +783,7 @@ function setupApiKeySetup(): void {
 	// Reset next button state when input changes
 	const handleApiKeyInputChange = async (args: { statusElement: HTMLDivElement; storageKey: string }) => {
 		localStorage.removeItem(args.storageKey);
+		queueOnboardingSettingsSync({ debounceMs: syncService.SETTINGS_PUSH_DEBOUNCE_MS });
 		hideApiKeyStatus(args.statusElement);
 		const hasValidatedKey =
 			apiKeyStatus!.classList.contains("status-success") ||
@@ -1161,6 +1163,7 @@ function setupSummary(): void {
 
 				// Apply theme settings from onboarding state before everything else
 				applyThemeSettings();
+				queueOnboardingSettingsSync();
 
 				// Apply Easy path settings for ALL outcomes
 				const selectedPath = onboardingService.getState().selectedPath;
@@ -1243,6 +1246,7 @@ async function applyEasyPathSettings(): Promise<void> {
 
 	// Reload settings to apply changes to UI
 	settingsService.loadSettings();
+	queueOnboardingSettingsSync();
 }
 
 /**
@@ -1265,6 +1269,13 @@ function applyThemeSettings(): void {
 			themeService.setMode(selectedMode, "manual");
 		}
 	}
+}
+
+function queueOnboardingSettingsSync(options: { debounceMs?: number } = {}): void {
+	syncService.queueSettingsPush({
+		label: "onboarding settings",
+		debounceMs: options.debounceMs
+	});
 }
 
 /**
@@ -1893,6 +1904,7 @@ function setupAdvancedSettings(): void {
 
 		// Reload settings to apply changes to UI
 		settingsService.loadSettings();
+		queueOnboardingSettingsSync();
 
 		// Go to summary
 		onboardingService.goToStep(OnboardingStep.SUMMARY);
