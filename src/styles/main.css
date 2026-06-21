@@ -2553,12 +2553,20 @@ form {
 		-webkit-backdrop-filter 0.16s ease;
 }
 
-.surface-plane.surface-plane--active,
+.surface-plane.surface-plane--active {
+	pointer-events: auto;
+}
+
 .surface-plane:has(.surface-plane__item.surface-open) {
 	pointer-events: auto;
 }
 
-.surface-plane.surface-plane--blurred,
+.surface-plane.surface-plane--blurred {
+	background-color: rgb(0 0 0 / 12%);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+}
+
 .surface-plane:has(.adaptive-sheet.surface-open) {
 	background-color: rgb(0 0 0 / 12%);
 	backdrop-filter: blur(10px);
