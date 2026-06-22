@@ -27,7 +27,7 @@ let userCache: SupabaseUser | null = null;
 let hydratedSessionUserId: string | null = null;
 
 export const SUPABASE_URL = "https://hglcltvwunzynnzduauy.supabase.co";
-export const PRO_REQUEST_FUNCTION_NAME = "handle-pro-request-x";
+export const PRO_REQUEST_FUNCTION_NAME = "handle-pro-request";
 export const PRO_REQUEST_ENDPOINT = `${SUPABASE_URL}/functions/v1/${PRO_REQUEST_FUNCTION_NAME}`;
 const SUPABASE_ANON_KEY =
 	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbGNsdHZ3dW56eW5uemR1YXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTIzOTIsImV4cCI6MjA2OTI4ODM5Mn0.q4VZu-0vEZVdjSXAhlSogB9ihfPVwero0S4UFVCvMDQ";
