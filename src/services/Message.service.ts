@@ -2440,6 +2440,8 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 // SEND HANDLERS - IMAGE GENERATION
 // ================================================================================
 
+const IMAGE_GENERATION_SLUG = "handle-max-request-x";
+
 async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | undefined> {
 	const imageGenerationModel = ctx.settings.imageModel || "imagen-4.0-ultra-generate-001";
 	const payload = {
@@ -2459,7 +2461,7 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
 	let returnedMimeType: string;
 
 	if (ctx.isImagePremiumEndpointPreferred) {
-		const endpoint = `${SUPABASE_URL}/functions/v1/handle-max-request`;
+		const endpoint = `${SUPABASE_URL}/functions/v1/${IMAGE_GENERATION_SLUG}`;
 		const response = await fetch(endpoint, {
 			method: "POST",
 			headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },

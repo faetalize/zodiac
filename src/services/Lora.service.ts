@@ -4,6 +4,8 @@ import { supabase } from "./Supabase.service";
 import { dispatchEmptyAppEvent } from "../events";
 import * as syncService from "./Sync.service";
 
+const LORA_GET_METDATA_ENDPOINT_SLUG = "get-lora-metadata-x";
+
 let loras: LoRAInfo[] = [];
 let loraState: LoRAState[] = [];
 
@@ -99,7 +101,7 @@ export async function getLoraMetadata(urls: string[]): Promise<LoRAInfo[] | void
 	if (!urls || urls.length === 0) {
 		return;
 	}
-	const { data, error } = await supabase.functions.invoke<LoRAInfo[]>("get-lora-metadata", {
+	const { data, error } = await supabase.functions.invoke<LoRAInfo[]>(LORA_GET_METDATA_ENDPOINT_SLUG, {
 		body: { urls }
 	});
 	if (error) {
