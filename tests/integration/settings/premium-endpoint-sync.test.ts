@@ -33,7 +33,7 @@ function bootstrapSettingsDom(): void {
 		<input id="maxTokens" value="1000">
 		<input id="temperature" value="60">
 		<select id="selectedModel"><option value="gemini-3.5-flash" selected>Gemini Flash</option></select>
-		<select id="selectedImageModel"><option value="imagen-4.0-ultra-generate-001" selected>Imagen</option></select>
+		<select id="selectedImageModel"><option value="illustrious" selected>Illustrious</option></select>
 		<select id="selectedImageEditingModel"><option value="qwen" selected>Qwen</option></select>
 		<select id="roleplaySuggestionModel"><option value="gemini-2.5-flash" selected>Gemini Flash</option></select>
 		<input id="autoscroll" type="checkbox">

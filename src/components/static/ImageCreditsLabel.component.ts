@@ -6,13 +6,10 @@ import {
 	getMegaCreditsRecord,
 	getNanoBananaDailyUsageRecord,
 	getSubscriptionTier,
-	getUserSubscription,
-	isImageGenerationAvailable
+	getUserSubscription
 } from "../../services/Supabase.service";
-import type { ImageGenerationPermitted } from "../../types/ImageGenerationTypes";
-import { ChatModel, getChatModelDefinition, getPremiumEndpointChatModel, ImageModel } from "../../types/Models";
+import { ChatModel, getChatModelDefinition, getPremiumEndpointChatModel } from "../../types/Models";
 import * as overlayService from "../../services/Overlay.service";
-import * as helpers from "../../utils/helpers";
 import { dispatchAppEvent } from "../../events";
 import { shouldPreferPremiumEndpoint } from "./ApiKeyInput.component";
 
@@ -43,7 +40,6 @@ let megaCredits: number | null | undefined = undefined;
 let nanoBananaUsageCount = 0;
 let nanoBananaUsageDate: string | null = null;
 let subscriptionTier: "free" | "pro" | "pro_plus" | "max" | "canceled" = "free";
-let imageGenStatus: ImageGenerationPermitted | null = null;
 let isPopoverVisible = false;
 
 type AllowanceMode = "image" | "mega" | "nano" | null;
@@ -79,7 +75,6 @@ window.addEventListener(
 			} else {
 				imageCredits = undefined;
 			}
-			imageGenStatus = await isImageGenerationAvailable();
 			await refreshSupplementalAllowanceState();
 		})()
 );
@@ -95,7 +90,6 @@ window.addEventListener(
 			} else {
 				imageCredits = imageGenRecord.remaining_image_generations;
 			}
-			imageGenStatus = await isImageGenerationAvailable();
 			renderLabel();
 		})()
 );
@@ -126,21 +120,13 @@ window.addEventListener("premium-endpoint-preference-changed", () => {
 	renderLabel();
 });
 
-window.addEventListener(
-	"subscription-updated",
-	() =>
-		void (async () => {
-			imageGenStatus = await isImageGenerationAvailable();
-			await refreshSupplementalAllowanceState();
-		})()
-);
+window.addEventListener("subscription-updated", () => void refreshSupplementalAllowanceState());
 
 window.addEventListener(
 	"generation-state-changed",
 	(event: any) =>
 		void (async () => {
 			if (event.detail?.anyGenerating === false) {
-				imageGenStatus = await isImageGenerationAvailable();
 				await refreshSupplementalAllowanceState();
 			}
 		})()
@@ -247,15 +233,6 @@ async function refreshSupplementalAllowanceState(): Promise<void> {
 	renderLabel();
 }
 
-function getSelectedImageModel(): string | null {
-	return imageModelSelector?.value || null;
-}
-
-function isImagenModel(): boolean {
-	const selectedModel = getSelectedImageModel();
-	return selectedModel === ImageModel.ULTRA;
-}
-
 function calculateCreditsNeeded(): number {
 	const isEditing = isImageEditingActive();
 	const isGenerating = isImageModeActive();
@@ -277,30 +254,12 @@ function calculateCreditsNeeded(): number {
 	const loraState = getLoraState();
 	const activeLorasCount = loraState.filter((state) => state.enabled).length;
 
-	// Imagen 4 doesn't support LoRAs, so don't count them
-	if (isImagenModel()) {
-		return 1; // Base cost only
-	}
-
 	if (activeLorasCount === 0) {
 		return 1; // Base cost
 	}
 
 	// Base cost + LoRA cost (ceiling of activeLoRAs / 2)
 	return 1 + Math.ceil(activeLorasCount / 2);
-}
-
-function shouldShowApiKeyPath(): boolean {
-	// Only show "May Incur Charges" path when:
-	// 1. User is in google_only mode
-	// 2. Image generation is active (not editing)
-	// 3. Imagen 4 (ULTRA) model is selected
-	const isGoogleOnly = imageGenStatus?.type === "google_only";
-	const isEditing = isImageEditingActive();
-	const isGenerating = isImageModeActive();
-	const isImagenModel = getSelectedImageModel() === ImageModel.ULTRA;
-
-	return isGoogleOnly && !isEditing && isGenerating && isImagenModel;
 }
 
 function hasInsufficientCredits(): boolean {
@@ -322,11 +281,8 @@ function checkAndDispatchInsufficientCreditsState(): void {
 	const isInsufficient = hasInsufficientCredits();
 	const isEditing = isImageEditingActive();
 	const isGenerating = isImageModeActive();
-	const showingApiKeyPath = shouldShowApiKeyPath();
 
-	// Only block if insufficient credits AND not in the "may incur charges" path
-	// (users with API keys in google_only mode should be able to send)
-	const shouldBlock = isInsufficient && (isEditing || isGenerating) && !showingApiKeyPath;
+	const shouldBlock = isInsufficient && (isEditing || isGenerating);
 
 	dispatchAppEvent("insufficient-image-credits", { insufficient: shouldBlock });
 
@@ -383,12 +339,8 @@ function renderLabel(): void {
 		return;
 	}
 
-	if (shouldShowApiKeyPath()) {
-		imageCreditsLabel.textContent = "May Incur Charges";
-	} else {
-		const totalCredits = imageCredits === null || imageCredits === undefined ? "—" : String(imageCredits);
-		imageCreditsLabel.textContent = `${totalCredits} Image Credits`;
-	}
+	const totalCredits = imageCredits === null || imageCredits === undefined ? "—" : String(imageCredits);
+	imageCreditsLabel.textContent = `${totalCredits} Image Credits`;
 
 	// Check and dispatch insufficient credits state
 	checkAndDispatchInsufficientCreditsState();
@@ -462,7 +414,6 @@ function renderPopoverContent(): void {
 		return;
 	}
 
-	const showApiKeyPath = shouldShowApiKeyPath();
 	const isEditing = isImageEditingActive();
 	const isGenerating = isImageModeActive();
 	const loraState = getLoraState();
@@ -472,37 +423,13 @@ function renderPopoverContent(): void {
 
 	let contentHTML = `
         <div class="image-credits-popover-header">
-            <h4>${showApiKeyPath ? "API Key Usage" : "Request Breakdown"}</h4>
+            <h4>Request Breakdown</h4>
             <button class="image-credits-popover-close btn-textual material-symbols-outlined" aria-label="Close">close</button>
         </div>
         <div class="image-credits-popover-body">
     `;
 
-	if (showApiKeyPath) {
-		// Show informative message for google_only users
-		contentHTML += `
-            <div class="credit-breakdown-note credit-breakdown-warning">
-                <span class="material-symbols-outlined">warning</span>
-                <span>This image generation request will go through your own API key and may cause a charge on your Google Cloud account if you have billing enabled. <b>We recommend buying credits instead.</b></span>
-            </div>
-        `;
-
-		if (isGenerating && activeLorasCount > 0) {
-			contentHTML += `
-                <div class="credit-breakdown-note">
-                    <span class="material-symbols-outlined">info</span>
-                    <span>You have ${activeLorasCount} active LoRA${activeLorasCount > 1 ? "s" : ""}, but LoRAs require premium image credits and cannot be used with your API key.</span>
-                </div>
-            `;
-		}
-
-		contentHTML += `
-            <div class="credit-breakdown-action">
-                <button id="google-only-buy-button" class="btn">Buy Credits</button>
-                <button id="google-only-setup-api-button" class="btn-neutral">Setup API Key</button>
-            </div>
-        `;
-	} else if (hasInsufficientCredits()) {
+	if (hasInsufficientCredits()) {
 		// Show insufficient credits warning
 		contentHTML += `
             <div class="credit-breakdown-note credit-breakdown-warning">
@@ -546,28 +473,18 @@ function renderPopoverContent(): void {
             `;
 
 			if (activeLorasCount > 0) {
-				// Check if Imagen 4 is selected (doesn't support LoRAs)
-				if (isImagenModel()) {
-					contentHTML += `
-                        <div class="credit-breakdown-note">
-                            <span class="material-symbols-outlined">warning</span>
-                            <span>Imagen 4 does not support LoRAs. Your ${activeLorasCount} active LoRA${activeLorasCount > 1 ? "s" : ""} will be ignored for this request.</span>
-                        </div>
-                    `;
-				} else {
-					const loraCost = Math.ceil(activeLorasCount / 2);
-					contentHTML += `
-                        <div class="credit-breakdown-item">
-                            <span class="material-symbols-outlined credit-icon">style</span>
-                            <span class="credit-description">LoRAs (${activeLorasCount} active)</span>
-                            <span class="credit-amount">+${loraCost} credit${loraCost > 1 ? "s" : ""}</span>
-                        </div>
-                        <div class="credit-breakdown-note">
-                            <span class="material-symbols-outlined">info</span>
-                            <span>Every 2 active LoRAs consume 1 additional credit</span>
-                        </div>
-                    `;
-				}
+				const loraCost = Math.ceil(activeLorasCount / 2);
+				contentHTML += `
+                    <div class="credit-breakdown-item">
+                        <span class="material-symbols-outlined credit-icon">style</span>
+                        <span class="credit-description">LoRAs (${activeLorasCount} active)</span>
+                        <span class="credit-amount">+${loraCost} credit${loraCost > 1 ? "s" : ""}</span>
+                    </div>
+                    <div class="credit-breakdown-note">
+                        <span class="material-symbols-outlined">info</span>
+                        <span>Every 2 active LoRAs consume 1 additional credit</span>
+                    </div>
+                `;
 			}
 		}
 
@@ -620,51 +537,6 @@ function bindPopoverButtons(): void {
 				}
 			})()
 	);
-
-	// Add buy credits button handler for google_only mode (if present)
-	const googleOnlyBuyButton = imageCreditsPopover.querySelector<HTMLButtonElement>("#google-only-buy-button");
-	googleOnlyBuyButton?.addEventListener(
-		"click",
-		(e) =>
-			void (async () => {
-				e.stopPropagation();
-				hidePopover();
-
-				const user = await getCurrentUser();
-				if (!user) {
-					// User is not logged in, show login overlay
-					overlayService.show("login-register-tabs");
-				} else {
-					// User is logged in, show buy credits overlay
-					overlayService.show("form-top-up-imagecredits");
-				}
-			})()
-	);
-
-	// Add setup API key button handler for google_only mode (if present)
-	const googleOnlySetupApiButton = imageCreditsPopover.querySelector<HTMLButtonElement>(
-		"#google-only-setup-api-button"
-	);
-	googleOnlySetupApiButton?.addEventListener("click", (e) => {
-		e.stopPropagation();
-		hidePopover();
-
-		// Show sidebar on mobile if needed
-		const sidebar = document.querySelector<HTMLDivElement>(".sidebar");
-		if (sidebar && window.innerWidth <= 1032) {
-			sidebar.style.display = "flex";
-			helpers.showElement(sidebar, false);
-		}
-
-		// Navigate to settings and then to API key section
-		const settingsTab = document.querySelector<HTMLDivElement>(".navbar-tab:nth-child(3)");
-		settingsTab?.click();
-		// After settings opens, click the API key settings item
-		setTimeout(() => {
-			const apiKeySettingsButton = document.querySelector<HTMLButtonElement>('[data-settings-target="api"]');
-			apiKeySettingsButton?.click();
-		}, 100);
-	});
 }
 
 function togglePopover(): void {
@@ -733,10 +605,7 @@ function positionPopover(): void {
 }
 
 // Initialize and render
-void (async () => {
-	imageGenStatus = await isImageGenerationAvailable();
-	await refreshSupplementalAllowanceState();
-})();
+void refreshSupplementalAllowanceState();
 
 // Export visibility state getter
 export function isImageCreditsLabelVisible(): boolean {

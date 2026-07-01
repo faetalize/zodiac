@@ -1,4 +1,4 @@
-import { ImageModel, ImageModelLabel } from "../../types/Models";
+import { ImageModel } from "../../types/Models";
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 
 const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel");
@@ -33,8 +33,6 @@ async function updateImageModelSelectorState() {
 			option.value = modelValue;
 			option.text = ((imageModelCodename: ImageModel): string => {
 				switch (imageModelCodename) {
-					case ImageModel.ULTRA:
-						return ImageModelLabel.ULTRA;
 					case ImageModel.ILLUSTRIOUS:
 						return "Illustrious (Anime)";
 					case ImageModel.BLXL:

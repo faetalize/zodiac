@@ -25,16 +25,16 @@ const GEMINI_TO_OPENROUTER_CHAT_MODEL_IDS = new Map<string, string>([
 ]);
 
 export enum ImageModel {
-	ULTRA = "imagen-4.0-ultra-generate-001",
 	ILLUSTRIOUS = "illustrious",
 	BLXL = "biglust"
 }
 
 export enum ImageModelLabel {
-	ULTRA = "Imagen 4.0 Ultra",
 	ILLUSTRIOUS = "Illustrious (Anime)",
 	BLXL = "BLXL (Realism)"
 }
+
+export const DEFAULT_IMAGE_MODEL = ImageModel.ILLUSTRIOUS;
 
 export enum ImageEditModel {
 	SEEDREAM = "seedream",
@@ -643,7 +643,6 @@ export function getPremiumEndpointChatModel(model: string | null | undefined): s
 }
 
 const imageModelLabelMap = new Map<string, string>([
-	[ImageModel.ULTRA, ImageModelLabel.ULTRA],
 	[ImageModel.ILLUSTRIOUS, ImageModelLabel.ILLUSTRIOUS],
 	[ImageModel.BLXL, ImageModelLabel.BLXL],
 	[ImageEditModel.SEEDREAM, ImageEditModelLabel.SEEDREAM],

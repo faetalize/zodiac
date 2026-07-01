@@ -63,6 +63,7 @@ import { getSelectedEditingModel } from "../components/static/ImageEditModelSele
 import { isAbortError, throwAbortError } from "../utils/abort";
 import { dispatchAppEvent } from "../events";
 import { MODEL_IMAGE_LIMITS } from "../constants/ImageModels";
+import { DEFAULT_IMAGE_MODEL } from "../types/Models";
 import {
 	NARRATOR_PERSONALITY_ID,
 	createPersonalityMarkerMessage,
@@ -482,7 +483,7 @@ function getPendingOriginModel(settings: ReturnType<typeof settingsService.getSe
 	}
 
 	if (isImageModeActive()) {
-		return settings.imageModel || "imagen-4.0-ultra-generate-001";
+		return settings.imageModel || DEFAULT_IMAGE_MODEL;
 	}
 
 	return settings.model;
@@ -511,8 +512,8 @@ function buildMessageDebugInfo(args: {
 	const modeSettings =
 		args.mode === "image_generation"
 			? {
-					requestModel: args.settings.imageModel || "imagen-4.0-ultra-generate-001",
-					imageModel: args.settings.imageModel || "imagen-4.0-ultra-generate-001"
+					requestModel: args.settings.imageModel || DEFAULT_IMAGE_MODEL,
+					imageModel: args.settings.imageModel || DEFAULT_IMAGE_MODEL
 				}
 			: args.mode === "image_editing"
 				? {
@@ -2443,7 +2444,7 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 const IMAGE_GENERATION_SLUG = "handle-max-request-x";
 
 async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | undefined> {
-	const imageGenerationModel = ctx.settings.imageModel || "imagen-4.0-ultra-generate-001";
+	const imageGenerationModel = ctx.settings.imageModel || DEFAULT_IMAGE_MODEL;
 	const payload = {
 		model: imageGenerationModel,
 		prompt: ctx.msg,

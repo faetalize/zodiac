@@ -2,7 +2,7 @@ import type { Content } from "@google/genai";
 import { HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
 import type { User } from "../types/User";
-import { getDefaultChatModel, getValidChatModel } from "../types/Models";
+import { DEFAULT_IMAGE_MODEL, getDefaultChatModel, getValidChatModel } from "../types/Models";
 import * as syncService from "./Sync.service";
 import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
 import { dispatchAppEvent, dispatchEmptyAppEvent } from "../events";
@@ -361,8 +361,7 @@ export function loadSettings() {
 		maxTokensInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
 		temperatureInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
 		modelSelect.value = getSelectedOrFallbackModel();
-		imageModelSelect.value =
-			localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || "imagen-4.0-ultra-generate-001";
+		imageModelSelect.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || DEFAULT_IMAGE_MODEL;
 		imageEditModelSelector.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) || "qwen";
 		roleplaySuggestionModelSelect.value =
 			localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) || modelSelect.value;
