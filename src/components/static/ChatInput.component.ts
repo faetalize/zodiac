@@ -15,7 +15,7 @@ import * as settingsService from "../../services/Settings.service";
 import * as chatsService from "../../services/Chats.service";
 import { getSelectedEditingModel } from "./ImageEditModelSelector.component";
 import { updateImageCreditsLabelVisibility } from "./ImageCreditsLabel.component";
-import { MODEL_IMAGE_LIMITS } from "../../constants/ImageModels";
+import { getImageModelDefinition } from "../../types/Models";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 import { openCustomerPortal } from "../../services/Supabase.service";
 import type { SubscriptionTier } from "../../types/Supabase";
@@ -1469,7 +1469,7 @@ function addAttachments(rawFiles: File[]): void {
 		let finalAdded = added;
 		if (isImageEditingModeActive) {
 			const editingModel = getSelectedEditingModel();
-			const maxImages = MODEL_IMAGE_LIMITS[editingModel];
+			const maxImages = getImageModelDefinition(editingModel)?.maxInputImages;
 			if (maxImages) {
 				const currentImageCount = attachmentState.filter((f) => f.type.startsWith("image/")).length;
 				const newImageFiles = added.filter((f) => f.type.startsWith("image/"));
@@ -1688,7 +1688,7 @@ function clearHistoryPreview(): void {
 
 function enforceImageLimitForModel(): void {
 	const editingModel = getSelectedEditingModel();
-	const maxImages = MODEL_IMAGE_LIMITS[editingModel];
+	const maxImages = getImageModelDefinition(editingModel)?.maxInputImages;
 	if (!maxImages) return;
 
 	const imageFiles = attachmentState.filter((file) => file.type.startsWith("image/"));

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	BaseModel,
 	DEFAULT_IMAGE_EDIT_MODEL,
 	DEFAULT_IMAGE_MODEL,
 	DEFAULT_OPENROUTER_TITLE_MODEL,
@@ -58,6 +59,17 @@ describe("image model definitions", () => {
 		for (const modelId of [ImageModelId.QWEN, ImageModelId.SEEDREAM, ImageModelId.PRUNA]) {
 			expect(getImageModelDefinition(modelId)?.promptType).toBe(ImagePromptType.SEMANTIC);
 		}
+	});
+
+	it("stores base-model compatibility independently from selectable model IDs", () => {
+		expect(getImageModelDefinition(ImageModelId.ILLUSTRIOUS)?.baseModel).toBe(BaseModel.ILLUSTRIOUS);
+		expect(getImageModelDefinition(ImageModelId.BLXL)?.baseModel).toBe(BaseModel.SDXL);
+	});
+
+	it("stores editing input image limits in image model metadata", () => {
+		expect(getImageModelDefinition(ImageModelId.QWEN)?.maxInputImages).toBe(3);
+		expect(getImageModelDefinition(ImageModelId.SEEDREAM)?.maxInputImages).toBe(5);
+		expect(getImageModelDefinition(ImageModelId.PRUNA)?.maxInputImages).toBe(5);
 	});
 });
 

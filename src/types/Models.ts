@@ -43,6 +43,11 @@ export enum ImagePromptType {
 	SEMANTIC = "SEMANTIC"
 }
 
+export enum BaseModel {
+	SDXL = "sdxl",
+	ILLUSTRIOUS = "illustrious"
+}
+
 export interface ImageModelDefinition {
 	id: ImageModelId;
 	label: string;
@@ -50,6 +55,8 @@ export interface ImageModelDefinition {
 	generation: boolean;
 	editing: boolean;
 	promptType: ImagePromptType;
+	baseModel?: BaseModel;
+	maxInputImages?: number;
 }
 
 export const IMAGE_MODELS: ImageModelDefinition[] = [
@@ -59,7 +66,8 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		providers: [ImageModelProvider.EDGE],
 		generation: true,
 		editing: false,
-		promptType: ImagePromptType.TAG
+		promptType: ImagePromptType.TAG,
+		baseModel: BaseModel.ILLUSTRIOUS
 	},
 	{
 		id: ImageModelId.BLXL,
@@ -67,7 +75,8 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		providers: [ImageModelProvider.EDGE],
 		generation: true,
 		editing: false,
-		promptType: ImagePromptType.TAG
+		promptType: ImagePromptType.TAG,
+		baseModel: BaseModel.SDXL
 	},
 	{
 		id: ImageModelId.QWEN,
@@ -75,7 +84,8 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		providers: [ImageModelProvider.EDGE],
 		generation: false,
 		editing: true,
-		promptType: ImagePromptType.SEMANTIC
+		promptType: ImagePromptType.SEMANTIC,
+		maxInputImages: 3
 	},
 	{
 		id: ImageModelId.SEEDREAM,
@@ -83,7 +93,8 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		providers: [ImageModelProvider.EDGE],
 		generation: false,
 		editing: true,
-		promptType: ImagePromptType.SEMANTIC
+		promptType: ImagePromptType.SEMANTIC,
+		maxInputImages: 5
 	},
 	{
 		id: ImageModelId.PRUNA,
@@ -91,7 +102,8 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		providers: [ImageModelProvider.EDGE],
 		generation: false,
 		editing: true,
-		promptType: ImagePromptType.SEMANTIC
+		promptType: ImagePromptType.SEMANTIC,
+		maxInputImages: 5
 	}
 ];
 
