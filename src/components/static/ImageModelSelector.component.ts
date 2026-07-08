@@ -1,4 +1,4 @@
-import { ImageModel } from "../../types/Models";
+import { IMAGE_MODELS } from "../../types/Models";
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 
 const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel");
@@ -27,20 +27,11 @@ async function updateImageModelSelectorState() {
 	}
 
 	// Ensure all model options are always present
-	Object.values(ImageModel).forEach((modelValue) => {
-		if (!Array.from(imageModelSelector.options).some((opt) => opt.value === modelValue)) {
+	IMAGE_MODELS.filter((model) => model.generation).forEach((model) => {
+		if (!Array.from(imageModelSelector.options).some((opt) => opt.value === model.id)) {
 			const option = document.createElement("option");
-			option.value = modelValue;
-			option.text = ((imageModelCodename: ImageModel): string => {
-				switch (imageModelCodename) {
-					case ImageModel.ILLUSTRIOUS:
-						return "Illustrious (Anime)";
-					case ImageModel.BLXL:
-						return "BLXL (Realism)";
-					default:
-						return "Undefined";
-				}
-			})(modelValue);
+			option.value = model.id;
+			option.text = model.label;
 			imageModelSelector.add(option);
 		}
 	});

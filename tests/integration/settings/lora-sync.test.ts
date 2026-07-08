@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SETTINGS_STORAGE_KEYS } from "../../../src/constants/SettingsStorageKeys";
-import { ImageModel } from "../../../src/types/Models";
+import { ImageModelId } from "../../../src/types/Models";
 import type { LoRAInfo } from "../../../src/types/Lora";
 
 const syncServiceMock = vi.hoisted(() => ({
@@ -22,7 +22,7 @@ vi.mock("../../../src/services/Supabase.service", () => ({
 }));
 
 const loraFixture: LoRAInfo = {
-	baseModel: ImageModel.ILLUSTRIOUS,
+	baseModel: ImageModelId.ILLUSTRIOUS,
 	name: "Test LoRA",
 	trainedWords: ["test"],
 	modelVersionId: "123",

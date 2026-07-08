@@ -79,7 +79,7 @@ let attachmentState: File[] = Array.from(attachmentsInput.files || []);
 let isInternetSearchEnabled = false;
 let dragDepth = 0;
 let currentHistoryImagePreview: HTMLElement | null = null;
-let isImageEditingActive = false;
+let isImageEditingModeActive = false;
 let isComposerAllowanceBlocked = false;
 let composerAllowanceBlockTitle = "Request unavailable";
 let composerAllowanceBlockText = "This request is currently unavailable.";
@@ -1325,9 +1325,9 @@ window.addEventListener(
 	"image-editing-toggled",
 	(event: any) =>
 		void (async () => {
-			isImageEditingActive = event.detail.enabled;
+			isImageEditingModeActive = event.detail.enabled;
 
-			if (!isImageEditingActive) {
+			if (!isImageEditingModeActive) {
 				// Clear history preview when editing is disabled
 				clearHistoryPreview();
 			} else {
@@ -1350,7 +1350,7 @@ window.addEventListener(
 	() =>
 		void (async () => {
 			// Hide history preview when attachments are added
-			if (isImageEditingActive) {
+			if (isImageEditingModeActive) {
 				clearHistoryPreview();
 				enforceImageLimitForModel();
 			}
@@ -1405,7 +1405,7 @@ window.addEventListener("attach-image-from-chat", (event: any) => {
 
 // Listen for edit model changes (model-specific image limit)
 window.addEventListener("edit-model-changed", () => {
-	if (isImageEditingActive) {
+	if (isImageEditingModeActive) {
 		enforceImageLimitForModel();
 	}
 });
@@ -1467,7 +1467,7 @@ function addAttachments(rawFiles: File[]): void {
 
 	if (added.length > 0) {
 		let finalAdded = added;
-		if (isImageEditingActive) {
+		if (isImageEditingModeActive) {
 			const editingModel = getSelectedEditingModel();
 			const maxImages = MODEL_IMAGE_LIMITS[editingModel];
 			if (maxImages) {

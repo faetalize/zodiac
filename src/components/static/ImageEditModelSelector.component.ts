@@ -1,5 +1,6 @@
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 import { dispatchAppEvent, onAppEvent } from "../../events";
+import { DEFAULT_IMAGE_EDIT_MODEL, ImageModelId, getImageModelDefinition } from "../../types/Models";
 
 const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel");
 if (!imageEditModelSelector) {
@@ -62,6 +63,11 @@ onAppEvent("subscription-updated", () => {
 /**
  * Get the currently selected image editing model
  */
-export function getSelectedEditingModel(): string {
-	return imageEditModelSelector?.value || "seedream";
+export function getSelectedEditingModel(): ImageModelId {
+	const selectedModel = imageEditModelSelector?.value;
+	if (getImageModelDefinition(selectedModel)?.editing) {
+		return selectedModel as ImageModelId;
+	}
+
+	return DEFAULT_IMAGE_EDIT_MODEL;
 }
