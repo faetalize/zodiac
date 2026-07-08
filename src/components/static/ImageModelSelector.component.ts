@@ -1,5 +1,4 @@
-import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../../constants/ImageModels";
-import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
+import { IMAGE_MODELS } from "../../constants/ImageModels";
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 
 const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel")!;
@@ -9,24 +8,11 @@ if (!imageModelSelector) {
 }
 
 function populateImageModelOptions(): void {
-	const generationModels = IMAGE_MODELS.filter((model) => model.generation);
-	const currentValue =
-		imageModelSelector.value || localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || DEFAULT_IMAGE_MODEL;
-
-	imageModelSelector.replaceChildren();
-
-	for (const model of generationModels) {
+	for (const model of IMAGE_MODELS.filter((candidate) => candidate.generation)) {
 		const option = document.createElement("option");
 		option.value = model.id;
 		option.textContent = model.label;
 		imageModelSelector.append(option);
-	}
-
-	imageModelSelector.value = generationModels.some((model) => model.id === currentValue)
-		? currentValue
-		: (generationModels[0]?.id ?? DEFAULT_IMAGE_MODEL);
-	if (imageModelSelector.value !== currentValue) {
-		imageModelSelector.dispatchEvent(new Event("change", { bubbles: true }));
 	}
 }
 

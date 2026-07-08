@@ -1,7 +1,6 @@
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 import { dispatchAppEvent, onAppEvent } from "../../events";
 import { DEFAULT_IMAGE_EDIT_MODEL, IMAGE_MODELS } from "../../constants/ImageModels";
-import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 import type { ImageModelId } from "../../types/Models";
 
 const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel")!;
@@ -11,26 +10,11 @@ if (!imageEditModelSelector) {
 }
 
 function populateImageEditModelOptions(): void {
-	const editingModels = IMAGE_MODELS.filter((model) => model.editing);
-	const currentValue =
-		imageEditModelSelector.value ||
-		localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) ||
-		DEFAULT_IMAGE_EDIT_MODEL;
-
-	imageEditModelSelector.replaceChildren();
-
-	for (const model of editingModels) {
+	for (const model of IMAGE_MODELS.filter((candidate) => candidate.editing)) {
 		const option = document.createElement("option");
 		option.value = model.id;
 		option.textContent = model.label;
 		imageEditModelSelector.append(option);
-	}
-
-	imageEditModelSelector.value = editingModels.some((model) => model.id === currentValue)
-		? currentValue
-		: (editingModels[0]?.id ?? DEFAULT_IMAGE_EDIT_MODEL);
-	if (imageEditModelSelector.value !== currentValue) {
-		imageEditModelSelector.dispatchEvent(new Event("change", { bubbles: true }));
 	}
 }
 
