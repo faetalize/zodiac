@@ -56,8 +56,3 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 
 export const DEFAULT_IMAGE_MODEL = ImageModelId.ILLUSTRIOUS;
 export const DEFAULT_IMAGE_EDIT_MODEL = ImageModelId.QWEN;
-
-export function getImageModelDefinition(modelId: string | null | undefined): ImageModelDefinition | undefined {
-	if (!modelId) return undefined;
-	return IMAGE_MODELS.find((definition) => definition.id === modelId);
-}

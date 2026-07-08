@@ -62,7 +62,7 @@ import { getSelectedEditingModel } from "../components/static/ImageEditModelSele
 
 import { isAbortError, throwAbortError } from "../utils/abort";
 import { dispatchAppEvent } from "../events";
-import { DEFAULT_IMAGE_MODEL, getImageModelDefinition } from "../constants/ImageModels";
+import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../constants/ImageModels";
 import {
 	NARRATOR_PERSONALITY_ID,
 	createPersonalityMarkerMessage,
@@ -2579,7 +2579,7 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
 
 	const editingModel = getSelectedEditingModel();
 
-	const maxImages = getImageModelDefinition(editingModel)?.maxInputImages;
+	const maxImages = IMAGE_MODELS.find((model) => model.id === editingModel)?.maxInputImages;
 	if (maxImages && imagesToEdit.length > maxImages) {
 		const modelName = editingModel.charAt(0).toUpperCase() + editingModel.slice(1);
 		warn({

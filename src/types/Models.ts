@@ -1,4 +1,4 @@
-import { getImageModelDefinition } from "../constants/ImageModels";
+import { IMAGE_MODELS } from "../constants/ImageModels";
 
 export { BaseModel, ImageModelId, ImageModelProvider, ImagePromptType, type ImageModelDefinition } from "./ImageModels";
 
@@ -630,7 +630,7 @@ export function formatOriginModelLabel(originModel: string | null | undefined): 
 		return formatChatModelLabel(chatDefinition);
 	}
 
-	return getImageModelDefinition(originModel)?.label ?? originModel;
+	return IMAGE_MODELS.find((model) => model.id === originModel)?.label ?? originModel;
 }
 
 export function getDefaultChatModel(access: ChatModelAccess): string {

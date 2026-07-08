@@ -1,50 +1,42 @@
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 import { dispatchAppEvent, onAppEvent } from "../../events";
-import { DEFAULT_IMAGE_EDIT_MODEL, IMAGE_MODELS, getImageModelDefinition } from "../../constants/ImageModels";
+import { DEFAULT_IMAGE_EDIT_MODEL, IMAGE_MODELS } from "../../constants/ImageModels";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 import type { ImageModelId } from "../../types/Models";
 
-const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel");
+const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel")!;
 if (!imageEditModelSelector) {
 	console.error("Image edit model selector component initialization failed");
 	throw new Error("Missing DOM element: #selectedImageEditingModel");
 }
 
-const ensuredImageEditModelSelector = imageEditModelSelector;
-
-function getFallbackImageEditModel(currentValue: string | null | undefined): string {
-	const editingModels = IMAGE_MODELS.filter((model) => model.editing);
-	if (editingModels.some((model) => model.id === currentValue)) {
-		return currentValue as string;
-	}
-
-	return editingModels[0]?.id ?? DEFAULT_IMAGE_EDIT_MODEL;
-}
-
 function populateImageEditModelOptions(): void {
+	const editingModels = IMAGE_MODELS.filter((model) => model.editing);
 	const currentValue =
-		ensuredImageEditModelSelector.value ||
+		imageEditModelSelector.value ||
 		localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) ||
 		DEFAULT_IMAGE_EDIT_MODEL;
 
-	ensuredImageEditModelSelector.replaceChildren();
+	imageEditModelSelector.replaceChildren();
 
-	for (const model of IMAGE_MODELS.filter((candidate) => candidate.editing)) {
+	for (const model of editingModels) {
 		const option = document.createElement("option");
 		option.value = model.id;
 		option.textContent = model.label;
-		ensuredImageEditModelSelector.append(option);
+		imageEditModelSelector.append(option);
 	}
 
-	ensuredImageEditModelSelector.value = getFallbackImageEditModel(currentValue);
-	if (ensuredImageEditModelSelector.value !== currentValue) {
-		ensuredImageEditModelSelector.dispatchEvent(new Event("change", { bubbles: true }));
+	imageEditModelSelector.value = editingModels.some((model) => model.id === currentValue)
+		? currentValue
+		: (editingModels[0]?.id ?? DEFAULT_IMAGE_EDIT_MODEL);
+	if (imageEditModelSelector.value !== currentValue) {
+		imageEditModelSelector.dispatchEvent(new Event("change", { bubbles: true }));
 	}
 }
 
 // Dispatch event when model changes
-ensuredImageEditModelSelector.addEventListener("change", () => {
-	dispatchAppEvent("edit-model-changed", { model: ensuredImageEditModelSelector.value });
+imageEditModelSelector.addEventListener("change", () => {
+	dispatchAppEvent("edit-model-changed", { model: imageEditModelSelector.value });
 });
 
 async function updateImageEditModelSelectorState() {
@@ -52,15 +44,15 @@ async function updateImageEditModelSelectorState() {
 
 	// Image edit model selector is always enabled when image generation is available
 	if (imageGenStatus.enabled) {
-		ensuredImageEditModelSelector.disabled = false;
-		ensuredImageEditModelSelector.style.opacity = "1";
-		ensuredImageEditModelSelector.style.cursor = "initial";
-		ensuredImageEditModelSelector.title = "";
+		imageEditModelSelector.disabled = false;
+		imageEditModelSelector.style.opacity = "1";
+		imageEditModelSelector.style.cursor = "initial";
+		imageEditModelSelector.title = "";
 	} else {
-		ensuredImageEditModelSelector.disabled = true;
-		ensuredImageEditModelSelector.style.opacity = "0.6";
-		ensuredImageEditModelSelector.style.cursor = "not-allowed";
-		ensuredImageEditModelSelector.title = "Image editing not available";
+		imageEditModelSelector.disabled = true;
+		imageEditModelSelector.style.opacity = "0.6";
+		imageEditModelSelector.style.cursor = "not-allowed";
+		imageEditModelSelector.title = "Image editing not available";
 	}
 }
 
@@ -80,8 +72,8 @@ onAppEvent("subscription-updated", () => {
  * Get the currently selected image editing model
  */
 export function getSelectedEditingModel(): ImageModelId {
-	const selectedModel = ensuredImageEditModelSelector.value;
-	if (getImageModelDefinition(selectedModel)?.editing) {
+	const selectedModel = imageEditModelSelector.value;
+	if (IMAGE_MODELS.some((model) => model.id === selectedModel && model.editing)) {
 		return selectedModel as ImageModelId;
 	}
 

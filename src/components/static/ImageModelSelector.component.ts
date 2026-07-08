@@ -2,41 +2,31 @@ import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../../constants/ImageModels";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 
-const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel");
+const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel")!;
 if (!imageModelSelector) {
 	console.error("Image model selector component initialization failed");
 	throw new Error("Missing DOM element: #selectedImageModel");
 }
 
-const ensuredImageModelSelector = imageModelSelector;
-
-function getFallbackImageModel(currentValue: string | null | undefined): string {
-	const generationModels = IMAGE_MODELS.filter((model) => model.generation);
-	if (generationModels.some((model) => model.id === currentValue)) {
-		return currentValue as string;
-	}
-
-	return generationModels[0]?.id ?? DEFAULT_IMAGE_MODEL;
-}
-
 function populateImageModelOptions(): void {
+	const generationModels = IMAGE_MODELS.filter((model) => model.generation);
 	const currentValue =
-		ensuredImageModelSelector.value ||
-		localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) ||
-		DEFAULT_IMAGE_MODEL;
+		imageModelSelector.value || localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || DEFAULT_IMAGE_MODEL;
 
-	ensuredImageModelSelector.replaceChildren();
+	imageModelSelector.replaceChildren();
 
-	for (const model of IMAGE_MODELS.filter((candidate) => candidate.generation)) {
+	for (const model of generationModels) {
 		const option = document.createElement("option");
 		option.value = model.id;
 		option.textContent = model.label;
-		ensuredImageModelSelector.append(option);
+		imageModelSelector.append(option);
 	}
 
-	ensuredImageModelSelector.value = getFallbackImageModel(currentValue);
-	if (ensuredImageModelSelector.value !== currentValue) {
-		ensuredImageModelSelector.dispatchEvent(new Event("change", { bubbles: true }));
+	imageModelSelector.value = generationModels.some((model) => model.id === currentValue)
+		? currentValue
+		: (generationModels[0]?.id ?? DEFAULT_IMAGE_MODEL);
+	if (imageModelSelector.value !== currentValue) {
+		imageModelSelector.dispatchEvent(new Event("change", { bubbles: true }));
 	}
 }
 
@@ -45,17 +35,17 @@ async function updateImageModelSelectorState() {
 	const { enabled: isAvailable } = await isImageGenerationAvailable();
 
 	// Enable/disable the selector based on availability
-	ensuredImageModelSelector.disabled = !isAvailable;
+	imageModelSelector.disabled = !isAvailable;
 
 	// Add visual indication when disabled
 	if (isAvailable) {
-		ensuredImageModelSelector.style.opacity = "1";
-		ensuredImageModelSelector.style.cursor = "pointer";
-		ensuredImageModelSelector.title = "";
+		imageModelSelector.style.opacity = "1";
+		imageModelSelector.style.cursor = "pointer";
+		imageModelSelector.title = "";
 	} else {
-		ensuredImageModelSelector.style.opacity = "0.6";
-		ensuredImageModelSelector.style.cursor = "not-allowed";
-		ensuredImageModelSelector.title = "Image generation not available with current settings";
+		imageModelSelector.style.opacity = "0.6";
+		imageModelSelector.style.cursor = "not-allowed";
+		imageModelSelector.title = "Image generation not available with current settings";
 	}
 }
 

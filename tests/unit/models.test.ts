@@ -14,12 +14,7 @@ import {
 	modelRequiresThinking,
 	type ChatModelAccess
 } from "../../src/types/Models";
-import {
-	DEFAULT_IMAGE_EDIT_MODEL,
-	DEFAULT_IMAGE_MODEL,
-	IMAGE_MODELS,
-	getImageModelDefinition
-} from "../../src/constants/ImageModels";
+import { DEFAULT_IMAGE_EDIT_MODEL, DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../../src/constants/ImageModels";
 
 describe("default model roles", () => {
 	it("uses GLM 5 for local OpenRouter chat title generation", () => {
@@ -44,8 +39,8 @@ describe("image model definitions", () => {
 	});
 
 	it("keeps image defaults pointed at valid model capabilities", () => {
-		expect(getImageModelDefinition(DEFAULT_IMAGE_MODEL)?.generation).toBe(true);
-		expect(getImageModelDefinition(DEFAULT_IMAGE_EDIT_MODEL)?.editing).toBe(true);
+		expect(IMAGE_MODELS.find((model) => model.id === DEFAULT_IMAGE_MODEL)?.generation).toBe(true);
+		expect(IMAGE_MODELS.find((model) => model.id === DEFAULT_IMAGE_EDIT_MODEL)?.editing).toBe(true);
 	});
 
 	it("records edge provider support for current image models", () => {
@@ -55,23 +50,27 @@ describe("image model definitions", () => {
 	});
 
 	it("stores prompt type per image model", () => {
-		expect(getImageModelDefinition(ImageModelId.ILLUSTRIOUS)?.promptType).toBe(ImagePromptType.TAG);
-		expect(getImageModelDefinition(ImageModelId.BLXL)?.promptType).toBe(ImagePromptType.TAG);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.ILLUSTRIOUS)?.promptType).toBe(
+			ImagePromptType.TAG
+		);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.BLXL)?.promptType).toBe(ImagePromptType.TAG);
 
 		for (const modelId of [ImageModelId.QWEN, ImageModelId.SEEDREAM, ImageModelId.PRUNA]) {
-			expect(getImageModelDefinition(modelId)?.promptType).toBe(ImagePromptType.SEMANTIC);
+			expect(IMAGE_MODELS.find((model) => model.id === modelId)?.promptType).toBe(ImagePromptType.SEMANTIC);
 		}
 	});
 
 	it("stores base-model compatibility independently from selectable model IDs", () => {
-		expect(getImageModelDefinition(ImageModelId.ILLUSTRIOUS)?.baseModel).toBe(BaseModel.ILLUSTRIOUS);
-		expect(getImageModelDefinition(ImageModelId.BLXL)?.baseModel).toBe(BaseModel.SDXL);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.ILLUSTRIOUS)?.baseModel).toBe(
+			BaseModel.ILLUSTRIOUS
+		);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.BLXL)?.baseModel).toBe(BaseModel.SDXL);
 	});
 
 	it("stores editing input image limits in image model metadata", () => {
-		expect(getImageModelDefinition(ImageModelId.QWEN)?.maxInputImages).toBe(3);
-		expect(getImageModelDefinition(ImageModelId.SEEDREAM)?.maxInputImages).toBe(5);
-		expect(getImageModelDefinition(ImageModelId.PRUNA)?.maxInputImages).toBe(5);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN)?.maxInputImages).toBe(3);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM)?.maxInputImages).toBe(5);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.PRUNA)?.maxInputImages).toBe(5);
 	});
 });
 

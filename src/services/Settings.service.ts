@@ -109,22 +109,6 @@ function getSelectedOrFallbackModel(): string {
 	return optionValues[0] || getDefaultChatModel(access);
 }
 
-function getValidImageModel(stored: string | null): string {
-	if (stored && IMAGE_MODELS.some((model) => model.id === stored && model.generation)) {
-		return stored;
-	}
-
-	return DEFAULT_IMAGE_MODEL;
-}
-
-function getValidImageEditModel(stored: string | null): string {
-	if (stored && IMAGE_MODELS.some((model) => model.id === stored && model.editing)) {
-		return stored;
-	}
-
-	return DEFAULT_IMAGE_EDIT_MODEL;
-}
-
 function getStoredUiScale(): number {
 	const stored = Number(localStorage.getItem(SETTINGS_STORAGE_KEYS.UI_SCALE));
 	return UI_SCALE_VALUES.includes(stored as (typeof UI_SCALE_VALUES)[number]) ? stored : DEFAULT_UI_SCALE;
@@ -378,8 +362,16 @@ export function loadSettings() {
 		maxTokensInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
 		temperatureInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
 		modelSelect.value = getSelectedOrFallbackModel();
-		const imageModel = getValidImageModel(localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL));
-		const imageEditModel = getValidImageEditModel(localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL));
+		const storedImageModel = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL);
+		const storedImageEditModel = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL);
+		const imageModel =
+			storedImageModel && IMAGE_MODELS.some((model) => model.id === storedImageModel && model.generation)
+				? storedImageModel
+				: DEFAULT_IMAGE_MODEL;
+		const imageEditModel =
+			storedImageEditModel && IMAGE_MODELS.some((model) => model.id === storedImageEditModel && model.editing)
+				? storedImageEditModel
+				: DEFAULT_IMAGE_EDIT_MODEL;
 		imageModelSelect.value = imageModel;
 		imageEditModelSelector.value = imageEditModel;
 		localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL, imageModel);

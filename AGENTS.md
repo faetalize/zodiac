@@ -102,6 +102,12 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 
 ## Conventions
 
+### Abstraction Style
+
+- Do not add getter/helper functions around simple exported arrays, constants, or direct property access. Prefer filtering, finding, and reading exported data directly at the call site when the backing logic is simple.
+- Only introduce service-style getters when there is real backing complexity: async state, caching, persistence, authorization, normalization shared across many call sites, or a non-trivial source that benefits from an explicit boundary.
+- Example: prefer `IMAGE_MODELS.find((model) => model.id === selectedModel)?.maxInputImages` over a `getImageModelDefinition(selectedModel)` wrapper when `IMAGE_MODELS` is just an exported array.
+
 ### Component Pattern
 
 Static components query DOM elements at module load and throw if missing:
