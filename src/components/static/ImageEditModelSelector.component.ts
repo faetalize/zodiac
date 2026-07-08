@@ -1,6 +1,7 @@
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 import { dispatchAppEvent, onAppEvent } from "../../events";
-import { DEFAULT_IMAGE_EDIT_MODEL, ImageModelId, getImageModelDefinition } from "../../types/Models";
+import { DEFAULT_IMAGE_EDIT_MODEL, getImageModelDefinition } from "../../types/Models";
+import type { ImageModelId } from "../../types/Models";
 
 const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel");
 if (!imageEditModelSelector) {
