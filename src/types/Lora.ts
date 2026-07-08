@@ -1,10 +1,10 @@
-import type { ImageModel } from "./Models";
+import type { BaseModel } from "./Models";
 import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
 
 export const LORA_STORAGE_KEY = SETTINGS_STORAGE_KEYS.LORAS;
 
 export interface LoRAInfo {
-	baseModel: ImageModel;
+	baseModel: BaseModel;
 	name: string;
 	trainedWords: string[];
 	modelVersionId: string;
