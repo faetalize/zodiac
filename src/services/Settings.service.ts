@@ -2,7 +2,8 @@ import type { Content } from "@google/genai";
 import { HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
 import type { User } from "../types/User";
-import { DEFAULT_IMAGE_EDIT_MODEL, DEFAULT_IMAGE_MODEL, getDefaultChatModel, getValidChatModel } from "../types/Models";
+import { getDefaultChatModel, getValidChatModel } from "../types/Models";
+import { DEFAULT_IMAGE_EDIT_MODEL, DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../constants/ImageModels";
 import * as syncService from "./Sync.service";
 import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
 import { dispatchAppEvent, dispatchEmptyAppEvent } from "../events";
@@ -106,6 +107,22 @@ function getSelectedOrFallbackModel(): string {
 	}
 
 	return optionValues[0] || getDefaultChatModel(access);
+}
+
+function getValidImageModel(stored: string | null): string {
+	if (stored && IMAGE_MODELS.some((model) => model.id === stored && model.generation)) {
+		return stored;
+	}
+
+	return DEFAULT_IMAGE_MODEL;
+}
+
+function getValidImageEditModel(stored: string | null): string {
+	if (stored && IMAGE_MODELS.some((model) => model.id === stored && model.editing)) {
+		return stored;
+	}
+
+	return DEFAULT_IMAGE_EDIT_MODEL;
 }
 
 function getStoredUiScale(): number {
@@ -361,9 +378,12 @@ export function loadSettings() {
 		maxTokensInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.MAX_TOKENS) || "1000";
 		temperatureInput.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.TEMPERATURE) || "60";
 		modelSelect.value = getSelectedOrFallbackModel();
-		imageModelSelect.value = localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) || DEFAULT_IMAGE_MODEL;
-		imageEditModelSelector.value =
-			localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL) || DEFAULT_IMAGE_EDIT_MODEL;
+		const imageModel = getValidImageModel(localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL));
+		const imageEditModel = getValidImageEditModel(localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL));
+		imageModelSelect.value = imageModel;
+		imageEditModelSelector.value = imageEditModel;
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL, imageModel);
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL, imageEditModel);
 		roleplaySuggestionModelSelect.value =
 			localStorage.getItem(SETTINGS_STORAGE_KEYS.ROLEPLAY_SUGGESTION_MODEL) || modelSelect.value;
 		autoscrollToggle.checked = localStorage.getItem(SETTINGS_STORAGE_KEYS.AUTOSCROLL)

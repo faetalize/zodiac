@@ -2,22 +2,24 @@ import { describe, expect, it } from "vitest";
 
 import {
 	BaseModel,
-	DEFAULT_IMAGE_EDIT_MODEL,
-	DEFAULT_IMAGE_MODEL,
 	DEFAULT_OPENROUTER_TITLE_MODEL,
-	IMAGE_MODELS,
 	ImageModelId,
 	ImageModelProvider,
 	ImagePromptType,
 	getAccessibleRoleplaySuggestionModels,
 	getChatModelDefinition,
-	getImageModelDefinition,
 	getPremiumEndpointChatModel,
 	getValidChatModel,
 	getValidRoleplaySuggestionModel,
 	modelRequiresThinking,
 	type ChatModelAccess
 } from "../../src/types/Models";
+import {
+	DEFAULT_IMAGE_EDIT_MODEL,
+	DEFAULT_IMAGE_MODEL,
+	IMAGE_MODELS,
+	getImageModelDefinition
+} from "../../src/constants/ImageModels";
 
 describe("default model roles", () => {
 	it("uses GLM 5 for local OpenRouter chat title generation", () => {

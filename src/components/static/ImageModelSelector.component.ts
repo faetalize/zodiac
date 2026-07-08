@@ -1,4 +1,5 @@
-import { IMAGE_MODELS } from "../../types/Models";
+import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../../constants/ImageModels";
+import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 
 const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel");
@@ -7,35 +8,58 @@ if (!imageModelSelector) {
 	throw new Error("Missing DOM element: #selectedImageModel");
 }
 
+const ensuredImageModelSelector = imageModelSelector;
+
+function getFallbackImageModel(currentValue: string | null | undefined): string {
+	const generationModels = IMAGE_MODELS.filter((model) => model.generation);
+	if (generationModels.some((model) => model.id === currentValue)) {
+		return currentValue as string;
+	}
+
+	return generationModels[0]?.id ?? DEFAULT_IMAGE_MODEL;
+}
+
+function populateImageModelOptions(): void {
+	const currentValue =
+		ensuredImageModelSelector.value ||
+		localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL) ||
+		DEFAULT_IMAGE_MODEL;
+
+	ensuredImageModelSelector.replaceChildren();
+
+	for (const model of IMAGE_MODELS.filter((candidate) => candidate.generation)) {
+		const option = document.createElement("option");
+		option.value = model.id;
+		option.textContent = model.label;
+		ensuredImageModelSelector.append(option);
+	}
+
+	ensuredImageModelSelector.value = getFallbackImageModel(currentValue);
+	if (ensuredImageModelSelector.value !== currentValue) {
+		ensuredImageModelSelector.dispatchEvent(new Event("change", { bubbles: true }));
+	}
+}
+
 async function updateImageModelSelectorState() {
-	if (!imageModelSelector) return;
 	// Check if image generation is available based on current user settings
 	const { enabled: isAvailable } = await isImageGenerationAvailable();
 
 	// Enable/disable the selector based on availability
-	imageModelSelector.disabled = !isAvailable;
+	ensuredImageModelSelector.disabled = !isAvailable;
 
 	// Add visual indication when disabled
 	if (isAvailable) {
-		imageModelSelector.style.opacity = "1";
-		imageModelSelector.style.cursor = "pointer";
-		imageModelSelector.title = "";
+		ensuredImageModelSelector.style.opacity = "1";
+		ensuredImageModelSelector.style.cursor = "pointer";
+		ensuredImageModelSelector.title = "";
 	} else {
-		imageModelSelector.style.opacity = "0.6";
-		imageModelSelector.style.cursor = "not-allowed";
-		imageModelSelector.title = "Image generation not available with current settings";
+		ensuredImageModelSelector.style.opacity = "0.6";
+		ensuredImageModelSelector.style.cursor = "not-allowed";
+		ensuredImageModelSelector.title = "Image generation not available with current settings";
 	}
-
-	// Ensure all model options are always present
-	IMAGE_MODELS.filter((model) => model.generation).forEach((model) => {
-		if (!Array.from(imageModelSelector.options).some((opt) => opt.value === model.id)) {
-			const option = document.createElement("option");
-			option.value = model.id;
-			option.text = model.label;
-			imageModelSelector.add(option);
-		}
-	});
 }
+
+populateImageModelOptions();
 
 // Update state on initialization
 void updateImageModelSelectorState();

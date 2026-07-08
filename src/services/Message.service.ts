@@ -62,7 +62,7 @@ import { getSelectedEditingModel } from "../components/static/ImageEditModelSele
 
 import { isAbortError, throwAbortError } from "../utils/abort";
 import { dispatchAppEvent } from "../events";
-import { DEFAULT_IMAGE_MODEL, getImageModelDefinition } from "../types/Models";
+import { DEFAULT_IMAGE_MODEL, getImageModelDefinition } from "../constants/ImageModels";
 import {
 	NARRATOR_PERSONALITY_ID,
 	createPersonalityMarkerMessage,

@@ -15,7 +15,7 @@ import * as settingsService from "../../services/Settings.service";
 import * as chatsService from "../../services/Chats.service";
 import { getSelectedEditingModel } from "./ImageEditModelSelector.component";
 import { updateImageCreditsLabelVisibility } from "./ImageCreditsLabel.component";
-import { getImageModelDefinition } from "../../types/Models";
+import { getImageModelDefinition } from "../../constants/ImageModels";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 import { openCustomerPortal } from "../../services/Supabase.service";
 import type { SubscriptionTier } from "../../types/Supabase";
