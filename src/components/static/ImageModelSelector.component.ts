@@ -1,14 +1,22 @@
-import { IMAGE_MODELS } from "../../types/Models";
+import { IMAGE_MODELS } from "../../constants/ImageModels";
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 
-const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel");
+const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel")!;
 if (!imageModelSelector) {
 	console.error("Image model selector component initialization failed");
 	throw new Error("Missing DOM element: #selectedImageModel");
 }
 
+function populateImageModelOptions(): void {
+	for (const model of IMAGE_MODELS.filter((candidate) => candidate.generation)) {
+		const option = document.createElement("option");
+		option.value = model.id;
+		option.textContent = model.label;
+		imageModelSelector.append(option);
+	}
+}
+
 async function updateImageModelSelectorState() {
-	if (!imageModelSelector) return;
 	// Check if image generation is available based on current user settings
 	const { enabled: isAvailable } = await isImageGenerationAvailable();
 
@@ -25,17 +33,9 @@ async function updateImageModelSelectorState() {
 		imageModelSelector.style.cursor = "not-allowed";
 		imageModelSelector.title = "Image generation not available with current settings";
 	}
-
-	// Ensure all model options are always present
-	IMAGE_MODELS.filter((model) => model.generation).forEach((model) => {
-		if (!Array.from(imageModelSelector.options).some((opt) => opt.value === model.id)) {
-			const option = document.createElement("option");
-			option.value = model.id;
-			option.text = model.label;
-			imageModelSelector.add(option);
-		}
-	});
 }
+
+populateImageModelOptions();
 
 // Update state on initialization
 void updateImageModelSelectorState();

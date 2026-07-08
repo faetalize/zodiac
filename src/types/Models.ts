@@ -1,3 +1,7 @@
+import { IMAGE_MODELS } from "../constants/ImageModels";
+
+export { BaseModel, ImageModelId, ImageModelProvider, ImagePromptType, type ImageModelDefinition } from "./ImageModels";
+
 export enum ChatModel {
 	PRO = "gemini-3.1-pro-preview",
 	FLASH = "gemini-3.5-flash",
@@ -23,92 +27,6 @@ const GEMINI_TO_OPENROUTER_CHAT_MODEL_IDS = new Map<string, string>([
 	[ChatModel.NANO_BANANA_PRO, "google/gemini-3-pro-image-preview"],
 	[ChatModel.NANO_BANANA_2, "google/gemini-3.1-flash-image-preview"]
 ]);
-
-export enum ImageModelId {
-	ILLUSTRIOUS = "illustrious",
-	BLXL = "biglust",
-	SEEDREAM = "seedream",
-	QWEN = "qwen",
-	PRUNA = "pruna"
-}
-
-export enum ImageModelProvider {
-	GOOGLE = "GOOGLE",
-	OPENROUTER = "OPENROUTER",
-	EDGE = "EDGE"
-}
-
-export enum ImagePromptType {
-	TAG = "TAG",
-	SEMANTIC = "SEMANTIC"
-}
-
-export enum BaseModel {
-	SDXL = "sdxl",
-	ILLUSTRIOUS = "illustrious"
-}
-
-export interface ImageModelDefinition {
-	id: ImageModelId;
-	label: string;
-	providers: ImageModelProvider[];
-	generation: boolean;
-	editing: boolean;
-	promptType: ImagePromptType;
-	baseModel?: BaseModel;
-	maxInputImages?: number;
-}
-
-export const IMAGE_MODELS: ImageModelDefinition[] = [
-	{
-		id: ImageModelId.ILLUSTRIOUS,
-		label: "Illustrious (Anime)",
-		providers: [ImageModelProvider.EDGE],
-		generation: true,
-		editing: false,
-		promptType: ImagePromptType.TAG,
-		baseModel: BaseModel.ILLUSTRIOUS
-	},
-	{
-		id: ImageModelId.BLXL,
-		label: "BLXL (Realism)",
-		providers: [ImageModelProvider.EDGE],
-		generation: true,
-		editing: false,
-		promptType: ImagePromptType.TAG,
-		baseModel: BaseModel.SDXL
-	},
-	{
-		id: ImageModelId.QWEN,
-		label: "Qwen Image Edit",
-		providers: [ImageModelProvider.EDGE],
-		generation: false,
-		editing: true,
-		promptType: ImagePromptType.SEMANTIC,
-		maxInputImages: 3
-	},
-	{
-		id: ImageModelId.SEEDREAM,
-		label: "Seedream 4.0 Edit",
-		providers: [ImageModelProvider.EDGE],
-		generation: false,
-		editing: true,
-		promptType: ImagePromptType.SEMANTIC,
-		maxInputImages: 5
-	},
-	{
-		id: ImageModelId.PRUNA,
-		label: "P-Image Edit",
-		providers: [ImageModelProvider.EDGE],
-		generation: false,
-		editing: true,
-		promptType: ImagePromptType.SEMANTIC,
-		maxInputImages: 5
-	}
-];
-
-export const DEFAULT_IMAGE_MODEL = ImageModelId.ILLUSTRIOUS;
-export const DEFAULT_IMAGE_EDIT_MODEL = ImageModelId.QWEN;
 
 export type ModelProvider = "gemini" | "openrouter";
 
@@ -704,11 +622,6 @@ export function getPremiumEndpointChatModel(model: string | null | undefined): s
 	return mappedModel;
 }
 
-export function getImageModelDefinition(modelId: string | null | undefined): ImageModelDefinition | undefined {
-	if (!modelId) return undefined;
-	return IMAGE_MODELS.find((definition) => definition.id === modelId);
-}
-
 export function formatOriginModelLabel(originModel: string | null | undefined): string {
 	if (!originModel) return "";
 
@@ -717,7 +630,7 @@ export function formatOriginModelLabel(originModel: string | null | undefined): 
 		return formatChatModelLabel(chatDefinition);
 	}
 
-	return getImageModelDefinition(originModel)?.label ?? originModel;
+	return IMAGE_MODELS.find((model) => model.id === originModel)?.label ?? originModel;
 }
 
 export function getDefaultChatModel(access: ChatModelAccess): string {

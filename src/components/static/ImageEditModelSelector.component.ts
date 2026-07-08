@@ -1,12 +1,21 @@
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
 import { dispatchAppEvent, onAppEvent } from "../../events";
-import { DEFAULT_IMAGE_EDIT_MODEL, getImageModelDefinition } from "../../types/Models";
+import { DEFAULT_IMAGE_EDIT_MODEL, IMAGE_MODELS } from "../../constants/ImageModels";
 import type { ImageModelId } from "../../types/Models";
 
-const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel");
+const imageEditModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageEditingModel")!;
 if (!imageEditModelSelector) {
 	console.error("Image edit model selector component initialization failed");
 	throw new Error("Missing DOM element: #selectedImageEditingModel");
+}
+
+function populateImageEditModelOptions(): void {
+	for (const model of IMAGE_MODELS.filter((candidate) => candidate.editing)) {
+		const option = document.createElement("option");
+		option.value = model.id;
+		option.textContent = model.label;
+		imageEditModelSelector.append(option);
+	}
 }
 
 // Dispatch event when model changes
@@ -15,7 +24,6 @@ imageEditModelSelector.addEventListener("change", () => {
 });
 
 async function updateImageEditModelSelectorState() {
-	if (!imageEditModelSelector) return;
 	const imageGenStatus = await isImageGenerationAvailable();
 
 	// Image edit model selector is always enabled when image generation is available
@@ -30,26 +38,9 @@ async function updateImageEditModelSelectorState() {
 		imageEditModelSelector.style.cursor = "not-allowed";
 		imageEditModelSelector.title = "Image editing not available";
 	}
-
-	return;
-
-	// // Check if image generation is available based on current user settings
-	// const { enabled: isAvailable, type: imageGenType } = await isImageGenerationAvailable();
-
-	// // Enable/disable the selector based on availability
-	// imageEditModelSelector.disabled = !isAvailable || imageGenType === "google_only";
-
-	// // Add visual indication when disabled
-	// if (isAvailable && imageGenType === "all") {
-	//     imageEditModelSelector.style.opacity = "1";
-	//     imageEditModelSelector.style.cursor = "pointer";
-	//     imageEditModelSelector.title = "";
-	// } else {
-	//     imageEditModelSelector.style.opacity = "0.6";
-	//     imageEditModelSelector.style.cursor = "not-allowed";
-	//     imageEditModelSelector.title = "Image generation not available with current settings";
-	// }
 }
+
+populateImageEditModelOptions();
 
 // Initial check
 void updateImageEditModelSelectorState();
@@ -65,8 +56,8 @@ onAppEvent("subscription-updated", () => {
  * Get the currently selected image editing model
  */
 export function getSelectedEditingModel(): ImageModelId {
-	const selectedModel = imageEditModelSelector?.value;
-	if (getImageModelDefinition(selectedModel)?.editing) {
+	const selectedModel = imageEditModelSelector.value;
+	if (IMAGE_MODELS.some((model) => model.id === selectedModel && model.editing)) {
 		return selectedModel as ImageModelId;
 	}
 
