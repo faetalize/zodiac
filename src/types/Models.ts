@@ -704,9 +704,9 @@ export function getPremiumEndpointChatModel(model: string | null | undefined): s
 	return mappedModel;
 }
 
-export function getImageModelDefinition(model: string | null | undefined): ImageModelDefinition | undefined {
-	if (!model) return undefined;
-	return IMAGE_MODELS.find((definition) => definition.id === model);
+export function getImageModelDefinition(modelId: string | null | undefined): ImageModelDefinition | undefined {
+	if (!modelId) return undefined;
+	return IMAGE_MODELS.find((definition) => definition.id === modelId);
 }
 
 export function formatOriginModelLabel(originModel: string | null | undefined): string {
