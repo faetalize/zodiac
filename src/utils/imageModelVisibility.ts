@@ -1,5 +1,5 @@
 import { IMAGE_MODELS } from "../constants/ImageModels";
-import { ImageModelProvider, type ImageModelDefinition } from "../types/ImageModels";
+import type { ImageModelDefinition, ImageModelProvider } from "../types/ImageModels";
 
 export type ImageModelProviderAvailability = (provider: ImageModelProvider) => boolean;
 
