@@ -45,7 +45,7 @@ const testState = vi.hoisted(() => ({
 		maxTokens: "256",
 		temperature: "50",
 		model: "openai/gpt-5.4",
-		imageModel: "",
+		imageModel: "illustrious",
 		streamResponses: false,
 		enableThinking: false,
 		thinkingBudget: 0,
@@ -174,6 +174,7 @@ vi.mock("../../../src/components/static/ChatInput.component", () => ({
 }));
 
 vi.mock("../../../src/components/static/ApiKeyInput.component", () => ({
+	isImageModelProviderRouteAvailable: vi.fn((provider: string) => provider === "EDGE"),
 	shouldPreferPremiumEndpoint: vi.fn(() => false)
 }));
 
