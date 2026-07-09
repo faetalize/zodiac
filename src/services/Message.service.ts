@@ -2530,7 +2530,7 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 // ================================================================================
 
 const IMAGE_GENERATION_SLUG = "handle-max-request-x";
-const IMAGE_EDITING_SLUG = "handle-max-request-x-edit";
+const IMAGE_EDITING_SLUG = "handle-edit-request-x";
 
 async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | undefined> {
 	const imageGenerationModel = ctx.settings.imageModel || DEFAULT_IMAGE_MODEL;
