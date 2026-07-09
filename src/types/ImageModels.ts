@@ -3,7 +3,11 @@ export enum ImageModelId {
 	BLXL = "biglust",
 	SEEDREAM = "seedream",
 	QWEN = "qwen",
-	PRUNA = "pruna"
+	PRUNA = "pruna",
+	SEEDREAM_5_0_PRO = "seedream-5-0-pro",
+	SEEDREAM_4_5 = "seedream-4-5",
+	QWEN_2_0_PRO = "qwen-2-0-pro",
+	QWEN_2_0 = "qwen-2-0"
 }
 
 export enum ImageModelProvider {

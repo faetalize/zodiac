@@ -33,7 +33,11 @@ describe("image model definitions", () => {
 				ImageModelId.BLXL,
 				ImageModelId.QWEN,
 				ImageModelId.SEEDREAM,
-				ImageModelId.PRUNA
+				ImageModelId.PRUNA,
+				ImageModelId.SEEDREAM_5_0_PRO,
+				ImageModelId.SEEDREAM_4_5,
+				ImageModelId.QWEN_2_0_PRO,
+				ImageModelId.QWEN_2_0
 			].sort()
 		);
 	});
@@ -55,7 +59,15 @@ describe("image model definitions", () => {
 		);
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.BLXL)?.promptType).toBe(ImagePromptType.TAG);
 
-		for (const modelId of [ImageModelId.QWEN, ImageModelId.SEEDREAM, ImageModelId.PRUNA]) {
+		for (const modelId of [
+			ImageModelId.QWEN,
+			ImageModelId.SEEDREAM,
+			ImageModelId.PRUNA,
+			ImageModelId.SEEDREAM_5_0_PRO,
+			ImageModelId.SEEDREAM_4_5,
+			ImageModelId.QWEN_2_0_PRO,
+			ImageModelId.QWEN_2_0
+		]) {
 			expect(IMAGE_MODELS.find((model) => model.id === modelId)?.promptType).toBe(ImagePromptType.SEMANTIC);
 		}
 	});
@@ -71,6 +83,10 @@ describe("image model definitions", () => {
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN)?.maxInputImages).toBe(3);
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM)?.maxInputImages).toBe(5);
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.PRUNA)?.maxInputImages).toBe(5);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM_5_0_PRO)?.maxInputImages).toBe(5);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM_4_5)?.maxInputImages).toBe(5);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN_2_0_PRO)?.maxInputImages).toBe(3);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN_2_0)?.maxInputImages).toBe(3);
 	});
 });
 

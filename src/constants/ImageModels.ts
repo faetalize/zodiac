@@ -35,10 +35,46 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		maxInputImages: 3
 	},
 	{
+		id: ImageModelId.QWEN_2_0_PRO,
+		label: "Qwen 2.0 Pro",
+		providers: [ImageModelProvider.EDGE],
+		generation: true,
+		editing: true,
+		promptType: ImagePromptType.SEMANTIC,
+		maxInputImages: 3
+	},
+	{
+		id: ImageModelId.QWEN_2_0,
+		label: "Qwen 2.0",
+		providers: [ImageModelProvider.EDGE],
+		generation: true,
+		editing: true,
+		promptType: ImagePromptType.SEMANTIC,
+		maxInputImages: 3
+	},
+	{
 		id: ImageModelId.SEEDREAM,
 		label: "Seedream 4.0 Edit",
 		providers: [ImageModelProvider.EDGE],
 		generation: false,
+		editing: true,
+		promptType: ImagePromptType.SEMANTIC,
+		maxInputImages: 5
+	},
+	{
+		id: ImageModelId.SEEDREAM_5_0_PRO,
+		label: "Seedream 5.0 Pro",
+		providers: [ImageModelProvider.EDGE],
+		generation: true,
+		editing: true,
+		promptType: ImagePromptType.SEMANTIC,
+		maxInputImages: 5
+	},
+	{
+		id: ImageModelId.SEEDREAM_4_5,
+		label: "Seedream 4.5",
+		providers: [ImageModelProvider.EDGE],
+		generation: true,
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
 		maxInputImages: 5
