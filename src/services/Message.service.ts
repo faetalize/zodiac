@@ -2530,6 +2530,7 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 // ================================================================================
 
 const IMAGE_GENERATION_SLUG = "handle-max-request-x";
+const IMAGE_EDITING_SLUG = "handle-max-request-x-edit";
 
 async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | undefined> {
 	const imageGenerationModel = ctx.settings.imageModel || DEFAULT_IMAGE_MODEL;
@@ -2679,7 +2680,7 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
 	}
 
 	try {
-		const endpoint = `${SUPABASE_URL}/functions/v1/handle-edit-request`;
+		const endpoint = `${SUPABASE_URL}/functions/v1/${IMAGE_EDITING_SLUG}`;
 		const response = await fetch(endpoint, {
 			method: "POST",
 			headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
