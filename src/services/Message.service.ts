@@ -58,15 +58,22 @@ import { isImageEditingActive } from "../components/static/ImageEditButton.compo
 import { clearAttachmentPreviews } from "../components/static/AttachmentPreview.component";
 import { getCurrentHistoryImageDataUri } from "../components/static/ChatInput.component";
 import {
-	isImageModelProviderRouteAvailable,
-	shouldPreferPremiumEndpoint
+	hasGeminiApiKey,
+	hasOpenRouterApiKey,
+	shouldPreferPremiumEndpoint,
+	shouldPreferPremiumImageEndpoint
 } from "../components/static/ApiKeyInput.component";
 import { getSelectedEditingModel } from "../components/static/ImageEditModelSelector.component";
 
 import { isAbortError, throwAbortError } from "../utils/abort";
 import { dispatchAppEvent } from "../events";
 import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../constants/ImageModels";
-import { ImageModelProvider } from "../types/ImageModels";
+import {
+	resolveImageModelRoute,
+	type ImageRouteAvailability,
+	type ImageRouteResolution,
+	type ImageRouteUnavailableReason
+} from "../utils/imageModelRouting";
 import {
 	NARRATOR_PERSONALITY_ID,
 	createPersonalityMarkerMessage,
@@ -93,7 +100,6 @@ import {
 	SUPPORTED_TYPES_LABEL
 } from "../utils/attachments";
 import { getPremiumMessageCharacterLimit, validateMessagePayloadLimit } from "../utils/payloadLimits";
-import { getVisibleImageModels } from "../utils/imageModelVisibility";
 
 import { sendGroupChatRpg, type RpgInputArgs } from "./RpgGroupChat";
 import { sendGroupChatDynamic, type DynamicInputArgs } from "./DynamicGroupChat";
@@ -1620,40 +1626,69 @@ function showAttachmentValidationFailures(errors: ReturnType<typeof getAttachmen
 	}
 }
 
-function validateVisibleImageModelSelection(settings: ReturnType<typeof settingsService.getSettings>): boolean {
-	const visibleImageModels = getVisibleImageModels(isImageModelProviderRouteAvailable);
+/**
+ * Resolves the transport for the currently active image request (editing takes
+ * precedence over generation, mirroring the send handler in performSend).
+ * Returns null when there is no active image request.
+ */
+function resolveActiveImageRoute(
+	settings: ReturnType<typeof settingsService.getSettings>,
+	hasEdgeCredits: boolean
+): { resolution: ImageRouteResolution; isEditing: boolean } | null {
+	const availability: ImageRouteAvailability = {
+		edgeCredits: hasEdgeCredits,
+		geminiKey: hasGeminiApiKey(),
+		openRouterKey: hasOpenRouterApiKey()
+	};
+	const preferEdge = shouldPreferPremiumImageEndpoint();
 
-	if (
-		isImageModeActive() &&
-		!visibleImageModels.some((model) => model.generation && model.id === settings.imageModel)
-	) {
-		warn({
-			title: "No image model available",
-			text: "Enable premium endpoint access or add an API key for an image model provider."
-		});
-		return false;
+	if (isImageEditingActive()) {
+		const editModel = IMAGE_MODELS.find((model) => model.editing && model.id === getSelectedEditingModel());
+		if (!editModel) {
+			return { resolution: { route: null, reason: "byok-not-supported" }, isEditing: true };
+		}
+		return { resolution: resolveImageModelRoute(editModel, preferEdge, availability), isEditing: true };
 	}
 
-	if (
-		isImageEditingActive() &&
-		!visibleImageModels.some((model) => model.editing && model.id === getSelectedEditingModel())
-	) {
-		warn({
-			title: "No image editing model available",
-			text: "Enable premium endpoint access or add an API key for an image editing provider."
-		});
-		return false;
+	if (isImageModeActive()) {
+		const genModel = IMAGE_MODELS.find((model) => model.generation && model.id === settings.imageModel);
+		if (!genModel) {
+			return { resolution: { route: null, reason: "byok-not-supported" }, isEditing: false };
+		}
+		return { resolution: resolveImageModelRoute(genModel, preferEdge, availability), isEditing: false };
 	}
 
-	return true;
+	return null;
 }
 
-function shouldUseEdgeImageGenerationRoute(settings: ReturnType<typeof settingsService.getSettings>): boolean {
-	const selectedImageModel = IMAGE_MODELS.find((model) => model.id === settings.imageModel);
-	return (
-		isImageModelProviderRouteAvailable(ImageModelProvider.EDGE) &&
-		selectedImageModel?.providers.includes(ImageModelProvider.EDGE) === true
-	);
+function warnImageRouteUnavailable(reason: ImageRouteUnavailableReason, isEditing: boolean): void {
+	const action = isEditing ? "edit" : "generate";
+	switch (reason) {
+		case "edge-no-credits":
+			warn({
+				title: "Out of image credits",
+				text: `You have no image credits left to ${action} images. Add credits, or add an API key for this model's provider and turn off "Use Image Credits".`
+			});
+			return;
+		case "edge-not-supported":
+			warn({
+				title: "Model needs your own API key",
+				text: `This model runs on your own API key. Turn off "Use Image Credits" to ${action} with it.`
+			});
+			return;
+		case "byok-missing-key":
+			warn({
+				title: "API key required",
+				text: `Add an API key for this model's provider, or turn on "Use Image Credits" to ${action} with your credits.`
+			});
+			return;
+		case "byok-not-supported":
+			warn({
+				title: "Image credits required",
+				text: `This model runs on image credits. Turn on "Use Image Credits" to ${action} images with it.`
+			});
+			return;
+	}
 }
 
 async function performEarlyValidation(msg: string, options: SendOptions = {}): Promise<EarlyValidationResult> {
@@ -1716,17 +1751,24 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 	const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 	const imageGenerationAvailability = await supabaseService.isImageGenerationAvailable();
 	const isImageRequest = isImageModeActive() || isImageEditingActive();
-	if (isImageRequest && !validateVisibleImageModelSelection(settings)) {
-		return { canProceed: false };
+
+	// For image requests, the selected image/edit model's provider route decides the
+	// transport (edge credits vs BYOK) and whether the request is permitted at all.
+	let isImagePremiumEndpointPreferred = false;
+	if (isImageRequest) {
+		const activeImageRoute = resolveActiveImageRoute(settings, imageGenerationAvailability.type === "all");
+		if (activeImageRoute && activeImageRoute.resolution.route === null) {
+			warnImageRouteUnavailable(activeImageRoute.resolution.reason, activeImageRoute.isEditing);
+			return { canProceed: false };
+		}
+		isImagePremiumEndpointPreferred = activeImageRoute?.resolution.route === "edge";
 	}
 
-	const isImagePremiumEndpointPreferred = isImageRequest
-		? isImageEditingActive() || shouldUseEdgeImageGenerationRoute(settings)
-		: imageGenerationAvailability.type === "all";
 	const hasLocalApiKey = hasLocalApiKeyForModel(settings.model, settings);
-	const canUseImageCreditsWithoutApiKey = isImageRequest && isImagePremiumEndpointPreferred;
 
-	if (!isPremiumEndpointPreferred && !hasLocalApiKey && !canUseImageCreditsWithoutApiKey) {
+	// The chat-model API-key gate does not apply to image requests: those are gated by
+	// the resolved image route above, not by the selected chat model's provider key.
+	if (!isImageRequest && !isPremiumEndpointPreferred && !hasLocalApiKey) {
 		const providerName = isOpenRouterModel(settings.model) ? "OpenRouter" : "Gemini";
 		warn({
 			title: `${providerName} API Key Required`,

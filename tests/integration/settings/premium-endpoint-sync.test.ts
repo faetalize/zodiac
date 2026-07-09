@@ -4,7 +4,8 @@ import { SETTINGS_STORAGE_KEYS } from "../../../src/constants/SettingsStorageKey
 import { bootstrapDom } from "../../helpers/dom";
 
 vi.mock("../../../src/services/Supabase.service", () => ({
-	getSubscriptionTier: vi.fn(() => "pro")
+	getSubscriptionTier: vi.fn(() => "pro"),
+	isImageGenerationAvailable: vi.fn(async () => ({ enabled: true, type: "all" }))
 }));
 
 vi.mock("../../../src/services/ApiKeyValidation.service", () => ({
@@ -29,6 +30,8 @@ function bootstrapSettingsDom(): void {
 		<div id="openrouter-api-key-error" class="hidden"></div>
 		<div id="prefer-premium-endpoint-toggle"></div>
 		<input id="preferPremiumEndpoint" type="checkbox">
+		<div id="prefer-premium-image-endpoint-toggle"></div>
+		<input id="preferPremiumImageEndpoint" type="checkbox">
 
 		<input id="maxTokens" value="1000">
 		<input id="temperature" value="60">
@@ -127,6 +130,21 @@ describe("premium endpoint synced settings", () => {
 
 		expect(apiKeyInputComponent.shouldPreferPremiumEndpoint()).toBe(false);
 		expect(syncService.queueSettingsPush).not.toHaveBeenCalled();
+	});
+
+	it("treats a hidden image endpoint toggle as off so image routing falls to BYOK", async () => {
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_IMAGE_ENDPOINT, "true");
+
+		const apiKeyInputComponent = await import("../../../src/components/static/ApiKeyInput.component");
+		const imageToggle = document.querySelector<HTMLDivElement>("#prefer-premium-image-endpoint-toggle")!;
+
+		// Toggle visible (account has image credits) -> honors the stored preference.
+		imageToggle.classList.remove("hidden");
+		expect(apiKeyInputComponent.shouldPreferPremiumImageEndpoint()).toBe(true);
+
+		// Toggle hidden (no credits, edge route unusable) -> reads as off regardless of the stored "true".
+		imageToggle.classList.add("hidden");
+		expect(apiKeyInputComponent.shouldPreferPremiumImageEndpoint()).toBe(false);
 	});
 
 	it("reapplies model-driven thinking constraints after synced settings replace stale local state", async () => {

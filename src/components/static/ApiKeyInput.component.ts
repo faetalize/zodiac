@@ -1,9 +1,12 @@
-import { getSubscriptionTier, type SubscriptionTier } from "../../services/Supabase.service";
+import {
+	getSubscriptionTier,
+	isImageGenerationAvailable,
+	type SubscriptionTier
+} from "../../services/Supabase.service";
 import { dispatchAppEvent, onAppEvent } from "../../events";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 import { validateGeminiApiKey, validateOpenRouterApiKey } from "../../services/ApiKeyValidation.service";
 import * as syncService from "../../services/Sync.service";
-import { ImageModelProvider } from "../../types/ImageModels";
 
 const geminiApiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
 const openRouterApiKeyInput = document.querySelector<HTMLInputElement>("#openRouterApiKeyInput");
@@ -11,6 +14,8 @@ const geminiError = document.querySelector<HTMLElement>("#gemini-api-key-error")
 const openRouterError = document.querySelector<HTMLElement>("#openrouter-api-key-error");
 const preferPremiumToggle = document.querySelector<HTMLDivElement>("#prefer-premium-endpoint-toggle");
 const preferPremiumCheckbox = document.querySelector<HTMLInputElement>("#preferPremiumEndpoint");
+const preferPremiumImageToggle = document.querySelector<HTMLDivElement>("#prefer-premium-image-endpoint-toggle");
+const preferPremiumImageCheckbox = document.querySelector<HTMLInputElement>("#preferPremiumImageEndpoint");
 
 if (
 	!geminiApiKeyInput ||
@@ -18,7 +23,9 @@ if (
 	!geminiError ||
 	!openRouterError ||
 	!preferPremiumToggle ||
-	!preferPremiumCheckbox
+	!preferPremiumCheckbox ||
+	!preferPremiumImageToggle ||
+	!preferPremiumImageCheckbox
 ) {
 	console.error("One or more API key input elements are missing.");
 	throw new Error("API key input initialization failed.");
@@ -30,6 +37,8 @@ const ensuredGeminiError = geminiError;
 const ensuredOpenRouterError = openRouterError;
 const ensuredPreferPremiumToggle = preferPremiumToggle;
 const ensuredPreferPremiumCheckbox = preferPremiumCheckbox;
+const ensuredPreferPremiumImageToggle = preferPremiumImageToggle;
+const ensuredPreferPremiumImageCheckbox = preferPremiumImageCheckbox;
 let isPaidAccount = false;
 let hasObservedSyncedSettingsPull = false;
 
@@ -45,6 +54,30 @@ function applyPremiumPreferenceFromStorage(): void {
 function rehydratePremiumPreferenceFromStorage(): void {
 	applyPremiumPreferenceFromStorage();
 	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
+}
+
+function applyImagePremiumPreferenceFromStorage(): void {
+	const savedPreference = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_IMAGE_ENDPOINT);
+	ensuredPreferPremiumImageCheckbox.checked = savedPreference === null ? true : savedPreference === "true";
+}
+
+function rehydrateImagePremiumPreferenceFromStorage(): void {
+	applyImagePremiumPreferenceFromStorage();
+	dispatchAppEvent("image-premium-endpoint-preference-changed", {
+		preferred: ensuredPreferPremiumImageCheckbox.checked
+	});
+}
+
+/**
+ * The "use image credits" toggle is only meaningful for accounts that have image
+ * credits. Every image model supports the EDGE (credit) route, so credit-holders are
+ * the only users with a genuine credits-vs-BYOK choice; without credits there is a
+ * single usable path and the toggle would be noise. Gated on credit access only
+ * (isImageGenerationAvailable -> type "all"), independent of subscription tier.
+ */
+async function updateImagePremiumToggleVisibility(): Promise<void> {
+	const { type } = await isImageGenerationAvailable();
+	ensuredPreferPremiumImageToggle.classList.toggle("hidden", type !== "all");
 }
 
 function persistDefaultPremiumPreferenceAfterSyncedSettingsPull(): void {
@@ -96,6 +129,8 @@ function attachValidation(args: {
 }
 
 applyPremiumPreferenceFromStorage();
+applyImagePremiumPreferenceFromStorage();
+void updateImagePremiumToggleVisibility();
 
 ensuredPreferPremiumCheckbox.addEventListener("change", () => {
 	localStorage.setItem(
@@ -105,6 +140,21 @@ ensuredPreferPremiumCheckbox.addEventListener("change", () => {
 	dispatchAppEvent("premium-endpoint-preference-changed", { preferred: ensuredPreferPremiumCheckbox.checked });
 	queuePremiumEndpointSettingsSync();
 });
+
+ensuredPreferPremiumImageCheckbox.addEventListener("change", () => {
+	localStorage.setItem(
+		SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_IMAGE_ENDPOINT,
+		ensuredPreferPremiumImageCheckbox.checked.toString()
+	);
+	dispatchAppEvent("image-premium-endpoint-preference-changed", {
+		preferred: ensuredPreferPremiumImageCheckbox.checked
+	});
+	queuePremiumEndpointSettingsSync();
+});
+
+onAppEvent("auth-state-changed", () => void updateImagePremiumToggleVisibility());
+onAppEvent("subscription-updated", () => void updateImagePremiumToggleVisibility());
+onAppEvent("image-generation-record-refreshed", () => void updateImagePremiumToggleVisibility());
 
 onAppEvent("auth-state-changed", (event) => {
 	const { subscription: sub } = event.detail;
@@ -133,11 +183,15 @@ onAppEvent("auth-state-changed", (event) => {
 onAppEvent("sync-data-pulled", () => {
 	hasObservedSyncedSettingsPull = true;
 	rehydratePremiumPreferenceFromStorage();
+	rehydrateImagePremiumPreferenceFromStorage();
 	persistDefaultPremiumPreferenceAfterSyncedSettingsPull();
+	void updateImagePremiumToggleVisibility();
 });
 
 onAppEvent("settings-loaded-from-storage", () => {
 	rehydratePremiumPreferenceFromStorage();
+	rehydrateImagePremiumPreferenceFromStorage();
+	void updateImagePremiumToggleVisibility();
 });
 
 attachValidation({
@@ -171,19 +225,14 @@ export function hasOpenRouterApiKey(): boolean {
 	);
 }
 
-export function isPremiumEndpointToggleEnabled(): boolean {
-	return ensuredPreferPremiumCheckbox.checked;
-}
-
-export function isImageModelProviderRouteAvailable(provider: ImageModelProvider): boolean {
-	switch (provider) {
-		case ImageModelProvider.GOOGLE:
-			return hasGeminiApiKey();
-		case ImageModelProvider.OPENROUTER:
-			return hasOpenRouterApiKey();
-		case ImageModelProvider.EDGE:
-			return isPremiumEndpointToggleEnabled();
+export function shouldPreferPremiumImageEndpoint(): boolean {
+	// A hidden toggle means the account has no image credits, so the edge route is
+	// unusable — treat the preference as off so image routing falls to BYOK.
+	if (ensuredPreferPremiumImageToggle.classList.contains("hidden")) {
+		return false;
 	}
+	const saved = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_IMAGE_ENDPOINT);
+	return saved === null ? true : saved === "true";
 }
 
 function queuePremiumEndpointSettingsSync(): void {

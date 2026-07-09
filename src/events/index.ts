@@ -129,6 +129,10 @@ export interface PremiumEndpointPreferenceChangedDetail {
 	preferred: boolean;
 }
 
+export interface ImagePremiumEndpointPreferenceChangedDetail {
+	preferred: boolean;
+}
+
 export type SettingsLoadedFromStorageDetail = Record<string, never>;
 
 // --- Image Mode Events ---
@@ -257,6 +261,7 @@ export const EventNames = {
 	THINKING_TOGGLED: "thinking-toggled",
 	EDIT_MODEL_CHANGED: "edit-model-changed",
 	PREMIUM_ENDPOINT_PREFERENCE_CHANGED: "premium-endpoint-preference-changed",
+	IMAGE_PREMIUM_ENDPOINT_PREFERENCE_CHANGED: "image-premium-endpoint-preference-changed",
 	SETTINGS_LOADED_FROM_STORAGE: "settings-loaded-from-storage",
 	API_KEYS_CHANGED: "api-keys-changed",
 
@@ -332,6 +337,7 @@ export interface AppEventMap {
 	[EventNames.THINKING_TOGGLED]: ThinkingToggledDetail;
 	[EventNames.EDIT_MODEL_CHANGED]: EditModelChangedDetail;
 	[EventNames.PREMIUM_ENDPOINT_PREFERENCE_CHANGED]: PremiumEndpointPreferenceChangedDetail;
+	[EventNames.IMAGE_PREMIUM_ENDPOINT_PREFERENCE_CHANGED]: ImagePremiumEndpointPreferenceChangedDetail;
 	[EventNames.SETTINGS_LOADED_FROM_STORAGE]: SettingsLoadedFromStorageDetail;
 	[EventNames.API_KEYS_CHANGED]: ApiKeysChangedDetail;
 

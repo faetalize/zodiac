@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SETTINGS_STORAGE_KEYS } from "../../../src/constants/SettingsStorageKeys";
 import { DEFAULT_IMAGE_EDIT_MODEL, DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../../../src/constants/ImageModels";
@@ -53,10 +53,34 @@ function selectValues(selector: string): string[] {
 }
 
 describe("image model selectors", () => {
+	// Each test re-imports the selector modules, which register window listeners on import.
+	// Track and remove them per test so stale listeners (bound to detached selects from a
+	// prior import) don't accumulate across cases.
+	const trackedListeners: Array<[string, EventListener]> = [];
+	let addEventListenerSpy: ReturnType<typeof vi.spyOn> | undefined;
+
 	beforeEach(() => {
 		vi.resetModules();
 		localStorage.clear();
 		bootstrapSettingsDom();
+
+		trackedListeners.length = 0;
+		const originalAddEventListener = window.addEventListener.bind(window);
+		addEventListenerSpy = vi.spyOn(window, "addEventListener").mockImplementation(((
+			type: string,
+			listener: EventListenerOrEventListenerObject,
+			options?: boolean | AddEventListenerOptions
+		) => {
+			trackedListeners.push([type, listener as EventListener]);
+			originalAddEventListener(type, listener as EventListener, options);
+		}) as typeof window.addEventListener);
+	});
+
+	afterEach(() => {
+		addEventListenerSpy?.mockRestore();
+		for (const [type, listener] of trackedListeners) {
+			window.removeEventListener(type, listener);
+		}
 	});
 
 	it("populates empty image model selects from TypeScript definitions", async () => {
@@ -71,19 +95,14 @@ describe("image model selectors", () => {
 		);
 	});
 
-	it("reacts to premium endpoint preference changes for edge image models", async () => {
+	it("shows all image models regardless of premium endpoint preferences", async () => {
+		// Visibility is no longer provider-gated: every model is shown and the send path
+		// validates the route. Turning both premium toggles off must not hide any option.
 		localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "false");
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_IMAGE_ENDPOINT, "false");
 
 		await import("../../../src/components/static/ImageModelSelector.component");
 		await import("../../../src/components/static/ImageEditModelSelector.component");
-
-		expect(selectValues("#selectedImageModel")).toEqual([""]);
-		expect(selectValues("#selectedImageEditingModel")).toEqual([""]);
-
-		const premiumToggle = document.querySelector<HTMLInputElement>("#preferPremiumEndpoint");
-		expect(premiumToggle).not.toBeNull();
-		premiumToggle!.checked = true;
-		window.dispatchEvent(new CustomEvent("premium-endpoint-preference-changed", { detail: { preferred: true } }));
 
 		expect(selectValues("#selectedImageModel")).toEqual(
 			IMAGE_MODELS.filter((model) => model.generation).map((model) => model.id)

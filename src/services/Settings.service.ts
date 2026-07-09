@@ -3,12 +3,10 @@ import { HarmBlockThreshold, HarmCategory } from "@google/genai";
 import * as supabaseService from "./Supabase.service";
 import type { User } from "../types/User";
 import { getDefaultChatModel, getValidChatModel } from "../types/Models";
-import { DEFAULT_IMAGE_EDIT_MODEL, DEFAULT_IMAGE_MODEL } from "../constants/ImageModels";
+import { DEFAULT_IMAGE_EDIT_MODEL, DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../constants/ImageModels";
 import * as syncService from "./Sync.service";
 import { SETTINGS_STORAGE_KEYS } from "../constants/SettingsStorageKeys";
 import { dispatchAppEvent, dispatchEmptyAppEvent } from "../events";
-import { getVisibleImageModels } from "../utils/imageModelVisibility";
-import { isImageModelProviderRouteAvailable } from "../components/static/ApiKeyInput.component";
 
 const geminiApiKeyInput = document.querySelector("#apiKeyInput") as HTMLInputElement;
 const openRouterApiKeyInput = document.querySelector("#openRouterApiKeyInput") as HTMLInputElement;
@@ -112,23 +110,15 @@ function getSelectedOrFallbackModel(): string {
 }
 
 function getSelectedOrFallbackImageModel(stored: string | null): string {
-	const models = getVisibleImageModels(isImageModelProviderRouteAvailable).filter((model) => model.generation);
-	return (
-		models.find((model) => model.id === stored)?.id ||
-		models.find((model) => model.id === DEFAULT_IMAGE_MODEL)?.id ||
-		models[0]?.id ||
-		""
-	);
+	return stored && IMAGE_MODELS.some((model) => model.id === stored && model.generation)
+		? stored
+		: DEFAULT_IMAGE_MODEL;
 }
 
 function getSelectedOrFallbackImageEditModel(stored: string | null): string {
-	const models = getVisibleImageModels(isImageModelProviderRouteAvailable).filter((model) => model.editing);
-	return (
-		models.find((model) => model.id === stored)?.id ||
-		models.find((model) => model.id === DEFAULT_IMAGE_EDIT_MODEL)?.id ||
-		models[0]?.id ||
-		""
-	);
+	return stored && IMAGE_MODELS.some((model) => model.id === stored && model.editing)
+		? stored
+		: DEFAULT_IMAGE_EDIT_MODEL;
 }
 
 function getStoredUiScale(): number {
