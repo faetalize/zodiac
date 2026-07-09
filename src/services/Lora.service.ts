@@ -1,5 +1,6 @@
 import type { LoRAInfo, LoRAState } from "../types/Lora";
 import { LORA_STORAGE_KEY } from "../types/Lora";
+import { isLoraBaseModelSupported } from "../constants/Loras";
 import { supabase } from "./Supabase.service";
 import { dispatchEmptyAppEvent } from "../events";
 import * as syncService from "./Sync.service";
@@ -67,23 +68,35 @@ export function getAll(): LoRAInfo[] {
 	return loras;
 }
 
-export async function add(url: string): Promise<LoRAInfo | void> {
+export type AddLoraResult =
+	| { status: "added"; lora: LoRAInfo }
+	| { status: "duplicate" }
+	| { status: "unsupported"; baseModel: string }
+	| { status: "failed" };
+
+export async function add(url: string): Promise<AddLoraResult> {
 	const urlTrimmed = url.trim();
 	const urls = readFromLocalstorage();
 	// prevent duplicates early return
 	if (urls.some((existingUrl) => existingUrl === urlTrimmed)) {
 		console.log("[LoRA] LoRA URL already exists in localstorage:", urlTrimmed);
-		return;
+		return { status: "duplicate" };
 	}
 	const loraDetails = await getLoraMetadata([urlTrimmed]);
-	if (loraDetails && loraDetails.length > 0) {
-		urls.push(loraDetails[0].url);
-		writeToLocalstorage(urls);
-		queueLoraSettingsSync();
-
-		loras.push(...loraDetails);
-		return loraDetails[0];
+	if (!loraDetails || loraDetails.length === 0) {
+		return { status: "failed" };
 	}
+	const lora = loraDetails[0];
+	if (!isLoraBaseModelSupported(lora.baseModel)) {
+		console.warn("[LoRA] Rejected LoRA with unsupported base model:", lora.baseModel);
+		return { status: "unsupported", baseModel: lora.baseModel };
+	}
+	urls.push(lora.url);
+	writeToLocalstorage(urls);
+	queueLoraSettingsSync();
+
+	loras.push(lora);
+	return { status: "added", lora };
 }
 
 export async function initialize(): Promise<void> {

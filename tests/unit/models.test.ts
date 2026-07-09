@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-	BaseModel,
 	DEFAULT_OPENROUTER_TITLE_MODEL,
 	ImageModelId,
 	ImageModelProvider,
@@ -72,23 +71,16 @@ describe("image model definitions", () => {
 		}
 	});
 
-	it("stores base-model compatibility independently from selectable model IDs", () => {
-		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.ILLUSTRIOUS)?.baseModel).toBe(
-			BaseModel.ILLUSTRIOUS
+	it("declares Runware LoRA support only for open-weight models", () => {
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.ILLUSTRIOUS)?.loraArchitecture).toBe(
+			"illustrious"
 		);
-		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.BLXL)?.baseModel).toBe(BaseModel.SDXL);
-		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN)?.baseModel).toBe(BaseModel.QWEN);
-		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN_2_0_PRO)?.baseModel).toBe(BaseModel.QWEN_2);
-		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN_2_0)?.baseModel).toBe(BaseModel.QWEN_2);
-		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM_5_0_PRO)?.baseModel).toBe(
-			BaseModel.SEEDREAM
-		);
-		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM_4_5)?.baseModel).toBe(
-			BaseModel.SEEDREAM
-		);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.BLXL)?.loraArchitecture).toBe("sdxl");
 
-		for (const model of IMAGE_MODELS.filter((candidate) => candidate.generation)) {
-			expect(model.baseModel).toBeDefined();
+		for (const model of IMAGE_MODELS.filter(
+			(candidate) => candidate.id !== ImageModelId.ILLUSTRIOUS && candidate.id !== ImageModelId.BLXL
+		)) {
+			expect(model.loraArchitecture).toBeUndefined();
 		}
 	});
 

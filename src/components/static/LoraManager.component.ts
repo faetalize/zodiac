@@ -1,5 +1,6 @@
 import type { LoRAInfo, LoRAState } from "../../types/Lora";
 import * as loraService from "../../services/Lora.service";
+import { supportedLoraBaseModelLabels } from "../../constants/Loras";
 import { danger, warn } from "../../services/Toast.service";
 import { loraElement } from "../dynamic/lora";
 
@@ -54,14 +55,29 @@ async function addLoraFromInput() {
 		});
 		return;
 	}
-	const lora = await loraService.add(value);
-	if (lora) {
-		appendLora(lora, loraService.initialLoraState);
-	} else {
-		danger({
-			title: "Failed to add LoRA",
-			text: "Could not retrieve LoRA metadata. Please check the URL and try again."
-		});
+	const result = await loraService.add(value);
+	switch (result.status) {
+		case "added":
+			appendLora(result.lora, loraService.initialLoraState);
+			break;
+		case "duplicate":
+			warn({
+				title: "LoRA already added",
+				text: "This LoRA is already in your list."
+			});
+			break;
+		case "unsupported":
+			warn({
+				title: "Unsupported LoRA",
+				text: `This LoRA is trained for "${result.baseModel}", which no available image model supports. Supported base models: ${supportedLoraBaseModelLabels().join(", ")}.`
+			});
+			break;
+		case "failed":
+			danger({
+				title: "Failed to add LoRA",
+				text: "Could not retrieve LoRA metadata. Please check the URL and try again."
+			});
+			break;
 	}
 
 	// Clear input after save

@@ -21,13 +21,12 @@ export enum ImagePromptType {
 	SEMANTIC = "SEMANTIC"
 }
 
-export enum BaseModel {
-	SDXL = "sdxl",
-	ILLUSTRIOUS = "illustrious",
-	QWEN = "qwen",
-	QWEN_2 = "qwen-2",
-	SEEDREAM = "seedream"
-}
+/**
+ * Runware model-upload architecture values. Runware is the source of truth for
+ * LoRA support: a model can only use LoRAs when it is served from open weights
+ * on Runware under one of these architectures.
+ */
+export type LoraArchitecture = "illustrious" | "sdxl";
 
 export interface ImageModelDefinition {
 	id: ImageModelId;
@@ -36,6 +35,7 @@ export interface ImageModelDefinition {
 	generation: boolean;
 	editing: boolean;
 	promptType: ImagePromptType;
-	baseModel?: BaseModel;
+	/** Absent means the model does not support LoRAs (e.g. provider-hosted API models). */
+	loraArchitecture?: LoraArchitecture;
 	maxInputImages?: number;
 }

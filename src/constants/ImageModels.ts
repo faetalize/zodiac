@@ -1,10 +1,4 @@
-import {
-	BaseModel,
-	ImageModelId,
-	ImageModelProvider,
-	ImagePromptType,
-	type ImageModelDefinition
-} from "../types/ImageModels";
+import { ImageModelId, ImageModelProvider, ImagePromptType, type ImageModelDefinition } from "../types/ImageModels";
 
 export const IMAGE_MODELS: ImageModelDefinition[] = [
 	{
@@ -14,7 +8,7 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: true,
 		editing: false,
 		promptType: ImagePromptType.TAG,
-		baseModel: BaseModel.ILLUSTRIOUS
+		loraArchitecture: "illustrious"
 	},
 	{
 		id: ImageModelId.BLXL,
@@ -23,7 +17,7 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: true,
 		editing: false,
 		promptType: ImagePromptType.TAG,
-		baseModel: BaseModel.SDXL
+		loraArchitecture: "sdxl"
 	},
 	{
 		id: ImageModelId.QWEN,
@@ -32,7 +26,6 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: false,
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
-		baseModel: BaseModel.QWEN,
 		maxInputImages: 3
 	},
 	{
@@ -42,7 +35,6 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: true,
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
-		baseModel: BaseModel.QWEN_2,
 		maxInputImages: 3
 	},
 	{
@@ -52,7 +44,6 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: true,
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
-		baseModel: BaseModel.QWEN_2,
 		maxInputImages: 3
 	},
 	{
@@ -71,7 +62,6 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: true,
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
-		baseModel: BaseModel.SEEDREAM,
 		maxInputImages: 5
 	},
 	{
@@ -81,7 +71,6 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: true,
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
-		baseModel: BaseModel.SEEDREAM,
 		maxInputImages: 5
 	},
 	{

@@ -1,6 +1,12 @@
 import { IMAGE_MODELS } from "../constants/ImageModels";
 
-export { BaseModel, ImageModelId, ImageModelProvider, ImagePromptType, type ImageModelDefinition } from "./ImageModels";
+export {
+	ImageModelId,
+	ImageModelProvider,
+	ImagePromptType,
+	type ImageModelDefinition,
+	type LoraArchitecture
+} from "./ImageModels";
 
 export enum ChatModel {
 	PRO = "gemini-3.1-pro-preview",
