@@ -3,6 +3,7 @@ import { dispatchAppEvent, onAppEvent } from "../../events";
 import { SETTINGS_STORAGE_KEYS } from "../../constants/SettingsStorageKeys";
 import { validateGeminiApiKey, validateOpenRouterApiKey } from "../../services/ApiKeyValidation.service";
 import * as syncService from "../../services/Sync.service";
+import { ImageModelProvider } from "../../types/ImageModels";
 
 const geminiApiKeyInput = document.querySelector<HTMLInputElement>("#apiKeyInput");
 const openRouterApiKeyInput = document.querySelector<HTMLInputElement>("#openRouterApiKeyInput");
@@ -154,6 +155,35 @@ attachValidation({
 export function shouldPreferPremiumEndpoint(): boolean {
 	const saved = localStorage.getItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT);
 	return saved === null ? true : saved === "true";
+}
+
+export function hasGeminiApiKey(): boolean {
+	return (
+		ensuredGeminiApiKeyInput.value.trim().length > 0 ||
+		(localStorage.getItem(SETTINGS_STORAGE_KEYS.API_KEY) || "").trim().length > 0
+	);
+}
+
+export function hasOpenRouterApiKey(): boolean {
+	return (
+		ensuredOpenRouterApiKeyInput.value.trim().length > 0 ||
+		(localStorage.getItem(SETTINGS_STORAGE_KEYS.OPENROUTER_API_KEY) || "").trim().length > 0
+	);
+}
+
+export function isPremiumEndpointToggleEnabled(): boolean {
+	return ensuredPreferPremiumCheckbox.checked;
+}
+
+export function isImageModelProviderRouteAvailable(provider: ImageModelProvider): boolean {
+	switch (provider) {
+		case ImageModelProvider.GOOGLE:
+			return hasGeminiApiKey();
+		case ImageModelProvider.OPENROUTER:
+			return hasOpenRouterApiKey();
+		case ImageModelProvider.EDGE:
+			return isPremiumEndpointToggleEnabled();
+	}
 }
 
 function queuePremiumEndpointSettingsSync(): void {

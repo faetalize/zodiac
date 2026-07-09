@@ -16,6 +16,10 @@ function bootstrapSettingsDom(): void {
 	bootstrapDom(`
 		<input id="apiKeyInput" value="">
 		<input id="openRouterApiKeyInput" value="">
+		<div id="gemini-api-key-error" class="hidden"></div>
+		<div id="openrouter-api-key-error" class="hidden"></div>
+		<div id="prefer-premium-endpoint-toggle"></div>
+		<input id="preferPremiumEndpoint" type="checkbox">
 		<input id="maxTokens" value="1000">
 		<input id="temperature" value="60">
 		<select id="selectedModel"><option value="gemini-3.5-flash" selected>Gemini Flash</option></select>
@@ -58,6 +62,28 @@ describe("image model selectors", () => {
 	it("populates empty image model selects from TypeScript definitions", async () => {
 		await import("../../../src/components/static/ImageModelSelector.component");
 		await import("../../../src/components/static/ImageEditModelSelector.component");
+
+		expect(selectValues("#selectedImageModel")).toEqual(
+			IMAGE_MODELS.filter((model) => model.generation).map((model) => model.id)
+		);
+		expect(selectValues("#selectedImageEditingModel")).toEqual(
+			IMAGE_MODELS.filter((model) => model.editing).map((model) => model.id)
+		);
+	});
+
+	it("reacts to premium endpoint preference changes for edge image models", async () => {
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "false");
+
+		await import("../../../src/components/static/ImageModelSelector.component");
+		await import("../../../src/components/static/ImageEditModelSelector.component");
+
+		expect(selectValues("#selectedImageModel")).toEqual([""]);
+		expect(selectValues("#selectedImageEditingModel")).toEqual([""]);
+
+		const premiumToggle = document.querySelector<HTMLInputElement>("#preferPremiumEndpoint");
+		expect(premiumToggle).not.toBeNull();
+		premiumToggle!.checked = true;
+		window.dispatchEvent(new CustomEvent("premium-endpoint-preference-changed", { detail: { preferred: true } }));
 
 		expect(selectValues("#selectedImageModel")).toEqual(
 			IMAGE_MODELS.filter((model) => model.generation).map((model) => model.id)

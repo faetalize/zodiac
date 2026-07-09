@@ -57,12 +57,16 @@ import { isImageModeActive } from "../components/static/ImageButton.component";
 import { isImageEditingActive } from "../components/static/ImageEditButton.component";
 import { clearAttachmentPreviews } from "../components/static/AttachmentPreview.component";
 import { getCurrentHistoryImageDataUri } from "../components/static/ChatInput.component";
-import { shouldPreferPremiumEndpoint } from "../components/static/ApiKeyInput.component";
+import {
+	isImageModelProviderRouteAvailable,
+	shouldPreferPremiumEndpoint
+} from "../components/static/ApiKeyInput.component";
 import { getSelectedEditingModel } from "../components/static/ImageEditModelSelector.component";
 
 import { isAbortError, throwAbortError } from "../utils/abort";
 import { dispatchAppEvent } from "../events";
 import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../constants/ImageModels";
+import { ImageModelProvider } from "../types/ImageModels";
 import {
 	NARRATOR_PERSONALITY_ID,
 	createPersonalityMarkerMessage,
@@ -89,6 +93,7 @@ import {
 	SUPPORTED_TYPES_LABEL
 } from "../utils/attachments";
 import { getPremiumMessageCharacterLimit, validateMessagePayloadLimit } from "../utils/payloadLimits";
+import { getVisibleImageModels } from "../utils/imageModelVisibility";
 
 import { sendGroupChatRpg, type RpgInputArgs } from "./RpgGroupChat";
 import { sendGroupChatDynamic, type DynamicInputArgs } from "./DynamicGroupChat";
@@ -1615,6 +1620,42 @@ function showAttachmentValidationFailures(errors: ReturnType<typeof getAttachmen
 	}
 }
 
+function validateVisibleImageModelSelection(settings: ReturnType<typeof settingsService.getSettings>): boolean {
+	const visibleImageModels = getVisibleImageModels(isImageModelProviderRouteAvailable);
+
+	if (
+		isImageModeActive() &&
+		!visibleImageModels.some((model) => model.generation && model.id === settings.imageModel)
+	) {
+		warn({
+			title: "No image model available",
+			text: "Enable premium endpoint access or add an API key for an image model provider."
+		});
+		return false;
+	}
+
+	if (
+		isImageEditingActive() &&
+		!visibleImageModels.some((model) => model.editing && model.id === getSelectedEditingModel())
+	) {
+		warn({
+			title: "No image editing model available",
+			text: "Enable premium endpoint access or add an API key for an image editing provider."
+		});
+		return false;
+	}
+
+	return true;
+}
+
+function shouldUseEdgeImageGenerationRoute(settings: ReturnType<typeof settingsService.getSettings>): boolean {
+	const selectedImageModel = IMAGE_MODELS.find((model) => model.id === settings.imageModel);
+	return (
+		isImageModelProviderRouteAvailable(ImageModelProvider.EDGE) &&
+		selectedImageModel?.providers.includes(ImageModelProvider.EDGE) === true
+	);
+}
+
 async function performEarlyValidation(msg: string, options: SendOptions = {}): Promise<EarlyValidationResult> {
 	await ensureChatFullyHydratedForWrite(options.targetChatId);
 	const settings = settingsService.getSettings();
@@ -1674,8 +1715,14 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 	const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
 	const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 	const imageGenerationAvailability = await supabaseService.isImageGenerationAvailable();
-	const isImagePremiumEndpointPreferred = imageGenerationAvailability.type === "all";
 	const isImageRequest = isImageModeActive() || isImageEditingActive();
+	if (isImageRequest && !validateVisibleImageModelSelection(settings)) {
+		return { canProceed: false };
+	}
+
+	const isImagePremiumEndpointPreferred = isImageRequest
+		? isImageEditingActive() || shouldUseEdgeImageGenerationRoute(settings)
+		: imageGenerationAvailability.type === "all";
 	const hasLocalApiKey = hasLocalApiKeyForModel(settings.model, settings);
 	const canUseImageCreditsWithoutApiKey = isImageRequest && isImagePremiumEndpointPreferred;
 

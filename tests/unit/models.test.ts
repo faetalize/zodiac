@@ -15,6 +15,8 @@ import {
 	type ChatModelAccess
 } from "../../src/types/Models";
 import { DEFAULT_IMAGE_EDIT_MODEL, DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../../src/constants/ImageModels";
+import { getVisibleImageModels } from "../../src/utils/imageModelVisibility";
+import type { ImageModelDefinition } from "../../src/types/ImageModels";
 
 describe("default model roles", () => {
 	it("uses GLM 5 for local OpenRouter chat title generation", () => {
@@ -71,6 +73,54 @@ describe("image model definitions", () => {
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN)?.maxInputImages).toBe(3);
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM)?.maxInputImages).toBe(5);
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.PRUNA)?.maxInputImages).toBe(5);
+	});
+});
+
+describe("image model provider visibility", () => {
+	const fixtureModels: ImageModelDefinition[] = [
+		{
+			id: ImageModelId.ILLUSTRIOUS,
+			label: "Google generation",
+			providers: [ImageModelProvider.GOOGLE],
+			generation: true,
+			editing: false,
+			promptType: ImagePromptType.SEMANTIC
+		},
+		{
+			id: ImageModelId.BLXL,
+			label: "OpenRouter edit",
+			providers: [ImageModelProvider.OPENROUTER],
+			generation: false,
+			editing: true,
+			promptType: ImagePromptType.SEMANTIC
+		},
+		{
+			id: ImageModelId.QWEN,
+			label: "Hybrid generation",
+			providers: [ImageModelProvider.OPENROUTER, ImageModelProvider.EDGE],
+			generation: true,
+			editing: false,
+			promptType: ImagePromptType.SEMANTIC
+		}
+	];
+
+	it("shows models when any declared provider route is available", () => {
+		const visible = getVisibleImageModels(
+			(provider) => provider === ImageModelProvider.OPENROUTER,
+			fixtureModels
+		).map((model) => model.label);
+
+		expect(visible).toEqual(["OpenRouter edit", "Hybrid generation"]);
+	});
+
+	it("leaves generation and editing capability filtering to callers", () => {
+		const visible = getVisibleImageModels(() => true, fixtureModels);
+
+		expect(visible.filter((model) => model.generation).map((model) => model.label)).toEqual([
+			"Google generation",
+			"Hybrid generation"
+		]);
+		expect(visible.filter((model) => model.editing).map((model) => model.label)).toEqual(["OpenRouter edit"]);
 	});
 });
 
