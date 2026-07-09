@@ -32,6 +32,7 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: false,
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
+		baseModel: BaseModel.QWEN,
 		maxInputImages: 3
 	},
 	{
@@ -41,6 +42,7 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: true,
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
+		baseModel: BaseModel.QWEN_2,
 		maxInputImages: 3
 	},
 	{
@@ -50,6 +52,7 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: true,
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
+		baseModel: BaseModel.QWEN_2,
 		maxInputImages: 3
 	},
 	{
@@ -68,6 +71,7 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: true,
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
+		baseModel: BaseModel.SEEDREAM,
 		maxInputImages: 5
 	},
 	{
@@ -77,6 +81,7 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		generation: true,
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
+		baseModel: BaseModel.SEEDREAM,
 		maxInputImages: 5
 	},
 	{

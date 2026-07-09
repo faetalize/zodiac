@@ -47,9 +47,9 @@ describe("image model definitions", () => {
 		expect(IMAGE_MODELS.find((model) => model.id === DEFAULT_IMAGE_EDIT_MODEL)?.editing).toBe(true);
 	});
 
-	it("records edge provider support for current image models", () => {
+	it("records edge-only provider support for current image models", () => {
 		for (const model of IMAGE_MODELS) {
-			expect(model.providers).toContain(ImageModelProvider.EDGE);
+			expect(model.providers).toEqual([ImageModelProvider.EDGE]);
 		}
 	});
 
@@ -77,6 +77,19 @@ describe("image model definitions", () => {
 			BaseModel.ILLUSTRIOUS
 		);
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.BLXL)?.baseModel).toBe(BaseModel.SDXL);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN)?.baseModel).toBe(BaseModel.QWEN);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN_2_0_PRO)?.baseModel).toBe(BaseModel.QWEN_2);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN_2_0)?.baseModel).toBe(BaseModel.QWEN_2);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM_5_0_PRO)?.baseModel).toBe(
+			BaseModel.SEEDREAM
+		);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM_4_5)?.baseModel).toBe(
+			BaseModel.SEEDREAM
+		);
+
+		for (const model of IMAGE_MODELS.filter((candidate) => candidate.generation)) {
+			expect(model.baseModel).toBeDefined();
+		}
 	});
 
 	it("stores editing input image limits in image model metadata", () => {

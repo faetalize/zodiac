@@ -23,7 +23,10 @@ export enum ImagePromptType {
 
 export enum BaseModel {
 	SDXL = "sdxl",
-	ILLUSTRIOUS = "illustrious"
+	ILLUSTRIOUS = "illustrious",
+	QWEN = "qwen",
+	QWEN_2 = "qwen-2",
+	SEEDREAM = "seedream"
 }
 
 export interface ImageModelDefinition {
