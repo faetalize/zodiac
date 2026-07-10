@@ -45,7 +45,7 @@ const testState = vi.hoisted(() => ({
 		maxTokens: "256",
 		temperature: "50",
 		model: "openai/gpt-5.4",
-		imageModel: "",
+		imageModel: "illustrious",
 		streamResponses: false,
 		enableThinking: false,
 		thinkingBudget: 0,
@@ -174,7 +174,10 @@ vi.mock("../../../src/components/static/ChatInput.component", () => ({
 }));
 
 vi.mock("../../../src/components/static/ApiKeyInput.component", () => ({
-	shouldPreferPremiumEndpoint: vi.fn(() => false)
+	hasGeminiApiKey: vi.fn(() => false),
+	hasOpenRouterApiKey: vi.fn(() => false),
+	shouldPreferPremiumEndpoint: vi.fn(() => false),
+	shouldPreferPremiumImageEndpoint: vi.fn(() => true)
 }));
 
 vi.mock("../../../src/components/static/ImageEditModelSelector.component", () => ({
@@ -538,6 +541,68 @@ describe("Message send lifecycle", () => {
 		expect(persistedChat?.content ?? []).toHaveLength(0);
 		expect(getVisibleMessageElements()).toHaveLength(0);
 		expect(messageService.getIsGenerating(chatId)).toBe(false);
+	});
+
+	it("blocks image generation and warns when out of image credits while preferring credits", async () => {
+		seedMockPersonas([
+			{
+				id: "persona-no-credits",
+				persona: {
+					name: "No Credits Persona",
+					description: "Handles image generations."
+				}
+			}
+		]);
+
+		testState.settings.model = "gemini-2.5-flash";
+		testState.settings.geminiApiKey = "";
+		testState.settings.apiKey = "";
+		testState.settings.imageModel = "illustrious";
+
+		const { db: testDb, chatsService, messageService } = await loadServices();
+		db = testDb;
+
+		const chatId = await createAndLoadChat({
+			chatsService,
+			chat: makeChat({ id: "chat-no-credits", title: "No Credits Chat", content: [] })
+		});
+
+		const imageButton = await import("../../../src/components/static/ImageButton.component");
+		const imageEditButton = await import("../../../src/components/static/ImageEditButton.component");
+		vi.mocked(imageButton.isImageModeActive).mockReturnValue(true);
+		vi.mocked(imageEditButton.isImageEditingActive).mockReturnValue(false);
+
+		const supabaseService = await import("../../../src/services/Supabase.service");
+		// Prefer image credits (default) but the account has none (type "google_only").
+		vi.mocked(supabaseService.isImageGenerationAvailable).mockResolvedValue({
+			enabled: true,
+			type: "google_only"
+		});
+
+		const apiKeyInput = await import("../../../src/components/static/ApiKeyInput.component");
+		vi.mocked(apiKeyInput.shouldPreferPremiumImageEndpoint).mockReturnValue(true);
+
+		const toastService = await import("../../../src/services/Toast.service");
+		vi.mocked(toastService.warn).mockClear();
+
+		const fetchMock = vi.fn();
+		vi.stubGlobal("fetch", fetchMock);
+
+		try {
+			await messageService.send("Draw a comet", {
+				targetChatId: chatId,
+				selectedPersonalityId: "persona-no-credits",
+				attachmentFiles: makeEmptyFileList()
+			});
+		} finally {
+			vi.unstubAllGlobals();
+		}
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(toastService.warn).toHaveBeenCalledWith(expect.objectContaining({ title: "Out of image credits" }));
+
+		const persistedChat = await testDb.chats.get(chatId);
+		expect(persistedChat?.content ?? []).toHaveLength(0);
 	});
 
 	it("allows image generation with credits without a Gemini API key", async () => {

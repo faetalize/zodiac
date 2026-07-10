@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SETTINGS_STORAGE_KEYS } from "../../../src/constants/SettingsStorageKeys";
 import { DEFAULT_IMAGE_EDIT_MODEL, DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../../../src/constants/ImageModels";
@@ -16,6 +16,10 @@ function bootstrapSettingsDom(): void {
 	bootstrapDom(`
 		<input id="apiKeyInput" value="">
 		<input id="openRouterApiKeyInput" value="">
+		<div id="gemini-api-key-error" class="hidden"></div>
+		<div id="openrouter-api-key-error" class="hidden"></div>
+		<div id="prefer-premium-endpoint-toggle"></div>
+		<input id="preferPremiumEndpoint" type="checkbox">
 		<input id="maxTokens" value="1000">
 		<input id="temperature" value="60">
 		<select id="selectedModel"><option value="gemini-3.5-flash" selected>Gemini Flash</option></select>
@@ -49,13 +53,54 @@ function selectValues(selector: string): string[] {
 }
 
 describe("image model selectors", () => {
+	// Each test re-imports the selector modules, which register window listeners on import.
+	// Track and remove them per test so stale listeners (bound to detached selects from a
+	// prior import) don't accumulate across cases.
+	const trackedListeners: Array<[string, EventListener]> = [];
+	let addEventListenerSpy: ReturnType<typeof vi.spyOn> | undefined;
+
 	beforeEach(() => {
 		vi.resetModules();
 		localStorage.clear();
 		bootstrapSettingsDom();
+
+		trackedListeners.length = 0;
+		const originalAddEventListener = window.addEventListener.bind(window);
+		addEventListenerSpy = vi.spyOn(window, "addEventListener").mockImplementation(((
+			type: string,
+			listener: EventListenerOrEventListenerObject,
+			options?: boolean | AddEventListenerOptions
+		) => {
+			trackedListeners.push([type, listener as EventListener]);
+			originalAddEventListener(type, listener as EventListener, options);
+		}) as typeof window.addEventListener);
+	});
+
+	afterEach(() => {
+		addEventListenerSpy?.mockRestore();
+		for (const [type, listener] of trackedListeners) {
+			window.removeEventListener(type, listener);
+		}
 	});
 
 	it("populates empty image model selects from TypeScript definitions", async () => {
+		await import("../../../src/components/static/ImageModelSelector.component");
+		await import("../../../src/components/static/ImageEditModelSelector.component");
+
+		expect(selectValues("#selectedImageModel")).toEqual(
+			IMAGE_MODELS.filter((model) => model.generation).map((model) => model.id)
+		);
+		expect(selectValues("#selectedImageEditingModel")).toEqual(
+			IMAGE_MODELS.filter((model) => model.editing).map((model) => model.id)
+		);
+	});
+
+	it("shows all image models regardless of premium endpoint preferences", async () => {
+		// Visibility is no longer provider-gated: every model is shown and the send path
+		// validates the route. Turning both premium toggles off must not hide any option.
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_ENDPOINT, "false");
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.PREFER_PREMIUM_IMAGE_ENDPOINT, "false");
+
 		await import("../../../src/components/static/ImageModelSelector.component");
 		await import("../../../src/components/static/ImageEditModelSelector.component");
 

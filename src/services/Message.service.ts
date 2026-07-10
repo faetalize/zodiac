@@ -57,12 +57,23 @@ import { isImageModeActive } from "../components/static/ImageButton.component";
 import { isImageEditingActive } from "../components/static/ImageEditButton.component";
 import { clearAttachmentPreviews } from "../components/static/AttachmentPreview.component";
 import { getCurrentHistoryImageDataUri } from "../components/static/ChatInput.component";
-import { shouldPreferPremiumEndpoint } from "../components/static/ApiKeyInput.component";
+import {
+	hasGeminiApiKey,
+	hasOpenRouterApiKey,
+	shouldPreferPremiumEndpoint,
+	shouldPreferPremiumImageEndpoint
+} from "../components/static/ApiKeyInput.component";
 import { getSelectedEditingModel } from "../components/static/ImageEditModelSelector.component";
 
 import { isAbortError, throwAbortError } from "../utils/abort";
 import { dispatchAppEvent } from "../events";
 import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../constants/ImageModels";
+import {
+	resolveImageModelRoute,
+	type ImageRouteAvailability,
+	type ImageRouteResolution,
+	type ImageRouteUnavailableReason
+} from "../utils/imageModelRouting";
 import {
 	NARRATOR_PERSONALITY_ID,
 	createPersonalityMarkerMessage,
@@ -1615,6 +1626,71 @@ function showAttachmentValidationFailures(errors: ReturnType<typeof getAttachmen
 	}
 }
 
+/**
+ * Resolves the transport for the currently active image request (editing takes
+ * precedence over generation, mirroring the send handler in performSend).
+ * Returns null when there is no active image request.
+ */
+function resolveActiveImageRoute(
+	settings: ReturnType<typeof settingsService.getSettings>,
+	hasEdgeCredits: boolean
+): { resolution: ImageRouteResolution; isEditing: boolean } | null {
+	const availability: ImageRouteAvailability = {
+		edgeCredits: hasEdgeCredits,
+		geminiKey: hasGeminiApiKey(),
+		openRouterKey: hasOpenRouterApiKey()
+	};
+	const preferEdge = shouldPreferPremiumImageEndpoint();
+
+	if (isImageEditingActive()) {
+		const editModel = IMAGE_MODELS.find((model) => model.editing && model.id === getSelectedEditingModel());
+		if (!editModel) {
+			return { resolution: { route: null, reason: "byok-not-supported" }, isEditing: true };
+		}
+		return { resolution: resolveImageModelRoute(editModel, preferEdge, availability), isEditing: true };
+	}
+
+	if (isImageModeActive()) {
+		const genModel = IMAGE_MODELS.find((model) => model.generation && model.id === settings.imageModel);
+		if (!genModel) {
+			return { resolution: { route: null, reason: "byok-not-supported" }, isEditing: false };
+		}
+		return { resolution: resolveImageModelRoute(genModel, preferEdge, availability), isEditing: false };
+	}
+
+	return null;
+}
+
+function warnImageRouteUnavailable(reason: ImageRouteUnavailableReason, isEditing: boolean): void {
+	const action = isEditing ? "edit" : "generate";
+	switch (reason) {
+		case "edge-no-credits":
+			warn({
+				title: "Out of image credits",
+				text: `You have no image credits left to ${action} images. Add credits, or add an API key for this model's provider and turn off "Use Image Credits".`
+			});
+			return;
+		case "edge-not-supported":
+			warn({
+				title: "Model needs your own API key",
+				text: `This model runs on your own API key. Turn off "Use Image Credits" to ${action} with it.`
+			});
+			return;
+		case "byok-missing-key":
+			warn({
+				title: "API key required",
+				text: `Add an API key for this model's provider, or turn on "Use Image Credits" to ${action} with your credits.`
+			});
+			return;
+		case "byok-not-supported":
+			warn({
+				title: "Image credits required",
+				text: `This model runs on image credits. Turn on "Use Image Credits" to ${action} images with it.`
+			});
+			return;
+	}
+}
+
 async function performEarlyValidation(msg: string, options: SendOptions = {}): Promise<EarlyValidationResult> {
 	await ensureChatFullyHydratedForWrite(options.targetChatId);
 	const settings = settingsService.getSettings();
@@ -1674,12 +1750,25 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 	const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
 	const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 	const imageGenerationAvailability = await supabaseService.isImageGenerationAvailable();
-	const isImagePremiumEndpointPreferred = imageGenerationAvailability.type === "all";
 	const isImageRequest = isImageModeActive() || isImageEditingActive();
-	const hasLocalApiKey = hasLocalApiKeyForModel(settings.model, settings);
-	const canUseImageCreditsWithoutApiKey = isImageRequest && isImagePremiumEndpointPreferred;
 
-	if (!isPremiumEndpointPreferred && !hasLocalApiKey && !canUseImageCreditsWithoutApiKey) {
+	// For image requests, the selected image/edit model's provider route decides the
+	// transport (edge credits vs BYOK) and whether the request is permitted at all.
+	let isImagePremiumEndpointPreferred = false;
+	if (isImageRequest) {
+		const activeImageRoute = resolveActiveImageRoute(settings, imageGenerationAvailability.type === "all");
+		if (activeImageRoute && activeImageRoute.resolution.route === null) {
+			warnImageRouteUnavailable(activeImageRoute.resolution.reason, activeImageRoute.isEditing);
+			return { canProceed: false };
+		}
+		isImagePremiumEndpointPreferred = activeImageRoute?.resolution.route === "edge";
+	}
+
+	const hasLocalApiKey = hasLocalApiKeyForModel(settings.model, settings);
+
+	// The chat-model API-key gate does not apply to image requests: those are gated by
+	// the resolved image route above, not by the selected chat model's provider key.
+	if (!isImageRequest && !isPremiumEndpointPreferred && !hasLocalApiKey) {
 		const providerName = isOpenRouterModel(settings.model) ? "OpenRouter" : "Gemini";
 		warn({
 			title: `${providerName} API Key Required`,
@@ -2441,6 +2530,7 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 // ================================================================================
 
 const IMAGE_GENERATION_SLUG = "handle-max-request-x";
+const IMAGE_EDITING_SLUG = "handle-edit-request-x";
 
 async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | undefined> {
 	const imageGenerationModel = ctx.settings.imageModel || DEFAULT_IMAGE_MODEL;
@@ -2590,7 +2680,7 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
 	}
 
 	try {
-		const endpoint = `${SUPABASE_URL}/functions/v1/handle-edit-request`;
+		const endpoint = `${SUPABASE_URL}/functions/v1/${IMAGE_EDITING_SLUG}`;
 		const response = await fetch(endpoint, {
 			method: "POST",
 			headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },

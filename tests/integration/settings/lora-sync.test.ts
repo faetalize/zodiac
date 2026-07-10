@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SETTINGS_STORAGE_KEYS } from "../../../src/constants/SettingsStorageKeys";
-import { BaseModel } from "../../../src/types/Models";
 import type { LoRAInfo } from "../../../src/types/Lora";
 
 const syncServiceMock = vi.hoisted(() => ({
@@ -22,7 +21,7 @@ vi.mock("../../../src/services/Supabase.service", () => ({
 }));
 
 const loraFixture: LoRAInfo = {
-	baseModel: BaseModel.ILLUSTRIOUS,
+	baseModel: "Illustrious",
 	name: "Test LoRA",
 	trainedWords: ["test"],
 	modelVersionId: "123",
@@ -49,6 +48,20 @@ describe("LoRA synced settings", () => {
 		expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS.LORAS) ?? "[]")).toEqual([loraFixture.url]);
 		expect(syncServiceMock.queueSettingsPush).toHaveBeenCalledTimes(1);
 		expect(syncServiceMock.queueSettingsPush).toHaveBeenLastCalledWith({ label: "LoRA settings" });
+	});
+
+	it("does not persist or push a LoRA with an unsupported base model", async () => {
+		supabaseMock.functions.invoke.mockResolvedValue({
+			data: [{ ...loraFixture, baseModel: "Pony" }],
+			error: null
+		});
+		const loraService = await import("../../../src/services/Lora.service");
+
+		const result = await loraService.add(loraFixture.url);
+
+		expect(result.status).toBe("unsupported");
+		expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS.LORAS) ?? "[]")).toEqual([]);
+		expect(syncServiceMock.queueSettingsPush).not.toHaveBeenCalled();
 	});
 
 	it("pushes current settings when a LoRA URL is deleted", async () => {

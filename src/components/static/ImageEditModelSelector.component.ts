@@ -45,12 +45,9 @@ populateImageEditModelOptions();
 // Initial check
 void updateImageEditModelSelectorState();
 
-onAppEvent("auth-state-changed", () => {
-	void updateImageEditModelSelectorState();
-});
-onAppEvent("subscription-updated", () => {
-	void updateImageEditModelSelectorState();
-});
+onAppEvent("auth-state-changed", () => void updateImageEditModelSelectorState());
+onAppEvent("subscription-updated", () => void updateImageEditModelSelectorState());
+onAppEvent("image-generation-record-refreshed", () => void updateImageEditModelSelectorState());
 
 /**
  * Get the currently selected image editing model

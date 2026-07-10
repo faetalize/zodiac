@@ -1,5 +1,6 @@
 import { IMAGE_MODELS } from "../../constants/ImageModels";
 import { isImageGenerationAvailable } from "../../services/Supabase.service";
+import { onAppEvent } from "../../events";
 
 const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel")!;
 if (!imageModelSelector) {
@@ -41,9 +42,6 @@ populateImageModelOptions();
 void updateImageModelSelectorState();
 
 // Listen for auth and subscription changes
-window.addEventListener("auth-state-changed", () => {
-	void updateImageModelSelectorState();
-});
-window.addEventListener("subscription-updated", () => {
-	void updateImageModelSelectorState();
-});
+onAppEvent("auth-state-changed", () => void updateImageModelSelectorState());
+onAppEvent("subscription-updated", () => void updateImageModelSelectorState());
+onAppEvent("image-generation-record-refreshed", () => void updateImageModelSelectorState());

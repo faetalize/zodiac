@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-	BaseModel,
 	DEFAULT_OPENROUTER_TITLE_MODEL,
 	ImageModelId,
 	ImageModelProvider,
@@ -33,7 +32,11 @@ describe("image model definitions", () => {
 				ImageModelId.BLXL,
 				ImageModelId.QWEN,
 				ImageModelId.SEEDREAM,
-				ImageModelId.PRUNA
+				ImageModelId.PRUNA,
+				ImageModelId.SEEDREAM_5_0_PRO,
+				ImageModelId.SEEDREAM_4_5,
+				ImageModelId.QWEN_2_0_PRO,
+				ImageModelId.QWEN_2_0
 			].sort()
 		);
 	});
@@ -43,9 +46,9 @@ describe("image model definitions", () => {
 		expect(IMAGE_MODELS.find((model) => model.id === DEFAULT_IMAGE_EDIT_MODEL)?.editing).toBe(true);
 	});
 
-	it("records edge provider support for current image models", () => {
+	it("records edge-only provider support for current image models", () => {
 		for (const model of IMAGE_MODELS) {
-			expect(model.providers).toContain(ImageModelProvider.EDGE);
+			expect(model.providers).toEqual([ImageModelProvider.EDGE]);
 		}
 	});
 
@@ -55,22 +58,40 @@ describe("image model definitions", () => {
 		);
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.BLXL)?.promptType).toBe(ImagePromptType.TAG);
 
-		for (const modelId of [ImageModelId.QWEN, ImageModelId.SEEDREAM, ImageModelId.PRUNA]) {
+		for (const modelId of [
+			ImageModelId.QWEN,
+			ImageModelId.SEEDREAM,
+			ImageModelId.PRUNA,
+			ImageModelId.SEEDREAM_5_0_PRO,
+			ImageModelId.SEEDREAM_4_5,
+			ImageModelId.QWEN_2_0_PRO,
+			ImageModelId.QWEN_2_0
+		]) {
 			expect(IMAGE_MODELS.find((model) => model.id === modelId)?.promptType).toBe(ImagePromptType.SEMANTIC);
 		}
 	});
 
-	it("stores base-model compatibility independently from selectable model IDs", () => {
-		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.ILLUSTRIOUS)?.baseModel).toBe(
-			BaseModel.ILLUSTRIOUS
+	it("declares Runware LoRA support only for open-weight models", () => {
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.ILLUSTRIOUS)?.loraArchitecture).toBe(
+			"illustrious"
 		);
-		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.BLXL)?.baseModel).toBe(BaseModel.SDXL);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.BLXL)?.loraArchitecture).toBe("sdxl");
+
+		for (const model of IMAGE_MODELS.filter(
+			(candidate) => candidate.id !== ImageModelId.ILLUSTRIOUS && candidate.id !== ImageModelId.BLXL
+		)) {
+			expect(model.loraArchitecture).toBeUndefined();
+		}
 	});
 
 	it("stores editing input image limits in image model metadata", () => {
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN)?.maxInputImages).toBe(3);
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM)?.maxInputImages).toBe(5);
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.PRUNA)?.maxInputImages).toBe(5);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM_5_0_PRO)?.maxInputImages).toBe(5);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM_4_5)?.maxInputImages).toBe(5);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN_2_0_PRO)?.maxInputImages).toBe(3);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN_2_0)?.maxInputImages).toBe(3);
 	});
 });
 

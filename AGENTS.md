@@ -251,6 +251,15 @@ User preferences use `localStorage` with service-level get/set wrappers. See [sr
 2. Update rendering in [src/components/dynamic/message.ts](src/components/dynamic/message.ts)
 3. Handle in API processing in `Message.service.ts`
 
+### Image Models And LoRA Support
+
+- Image models are defined in [src/constants/ImageModels.ts](src/constants/ImageModels.ts). A model supports LoRAs only if its definition sets `loraArchitecture` (a Runware model-upload architecture value, e.g. `"illustrious"`, `"sdxl"`).
+- LoRA support is ultimately gated by Runware, not by us or Civitai: to upload user LoRAs, the architecture must exist in Runware's model-upload `architecture` enum, and the model itself must accept LoRAs on Runware. This is a per-model fact — check Runware's docs; don't assume from how the model is hosted. The current Alibaba/ByteDance-hosted Qwen and Seedream models do not support LoRAs.
+- Which Civitai LoRAs are accepted is decided by the hardcoded allowlist in [src/constants/Loras.ts](src/constants/Loras.ts), mapping exact Civitai `BaseModel` strings to Runware architectures. `Lora.service.add` rejects LoRAs whose base model is not in the table. The backend has an identical table in `zozo-edge/supabase/functions/handle-max-request/index.ts` — keep the two in sync.
+- Matching is strict (exact strings, same architecture only). Do not add cross-family entries (e.g. Pony on Illustrious) unless explicitly requested.
+- To add a LoRA-capable model: (1) verify the architecture exists on Runware and the checkpoint is Runware-hosted open weights — if not, stop, it cannot be supported; (2) get exact Civitai strings from `civitai.com/api/v1/enums` (`.BaseModel`); (3) extend the `LoraArchitecture` union in [src/types/ImageModels.ts](src/types/ImageModels.ts), set `loraArchitecture` on the model definition, add the entries to `Loras.ts`; (4) make the matching backend changes in zozo-edge.
+- LoRAs never block generation: the backend skips incompatible or unsupported LoRAs with a warning instead of failing the request.
+
 ### Supabase Types
 
 After schema changes, run `npm run sync-db-types` to regenerate [src/types/database.types.ts](src/types/database.types.ts).
