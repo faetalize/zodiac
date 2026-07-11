@@ -129,4 +129,22 @@ describe("image model selectors", () => {
 		expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL)).toBe(DEFAULT_IMAGE_MODEL);
 		expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL)).toBe(DEFAULT_IMAGE_EDIT_MODEL);
 	});
+
+	it("keeps dedicated image model settings restored by sync", async () => {
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_MODEL, "gemini-3-pro-image-preview");
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.IMAGE_EDIT_MODEL, "gemini-3.1-flash-image-preview");
+
+		await import("../../../src/components/static/ImageModelSelector.component");
+		await import("../../../src/components/static/ImageEditModelSelector.component");
+		const settingsService = await import("../../../src/services/Settings.service");
+
+		settingsService.loadSettings();
+
+		expect(document.querySelector<HTMLSelectElement>("#selectedImageModel")?.value).toBe(
+			"gemini-3-pro-image-preview"
+		);
+		expect(document.querySelector<HTMLSelectElement>("#selectedImageEditingModel")?.value).toBe(
+			"gemini-3.1-flash-image-preview"
+		);
+	});
 });

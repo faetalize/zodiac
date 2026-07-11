@@ -23,13 +23,6 @@ export interface MegaCreditsRecord {
 	[key: string]: unknown;
 }
 
-export interface NanoBananaDailyUsageRecord {
-	user_id: string;
-	usage_date: string;
-	usage_count: number;
-	[key: string]: unknown;
-}
-
 export type MarketplacePersonaInfo =
 	| {
 			id: string;

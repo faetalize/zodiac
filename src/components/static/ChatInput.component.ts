@@ -1432,9 +1432,12 @@ function addAttachments(rawFiles: File[]): void {
 	let limitReached = false;
 	const added: File[] = [];
 	const existingSignatures = new Set(attachmentState.map(getFileSignature));
+	const attachmentLimit = isImageEditingModeActive
+		? (IMAGE_MODELS.find((model) => model.id === getSelectedEditingModel())?.maxInputImages ?? MAX_ATTACHMENTS)
+		: MAX_ATTACHMENTS;
 
 	for (const file of files) {
-		if (attachmentState.length + added.length >= MAX_ATTACHMENTS) {
+		if (attachmentState.length + added.length >= attachmentLimit) {
 			limitReached = true;
 			break;
 		}
@@ -1541,7 +1544,7 @@ function addAttachments(rawFiles: File[]): void {
 	if (limitReached) {
 		toastService.warn({
 			title: "Attachment limit reached",
-			text: `You can attach up to ${MAX_ATTACHMENTS} files per message.`
+			text: `You can attach up to ${attachmentLimit} files for this request.`
 		});
 	}
 }

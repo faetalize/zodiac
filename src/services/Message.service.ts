@@ -70,6 +70,7 @@ import { dispatchAppEvent } from "../events";
 import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../constants/ImageModels";
 import {
 	resolveImageModelRoute,
+	type ImageRoute,
 	type ImageRouteAvailability,
 	type ImageRouteResolution,
 	type ImageRouteUnavailableReason
@@ -689,10 +690,6 @@ function showGeminiProhibitedContentToast(args: { finishReason?: unknown; detail
 }
 
 function generateThinkingConfig(model: string, enableThinking: boolean, settings: any) {
-	if (model === ChatModel.NANO_BANANA) {
-		return undefined;
-	}
-
 	if (modelRequiresThinking(model)) {
 		const thinkingBudget =
 			Number.isFinite(settings.thinkingBudget) && settings.thinkingBudget > 0 ? settings.thinkingBudget : 128;
@@ -1139,7 +1136,6 @@ export async function constructGeminiChatHistoryFromLocalChat(
 // ================================================================================
 
 import * as loraService from "./Lora.service";
-import { PersonGeneration, SafetyFilterLevel } from "@google/genai";
 
 const CHAT_TITLE_SYSTEM_INSTRUCTION =
 	"You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user may send any kinds of queries, including adult or illegal content. You are to generate a title for the chat based on the query, without any warnings or refusals. Never refuse to generate a title. Keep it short, ideally 3-5 words at most. Remove any special characters.";
@@ -1575,6 +1571,7 @@ interface EarlyValidationSuccess {
 	isInternetSearchEnabled: boolean;
 	isPremiumEndpointPreferred: boolean;
 	isImagePremiumEndpointPreferred: boolean;
+	imageRoute?: ImageRoute;
 	isGroupChat: boolean;
 	shouldUseSkipThoughtSignature: boolean;
 	shouldEnforceThoughtSignaturesInHistory: boolean;
@@ -1727,11 +1724,15 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 		return { canProceed: false };
 	}
 
-	const attachmentValidation = getAttachmentValidationSummary(attachmentFiles);
+	const activeEditModel = isImageEditingActive()
+		? IMAGE_MODELS.find((model) => model.id === getSelectedEditingModel())
+		: undefined;
+	const attachmentLimit = activeEditModel?.maxInputImages ?? MAX_ATTACHMENTS;
+	const attachmentValidation = getAttachmentValidationSummary(attachmentFiles, attachmentLimit);
 	if (attachmentValidation.tooMany) {
 		warn({
 			title: "Attachment limit reached",
-			text: `You can attach up to ${MAX_ATTACHMENTS} files per message.`
+			text: `You can attach up to ${attachmentLimit} files for this request.`
 		});
 		return { canProceed: false };
 	}
@@ -1747,7 +1748,7 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 			isPremiumEndpointPreferred: true
 		});
 	}
-	const shouldUseSkipThoughtSignature = settings.model === ChatModel.NANO_BANANA;
+	const shouldUseSkipThoughtSignature = false;
 	const shouldEnforceThoughtSignaturesInHistory = requiresThoughtSignaturesInHistory(settings.model);
 	const imageGenerationAvailability = await supabaseService.isImageGenerationAvailable();
 	const isImageRequest = isImageModeActive() || isImageEditingActive();
@@ -1755,13 +1756,15 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 	// For image requests, the selected image/edit model's provider route decides the
 	// transport (edge credits vs BYOK) and whether the request is permitted at all.
 	let isImagePremiumEndpointPreferred = false;
+	let imageRoute: ImageRoute | undefined;
 	if (isImageRequest) {
 		const activeImageRoute = resolveActiveImageRoute(settings, imageGenerationAvailability.type === "all");
 		if (activeImageRoute && activeImageRoute.resolution.route === null) {
 			warnImageRouteUnavailable(activeImageRoute.resolution.reason, activeImageRoute.isEditing);
 			return { canProceed: false };
 		}
-		isImagePremiumEndpointPreferred = activeImageRoute?.resolution.route === "edge";
+		imageRoute = activeImageRoute?.resolution.route ?? undefined;
+		isImagePremiumEndpointPreferred = imageRoute === "edge";
 	}
 
 	const hasLocalApiKey = hasLocalApiKeyForModel(settings.model, settings);
@@ -1814,6 +1817,7 @@ async function performEarlyValidation(msg: string, options: SendOptions = {}): P
 		isInternetSearchEnabled,
 		isPremiumEndpointPreferred,
 		isImagePremiumEndpointPreferred,
+		imageRoute,
 		isGroupChat,
 		shouldUseSkipThoughtSignature,
 		shouldEnforceThoughtSignaturesInHistory
@@ -1839,6 +1843,7 @@ interface SendContext {
 	historyImageDataUri: string | null;
 	isPremiumEndpointPreferred: boolean;
 	isImagePremiumEndpointPreferred: boolean;
+	imageRoute?: ImageRoute;
 	shouldUseSkipThoughtSignature: boolean;
 	abortController: AbortController;
 	messageContent: Element;
@@ -1861,6 +1866,7 @@ async function buildSendContext(
 		isInternetSearchEnabled,
 		isPremiumEndpointPreferred,
 		isImagePremiumEndpointPreferred,
+		imageRoute,
 		shouldUseSkipThoughtSignature,
 		shouldEnforceThoughtSignaturesInHistory
 	} = validation;
@@ -1878,7 +1884,7 @@ async function buildSendContext(
 		responseMimeType: "text/plain",
 		tools: isInternetSearchEnabled ? [{ googleSearch: {} }] : undefined,
 		thinkingConfig: thinkingConfig,
-		imageConfig: settings.model === ChatModel.NANO_BANANA_PRO ? { imageSize: "4K" } : undefined
+		imageConfig: undefined
 	};
 
 	const currentChat = options.targetChatId
@@ -1963,6 +1969,7 @@ async function buildSendContext(
 		historyImageDataUri,
 		isPremiumEndpointPreferred,
 		isImagePremiumEndpointPreferred,
+		imageRoute,
 		shouldUseSkipThoughtSignature,
 		abortController,
 		messageContent: responseElement.querySelector(".message-text .message-text-content")!,
@@ -2532,100 +2539,48 @@ async function handleTextChatLocalSdk(ctx: SendContext, state: TextChatResponseS
 const IMAGE_GENERATION_SLUG = "handle-max-request-x";
 const IMAGE_EDITING_SLUG = "handle-edit-request-x";
 
-async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | undefined> {
-	const imageGenerationModel = ctx.settings.imageModel || DEFAULT_IMAGE_MODEL;
-	const payload = {
-		model: imageGenerationModel,
-		prompt: ctx.msg,
-		config: {
-			numberOfImages: 1,
-			outputMimeType: "image/jpeg",
-			personGeneration: PersonGeneration.ALLOW_ADULT,
-			aspectRatio: "1:1",
-			safetyFilterLevel: SafetyFilterLevel.BLOCK_LOW_AND_ABOVE
-		},
-		loras: loraService.getLoraState()
-	};
-
-	let b64: string;
-	let returnedMimeType: string;
-
-	if (ctx.isImagePremiumEndpointPreferred) {
-		const endpoint = `${SUPABASE_URL}/functions/v1/${IMAGE_GENERATION_SLUG}`;
-		const response = await fetch(endpoint, {
-			method: "POST",
-			headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
-			body: JSON.stringify(payload),
-			signal: ctx.abortController?.signal
-		});
-
-		if (!response.ok) {
-			const errorData = await response.json();
-			setUserMessageRequestSlug(ctx.userMessage, errorData?.requestId);
-			await appendRequestSlugToStoredMessage({
-				chatId: ctx.chatId,
-				messageIndex: ctx.userIndex,
-				requestSlug: errorData?.requestId
-			});
-			const responseError = errorData.error;
-			danger({ text: responseError, title: "Image generation failed" });
-			const modelMessage = createImageGenerationErrorMessage(ctx.selectedPersonalityId, imageGenerationModel);
-			await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
-			await finalizeResponseElement({
-				chatId: ctx.chatId,
-				messageIndex: ctx.modelIndex,
-				responseElement: ctx.responseElement,
-				message: modelMessage
-			});
-			endGeneration(ctx.chatId);
-			return ctx.userMessageElement;
-		}
-
-		const requestId = response.headers.get("X-Request-Id") ?? undefined;
-		setUserMessageRequestSlug(ctx.userMessage, requestId);
-		await appendRequestSlugToStoredMessage({
-			chatId: ctx.chatId,
-			messageIndex: ctx.userIndex,
-			requestSlug: requestId
-		});
-		const arrayBuf = await response.arrayBuffer();
-		b64 = await helpers.arrayBufferToBase64(arrayBuf);
-		returnedMimeType = response.headers.get("Content-Type") || "image/png";
-	} else {
-		const ai = ctx.ai;
-		if (!ai) {
-			throw new Error("Gemini client is not available for image generation.");
-		}
-
-		const response = await ai.models.generateImages(payload);
-		if (!response || !response.generatedImages || !response.generatedImages[0]?.image?.imageBytes) {
-			const extraMessage = response?.generatedImages?.[0]?.raiFilteredReason;
-			danger({ text: `${extraMessage ? "Reason: " + extraMessage : ""}`, title: "Image generation failed" });
-			const modelMessage = createImageGenerationErrorMessage(ctx.selectedPersonalityId, imageGenerationModel);
-			await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
-			await finalizeResponseElement({
-				chatId: ctx.chatId,
-				messageIndex: ctx.modelIndex,
-				responseElement: ctx.responseElement,
-				message: modelMessage
-			});
-			endGeneration(ctx.chatId);
-			return ctx.userMessageElement;
-		}
-		b64 = response.generatedImages[0].image.imageBytes;
-		returnedMimeType = response.generatedImages[0].image.mimeType || "image/png";
+function getImageModel(modelId: string, capability: "generation" | "editing") {
+	const model = IMAGE_MODELS.find((candidate) => candidate.id === modelId && candidate[capability]);
+	if (!model) {
+		throw new Error(`Selected image ${capability} model is unavailable.`);
 	}
+	return model;
+}
 
-	const modelMessage: Message = {
-		role: "model",
-		parts: [{ text: "Here's the image you requested~", thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
-		personalityid: ctx.selectedPersonalityId,
-		generatedImages: [
-			{ mimeType: returnedMimeType, base64: b64, thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }
-		],
-		originModel: imageGenerationModel
-	};
+function getGeminiImageApiKey(settings: ReturnType<typeof settingsService.getSettings>): string {
+	return (settings.geminiApiKey || settings.apiKey || "").trim();
+}
 
+function dataUriToInlineData(dataUri: string): { mimeType: string; data: string } {
+	const match = dataUri.match(/^data:([^;]+);base64,(.+)$/);
+	if (!match) {
+		throw new Error("Image data is not a valid base64 data URI.");
+	}
+	return { mimeType: match[1], data: match[2] };
+}
+
+async function saveImageRequestId(ctx: SendContext, requestId?: string): Promise<void> {
+	setUserMessageRequestSlug(ctx.userMessage, requestId);
+	await appendRequestSlugToStoredMessage({
+		chatId: ctx.chatId,
+		messageIndex: ctx.userIndex,
+		requestSlug: requestId
+	});
+}
+
+async function failImageRequest(
+	ctx: SendContext,
+	originModel: string,
+	kind: "generation" | "editing",
+	error: unknown
+): Promise<HTMLElement> {
+	const title = kind === "generation" ? "Image generation failed" : "Image editing failed";
+	const message = error instanceof Error ? error.message : "An unexpected error occurred.";
+	danger({ title, text: message });
+	const modelMessage =
+		kind === "generation"
+			? createImageGenerationErrorMessage(ctx.selectedPersonalityId, originModel)
+			: createImageEditingErrorMessage(ctx.selectedPersonalityId, originModel);
 	await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
 	await finalizeResponseElement({
 		chatId: ctx.chatId,
@@ -2633,9 +2588,159 @@ async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | un
 		responseElement: ctx.responseElement,
 		message: modelMessage
 	});
-	void supabaseService.refreshImageGenerationRecord();
 	endGeneration(ctx.chatId);
 	return ctx.userMessageElement;
+}
+
+async function completeImageRequest(args: {
+	ctx: SendContext;
+	originModel: string;
+	text: string;
+	image: { base64: string; mimeType: string };
+	refreshCredits: boolean;
+}): Promise<HTMLElement> {
+	const modelMessage: Message = {
+		role: "model",
+		parts: [{ text: args.text, thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
+		personalityid: args.ctx.selectedPersonalityId,
+		generatedImages: [
+			{
+				mimeType: args.image.mimeType,
+				base64: args.image.base64,
+				thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR
+			}
+		],
+		originModel: args.originModel
+	};
+	await updateChatMessage(args.ctx.chatId, args.ctx.modelIndex, modelMessage);
+	await finalizeResponseElement({
+		chatId: args.ctx.chatId,
+		messageIndex: args.ctx.modelIndex,
+		responseElement: args.ctx.responseElement,
+		message: modelMessage
+	});
+	if (args.refreshCredits) {
+		void supabaseService.refreshImageGenerationRecord();
+	}
+	endGeneration(args.ctx.chatId);
+	return args.ctx.userMessageElement;
+}
+
+async function requestGoogleImage(args: {
+	apiKey: string;
+	model: string;
+	prompt: string;
+	images?: string[];
+}): Promise<{ base64: string; mimeType: string }> {
+	const ai = new GoogleGenAI({ apiKey: args.apiKey });
+	const parts = [
+		...(args.images ?? []).map((image) => ({ inlineData: dataUriToInlineData(image) })),
+		{ text: args.prompt }
+	];
+	const response = await ai.models.generateContent({
+		model: args.model,
+		contents: [{ role: "user", parts }],
+		config: { responseModalities: ["IMAGE"] }
+	} as any);
+	const result = await processGeminiLocalSdkResponse({
+		response,
+		process: {
+			includeThoughts: false,
+			useSkipThoughtSignature: true,
+			skipThoughtSignatureValidator: SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+			abortMode: "throw",
+			throwOnBlocked: false
+		}
+	});
+	const image = result.images[0];
+	if (!image?.base64) {
+		throw new Error("Google did not return an image.");
+	}
+	return { base64: image.base64, mimeType: image.mimeType };
+}
+
+async function requestOpenRouterImage(args: {
+	apiKey: string;
+	model: string;
+	prompt: string;
+	images?: string[];
+	signal?: AbortSignal;
+}): Promise<{ base64: string; mimeType: string }> {
+	const content = [
+		...(args.images ?? []).map((image) => ({ type: "image_url" as const, image_url: { url: image } })),
+		{ type: "text" as const, text: args.prompt }
+	];
+	const result = await requestOpenRouterCompletion({
+		apiKey: args.apiKey,
+		request: {
+			model: args.model,
+			messages: [{ role: "user", content }],
+			stream: false,
+			modalities: ["image"]
+		},
+		signal: args.signal
+	});
+	const image = result.images?.[0];
+	if (!image?.base64) {
+		throw new Error("OpenRouter did not return an image.");
+	}
+	return { base64: image.base64, mimeType: image.mimeType };
+}
+
+async function handleImageGeneration(ctx: SendContext): Promise<HTMLElement | undefined> {
+	const imageGenerationModel = ctx.settings.imageModel || DEFAULT_IMAGE_MODEL;
+	try {
+		const model = getImageModel(imageGenerationModel, "generation");
+		let image: { base64: string; mimeType: string };
+		if (ctx.imageRoute === "edge") {
+			const response = await fetch(`${SUPABASE_URL}/functions/v1/${IMAGE_GENERATION_SLUG}`, {
+				method: "POST",
+				headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
+				body: JSON.stringify({
+					prompt: ctx.msg,
+					model: model.id,
+					loras: loraService.getLoraState(),
+					negative_prompt: ""
+				}),
+				signal: ctx.abortController.signal
+			});
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				await saveImageRequestId(ctx, errorData?.requestId);
+				throw new Error(errorData?.error || `Image endpoint error: ${response.status}`);
+			}
+			await saveImageRequestId(ctx, response.headers.get("X-Request-Id") ?? undefined);
+			image = {
+				base64: await helpers.arrayBufferToBase64(await response.arrayBuffer()),
+				mimeType: response.headers.get("Content-Type") || "image/png"
+			};
+		} else if (ctx.imageRoute === "google") {
+			image = await requestGoogleImage({
+				apiKey: getGeminiImageApiKey(ctx.settings),
+				model: model.id,
+				prompt: ctx.msg
+			});
+		} else if (ctx.imageRoute === "openrouter") {
+			image = await requestOpenRouterImage({
+				apiKey: ctx.settings.openRouterApiKey.trim(),
+				model: model.openRouterModelId || model.id,
+				prompt: ctx.msg,
+				signal: ctx.abortController.signal
+			});
+		} else {
+			throw new Error("No image route is available.");
+		}
+
+		return await completeImageRequest({
+			ctx,
+			originModel: model.id,
+			text: "Here's the image you requested~",
+			image,
+			refreshCredits: ctx.imageRoute === "edge"
+		});
+	} catch (error) {
+		return await failImageRequest(ctx, imageGenerationModel, "generation", error);
+	}
 }
 
 // ================================================================================
@@ -2668,8 +2773,8 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
 	}
 
 	const editingModel = getSelectedEditingModel();
-
-	const maxImages = IMAGE_MODELS.find((model) => model.id === editingModel)?.maxInputImages;
+	const model = getImageModel(editingModel, "editing");
+	const maxImages = model.maxInputImages;
 	if (maxImages && imagesToEdit.length > maxImages) {
 		const modelName = editingModel.charAt(0).toUpperCase() + editingModel.slice(1);
 		warn({
@@ -2680,92 +2785,51 @@ async function handleImageEditing(ctx: SendContext): Promise<HTMLElement | undef
 	}
 
 	try {
-		const endpoint = `${SUPABASE_URL}/functions/v1/${IMAGE_EDITING_SLUG}`;
-		const response = await fetch(endpoint, {
-			method: "POST",
-			headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
-			body: JSON.stringify({ images: imagesToEdit, prompt: ctx.msg, editingModel }),
-			signal: ctx.abortController?.signal
-		});
-
-		if (!response.ok) {
-			const errorData = await response.json();
-			setUserMessageRequestSlug(ctx.userMessage, errorData?.requestId);
-			await appendRequestSlugToStoredMessage({
-				chatId: ctx.chatId,
-				messageIndex: ctx.userIndex,
-				requestSlug: errorData?.requestId
+		let image: { base64: string; mimeType: string };
+		if (ctx.imageRoute === "edge") {
+			const response = await fetch(`${SUPABASE_URL}/functions/v1/${IMAGE_EDITING_SLUG}`, {
+				method: "POST",
+				headers: { ...(await getAuthHeaders()), "Content-Type": "application/json" },
+				body: JSON.stringify({ images: imagesToEdit, prompt: ctx.msg, editingModel: model.id }),
+				signal: ctx.abortController.signal
 			});
-			danger({ text: errorData.error || "Unknown error", title: "Image editing failed" });
-			const modelMessage = createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel);
-			await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
-			await finalizeResponseElement({
-				chatId: ctx.chatId,
-				messageIndex: ctx.modelIndex,
-				responseElement: ctx.responseElement,
-				message: modelMessage
+			const result = await response.json().catch(() => ({}));
+			await saveImageRequestId(ctx, result?.requestId ?? response.headers.get("X-Request-Id") ?? undefined);
+			if (!response.ok) {
+				throw new Error(result?.error || `Image endpoint error: ${response.status}`);
+			}
+			if (!result?.image) {
+				throw new Error("No image data returned from server.");
+			}
+			image = { base64: result.image, mimeType: result.mimeType || "image/png" };
+		} else if (ctx.imageRoute === "google") {
+			image = await requestGoogleImage({
+				apiKey: getGeminiImageApiKey(ctx.settings),
+				model: model.id,
+				prompt: ctx.msg,
+				images: imagesToEdit
 			});
-			endGeneration(ctx.chatId);
-			return ctx.userMessageElement;
+		} else if (ctx.imageRoute === "openrouter") {
+			image = await requestOpenRouterImage({
+				apiKey: ctx.settings.openRouterApiKey.trim(),
+				model: model.openRouterModelId || model.id,
+				prompt: ctx.msg,
+				images: imagesToEdit,
+				signal: ctx.abortController.signal
+			});
+		} else {
+			throw new Error("No image route is available.");
 		}
 
-		const result = await response.json();
-		setUserMessageRequestSlug(ctx.userMessage, result?.requestId);
-		await appendRequestSlugToStoredMessage({
-			chatId: ctx.chatId,
-			messageIndex: ctx.userIndex,
-			requestSlug: result?.requestId
+		return await completeImageRequest({
+			ctx,
+			originModel: model.id,
+			text: "Here's your edited image~",
+			image,
+			refreshCredits: ctx.imageRoute === "edge"
 		});
-		const editedImageBase64 = result.image;
-		const mimeType = result.mimeType || "image/png";
-
-		if (!editedImageBase64) {
-			danger({ title: "Image editing failed", text: "No image data returned from server." });
-			const modelMessage = createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel);
-			await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
-			await finalizeResponseElement({
-				chatId: ctx.chatId,
-				messageIndex: ctx.modelIndex,
-				responseElement: ctx.responseElement,
-				message: modelMessage
-			});
-			endGeneration(ctx.chatId);
-			return ctx.userMessageElement;
-		}
-
-		const modelMessage: Message = {
-			role: "model",
-			parts: [{ text: "Here's your edited image~", thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }],
-			personalityid: ctx.selectedPersonalityId,
-			generatedImages: [
-				{ mimeType, base64: editedImageBase64, thoughtSignature: SKIP_THOUGHT_SIGNATURE_VALIDATOR }
-			],
-			originModel: editingModel
-		};
-
-		await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
-		await finalizeResponseElement({
-			chatId: ctx.chatId,
-			messageIndex: ctx.modelIndex,
-			responseElement: ctx.responseElement,
-			message: modelMessage
-		});
-		void supabaseService.refreshImageGenerationRecord();
-		endGeneration(ctx.chatId);
-		return ctx.userMessageElement;
-	} catch (error: any) {
-		console.error("Image editing error:", error);
-		danger({ title: "Image editing failed", text: error.message || "An unexpected error occurred" });
-		const modelMessage = createImageEditingErrorMessage(ctx.selectedPersonalityId, editingModel);
-		await updateChatMessage(ctx.chatId, ctx.modelIndex, modelMessage);
-		await finalizeResponseElement({
-			chatId: ctx.chatId,
-			messageIndex: ctx.modelIndex,
-			responseElement: ctx.responseElement,
-			message: modelMessage
-		});
-		endGeneration(ctx.chatId);
-		return ctx.userMessageElement;
+	} catch (error) {
+		return await failImageRequest(ctx, editingModel, "editing", error);
 	}
 }
 

@@ -249,6 +249,19 @@ describe("ChatInput attachment drop workflow", () => {
 		);
 	});
 
+	it("enforces the selected image editor's five image input limit", async () => {
+		const imageEditSelector = await import("../../../src/components/static/ImageEditModelSelector.component");
+		vi.mocked(imageEditSelector.getSelectedEditingModel).mockReturnValue("gemini-3-pro-image-preview" as any);
+		window.dispatchEvent(new CustomEvent("image-editing-toggled", { detail: { enabled: true } }));
+
+		const files = Array.from({ length: 6 }, (_, index) =>
+			createFile(`image-${index + 1}.png`, "image/png", "image")
+		);
+		dispatchDrop(files);
+
+		expect(getInputFiles()).toHaveLength(5);
+	});
+
 	it("drop dedupes duplicate files", async () => {
 		const toastService = await import("../../../src/services/Toast.service");
 		const duplicateFile = createFile("notes.txt", "text/plain", "hello world");

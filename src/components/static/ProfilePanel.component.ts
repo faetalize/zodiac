@@ -17,7 +17,6 @@ const infoCard = document.querySelector<HTMLElement>("#profile-info-card");
 const infoHeader = document.querySelector<HTMLElement>("#profile-info-card .collapsible-card-header");
 const remainingImageGenerations = document.querySelector<HTMLSpanElement>("#subscription-remaining-generations");
 const remainingMegaCredits = document.querySelector<HTMLSpanElement>("#subscription-remaining-mega-credits");
-const remainingNanoBanana = document.querySelector<HTMLSpanElement>("#subscription-remaining-nano-banana");
 const accountCard = document.querySelector<HTMLElement>("#account-info-card");
 const accountHeader = document.querySelector<HTMLElement>("#account-info-card .collapsible-card-header");
 const accountEmailEl = document.querySelector<HTMLSpanElement>("#account-email");
@@ -41,7 +40,6 @@ if (
 	!infoHeader ||
 	!remainingImageGenerations ||
 	!remainingMegaCredits ||
-	!remainingNanoBanana ||
 	!accountCard ||
 	!accountHeader ||
 	!accountEmailEl ||
@@ -54,9 +52,6 @@ if (
 
 const ensuredRemainingImageGenerations = remainingImageGenerations;
 const ensuredRemainingMegaCredits = remainingMegaCredits;
-const ensuredRemainingNanoBanana = remainingNanoBanana;
-
-const PRO_NANO_BANANA_DAILY_LIMIT = 20;
 
 function setProfileSavePending(isPending: boolean) {
 	isSavingProfile = isPending;
@@ -73,19 +68,6 @@ async function updateProfile(user: User): Promise<void> {
 	}
 }
 
-function getTodayIsoDate() {
-	const now = new Date();
-	const year = now.getFullYear();
-	const month = String(now.getMonth() + 1).padStart(2, "0");
-	const day = String(now.getDate()).padStart(2, "0");
-	return `${year}-${month}-${day}`;
-}
-
-function getEffectiveNanoUsageCount(record: supabaseService.NanoBananaDailyUsageRecord | null): number {
-	if (!record) return 0;
-	return record.usage_date === getTodayIsoDate() ? Number(record.usage_count ?? 0) : 0;
-}
-
 async function refreshSubscriptionAllowances(): Promise<void> {
 	const subscription = await supabaseService.getUserSubscription();
 	const tier = supabaseService.getSubscriptionTier(subscription);
@@ -100,16 +82,6 @@ async function refreshSubscriptionAllowances(): Promise<void> {
 		ensuredRemainingMegaCredits.textContent = "Unlimited";
 	} else {
 		ensuredRemainingMegaCredits.textContent = "—";
-	}
-
-	if (tier === "pro") {
-		const nanoUsageRecord = await supabaseService.getNanoBananaDailyUsageRecord();
-		const remaining = Math.max(PRO_NANO_BANANA_DAILY_LIMIT - getEffectiveNanoUsageCount(nanoUsageRecord), 0);
-		ensuredRemainingNanoBanana.textContent = `${remaining} left today`;
-	} else if (tier === "pro_plus" || tier === "max") {
-		ensuredRemainingNanoBanana.textContent = "Unlimited";
-	} else {
-		ensuredRemainingNanoBanana.textContent = "—";
 	}
 }
 

@@ -4,31 +4,27 @@ import { getLoraState } from "../../services/Lora.service";
 import {
 	getCurrentUser,
 	getMegaCreditsRecord,
-	getNanoBananaDailyUsageRecord,
 	getSubscriptionTier,
 	getUserSubscription
 } from "../../services/Supabase.service";
-import { ChatModel, getChatModelDefinition, getPremiumEndpointChatModel } from "../../types/Models";
+import { getChatModelDefinition } from "../../types/Models";
 import * as overlayService from "../../services/Overlay.service";
 import { dispatchAppEvent } from "../../events";
-import { shouldPreferPremiumEndpoint } from "./ApiKeyInput.component";
+import {
+	hasGeminiApiKey,
+	hasOpenRouterApiKey,
+	shouldPreferPremiumEndpoint,
+	shouldPreferPremiumImageEndpoint
+} from "./ApiKeyInput.component";
+import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../../constants/ImageModels";
+import { getSelectedEditingModel } from "./ImageEditModelSelector.component";
+import { resolveImageModelRoute } from "../../utils/imageModelRouting";
+import { loraArchitectureFromCivitaiBaseModel } from "../../constants/Loras";
 
 const imageCreditsLabel = document.querySelector<HTMLDivElement>("#image-credits-label");
 const imageCreditsPopover = document.querySelector<HTMLDivElement>("#image-credits-popover");
 const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel");
 const modelSelector = document.querySelector<HTMLSelectElement>("#selectedModel");
-
-const PRO_NANO_BANANA_DAILY_LIMIT = 20;
-const NANO_BANANA_MODELS = new Set<string>(
-	[
-		ChatModel.NANO_BANANA,
-		ChatModel.NANO_BANANA_PRO,
-		ChatModel.NANO_BANANA_2,
-		getPremiumEndpointChatModel(ChatModel.NANO_BANANA),
-		getPremiumEndpointChatModel(ChatModel.NANO_BANANA_PRO),
-		getPremiumEndpointChatModel(ChatModel.NANO_BANANA_2)
-	].filter((model): model is string => !!model)
-);
 
 if (!imageCreditsLabel || !imageCreditsPopover) {
 	console.error("Image credits label component initialization failed");
@@ -37,12 +33,10 @@ if (!imageCreditsLabel || !imageCreditsPopover) {
 
 let imageCredits: number | null | undefined = undefined;
 let megaCredits: number | null | undefined = undefined;
-let nanoBananaUsageCount = 0;
-let nanoBananaUsageDate: string | null = null;
 let subscriptionTier: "free" | "pro" | "pro_plus" | "max" | "canceled" = "free";
 let isPopoverVisible = false;
 
-type AllowanceMode = "image" | "mega" | "nano" | null;
+type AllowanceMode = "image" | "mega" | null;
 
 // Click handler for the label
 imageCreditsLabel.addEventListener("click", (e) => {
@@ -115,7 +109,16 @@ window.addEventListener("chat-model-changed", () => {
 	renderLabel();
 });
 
+window.addEventListener("edit-model-changed", () => {
+	renderLabel();
+});
+
 window.addEventListener("premium-endpoint-preference-changed", () => {
+	updateImageCreditsLabelVisibility();
+	renderLabel();
+});
+
+window.addEventListener("image-premium-endpoint-preference-changed", () => {
 	updateImageCreditsLabelVisibility();
 	renderLabel();
 });
@@ -151,15 +154,45 @@ function selectedChatModelConsumesImageCredits(): boolean {
 	return getChatModelDefinition(getSelectedChatModel())?.consumesImageCredits === true;
 }
 
-function getAllowanceMode(): AllowanceMode {
-	if (isImageEditingActive() || isImageModeActive()) {
-		return "image";
+function getActiveImageModel() {
+	if (isImageEditingActive()) {
+		return IMAGE_MODELS.find((model) => model.id === getSelectedEditingModel() && model.editing);
 	}
 
-	// The chat-model allowances below (image-credit models, mega credits, the Nano Banana daily
-	// allowance) are metered server-side and only consumed when the request goes through the premium
-	// endpoint. With it disabled the request uses the user's own API key and nothing is charged, so
-	// don't surface these allowance labels.
+	if (isImageModeActive()) {
+		return IMAGE_MODELS.find(
+			(model) => model.id === (imageModelSelector?.value || DEFAULT_IMAGE_MODEL) && model.generation
+		);
+	}
+
+	return undefined;
+}
+
+function getActiveImageRoute() {
+	const model = getActiveImageModel();
+	if (!model) return null;
+	return resolveImageModelRoute(model, shouldPreferPremiumImageEndpoint(), {
+		edgeCredits: Number(imageCredits ?? 0) > 0,
+		geminiKey: hasGeminiApiKey(),
+		openRouterKey: hasOpenRouterApiKey()
+	});
+}
+
+function getCompatibleActiveLoraCount(): number {
+	const architecture = getActiveImageModel()?.loraArchitecture;
+	if (!architecture) return 0;
+	return getLoraState().filter(
+		(state) => state.enabled && loraArchitectureFromCivitaiBaseModel(state.lora.baseModel) === architecture
+	).length;
+}
+
+function getAllowanceMode(): AllowanceMode {
+	if (isImageEditingActive() || isImageModeActive()) {
+		return getActiveImageRoute()?.route === "edge" ? "image" : null;
+	}
+
+	// Chat-model allowances are only consumed through the premium endpoint. BYOK requests do not
+	// consume them, so the label stays hidden when that route is selected.
 	if (!shouldPreferPremiumEndpoint()) {
 		return null;
 	}
@@ -175,35 +208,13 @@ function getAllowanceMode(): AllowanceMode {
 		return "mega";
 	}
 
-	if (subscriptionTier === "pro" && selectedModel && NANO_BANANA_MODELS.has(selectedModel)) {
-		return "nano";
-	}
-
 	return null;
-}
-
-function getTodayIsoDate(): string {
-	const now = new Date();
-	const year = now.getFullYear();
-	const month = String(now.getMonth() + 1).padStart(2, "0");
-	const day = String(now.getDate()).padStart(2, "0");
-	return `${year}-${month}-${day}`;
-}
-
-function getEffectiveNanoBananaUsageCount(): number {
-	return nanoBananaUsageDate === getTodayIsoDate() ? nanoBananaUsageCount : 0;
-}
-
-function getRemainingNanoBananaUses(): number {
-	return Math.max(PRO_NANO_BANANA_DAILY_LIMIT - getEffectiveNanoBananaUsageCount(), 0);
 }
 
 async function refreshSupplementalAllowanceState(): Promise<void> {
 	const currentUser = await getCurrentUser();
 	if (!currentUser) {
 		megaCredits = undefined;
-		nanoBananaUsageCount = 0;
-		nanoBananaUsageDate = null;
 		subscriptionTier = "free";
 		updateImageCreditsLabelVisibility();
 		renderLabel();
@@ -218,15 +229,6 @@ async function refreshSupplementalAllowanceState(): Promise<void> {
 		megaCredits = megaCreditsRecord?.remaining_mega_credits ?? 0;
 	} else {
 		megaCredits = undefined;
-	}
-
-	if (subscriptionTier === "pro") {
-		const nanoUsageRecord = await getNanoBananaDailyUsageRecord();
-		nanoBananaUsageCount = Number(nanoUsageRecord?.usage_count ?? 0);
-		nanoBananaUsageDate = nanoUsageRecord?.usage_date ?? getTodayIsoDate();
-	} else {
-		nanoBananaUsageCount = 0;
-		nanoBananaUsageDate = null;
 	}
 
 	updateImageCreditsLabelVisibility();
@@ -244,6 +246,9 @@ function calculateCreditsNeeded(): number {
 	if (!isEditing && !isGenerating) {
 		return 0;
 	}
+	if (getAllowanceMode() !== "image") {
+		return 0;
+	}
 
 	if (isEditing) {
 		// Image editing always costs 1 credit (no LoRAs)
@@ -251,8 +256,7 @@ function calculateCreditsNeeded(): number {
 	}
 
 	// Image generation
-	const loraState = getLoraState();
-	const activeLorasCount = loraState.filter((state) => state.enabled).length;
+	const activeLorasCount = getCompatibleActiveLoraCount();
 
 	if (activeLorasCount === 0) {
 		return 1; // Base cost
@@ -272,10 +276,6 @@ function hasInsufficientMegaCredits(): boolean {
 	return getAllowanceMode() === "mega" && Number(megaCredits ?? 0) < 1;
 }
 
-function hasInsufficientNanoAllowance(): boolean {
-	return getAllowanceMode() === "nano" && getRemainingNanoBananaUses() < 1;
-}
-
 function checkAndDispatchInsufficientCreditsState(): void {
 	const allowanceMode = getAllowanceMode();
 	const isInsufficient = hasInsufficientCredits();
@@ -291,15 +291,6 @@ function checkAndDispatchInsufficientCreditsState(): void {
 			blocked: hasInsufficientMegaCredits(),
 			title: "Insufficient Mega Credits",
 			text: "This model costs 1 Mega Credit per request. Choose another model or upgrade to Max for unlimited Mega access."
-		});
-		return;
-	}
-
-	if (allowanceMode === "nano") {
-		dispatchAppEvent("composer-allowance-blocked", {
-			blocked: hasInsufficientNanoAllowance(),
-			title: "Nano Banana Daily Limit Reached",
-			text: `Pro includes ${PRO_NANO_BANANA_DAILY_LIMIT} Nano Banana requests per day. Try again tomorrow or switch models.`
 		});
 		return;
 	}
@@ -324,15 +315,6 @@ function renderLabel(): void {
 		} else {
 			imageCreditsLabel.textContent = `${megaCredits} Mega Credits`;
 		}
-
-		checkAndDispatchInsufficientCreditsState();
-		if (isPopoverVisible) renderPopoverContent();
-		return;
-	}
-
-	if (allowanceMode === "nano") {
-		const remainingNanoUses = getRemainingNanoBananaUses();
-		imageCreditsLabel.textContent = remainingNanoUses > 0 ? `${remainingNanoUses} Nano Left` : "Nano Limit Reached";
 
 		checkAndDispatchInsufficientCreditsState();
 		if (isPopoverVisible) renderPopoverContent();
@@ -382,42 +364,9 @@ function renderPopoverContent(): void {
 		return;
 	}
 
-	if (allowanceMode === "nano") {
-		const usageCount = getEffectiveNanoBananaUsageCount();
-		const remaining = getRemainingNanoBananaUses();
-		imageCreditsPopover.innerHTML = `
-            <div class="image-credits-popover-header">
-                <h4>Nano Banana Daily Allowance</h4>
-                <button class="image-credits-popover-close btn-textual material-symbols-outlined" aria-label="Close">close</button>
-            </div>
-            <div class="image-credits-popover-body">
-                <div class="credit-breakdown-item">
-                    <span class="material-symbols-outlined credit-icon">image</span>
-                    <span class="credit-description">Nano Banana request</span>
-                    <span class="credit-amount">1 daily use</span>
-                </div>
-                <div class="credit-breakdown-simple-item">
-                    <span class="credit-simple-label">Daily limit</span>
-                    <span class="credit-simple-value">${PRO_NANO_BANANA_DAILY_LIMIT}</span>
-                </div>
-                <div class="credit-breakdown-simple-item">
-                    <span class="credit-simple-label">Used today</span>
-                    <span class="credit-simple-value">${usageCount}</span>
-                </div>
-                <div class="credit-breakdown-remaining">
-                    <span class="credit-remaining-label">Remaining after request</span>
-                    <span class="credit-remaining-amount">${Math.max(remaining - 1, 0)}</span>
-                </div>
-            </div>
-        `;
-		bindPopoverButtons();
-		return;
-	}
-
 	const isEditing = isImageEditingActive();
 	const isGenerating = isImageModeActive();
-	const loraState = getLoraState();
-	const activeLorasCount = loraState.filter((state) => state.enabled).length;
+	const activeLorasCount = getCompatibleActiveLoraCount();
 	const creditsNeeded = calculateCreditsNeeded();
 	const totalCredits = imageCredits ?? 0;
 
