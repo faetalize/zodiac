@@ -1775,10 +1775,6 @@
 									<span class="setting-label">Mega credits</span>
 									<span id="subscription-remaining-mega-credits">—</span>
 								</div>
-								<div class="subscription-row">
-									<span class="setting-label">Nano Banana allowance</span>
-									<span id="subscription-remaining-nano-banana">—</span>
-								</div>
 							</div>
 							<div class="subscription-card-footer">
 								<button class="btn btn-primary" id="btn-top-up-credits">Get More Image Credits</button>
@@ -1835,9 +1831,16 @@
 
 				<div id="form-subscription" class="hidden" data-billing="yearly">
 					<div class="subscription-shell">
+						<button
+							type="button"
+							id="btn-close-subscription"
+							class="subscription-close-button btn-textual"
+							aria-label="Close plans"
+						>
+							<span class="material-symbols-outlined" aria-hidden="true">close</span>
+						</button>
 						<div class="subscription-header">
 							<p class="subscription-eyebrow">Premium Plans</p>
-							<h1>Zodiac, tailored to you.</h1>
 						</div>
 
 						<div class="subscription-toolbar" aria-label="Billing preview">
@@ -1857,8 +1860,7 @@
 									aria-pressed="true"
 								>
 									<span class="subscription-billing-label">Yearly</span>
-									<span class="subscription-billing-separator" aria-hidden="true">•</span>
-									<span class="subscription-billing-note">Up to 2 months off</span>
+									<span class="subscription-billing-note">2 months off</span>
 								</button>
 							</div>
 							<div class="subscription-trust-row" aria-hidden="true">
@@ -1876,7 +1878,6 @@
 								<div class="subscription-card-header">
 									<div class="subscription-plan-heading">
 										<div class="tier-badge tier-badge-free">Free</div>
-										<p class="subscription-plan-subtitle">Local-first</p>
 									</div>
 									<div class="subscription-plan-pill-row">
 										<span class="subscription-plan-pill">BYOK</span>
@@ -1929,7 +1930,6 @@
 								<div class="subscription-card-header">
 									<div class="subscription-plan-heading">
 										<div class="tier-badge tier-badge-pro">Pro</div>
-										<p class="subscription-plan-subtitle">Unleash your creativity</p>
 									</div>
 									<div class="subscription-plan-pill-row">
 										<span class="subscription-plan-pill subscription-plan-pill-accent">5GB</span>
@@ -1964,15 +1964,11 @@
 									<div class="subscription-stat-grid">
 										<div class="subscription-stat">
 											<span class="subscription-stat-label">Mega Credits</span>
-											<strong>50 / month</strong>
+											<strong>100 / month</strong>
 										</div>
 										<div class="subscription-stat">
 											<span class="subscription-stat-label">Image Credits</span>
 											<strong>50 / month</strong>
-										</div>
-										<div class="subscription-stat">
-											<span class="subscription-stat-label">Nano-Banana</span>
-											<strong>20 / day</strong>
 										</div>
 									</div>
 
@@ -2018,7 +2014,6 @@
 								<div class="subscription-card-header">
 									<div class="subscription-plan-heading">
 										<div class="tier-badge tier-badge-pro-plus">Pro Plus</div>
-										<p class="subscription-plan-subtitle">For media heavy sessions</p>
 									</div>
 									<div class="subscription-plan-pill-row">
 										<span class="subscription-plan-pill subscription-plan-pill-highlight"
@@ -2052,15 +2047,11 @@
 									<div class="subscription-stat-grid">
 										<div class="subscription-stat">
 											<span class="subscription-stat-label">Mega Credits</span>
-											<strong>300 / month</strong>
+											<strong>400 / month</strong>
 										</div>
 										<div class="subscription-stat">
 											<span class="subscription-stat-label">Image Credits</span>
-											<strong>600 / month</strong>
-										</div>
-										<div class="subscription-stat">
-											<span class="subscription-stat-label">Nano-Banana</span>
-											<strong>Unlimited</strong>
+											<strong>500 / month</strong>
 										</div>
 									</div>
 
@@ -2068,10 +2059,6 @@
 										<li class="feature-item feature-item-inherited">
 											<span class="feature-icon">+</span
 											><span class="feature-text">Everything in Pro, and...</span>
-										</li>
-										<li class="feature-item">
-											<span class="feature-icon">✓</span
-											><span class="feature-text">Unlimited Nano-Banana usage</span>
 										</li>
 										<li class="feature-item">
 											<span class="feature-icon">✓</span
@@ -2105,7 +2092,6 @@
 								<div class="subscription-card-header">
 									<div class="subscription-plan-heading">
 										<div class="tier-badge tier-badge-max">Max</div>
-										<p class="subscription-plan-subtitle">Our flagship offering</p>
 									</div>
 									<div class="subscription-plan-pill-row">
 										<span class="subscription-plan-pill subscription-plan-pill-max">1 TB</span>
@@ -2139,11 +2125,7 @@
 										</div>
 										<div class="subscription-stat">
 											<span class="subscription-stat-label">Image Credits</span>
-											<strong>1500 / month</strong>
-										</div>
-										<div class="subscription-stat">
-											<span class="subscription-stat-label">Nano-Banana</span>
-											<strong>Unlimited</strong>
+											<strong>1000 / month</strong>
 										</div>
 									</div>
 
@@ -2183,7 +2165,7 @@
 								<div class="subscription-faq-header">
 									<p class="subscription-faq-eyebrow">Need to know</p>
 									<h2 id="subscription-faq-title">Frequently asked questions</h2>
-									<p>Quick answers about premium models, Nano Banana, and standalone image usage.</p>
+									<p>Quick answers about premium models and standalone image usage.</p>
 								</div>
 
 								<div class="subscription-faq-grid">
@@ -2198,12 +2180,11 @@
 									</details>
 
 									<details class="subscription-faq-item">
-										<summary>What's the difference between Nano Banana and Image Credits?</summary>
+										<summary>How do Image Credits work?</summary>
 										<p>
-											Nano Banana is Gemini's chat-native image model inside the normal
-											conversation flow. On Pro, it has a daily allowance. On Pro Plus and Max, it
-											is unlimited. Image Credits are for the dedicated image generation and
-											editing models, and those are consumed per request.
+											Image Credits power Zodiac's dedicated image generation and editing models.
+											Each completed EDGE-routed image request consumes credits, while requests
+											using your own Google or OpenRouter API key do not.
 										</p>
 									</details>
 
@@ -2616,8 +2597,8 @@
 							>
 							<div>
 								<p>
-									<strong>Gemini 3 Pro Image (nano-banana pro)</strong> may require billing to be
-									enabled on the Google Cloud interface as Google doesn't offer that model for free.
+									<strong>Nano Banana Pro</strong> may require billing to be enabled on the Google
+									Cloud interface as Google doesn't offer that model for free.
 								</p>
 								<p>
 									If you don't have billing enabled but still wish to use these models, you may

@@ -81,6 +81,46 @@ export const IMAGE_MODELS: ImageModelDefinition[] = [
 		editing: true,
 		promptType: ImagePromptType.SEMANTIC,
 		maxInputImages: 5
+	},
+	{
+		id: ImageModelId.GEMINI_2_5_FLASH_IMAGE,
+		label: "Nano Banana",
+		providers: [ImageModelProvider.EDGE, ImageModelProvider.OPENROUTER, ImageModelProvider.GOOGLE],
+		generation: true,
+		editing: true,
+		promptType: ImagePromptType.SEMANTIC,
+		maxInputImages: 5,
+		openRouterModelId: "google/gemini-2.5-flash-image"
+	},
+	{
+		id: ImageModelId.GEMINI_3_PRO_IMAGE_PREVIEW,
+		label: "Nano Banana Pro",
+		providers: [ImageModelProvider.EDGE, ImageModelProvider.OPENROUTER, ImageModelProvider.GOOGLE],
+		generation: true,
+		editing: true,
+		promptType: ImagePromptType.SEMANTIC,
+		maxInputImages: 5,
+		openRouterModelId: "google/gemini-3-pro-image-preview"
+	},
+	{
+		id: ImageModelId.GEMINI_3_1_FLASH_IMAGE_PREVIEW,
+		label: "Nano Banana 2",
+		providers: [ImageModelProvider.EDGE, ImageModelProvider.OPENROUTER, ImageModelProvider.GOOGLE],
+		generation: true,
+		editing: true,
+		promptType: ImagePromptType.SEMANTIC,
+		maxInputImages: 5,
+		openRouterModelId: "google/gemini-3.1-flash-image-preview"
+	},
+	{
+		id: ImageModelId.GROK_IMAGINE_IMAGE_QUALITY,
+		label: "Grok Imagine Image Quality",
+		providers: [ImageModelProvider.EDGE, ImageModelProvider.OPENROUTER],
+		generation: true,
+		editing: true,
+		promptType: ImagePromptType.SEMANTIC,
+		maxInputImages: 3,
+		openRouterModelId: "x-ai/grok-imagine-image-quality"
 	}
 ];
 

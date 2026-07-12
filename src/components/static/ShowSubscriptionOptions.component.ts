@@ -2,11 +2,13 @@ import * as overlayService from "../../services/Overlay.service";
 import { getCurrentUser } from "../../services/Supabase.service";
 
 const button = document.querySelector("#btn-show-subscription-options");
+const closeButton = document.querySelector("#btn-close-subscription");
 
-if (!button) {
-	console.error("Show Subscription Options button not found");
-	throw new Error("Show Subscription Options button not found");
+if (!button || !closeButton) {
+	throw new Error("Missing subscription options controls");
 }
+
+closeButton.addEventListener("click", () => overlayService.closeOverlay());
 
 button.addEventListener(
 	"click",

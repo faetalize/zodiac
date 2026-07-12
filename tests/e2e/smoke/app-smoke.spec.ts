@@ -119,3 +119,40 @@ test("user attaches a file by drag and drop", async ({ page }) => {
 			previewNames: ["notes.txt"]
 		});
 });
+
+test("dedicated image models are available only in image selectors", async ({ page }) => {
+	await stubExternalTraffic(page, []);
+	await seedLocalSettings(page);
+	await page.goto("/");
+
+	const imageModelIds = await page
+		.locator("#selectedImageModel option")
+		.evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
+	const editModelIds = await page
+		.locator("#selectedImageEditingModel option")
+		.evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
+	const chatModelIds = await page
+		.locator("#selectedModel option")
+		.evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
+
+	for (const modelId of [
+		"gemini-2.5-flash-image",
+		"gemini-3-pro-image-preview",
+		"gemini-3.1-flash-image-preview",
+		"grok-imagine-image-quality"
+	]) {
+		expect(imageModelIds).toContain(modelId);
+		expect(editModelIds).toContain(modelId);
+		expect(chatModelIds).not.toContain(modelId);
+	}
+	expect(chatModelIds).not.toContain("google/gemini-2.5-flash-image");
+	expect(chatModelIds).not.toContain("x-ai/grok-imagine-image-quality");
+
+	await page.locator(".navbar-tab").nth(2).click();
+	await page.locator('[data-settings-target="image"]').click();
+	await expect(page.locator("#selectedImageModel")).toBeVisible();
+	await expect(page.locator("#prefer-premium-image-endpoint-toggle")).toHaveClass(/hidden/);
+	await page.locator("#selectedImageModel").selectOption("gemini-2.5-flash-image");
+	await page.locator("#btn-image").click();
+	await expect(page.locator("#btn-send")).toBeEnabled();
+});

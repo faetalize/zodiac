@@ -7,8 +7,6 @@ import {
 	ImagePromptType,
 	getAccessibleRoleplaySuggestionModels,
 	getChatModelDefinition,
-	getPremiumEndpointChatModel,
-	getValidChatModel,
 	getValidRoleplaySuggestionModel,
 	modelRequiresThinking,
 	type ChatModelAccess
@@ -36,7 +34,11 @@ describe("image model definitions", () => {
 				ImageModelId.SEEDREAM_5_0_PRO,
 				ImageModelId.SEEDREAM_4_5,
 				ImageModelId.QWEN_2_0_PRO,
-				ImageModelId.QWEN_2_0
+				ImageModelId.QWEN_2_0,
+				ImageModelId.GEMINI_2_5_FLASH_IMAGE,
+				ImageModelId.GEMINI_3_PRO_IMAGE_PREVIEW,
+				ImageModelId.GEMINI_3_1_FLASH_IMAGE_PREVIEW,
+				ImageModelId.GROK_IMAGINE_IMAGE_QUALITY
 			].sort()
 		);
 	});
@@ -46,10 +48,25 @@ describe("image model definitions", () => {
 		expect(IMAGE_MODELS.find((model) => model.id === DEFAULT_IMAGE_EDIT_MODEL)?.editing).toBe(true);
 	});
 
-	it("records edge-only provider support for current image models", () => {
-		for (const model of IMAGE_MODELS) {
+	it("records provider routes for dedicated image models", () => {
+		for (const model of IMAGE_MODELS.filter((candidate) => !candidate.openRouterModelId)) {
 			expect(model.providers).toEqual([ImageModelProvider.EDGE]);
 		}
+		for (const modelId of [
+			ImageModelId.GEMINI_2_5_FLASH_IMAGE,
+			ImageModelId.GEMINI_3_PRO_IMAGE_PREVIEW,
+			ImageModelId.GEMINI_3_1_FLASH_IMAGE_PREVIEW
+		]) {
+			expect(IMAGE_MODELS.find((model) => model.id === modelId)?.providers).toEqual([
+				ImageModelProvider.EDGE,
+				ImageModelProvider.OPENROUTER,
+				ImageModelProvider.GOOGLE
+			]);
+		}
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.GROK_IMAGINE_IMAGE_QUALITY)?.providers).toEqual([
+			ImageModelProvider.EDGE,
+			ImageModelProvider.OPENROUTER
+		]);
 	});
 
 	it("stores prompt type per image model", () => {
@@ -92,46 +109,31 @@ describe("image model definitions", () => {
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.SEEDREAM_4_5)?.maxInputImages).toBe(5);
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN_2_0_PRO)?.maxInputImages).toBe(3);
 		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.QWEN_2_0)?.maxInputImages).toBe(3);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.GEMINI_2_5_FLASH_IMAGE)?.maxInputImages).toBe(5);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.GEMINI_3_PRO_IMAGE_PREVIEW)?.maxInputImages).toBe(
+			5
+		);
+		expect(
+			IMAGE_MODELS.find((model) => model.id === ImageModelId.GEMINI_3_1_FLASH_IMAGE_PREVIEW)?.maxInputImages
+		).toBe(5);
+		expect(IMAGE_MODELS.find((model) => model.id === ImageModelId.GROK_IMAGINE_IMAGE_QUALITY)?.maxInputImages).toBe(
+			3
+		);
 	});
 });
 
-describe("premium endpoint model mapping", () => {
-	it("keeps local Nano Banana as a local-only Gemini SDK model", () => {
-		const localNanoBanana = getChatModelDefinition("gemini-2.5-flash-image");
-
-		expect(localNanoBanana?.provider).toBe("gemini");
-		expect(localNanoBanana?.localOnly).toBe(true);
-		expect(localNanoBanana?.supportsImageOutput).toBe(true);
-	});
-
-	it("maps Nano Banana hybrid models to OpenRouter variants", () => {
-		const premiumAccess: ChatModelAccess = {
-			hasGeminiAccess: true,
-			hasOpenRouterAccess: true,
-			isPremiumEndpointPreferred: true
-		};
-
-		expect(getPremiumEndpointChatModel("gemini-2.5-flash-image")).toBe("google/gemini-2.5-flash-image");
-		expect(getValidChatModel("gemini-2.5-flash-image", premiumAccess)).toBe("google/gemini-2.5-flash-image");
-		expect(getValidChatModel("gemini-3-pro-image-preview", premiumAccess)).toBe(
-			"google/gemini-3-pro-image-preview"
-		);
-		expect(getValidChatModel("gemini-3.1-flash-image-preview", premiumAccess)).toBe(
-			"google/gemini-3.1-flash-image-preview"
-		);
-	});
-
-	it("keeps OpenRouter image-output variants as image-output chat models", () => {
-		const models = [
+describe("image models are not chat models", () => {
+	it("keeps dedicated image model IDs out of the chat catalog", () => {
+		for (const model of [
+			"gemini-2.5-flash-image",
+			"gemini-3-pro-image-preview",
+			"gemini-3.1-flash-image-preview",
 			"google/gemini-2.5-flash-image",
 			"google/gemini-3-pro-image-preview",
 			"google/gemini-3.1-flash-image-preview",
 			"x-ai/grok-imagine-image-quality"
-		];
-
-		for (const model of models) {
-			expect(getChatModelDefinition(model)?.provider).toBe("openrouter");
-			expect(getChatModelDefinition(model)?.supportsImageOutput).toBe(true);
+		]) {
+			expect(getChatModelDefinition(model)).toBeUndefined();
 		}
 	});
 });
@@ -140,11 +142,6 @@ describe("roleplay suggestion models", () => {
 	it("requires thinking for Gemini 3.5 Flash local and OpenRouter variants", () => {
 		expect(modelRequiresThinking("gemini-3.5-flash")).toBe(true);
 		expect(modelRequiresThinking("google/gemini-3.5-flash")).toBe(true);
-	});
-
-	it("requires thinking for Nano Banana Pro local and OpenRouter variants", () => {
-		expect(modelRequiresThinking("gemini-3-pro-image-preview")).toBe(true);
-		expect(modelRequiresThinking("google/gemini-3-pro-image-preview")).toBe(true);
 	});
 
 	it("includes only models flagged for roleplay suggestions", () => {

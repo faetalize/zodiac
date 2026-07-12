@@ -112,7 +112,10 @@ export function validateAttachmentFile(file: File): AttachmentValidationResult {
 	return { ok: true, policy, extension };
 }
 
-export function getAttachmentValidationSummary(files: ArrayLike<File> | Iterable<File>): {
+export function getAttachmentValidationSummary(
+	files: ArrayLike<File> | Iterable<File>,
+	maxAttachments = MAX_ATTACHMENTS
+): {
 	ok: boolean;
 	errors: AttachmentValidationFailure[];
 	tooMany: boolean;
@@ -122,9 +125,9 @@ export function getAttachmentValidationSummary(files: ArrayLike<File> | Iterable
 		.map(validateAttachmentFile)
 		.filter((result): result is AttachmentValidationFailure => !result.ok);
 	return {
-		ok: fileList.length <= MAX_ATTACHMENTS && errors.length === 0,
+		ok: fileList.length <= maxAttachments && errors.length === 0,
 		errors,
-		tooMany: fileList.length > MAX_ATTACHMENTS
+		tooMany: fileList.length > maxAttachments
 	};
 }
 

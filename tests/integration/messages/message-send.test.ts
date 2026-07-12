@@ -15,6 +15,7 @@ type MockOpenRouterResult = {
 	text: string;
 	thinking?: string;
 	finishReason?: string;
+	image?: { mimeType: string; base64: string };
 };
 
 type MockSettings = {
@@ -38,6 +39,7 @@ type MockSettings = {
 const testState = vi.hoisted(() => ({
 	personas: new Map<string, Personality>(),
 	openRouterResults: [] as MockOpenRouterResult[],
+	googleGenerateContent: vi.fn(),
 	settings: {
 		apiKey: "",
 		geminiApiKey: "",
@@ -55,6 +57,16 @@ const testState = vi.hoisted(() => ({
 		dynamicGroupChatPingOnly: false,
 		autoscroll: true
 	} as MockSettings
+}));
+
+vi.mock("@google/genai", () => ({
+	GoogleGenAI: class {
+		models = { generateContent: testState.googleGenerateContent };
+		chats = { create: vi.fn() };
+	},
+	createPartFromUri: vi.fn(),
+	BlockedReason: { PROHIBITED_CONTENT: "PROHIBITED_CONTENT" },
+	FinishReason: { PROHIBITED_CONTENT: "PROHIBITED_CONTENT", OTHER: "OTHER" }
 }));
 
 const defaultPersona: Personality = {
@@ -131,6 +143,7 @@ vi.mock("../../../src/services/OpenRouter.service", () => ({
 		async (args: {
 			onText?: (payload: { text: string }) => void | Promise<void>;
 			onThinking?: (payload: { thinking: string }) => void | Promise<void>;
+			onImage?: (payload: { mimeType: string; base64: string }) => void | Promise<void>;
 		}) => {
 			const next = testState.openRouterResults.shift();
 			if (!next) {
@@ -143,11 +156,15 @@ vi.mock("../../../src/services/OpenRouter.service", () => ({
 			if (args.onText) {
 				await args.onText({ text: next.text });
 			}
+			if (next.image && args.onImage) {
+				await args.onImage(next.image);
+			}
 
 			return {
 				text: next.text,
 				thinking: next.thinking ?? "",
-				finishReason: next.finishReason
+				finishReason: next.finishReason,
+				images: next.image ? [next.image] : []
 			};
 		}
 	)
@@ -410,6 +427,7 @@ describe("Message send lifecycle", () => {
 		});
 		testState.personas.clear();
 		testState.openRouterResults.length = 0;
+		testState.googleGenerateContent.mockReset();
 		testState.settings.model = "openai/gpt-5.4";
 		testState.settings.streamResponses = false;
 		testState.settings.enableThinking = false;
@@ -673,6 +691,13 @@ describe("Message send lifecycle", () => {
 			expect.stringContaining("/functions/v1/handle-max-request"),
 			expect.any(Object)
 		);
+		const requestOptions = (fetchMock.mock.calls as unknown as Array<[string, RequestInit]>)[0]?.[1];
+		expect(JSON.parse(String(requestOptions.body))).toEqual({
+			prompt: "Draw a comet",
+			model: "illustrious",
+			loras: [],
+			negative_prompt: ""
+		});
 		expect(toastService.warn).not.toHaveBeenCalled();
 
 		const persistedChat = await testDb.chats.get(chatId);
@@ -682,6 +707,99 @@ describe("Message send lifecycle", () => {
 			mimeType: "image/png",
 			base64: "mock-b64"
 		});
+	});
+
+	it("routes a dedicated image model through OpenRouter without EDGE credits", async () => {
+		seedMockPersonas([
+			{
+				id: "persona-openrouter-image",
+				persona: { name: "OpenRouter Image Persona", description: "Handles image generations." }
+			}
+		]);
+		testState.settings.imageModel = "gemini-2.5-flash-image";
+
+		const { db: testDb, chatsService, messageService } = await loadServices();
+		db = testDb;
+		const chatId = await createAndLoadChat({
+			chatsService,
+			chat: makeChat({ id: "chat-openrouter-image", title: "OpenRouter Image Chat", content: [] })
+		});
+
+		const imageButton = await import("../../../src/components/static/ImageButton.component");
+		const imageEditButton = await import("../../../src/components/static/ImageEditButton.component");
+		const apiKeyInput = await import("../../../src/components/static/ApiKeyInput.component");
+		const supabaseService = await import("../../../src/services/Supabase.service");
+		const openRouterService = await import("../../../src/services/OpenRouter.service");
+		vi.mocked(imageButton.isImageModeActive).mockReturnValue(true);
+		vi.mocked(imageEditButton.isImageEditingActive).mockReturnValue(false);
+		vi.mocked(apiKeyInput.shouldPreferPremiumImageEndpoint).mockReturnValue(false);
+		vi.mocked(apiKeyInput.hasOpenRouterApiKey).mockReturnValue(true);
+		vi.mocked(supabaseService.isImageGenerationAvailable).mockResolvedValue({ enabled: true, type: "google_only" });
+		testState.openRouterResults.push({ text: "", image: { mimeType: "image/png", base64: "openrouter-b64" } });
+
+		await messageService.send("Draw a comet", {
+			targetChatId: chatId,
+			selectedPersonalityId: "persona-openrouter-image",
+			attachmentFiles: makeEmptyFileList()
+		});
+
+		expect(vi.mocked(openRouterService.requestOpenRouterCompletion)).toHaveBeenCalledWith(
+			expect.objectContaining({
+				apiKey: "test-openrouter-key",
+				request: expect.objectContaining({
+					model: "google/gemini-2.5-flash-image",
+					modalities: ["image"]
+				})
+			})
+		);
+		const persistedChat = await testDb.chats.get(chatId);
+		expect(persistedChat?.content.at(-1)?.generatedImages?.[0]).toMatchObject({ base64: "openrouter-b64" });
+	});
+
+	it("routes a dedicated image model through Google without EDGE credits", async () => {
+		seedMockPersonas([
+			{
+				id: "persona-google-image",
+				persona: { name: "Google Image Persona", description: "Handles image generations." }
+			}
+		]);
+		testState.settings.imageModel = "gemini-3-pro-image-preview";
+		testState.settings.geminiApiKey = "test-gemini-key";
+
+		const { db: testDb, chatsService, messageService } = await loadServices();
+		db = testDb;
+		const chatId = await createAndLoadChat({
+			chatsService,
+			chat: makeChat({ id: "chat-google-image", title: "Google Image Chat", content: [] })
+		});
+
+		const imageButton = await import("../../../src/components/static/ImageButton.component");
+		const imageEditButton = await import("../../../src/components/static/ImageEditButton.component");
+		const apiKeyInput = await import("../../../src/components/static/ApiKeyInput.component");
+		const supabaseService = await import("../../../src/services/Supabase.service");
+		vi.mocked(imageButton.isImageModeActive).mockReturnValue(true);
+		vi.mocked(imageEditButton.isImageEditingActive).mockReturnValue(false);
+		vi.mocked(apiKeyInput.shouldPreferPremiumImageEndpoint).mockReturnValue(false);
+		vi.mocked(apiKeyInput.hasGeminiApiKey).mockReturnValue(true);
+		vi.mocked(supabaseService.isImageGenerationAvailable).mockResolvedValue({ enabled: true, type: "google_only" });
+		testState.googleGenerateContent.mockResolvedValue({
+			candidates: [{ content: { parts: [{ inlineData: { data: "google-b64", mimeType: "image/png" } }] } }]
+		});
+
+		await messageService.send("Draw a comet", {
+			targetChatId: chatId,
+			selectedPersonalityId: "persona-google-image",
+			attachmentFiles: makeEmptyFileList()
+		});
+
+		expect(testState.googleGenerateContent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				model: "gemini-3-pro-image-preview",
+				config: { responseModalities: ["IMAGE"] }
+			})
+		);
+		const persistedChat = await testDb.chats.get(chatId);
+		expect(persistedChat?.content.at(-1)?.generatedImages?.[0]).toMatchObject({ base64: "google-b64" });
 	});
 
 	it("sends a message and stores ordered mocked replies in an RPG group chat", async () => {

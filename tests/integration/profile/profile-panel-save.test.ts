@@ -16,7 +16,6 @@ vi.mock("../../../src/services/Supabase.service", () => ({
 	getSubscriptionTier: vi.fn(() => "free"),
 	getImageGenerationRecord: vi.fn(async () => null),
 	getMegaCreditsRecord: vi.fn(async () => null),
-	getNanoBananaDailyUsageRecord: vi.fn(async () => null),
 	getCurrentUserEmail: vi.fn(async () => "test@example.com"),
 	sendPasswordResetEmail: vi.fn(async () => undefined)
 }));
@@ -59,7 +58,6 @@ function mountProfileDom(): void {
 		<button id="btn-manage-subscription"></button>
 		<span id="subscription-remaining-generations"></span>
 		<span id="subscription-remaining-mega-credits"></span>
-		<span id="subscription-remaining-nano-banana"></span>
 		<div id="profile-info-card" class="collapsed"><div class="collapsible-card-header"></div></div>
 		<div id="profile-info-content"></div>
 		<div id="account-info-card" class="collapsed"><div class="collapsible-card-header"></div></div>
