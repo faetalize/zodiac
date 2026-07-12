@@ -1267,8 +1267,6 @@ form {
 
 	.subscription-card-collapsed .popular-badge {
 		top: -8px;
-		padding: 0.35rem 1rem;
-		font-size: 0.75rem;
 	}
 
 	/* Expanded state */
@@ -1903,7 +1901,8 @@ form {
 	left: auto;
 	right: 1rem;
 	transform: none;
-	padding: 0.45rem 0.75rem;
+	padding: 0.35rem 1rem;
+	font-size: 0.75rem;
 	border-radius: 999px;
 	background: linear-gradient(135deg, #0f766e, #14b8a6);
 	box-shadow: 0 10px 24px rgba(15, 118, 110, 0.24);
@@ -2316,7 +2315,7 @@ form {
 
 #form-subscription .subscription-faq-grid {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
+	grid-template-columns: 1fr;
 	gap: 0.85rem;
 }
 
@@ -2377,10 +2376,6 @@ form {
 	#form-subscription .subscription-grid-showcase {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
-
-	#form-subscription .subscription-faq-grid {
-		grid-template-columns: 1fr;
-	}
 }
 
 @media (max-width: 1032px) {
@@ -2429,10 +2424,6 @@ form {
 @media (max-width: 700px) {
 	#form-subscription .subscription-header h1 {
 		max-width: 100%;
-	}
-
-	#form-subscription .subscription-stat-grid {
-		grid-template-columns: 1fr;
 	}
 
 	#form-subscription .subscription-trust-row {

@@ -51,6 +51,44 @@ test("keeps subscription plan cards within the pricing panel on mobile", async (
 	expect(layout.hasHorizontalOverflow, "Subscription pricing should not overflow horizontally").toBe(false);
 });
 
+test("keeps the best-value badge compact and credit cards side by side on mobile", async ({ page }) => {
+	await page.setViewportSize({ width: 496, height: 961 });
+	await stubExternalTraffic(page, []);
+	await seedLocalSettings(page);
+	await page.goto("/");
+	await openSubscriptionOverlay(page);
+
+	const proPlusCard = page.locator("#profile-pro-plus-card");
+	const badge = proPlusCard.locator(".popular-badge");
+	const collapsedBadgeStyle = await badge.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return { fontSize: style.fontSize, padding: style.padding };
+	});
+
+	await proPlusCard.locator(".subscription-card-header").click();
+	await expect(proPlusCard).toHaveClass(/subscription-card-expanded/);
+	expect(await badge.evaluate((element) => getComputedStyle(element).fontSize)).toBe(collapsedBadgeStyle.fontSize);
+	expect(await badge.evaluate((element) => getComputedStyle(element).padding)).toBe(collapsedBadgeStyle.padding);
+
+	const statColumns = await proPlusCard
+		.locator(".subscription-stat-grid")
+		.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+	expect(statColumns, "Credit cards should remain side by side on mobile").toBe(2);
+});
+
+test("renders FAQ questions in one column at desktop widths", async ({ page }) => {
+	await page.setViewportSize({ width: 1600, height: 1000 });
+	await stubExternalTraffic(page, []);
+	await seedLocalSettings(page);
+	await page.goto("/");
+	await openSubscriptionOverlay(page);
+
+	const faqColumns = await page
+		.locator("#form-subscription .subscription-faq-grid")
+		.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+	expect(faqColumns, "FAQ questions should not be displayed side by side").toBe(1);
+});
+
 test("plans use their own close button instead of the overlay back bar", async ({ page }) => {
 	await stubExternalTraffic(page, []);
 	await seedLocalSettings(page);
