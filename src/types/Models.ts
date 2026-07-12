@@ -62,7 +62,7 @@ export const DEFAULT_OPENROUTER_NARRATOR_MODEL = DEFAULT_OPENROUTER_CHAT_MODEL;
 export const DEFAULT_OPENROUTER_TITLE_MODEL = "z-ai/glm-5";
 const UI_DISABLED_CHAT_MODELS = new Set(["openai/gpt-5.4-pro"]);
 
-export function requiresThoughtSignaturesInHistory(model: string): boolean {
+export function requiresThoughtSignaturesInHistory(_model: string): boolean {
 	return false;
 }
 
