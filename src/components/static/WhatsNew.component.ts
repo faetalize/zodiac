@@ -5,7 +5,7 @@ const whatsNewButton = document.querySelector("#btn-whatsnew")!;
 
 //setup version number on badge and header
 whatsNewButton.querySelector("#badge-version")!.textContent = `${getVersion()}`;
-document.querySelector("#header-version")!.textContent += `${getVersion()}`;
+document.querySelector("#header-version")!.textContent = `What's New in ${getVersion()}`;
 
 whatsNewButton.addEventListener("click", () => {
 	overlayService.showChangelog();
