@@ -1831,9 +1831,16 @@
 
 				<div id="form-subscription" class="hidden" data-billing="yearly">
 					<div class="subscription-shell">
+						<button
+							type="button"
+							id="btn-close-subscription"
+							class="subscription-close-button btn-textual"
+							aria-label="Close plans"
+						>
+							<span class="material-symbols-outlined" aria-hidden="true">close</span>
+						</button>
 						<div class="subscription-header">
 							<p class="subscription-eyebrow">Premium Plans</p>
-							<h1>Zodiac, tailored to you.</h1>
 						</div>
 
 						<div class="subscription-toolbar" aria-label="Billing preview">
@@ -1853,8 +1860,7 @@
 									aria-pressed="true"
 								>
 									<span class="subscription-billing-label">Yearly</span>
-									<span class="subscription-billing-separator" aria-hidden="true">•</span>
-									<span class="subscription-billing-note">Up to 2 months off</span>
+									<span class="subscription-billing-note">2 months off</span>
 								</button>
 							</div>
 							<div class="subscription-trust-row" aria-hidden="true">
@@ -1872,7 +1878,6 @@
 								<div class="subscription-card-header">
 									<div class="subscription-plan-heading">
 										<div class="tier-badge tier-badge-free">Free</div>
-										<p class="subscription-plan-subtitle">Local-first</p>
 									</div>
 									<div class="subscription-plan-pill-row">
 										<span class="subscription-plan-pill">BYOK</span>
@@ -1925,7 +1930,6 @@
 								<div class="subscription-card-header">
 									<div class="subscription-plan-heading">
 										<div class="tier-badge tier-badge-pro">Pro</div>
-										<p class="subscription-plan-subtitle">Unleash your creativity</p>
 									</div>
 									<div class="subscription-plan-pill-row">
 										<span class="subscription-plan-pill subscription-plan-pill-accent">5GB</span>
@@ -2010,7 +2014,6 @@
 								<div class="subscription-card-header">
 									<div class="subscription-plan-heading">
 										<div class="tier-badge tier-badge-pro-plus">Pro Plus</div>
-										<p class="subscription-plan-subtitle">For media heavy sessions</p>
 									</div>
 									<div class="subscription-plan-pill-row">
 										<span class="subscription-plan-pill subscription-plan-pill-highlight"
@@ -2089,7 +2092,6 @@
 								<div class="subscription-card-header">
 									<div class="subscription-plan-heading">
 										<div class="tier-badge tier-badge-max">Max</div>
-										<p class="subscription-plan-subtitle">Our flagship offering</p>
 									</div>
 									<div class="subscription-plan-pill-row">
 										<span class="subscription-plan-pill subscription-plan-pill-max">1 TB</span>

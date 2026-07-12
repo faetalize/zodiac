@@ -1,21 +1,34 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { seedLocalSettings, stubExternalTraffic } from "../helpers/app";
 
+async function openSubscriptionOverlay(page: Page): Promise<void> {
+	await page.evaluate(async () => {
+		const importModule = new Function("path", "return import(path);") as (path: string) => Promise<any>;
+		const overlayService = await importModule("/services/Overlay.service.ts");
+		overlayService.show("form-subscription");
+	});
+}
+
 test("keeps subscription plan cards within the pricing panel on mobile", async ({ page }) => {
-	await page.setViewportSize({ width: 390, height: 844 });
+	await page.setViewportSize({ width: 496, height: 961 });
 	await stubExternalTraffic(page, []);
 	await seedLocalSettings(page);
 	await page.goto("/");
 
-	await page.locator("#overlay, #form-subscription").evaluateAll((elements) => {
-		for (const element of elements) {
-			element.classList.remove("hidden");
-			(element as HTMLElement).style.opacity = "1";
-		}
-	});
+	await openSubscriptionOverlay(page);
 
 	const shell = page.locator("#form-subscription .subscription-shell");
 	await expect(shell).toBeVisible();
+	const firstCard = page.locator("#profile-free-card");
+	await expect(firstCard).toHaveClass(/subscription-card-collapsed/);
+	const collapsedPadding = await firstCard.evaluate((card) => getComputedStyle(card).padding);
+
+	await firstCard.locator(".subscription-card-header").click();
+	await expect(firstCard).toHaveClass(/subscription-card-expanded/);
+	expect(await firstCard.evaluate((card) => getComputedStyle(card).padding)).toBe(collapsedPadding);
+
+	await firstCard.hover();
+	expect(await firstCard.evaluate((card) => getComputedStyle(card).transform)).toBe("none");
 
 	const layout = await page.evaluate(() => {
 		const content = document.querySelector<HTMLElement>("#overlay > .overlay-content");
@@ -36,4 +49,18 @@ test("keeps subscription plan cards within the pricing panel on mobile", async (
 
 	expect(layout.cardsFit, "Subscription cards should not be clipped by the pricing panel").toBe(true);
 	expect(layout.hasHorizontalOverflow, "Subscription pricing should not overflow horizontally").toBe(false);
+});
+
+test("plans use their own close button instead of the overlay back bar", async ({ page }) => {
+	await stubExternalTraffic(page, []);
+	await seedLocalSettings(page);
+	await page.goto("/");
+	await openSubscriptionOverlay(page);
+
+	await expect(page.locator("#overlay > .header")).toBeHidden();
+	const closeButton = page.getByRole("button", { name: "Close plans" });
+	await expect(closeButton).toBeVisible();
+
+	await closeButton.click();
+	await expect(page.locator("#overlay")).toHaveClass(/hidden/);
 });
