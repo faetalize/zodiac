@@ -23,13 +23,33 @@ import { loraArchitectureFromCivitaiBaseModel } from "../../constants/Loras";
 
 const imageCreditsLabel = document.querySelector<HTMLDivElement>("#image-credits-label");
 const imageCreditsPopover = document.querySelector<HTMLDivElement>("#image-credits-popover");
+const imageCreditsCount = document.querySelector<HTMLSpanElement>("#image-credits-label .image-credits-count");
+const imageCreditsType = document.querySelector<HTMLSpanElement>("#image-credits-label .image-credits-type");
 const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel");
 const modelSelector = document.querySelector<HTMLSelectElement>("#selectedModel");
+const messageBoxButtons = document.querySelector<HTMLDivElement>("#message-box-buttons");
+const messageBoxActions = document.querySelector<HTMLDivElement>("#message-box-actions");
+const messageBoxRight = document.querySelector<HTMLDivElement>(".message-box-right");
 
-if (!imageCreditsLabel || !imageCreditsPopover) {
+if (
+	!imageCreditsLabel ||
+	!imageCreditsPopover ||
+	!imageCreditsCount ||
+	!imageCreditsType ||
+	!messageBoxButtons ||
+	!messageBoxActions ||
+	!messageBoxRight
+) {
 	console.error("Image credits label component initialization failed");
-	throw new Error("Missing DOM elements: #image-credits-label or #image-credits-popover");
+	throw new Error("Missing image credits label elements");
 }
+
+const ensuredImageCreditsLabel = imageCreditsLabel;
+const ensuredImageCreditsCount = imageCreditsCount;
+const ensuredImageCreditsType = imageCreditsType;
+const ensuredMessageBoxButtons = messageBoxButtons;
+const ensuredMessageBoxActions = messageBoxActions;
+const ensuredMessageBoxRight = messageBoxRight;
 
 let imageCredits: number | null | undefined = undefined;
 let megaCredits: number | null | undefined = undefined;
@@ -37,6 +57,42 @@ let subscriptionTier: "free" | "pro" | "pro_plus" | "max" | "canceled" = "free";
 let isPopoverVisible = false;
 
 type AllowanceMode = "image" | "mega" | null;
+
+function toolbarOverflows(): boolean {
+	const style = getComputedStyle(ensuredMessageBoxButtons);
+	const actionStyle = getComputedStyle(ensuredMessageBoxActions);
+	const visibleActions = Array.from(ensuredMessageBoxActions.children).filter(
+		(element): element is HTMLElement =>
+			element instanceof HTMLElement && getComputedStyle(element).display !== "none"
+	);
+	const availableWidth =
+		ensuredMessageBoxButtons.clientWidth -
+		(Number.parseFloat(style.paddingLeft) || 0) -
+		(Number.parseFloat(style.paddingRight) || 0);
+	const columnGap = Number.parseFloat(style.columnGap) || 0;
+	const actionGap = Number.parseFloat(actionStyle.columnGap) || 0;
+	const actionsWidth =
+		visibleActions.reduce((width, action) => width + action.offsetWidth, 0) +
+		actionGap * Math.max(visibleActions.length - 1, 0);
+	return actionsWidth + ensuredMessageBoxRight.offsetWidth + columnGap > availableWidth;
+}
+
+function updateCompactLabelState(): void {
+	ensuredMessageBoxButtons.classList.remove("message-box-buttons-wrap");
+	ensuredImageCreditsLabel.classList.remove("image-credits-label-compact");
+
+	if (!toolbarOverflows()) return;
+
+	if (!ensuredImageCreditsLabel.classList.contains("hidden")) {
+		ensuredImageCreditsLabel.classList.add("image-credits-label-compact");
+		if (!toolbarOverflows()) return;
+	}
+
+	ensuredMessageBoxButtons.classList.add("message-box-buttons-wrap");
+}
+
+new ResizeObserver(updateCompactLabelState).observe(ensuredMessageBoxButtons);
+ensuredMessageBoxActions.addEventListener("transitionend", updateCompactLabelState);
 
 // Click handler for the label
 imageCreditsLabel.addEventListener("click", (e) => {
@@ -309,20 +365,25 @@ function renderLabel(): void {
 
 	if (allowanceMode === "mega") {
 		if (hasInsufficientMegaCredits()) {
-			imageCreditsLabel.textContent = "No Mega Credits";
+			ensuredImageCreditsCount.textContent = "No";
+			ensuredImageCreditsType.textContent = "Mega Credits";
 		} else if (megaCredits === null || megaCredits === undefined) {
-			imageCreditsLabel.textContent = "— Mega Credits";
+			ensuredImageCreditsCount.textContent = "—";
+			ensuredImageCreditsType.textContent = "Mega Credits";
 		} else {
-			imageCreditsLabel.textContent = `${megaCredits} Mega Credits`;
+			ensuredImageCreditsCount.textContent = String(megaCredits);
+			ensuredImageCreditsType.textContent = "Mega Credits";
 		}
 
 		checkAndDispatchInsufficientCreditsState();
 		if (isPopoverVisible) renderPopoverContent();
+		updateCompactLabelState();
 		return;
 	}
 
-	const totalCredits = imageCredits === null || imageCredits === undefined ? "—" : String(imageCredits);
-	imageCreditsLabel.textContent = `${totalCredits} Image Credits`;
+	ensuredImageCreditsCount.textContent =
+		imageCredits === null || imageCredits === undefined ? "—" : String(imageCredits);
+	ensuredImageCreditsType.textContent = "Image Credits";
 
 	// Check and dispatch insufficient credits state
 	checkAndDispatchInsufficientCreditsState();
@@ -331,6 +392,8 @@ function renderLabel(): void {
 	if (isPopoverVisible) {
 		renderPopoverContent();
 	}
+
+	updateCompactLabelState();
 }
 
 function renderPopoverContent(): void {
@@ -576,4 +639,6 @@ export function updateImageCreditsLabelVisibility(): void {
 			hidePopover();
 		}
 	}
+
+	updateCompactLabelState();
 }

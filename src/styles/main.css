@@ -4799,10 +4799,23 @@ body.full-width-chat #message-box {
 }
 
 #message-box-buttons {
-	display: flex;
-	align-items: center;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: start;
 	gap: 0.35rem;
 	padding: 0.3rem 0.5rem 0.3rem 0.3rem;
+}
+
+#message-box-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: nowrap;
+	gap: 0.35rem;
+	min-width: 0;
+}
+
+#message-box-buttons.message-box-buttons-wrap #message-box-actions {
+	flex-wrap: wrap;
 }
 
 #message-box-buttons button {
@@ -4825,7 +4838,7 @@ body.full-width-chat #message-box {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.35rem;
-	margin-left: auto;
+	flex-shrink: 0;
 }
 
 .image-credits-label,
@@ -4843,6 +4856,8 @@ body.full-width-chat #message-box {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.35rem;
+	flex-shrink: 0;
+	white-space: nowrap;
 	min-height: 0;
 	cursor: pointer;
 	user-select: none;
@@ -4854,6 +4869,10 @@ body.full-width-chat #message-box {
 .image-credits-label:hover {
 	background: var(--badge-bg-hover);
 	border-color: var(--badge-border-hover);
+}
+
+.image-credits-label.image-credits-label-compact .image-credits-type {
+	display: none;
 }
 
 .message-limit-indicator {
