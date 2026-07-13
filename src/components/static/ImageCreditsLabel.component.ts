@@ -27,29 +27,14 @@ const imageCreditsCount = document.querySelector<HTMLSpanElement>("#image-credit
 const imageCreditsType = document.querySelector<HTMLSpanElement>("#image-credits-label .image-credits-type");
 const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel");
 const modelSelector = document.querySelector<HTMLSelectElement>("#selectedModel");
-const messageBoxButtons = document.querySelector<HTMLDivElement>("#message-box-buttons");
-const messageBoxActions = document.querySelector<HTMLDivElement>("#message-box-actions");
-const messageBoxRight = document.querySelector<HTMLDivElement>(".message-box-right");
 
-if (
-	!imageCreditsLabel ||
-	!imageCreditsPopover ||
-	!imageCreditsCount ||
-	!imageCreditsType ||
-	!messageBoxButtons ||
-	!messageBoxActions ||
-	!messageBoxRight
-) {
+if (!imageCreditsLabel || !imageCreditsPopover || !imageCreditsCount || !imageCreditsType) {
 	console.error("Image credits label component initialization failed");
 	throw new Error("Missing image credits label elements");
 }
 
-const ensuredImageCreditsLabel = imageCreditsLabel;
 const ensuredImageCreditsCount = imageCreditsCount;
 const ensuredImageCreditsType = imageCreditsType;
-const ensuredMessageBoxButtons = messageBoxButtons;
-const ensuredMessageBoxActions = messageBoxActions;
-const ensuredMessageBoxRight = messageBoxRight;
 
 let imageCredits: number | null | undefined = undefined;
 let megaCredits: number | null | undefined = undefined;
@@ -57,42 +42,6 @@ let subscriptionTier: "free" | "pro" | "pro_plus" | "max" | "canceled" = "free";
 let isPopoverVisible = false;
 
 type AllowanceMode = "image" | "mega" | null;
-
-function toolbarOverflows(): boolean {
-	const style = getComputedStyle(ensuredMessageBoxButtons);
-	const actionStyle = getComputedStyle(ensuredMessageBoxActions);
-	const visibleActions = Array.from(ensuredMessageBoxActions.children).filter(
-		(element): element is HTMLElement =>
-			element instanceof HTMLElement && getComputedStyle(element).display !== "none"
-	);
-	const availableWidth =
-		ensuredMessageBoxButtons.clientWidth -
-		(Number.parseFloat(style.paddingLeft) || 0) -
-		(Number.parseFloat(style.paddingRight) || 0);
-	const columnGap = Number.parseFloat(style.columnGap) || 0;
-	const actionGap = Number.parseFloat(actionStyle.columnGap) || 0;
-	const actionsWidth =
-		visibleActions.reduce((width, action) => width + action.offsetWidth, 0) +
-		actionGap * Math.max(visibleActions.length - 1, 0);
-	return actionsWidth + ensuredMessageBoxRight.offsetWidth + columnGap > availableWidth;
-}
-
-function updateCompactLabelState(): void {
-	ensuredMessageBoxButtons.classList.remove("message-box-buttons-wrap");
-	ensuredImageCreditsLabel.classList.remove("image-credits-label-compact");
-
-	if (!toolbarOverflows()) return;
-
-	if (!ensuredImageCreditsLabel.classList.contains("hidden")) {
-		ensuredImageCreditsLabel.classList.add("image-credits-label-compact");
-		if (!toolbarOverflows()) return;
-	}
-
-	ensuredMessageBoxButtons.classList.add("message-box-buttons-wrap");
-}
-
-new ResizeObserver(updateCompactLabelState).observe(ensuredMessageBoxButtons);
-ensuredMessageBoxActions.addEventListener("transitionend", updateCompactLabelState);
 
 // Click handler for the label
 imageCreditsLabel.addEventListener("click", (e) => {
@@ -377,7 +326,6 @@ function renderLabel(): void {
 
 		checkAndDispatchInsufficientCreditsState();
 		if (isPopoverVisible) renderPopoverContent();
-		updateCompactLabelState();
 		return;
 	}
 
@@ -392,8 +340,6 @@ function renderLabel(): void {
 	if (isPopoverVisible) {
 		renderPopoverContent();
 	}
-
-	updateCompactLabelState();
 }
 
 function renderPopoverContent(): void {
@@ -639,6 +585,4 @@ export function updateImageCreditsLabelVisibility(): void {
 			hidePopover();
 		}
 	}
-
-	updateCompactLabelState();
 }

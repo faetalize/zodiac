@@ -4801,7 +4801,7 @@ body.full-width-chat #message-box {
 #message-box-buttons {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
-	align-items: start;
+	align-items: center;
 	gap: 0.35rem;
 	padding: 0.3rem 0.5rem 0.3rem 0.3rem;
 }
@@ -4814,8 +4814,76 @@ body.full-width-chat #message-box {
 	min-width: 0;
 }
 
-#message-box-buttons.message-box-buttons-wrap #message-box-actions {
-	flex-wrap: wrap;
+.composer-actions-overflow {
+	display: flex;
+	align-items: center;
+	position: relative;
+}
+
+.composer-actions-menu {
+	display: none;
+	min-width: 11rem;
+}
+
+.composer-action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: fit-content;
+	gap: 0;
+}
+
+.composer-action-icon {
+	font-size: 1rem;
+	line-height: 1;
+}
+
+.composer-action-label {
+	display: none;
+	font-family: "Noto Sans", sans-serif;
+	font-size: 0.875rem;
+	line-height: 1.2;
+	text-transform: none;
+	white-space: nowrap;
+}
+
+#message-box-actions > #btn-image.btn-toggled,
+#message-box-actions > #btn-edit.btn-toggled {
+	gap: 0.3rem;
+}
+
+#message-box-actions > #btn-image.btn-toggled .composer-action-label,
+#message-box-actions > #btn-edit.btn-toggled .composer-action-label,
+.composer-action-menu-item .composer-action-label {
+	display: inline;
+}
+
+.composer-action-menu-item {
+	width: 100%;
+	justify-content: flex-start;
+	gap: 0.5rem;
+	padding: 0.4rem 0.6rem;
+	border-radius: 0.375rem;
+	font: inherit;
+	font-weight: inherit;
+	text-transform: none;
+}
+
+.composer-action-menu-item.btn-toggled {
+	background: var(--dropdown-menu-item-active-bg) !important;
+}
+
+.composer-action-menu-item:hover,
+.composer-action-menu-item:focus-visible {
+	background: var(--dropdown-menu-item-hover-bg) !important;
+}
+
+.composer-action-menu-item:active:not(:disabled) {
+	transform: none;
+}
+
+#btn-composer-actions-overflow.btn-toggled {
+	color: var(--primary);
 }
 
 #message-box-buttons button {
@@ -5458,32 +5526,12 @@ body.full-width-chat #message-box {
 	border-radius: 1rem;
 }
 
-#image-generation-label,
-#image-editing-label {
-	font-family: "Noto Sans", sans-serif;
-	width: 0;
-	font-size: 0.875rem;
-	transition: width 0.2s ease;
-	overflow: hidden;
-	text-transform: capitalize;
-}
-
-#btn-image.btn-toggled #image-generation-label,
-#btn-edit.btn-toggled #image-editing-label {
-	width: 100%;
-}
-
 #btn-image,
 #btn-edit {
 	display: flex;
 	width: fit-content;
-	align-items: start;
-	justify-content: start;
-}
-
-#btn-image:not(.btn-toggled),
-#btn-edit:not(.btn-toggled) {
-	gap: 0;
+	align-items: center;
+	justify-content: center;
 }
 
 #zodiac-branding {

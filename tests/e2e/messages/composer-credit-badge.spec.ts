@@ -182,11 +182,13 @@ function getComposerLayout() {
 	const toolbar = document.querySelector<HTMLElement>("#message-box-buttons");
 	const actionGroup = document.querySelector<HTMLElement>("#message-box-actions");
 	const rightGroup = document.querySelector<HTMLElement>(".message-box-right");
-	const actions = Array.from(
-		document.querySelectorAll<HTMLElement>("#btn-attach, #btn-internet, #btn-roleplay, #btn-image, #btn-edit")
-	).filter((action) => action.getClientRects().length > 0);
+	const menu = document.querySelector<HTMLElement>("#composer-actions-menu");
+	const allActions = Array.from(document.querySelectorAll<HTMLElement>("[data-composer-action]"));
+	const actions = allActions.filter(
+		(action) => action.parentElement === actionGroup && action.getClientRects().length > 0
+	);
 
-	if (!messageBox || !sendButton || !toolbar || !actionGroup || !rightGroup || actions.length === 0) {
+	if (!messageBox || !sendButton || !toolbar || !actionGroup || !rightGroup || !menu || actions.length === 0) {
 		throw new Error("Missing composer layout elements");
 	}
 
@@ -205,12 +207,14 @@ function getComposerLayout() {
 		actionWidth: actionGroup.scrollWidth,
 		rightWidth: rightGroup.offsetWidth,
 		toolbarWidth: toolbar.clientWidth,
+		toolbarActionIds: actions.map((action) => action.id),
+		menuActionIds: allActions.filter((action) => action.parentElement === menu).map((action) => action.id),
 		sendButtonFits:
 			sendButtonBounds.left >= messageBoxBounds.left && sendButtonBounds.right <= messageBoxBounds.right
 	};
 }
 
-test("collapses the Mega credit badge before wrapping optional controls", async ({ page }) => {
+test("collapses the Mega credit badge before overflowing optional controls", async ({ page }) => {
 	await openMegaComposer(page, 300);
 	const badge = page.locator("#image-credits-label");
 	await expect(badge).toHaveClass(/image-credits-label-compact/);
@@ -221,24 +225,48 @@ test("collapses the Mega credit badge before wrapping optional controls", async 
 	expect(layout.sendButtonFits, "The send button must remain inside the visible message box").toBe(true);
 	expect(
 		layout.actionRowCount,
-		`Collapsing the badge should happen before controls wrap: ${JSON.stringify(layout)}`
+		`Collapsing the badge should happen before actions overflow: ${JSON.stringify(layout)}`
 	).toBe(1);
+	expect(layout.menuActionIds).toEqual([]);
+	await expect(page.locator("#composer-actions-overflow")).toBeHidden();
 
 	await page.setViewportSize({ width: 600, height: 800 });
 	await expect(badge).not.toHaveClass(/image-credits-label-compact/);
 	await expect(badge.locator(".image-credits-type")).toBeVisible();
 });
 
-test("wraps optional controls instead of clipping send when image mode is active at 255px", async ({ page }) => {
+test("moves optional controls into a menu when image mode runs out of room at 255px", async ({ page }) => {
 	await openMegaComposer(page, 255);
-	await page.locator("#btn-image").click();
-	await expect(page.locator("#btn-image")).toHaveClass(/btn-toggled/);
 	const badge = page.locator("#image-credits-label");
 	await expect(badge).toHaveClass(/image-credits-label-compact/);
 	await expect(badge.locator(".image-credits-type")).toBeHidden();
+	await page.locator("#btn-image").click();
+	await expect(page.locator("#btn-image")).toHaveClass(/btn-toggled/);
 
-	await expect.poll(async () => (await page.evaluate(getComposerLayout)).actionRowCount).toBeGreaterThan(1);
+	const overflowButton = page.locator("#btn-composer-actions-overflow");
+	await expect(overflowButton).toBeVisible();
+	await expect(overflowButton).toHaveClass(/btn-toggled/);
+
+	const initialLayout = await page.evaluate(getComposerLayout);
+	expect(initialLayout.menuActionIds.length).toBeGreaterThan(0);
+	expect(initialLayout.menuActionIds).toContain("btn-image");
+	expect(initialLayout.actionRowCount, JSON.stringify(initialLayout)).toBe(1);
+	expect(initialLayout.sendButtonFits, "The send button must remain inside the visible message box").toBe(true);
+
+	await overflowButton.click();
+	const menu = page.locator("#composer-actions-menu.dropdown-menu--portal");
+	await expect(menu).toBeVisible();
+	const imageAction = menu.locator("#btn-image");
+	await expect(imageAction).toBeVisible();
+	await expect(imageAction).toHaveClass(/btn-toggled/);
+	await expect(imageAction.locator(".composer-action-label")).toHaveText("Image Generation");
+	await imageAction.click();
+	await expect(page.locator("#btn-image")).not.toHaveClass(/btn-toggled/);
+	await expect(menu).toBeHidden();
+	await expect(overflowButton).toBeHidden();
 
 	const layout = await page.evaluate(getComposerLayout);
+	expect(layout.actionRowCount, JSON.stringify(layout)).toBe(1);
+	expect(layout.menuActionIds).toEqual([]);
 	expect(layout.sendButtonFits, "The send button must remain inside the visible message box").toBe(true);
 });
