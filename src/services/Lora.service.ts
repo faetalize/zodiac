@@ -108,21 +108,39 @@ export async function initialize(): Promise<void> {
 	loraState = [];
 	const all = readFromLocalstorage();
 	const uniqueUrls = [...new Set(all)];
-	let removedDuplicateCount = all.length - uniqueUrls.length;
 	const info = await getLoraMetadata(uniqueUrls);
+	const lorasByUrl = new Map<string, LoRAInfo>();
+	const lorasByModelVersionId = new Map<string, LoRAInfo>();
 	if (info && info.length > 0) {
-		const modelVersionIds = new Set<string>();
 		for (const lora of info) {
-			if (modelVersionIds.has(lora.modelVersionId)) {
-				removedDuplicateCount += 1;
-				continue;
+			lorasByUrl.set(lora.url, lora);
+			if (!lorasByModelVersionId.has(lora.modelVersionId)) {
+				lorasByModelVersionId.set(lora.modelVersionId, lora);
+				loras.push(lora);
 			}
-			modelVersionIds.add(lora.modelVersionId);
-			loras.push(lora);
 		}
 	}
+	const keptModelVersionIds = new Set<string>();
+	const normalizedUrls = uniqueUrls.filter((url) => {
+		let resolvedLora = lorasByUrl.get(url);
+		if (!resolvedLora) {
+			try {
+				const modelVersionId = new URL(url).searchParams.get("modelVersionId");
+				if (modelVersionId) {
+					resolvedLora = lorasByModelVersionId.get(modelVersionId);
+				}
+			} catch {
+				// Preserve invalid or unresolved URLs rather than treating them as deleted metadata.
+			}
+		}
+		if (!resolvedLora) return true;
+		if (keptModelVersionIds.has(resolvedLora.modelVersionId)) return false;
+		keptModelVersionIds.add(resolvedLora.modelVersionId);
+		return true;
+	});
+	const removedDuplicateCount = all.length - normalizedUrls.length;
 	if (removedDuplicateCount > 0) {
-		writeToLocalstorage(loras.length > 0 ? loras.map((lora) => lora.url) : uniqueUrls);
+		writeToLocalstorage(normalizedUrls);
 		queueLoraSettingsSync();
 	}
 	loraState = loras.map((lora) => ({ lora, ...initialLoraState }));

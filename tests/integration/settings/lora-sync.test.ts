@@ -31,6 +31,7 @@ const loraFixture: LoRAInfo = {
 };
 
 const equivalentLoraUrl = "https://civitai.com/models/other-link?modelVersionId=123";
+const unresolvedLoraUrl = "https://civitai.com/models/temporarily-unavailable";
 
 describe("LoRA synced settings", () => {
 	beforeEach(() => {
@@ -97,6 +98,36 @@ describe("LoRA synced settings", () => {
 		expect(refreshed).toHaveBeenCalledTimes(1);
 		expect(refreshed.mock.calls[0][0].detail).toEqual({ removedDuplicateCount: 1 });
 		window.removeEventListener("lora-list-refreshed", refreshed);
+	});
+
+	it("preserves an unresolved unique LoRA URL while removing an exact duplicate", async () => {
+		localStorage.setItem(
+			SETTINGS_STORAGE_KEYS.LORAS,
+			JSON.stringify([loraFixture.url, loraFixture.url, unresolvedLoraUrl])
+		);
+		supabaseMock.functions.invoke.mockResolvedValue({ data: [loraFixture], error: null });
+		const loraService = await import("../../../src/services/Lora.service");
+
+		await loraService.initialize();
+
+		expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS.LORAS) ?? "[]")).toEqual([
+			loraFixture.url,
+			unresolvedLoraUrl
+		]);
+		expect(loraService.getAll()).toEqual([loraFixture]);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenCalledTimes(1);
+	});
+
+	it("removes equivalent stored URLs when metadata coalesces them into one model version", async () => {
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.LORAS, JSON.stringify([loraFixture.url, equivalentLoraUrl]));
+		supabaseMock.functions.invoke.mockResolvedValue({ data: [loraFixture], error: null });
+		const loraService = await import("../../../src/services/Lora.service");
+
+		await loraService.initialize();
+
+		expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS.LORAS) ?? "[]")).toEqual([loraFixture.url]);
+		expect(loraService.getAll()).toEqual([loraFixture]);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenCalledTimes(1);
 	});
 
 	it("pushes current settings when a LoRA URL is deleted", async () => {
