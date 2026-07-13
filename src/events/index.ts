@@ -193,6 +193,10 @@ export interface LoraStateChangedDetail {
 	// No detail payload - listeners should query current state
 }
 
+export interface LoraListRefreshedDetail {
+	removedDuplicateCount: number;
+}
+
 // --- Cloud Sync Events ---
 
 export type SyncStatus = "idle" | "syncing" | "synced" | "error" | "offline";
@@ -283,6 +287,7 @@ export const EventNames = {
 
 	// Lora
 	LORA_STATE_CHANGED: "lora-state-changed",
+	LORA_LIST_REFRESHED: "lora-list-refreshed",
 
 	// Cloud Sync
 	SYNC_UNLOCK_REQUIRED: "sync-unlock-required",
@@ -359,6 +364,7 @@ export interface AppEventMap {
 
 	// Lora
 	[EventNames.LORA_STATE_CHANGED]: LoraStateChangedDetail;
+	[EventNames.LORA_LIST_REFRESHED]: LoraListRefreshedDetail;
 
 	// Cloud Sync
 	[EventNames.SYNC_UNLOCK_REQUIRED]: SyncUnlockRequiredDetail;

@@ -1,13 +1,15 @@
 import type { LoRAInfo, LoRAState } from "../../types/Lora";
 import * as loraService from "../../services/Lora.service";
 import { supportedLoraBaseModelLabels } from "../../constants/Loras";
-import { danger, warn } from "../../services/Toast.service";
+import { info, danger, warn } from "../../services/Toast.service";
+import { onAppEvent } from "../../events";
 import { loraElement } from "../dynamic/lora";
 
 const input = document.querySelector<HTMLInputElement>("#lora-url-input");
 const addBtn = document.querySelector<HTMLButtonElement>("#btn-add-lora");
 const container = document.querySelector<HTMLDivElement>("#lora-settings");
 const loraContainerList = document.querySelector<HTMLDivElement>("#lora-list");
+let hasShownDuplicateCleanupToast = false;
 
 if (!input || !addBtn || !container || !loraContainerList) {
 	console.error("One or more LoRA manager elements are missing.");
@@ -25,14 +27,36 @@ input?.addEventListener("keydown", (e) => {
 	}
 });
 
-//populate LoRAs
+onAppEvent("lora-list-refreshed", (event) => {
+	renderLoras();
+	if (event.detail.removedDuplicateCount > 0 && !hasShownDuplicateCleanupToast) {
+		hasShownDuplicateCleanupToast = true;
+		const count = event.detail.removedDuplicateCount;
+		info({
+			title: "Duplicate LoRAs cleaned up",
+			text: `Cleaned up ${count} duplicate LoRA${count === 1 ? "" : "s"}.`
+		});
+	}
+});
+
 void initializeLoras();
 
 async function initializeLoras() {
 	await loraService.initialize();
-	loraService.getAll().forEach((lora) => {
-		appendLora(lora, loraService.initialLoraState);
-	});
+}
+
+function renderLoras() {
+	if (!loraContainerList) return;
+	const statesByModelVersionId = new Map(
+		loraService.getLoraState().map((state) => [state.lora.modelVersionId, state])
+	);
+	loraContainerList.replaceChildren(
+		...loraService
+			.getAll()
+			.map((lora) =>
+				loraElement(lora, statesByModelVersionId.get(lora.modelVersionId) ?? loraService.initialLoraState)
+			)
+	);
 }
 
 function isLikelyCivitUrl(url: string): boolean {
@@ -59,6 +83,10 @@ async function addLoraFromInput() {
 	switch (result.status) {
 		case "added":
 			appendLora(result.lora, loraService.initialLoraState);
+			info({
+				title: "LoRA added",
+				text: `Added \"${result.lora.name}\" to your LoRAs.`
+			});
 			break;
 		case "duplicate":
 			warn({

@@ -23,13 +23,18 @@ import { loraArchitectureFromCivitaiBaseModel } from "../../constants/Loras";
 
 const imageCreditsLabel = document.querySelector<HTMLDivElement>("#image-credits-label");
 const imageCreditsPopover = document.querySelector<HTMLDivElement>("#image-credits-popover");
+const imageCreditsCount = document.querySelector<HTMLSpanElement>("#image-credits-label .image-credits-count");
+const imageCreditsType = document.querySelector<HTMLSpanElement>("#image-credits-label .image-credits-type");
 const imageModelSelector = document.querySelector<HTMLSelectElement>("#selectedImageModel");
 const modelSelector = document.querySelector<HTMLSelectElement>("#selectedModel");
 
-if (!imageCreditsLabel || !imageCreditsPopover) {
+if (!imageCreditsLabel || !imageCreditsPopover || !imageCreditsCount || !imageCreditsType) {
 	console.error("Image credits label component initialization failed");
-	throw new Error("Missing DOM elements: #image-credits-label or #image-credits-popover");
+	throw new Error("Missing image credits label elements");
 }
+
+const ensuredImageCreditsCount = imageCreditsCount;
+const ensuredImageCreditsType = imageCreditsType;
 
 let imageCredits: number | null | undefined = undefined;
 let megaCredits: number | null | undefined = undefined;
@@ -309,11 +314,14 @@ function renderLabel(): void {
 
 	if (allowanceMode === "mega") {
 		if (hasInsufficientMegaCredits()) {
-			imageCreditsLabel.textContent = "No Mega Credits";
+			ensuredImageCreditsCount.textContent = "No";
+			ensuredImageCreditsType.textContent = "Mega Credits";
 		} else if (megaCredits === null || megaCredits === undefined) {
-			imageCreditsLabel.textContent = "— Mega Credits";
+			ensuredImageCreditsCount.textContent = "—";
+			ensuredImageCreditsType.textContent = "Mega Credits";
 		} else {
-			imageCreditsLabel.textContent = `${megaCredits} Mega Credits`;
+			ensuredImageCreditsCount.textContent = String(megaCredits);
+			ensuredImageCreditsType.textContent = "Mega Credits";
 		}
 
 		checkAndDispatchInsufficientCreditsState();
@@ -321,8 +329,9 @@ function renderLabel(): void {
 		return;
 	}
 
-	const totalCredits = imageCredits === null || imageCredits === undefined ? "—" : String(imageCredits);
-	imageCreditsLabel.textContent = `${totalCredits} Image Credits`;
+	ensuredImageCreditsCount.textContent =
+		imageCredits === null || imageCredits === undefined ? "—" : String(imageCredits);
+	ensuredImageCreditsType.textContent = "Image Credits";
 
 	// Check and dispatch insufficient credits state
 	checkAndDispatchInsufficientCreditsState();

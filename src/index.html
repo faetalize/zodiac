@@ -1238,26 +1238,84 @@
 							</div>
 						</div>
 						<div id="message-box-buttons">
-							<button type="button" class="btn-textual material-symbols-outlined btn" id="btn-attach">
-								attach_file
-							</button>
-							<button type="button" class="btn-textual material-symbols-outlined btn" id="btn-internet">
-								language
-							</button>
-							<button type="button" class="btn-textual material-symbols-outlined btn" id="btn-roleplay">
-								pan_tool
-							</button>
-							<button type="button" class="btn-textual material-symbols-outlined btn" id="btn-image">
-								<div>brush</div>
-								<div id="image-generation-label">Image Generation</div>
-							</button>
-							<button type="button" class="btn-textual material-symbols-outlined btn" id="btn-edit">
-								<div>imagesearch_roller</div>
-								<div id="image-editing-label">Image Editing</div>
-							</button>
+							<div id="message-box-actions">
+								<button
+									type="button"
+									class="btn-textual btn composer-action"
+									id="btn-attach"
+									data-composer-action="Attach files"
+									aria-label="Attach files"
+								>
+									<span class="material-symbols-outlined composer-action-icon">attach_file</span>
+									<span class="composer-action-label">Attach files</span>
+								</button>
+								<button
+									type="button"
+									class="btn-textual btn composer-action"
+									id="btn-internet"
+									data-composer-action="Web search"
+									aria-label="Toggle web search"
+								>
+									<span class="material-symbols-outlined composer-action-icon">language</span>
+									<span class="composer-action-label">Web search</span>
+								</button>
+								<button
+									type="button"
+									class="btn-textual btn composer-action"
+									id="btn-roleplay"
+									data-composer-action="Roleplay"
+									aria-label="Toggle roleplay tools"
+								>
+									<span class="material-symbols-outlined composer-action-icon">pan_tool</span>
+									<span class="composer-action-label">Roleplay</span>
+								</button>
+								<button
+									type="button"
+									class="btn-textual btn composer-action"
+									id="btn-image"
+									data-composer-action="Image generation"
+									aria-label="Toggle image generation"
+								>
+									<span class="material-symbols-outlined composer-action-icon">brush</span>
+									<span class="composer-action-label" id="image-generation-label"
+										>Image Generation</span
+									>
+								</button>
+								<button
+									type="button"
+									class="btn-textual btn composer-action"
+									id="btn-edit"
+									data-composer-action="Image editing"
+									aria-label="Toggle image editing"
+								>
+									<span class="material-symbols-outlined composer-action-icon"
+										>imagesearch_roller</span
+									>
+									<span class="composer-action-label" id="image-editing-label">Image Editing</span>
+								</button>
+								<div id="composer-actions-overflow" class="composer-actions-overflow hidden">
+									<button
+										type="button"
+										class="btn-textual btn"
+										id="btn-composer-actions-overflow"
+										aria-label="More message actions"
+										aria-haspopup="menu"
+										aria-expanded="false"
+										aria-controls="composer-actions-menu"
+									>
+										<span class="material-symbols-outlined">more_horiz</span>
+									</button>
+									<div
+										id="composer-actions-menu"
+										class="dropdown-menu composer-actions-menu"
+										role="menu"
+									></div>
+								</div>
+							</div>
 							<div class="message-box-right">
 								<div id="image-credits-label" class="image-credits-label hidden">
-									— image credits left
+									<span class="image-credits-count">—</span>
+									<span class="image-credits-type">Image Credits</span>
 								</div>
 								<button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">
 									send
