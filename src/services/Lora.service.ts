@@ -2,7 +2,7 @@ import type { LoRAInfo, LoRAState } from "../types/Lora";
 import { LORA_STORAGE_KEY } from "../types/Lora";
 import { isLoraBaseModelSupported } from "../constants/Loras";
 import { supabase } from "./Supabase.service";
-import { dispatchEmptyAppEvent } from "../events";
+import { dispatchAppEvent, dispatchEmptyAppEvent } from "../events";
 import * as syncService from "./Sync.service";
 
 const LORA_GET_METDATA_ENDPOINT_SLUG = "get-lora-metadata-x";
@@ -87,6 +87,10 @@ export async function add(url: string): Promise<AddLoraResult> {
 		return { status: "failed" };
 	}
 	const lora = loraDetails[0];
+	if (loras.some((existingLora) => existingLora.modelVersionId === lora.modelVersionId)) {
+		console.log("[LoRA] LoRA model version already exists:", lora.modelVersionId);
+		return { status: "duplicate" };
+	}
 	if (!isLoraBaseModelSupported(lora.baseModel)) {
 		console.warn("[LoRA] Rejected LoRA with unsupported base model:", lora.baseModel);
 		return { status: "unsupported", baseModel: lora.baseModel };
@@ -103,11 +107,26 @@ export async function initialize(): Promise<void> {
 	loras = [];
 	loraState = [];
 	const all = readFromLocalstorage();
-	const info = await getLoraMetadata(all);
+	const uniqueUrls = [...new Set(all)];
+	let removedDuplicateCount = all.length - uniqueUrls.length;
+	const info = await getLoraMetadata(uniqueUrls);
 	if (info && info.length > 0) {
-		loras.push(...info);
+		const modelVersionIds = new Set<string>();
+		for (const lora of info) {
+			if (modelVersionIds.has(lora.modelVersionId)) {
+				removedDuplicateCount += 1;
+				continue;
+			}
+			modelVersionIds.add(lora.modelVersionId);
+			loras.push(lora);
+		}
+	}
+	if (removedDuplicateCount > 0) {
+		writeToLocalstorage(loras.length > 0 ? loras.map((lora) => lora.url) : uniqueUrls);
+		queueLoraSettingsSync();
 	}
 	loraState = loras.map((lora) => ({ lora, ...initialLoraState }));
+	dispatchAppEvent("lora-list-refreshed", { removedDuplicateCount });
 }
 
 export async function getLoraMetadata(urls: string[]): Promise<LoRAInfo[] | void> {

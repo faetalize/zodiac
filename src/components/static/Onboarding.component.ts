@@ -9,6 +9,7 @@ import * as onboardingService from "../../services/Onboarding.service";
 import * as supabaseService from "../../services/Supabase.service";
 import * as syncService from "../../services/Sync.service";
 import * as settingsService from "../../services/Settings.service";
+import * as loraService from "../../services/Lora.service";
 import * as toastService from "../../services/Toast.service";
 import { themeService } from "../../services/Theme.service";
 import {
@@ -1667,6 +1668,7 @@ async function hydrateRemoteSettingsForOnboarding(): Promise<boolean> {
 	const didApplySyncedSettings = await syncService.applySyncedSettingsToLocalStorage();
 	if (didApplySyncedSettings) {
 		settingsService.loadSettings();
+		await loraService.initialize();
 		return false;
 	}
 

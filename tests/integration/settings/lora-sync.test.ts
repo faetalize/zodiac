@@ -30,6 +30,8 @@ const loraFixture: LoRAInfo = {
 	fileName: "lora.safetensors"
 };
 
+const equivalentLoraUrl = "https://civitai.com/models/other-link?modelVersionId=123";
+
 describe("LoRA synced settings", () => {
 	beforeEach(() => {
 		vi.resetModules();
@@ -62,6 +64,39 @@ describe("LoRA synced settings", () => {
 		expect(result.status).toBe("unsupported");
 		expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS.LORAS) ?? "[]")).toEqual([]);
 		expect(syncServiceMock.queueSettingsPush).not.toHaveBeenCalled();
+	});
+
+	it("rejects a second URL that resolves to an already-added LoRA model version", async () => {
+		const loraService = await import("../../../src/services/Lora.service");
+
+		await expect(loraService.add(loraFixture.url)).resolves.toMatchObject({ status: "added" });
+		await expect(loraService.add(equivalentLoraUrl)).resolves.toEqual({ status: "duplicate" });
+
+		expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS.LORAS) ?? "[]")).toEqual([loraFixture.url]);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenCalledTimes(1);
+	});
+
+	it("normalizes existing duplicate LoRAs and queues one cloud settings update", async () => {
+		localStorage.setItem(SETTINGS_STORAGE_KEYS.LORAS, JSON.stringify([loraFixture.url, equivalentLoraUrl]));
+		supabaseMock.functions.invoke.mockImplementation(
+			async (_slug: string, { body }: { body: { urls: string[] } }) => ({
+				data: body.urls.map(() => loraFixture),
+				error: null
+			})
+		);
+		const loraService = await import("../../../src/services/Lora.service");
+		const refreshed = vi.fn();
+		window.addEventListener("lora-list-refreshed", refreshed);
+
+		await loraService.initialize();
+
+		expect(loraService.getAll()).toEqual([loraFixture]);
+		expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEYS.LORAS) ?? "[]")).toEqual([loraFixture.url]);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenCalledTimes(1);
+		expect(syncServiceMock.queueSettingsPush).toHaveBeenLastCalledWith({ label: "LoRA settings" });
+		expect(refreshed).toHaveBeenCalledTimes(1);
+		expect(refreshed.mock.calls[0][0].detail).toEqual({ removedDuplicateCount: 1 });
+		window.removeEventListener("lora-list-refreshed", refreshed);
 	});
 
 	it("pushes current settings when a LoRA URL is deleted", async () => {
