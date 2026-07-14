@@ -5,25 +5,27 @@ change-template: "- $TITLE (#$NUMBER)"
 change-title-escapes: "<*_&"
 
 categories:
+    - type: "pre-include"
+      when:
+          labels:
+              - feature
+              - enhancement
+              - bug
+    - type: "pre-exclude"
+      when:
+          labels:
+              - code improvement
+              - documentation
+              - skip-changelog
     - title: "Features"
-      labels:
-          - feature
+      when:
+          label: feature
     - title: "Improvements"
-      labels:
-          - enhancement
+      when:
+          label: enhancement
     - title: "Fixes"
-      labels:
-          - bug
-
-include-labels:
-    - feature
-    - enhancement
-    - bug
-
-exclude-labels:
-    - code improvement
-    - documentation
-    - skip-changelog
+      when:
+          label: bug
 
 template: |
     ## What's New
