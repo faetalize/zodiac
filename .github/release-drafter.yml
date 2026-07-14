@@ -1,0 +1,31 @@
+name-template: "v$NEXT_PATCH_VERSION"
+tag-template: "v$NEXT_PATCH_VERSION"
+commitish: production
+change-template: "- $TITLE (#$NUMBER)"
+change-title-escapes: "<*_&"
+
+categories:
+    - title: "Features"
+      labels:
+          - feature
+    - title: "Improvements"
+      labels:
+          - enhancement
+    - title: "Fixes"
+      labels:
+          - bug
+
+include-labels:
+    - feature
+    - enhancement
+    - bug
+
+exclude-labels:
+    - code improvement
+    - documentation
+    - skip-changelog
+
+template: |
+    ## What's New
+
+    $CHANGES
