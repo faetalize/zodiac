@@ -1124,6 +1124,9 @@
 									Open Subscription Options
 								</button>
 								<button class="btn btn-primary" id="btn-debug-onboarding">Test Onboarding</button>
+								<button class="btn btn-primary" id="btn-debug-announcement">
+									Compose Announcement Preview
+								</button>
 							</div>
 						</div>
 					</div>
@@ -1673,6 +1676,38 @@
 					</ul>
 				</div>
 
+				<section
+					id="targeted-announcement"
+					class="targeted-announcement hidden"
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="targeted-announcement-title"
+					tabindex="-1"
+				>
+					<button
+						id="targeted-announcement-close"
+						class="targeted-announcement-close material-symbols-outlined"
+						type="button"
+						aria-label="Dismiss announcement"
+					>
+						close
+					</button>
+					<div id="targeted-announcement-hero" class="targeted-announcement-hero hidden">
+						<img id="targeted-announcement-image" alt="" decoding="async" />
+					</div>
+					<div class="targeted-announcement-content">
+						<h1 id="targeted-announcement-title"></h1>
+						<p id="targeted-announcement-body"></p>
+						<div class="targeted-announcement-actions">
+							<button
+								id="targeted-announcement-action"
+								class="btn btn-primary hidden"
+								type="button"
+							></button>
+						</div>
+					</div>
+				</section>
+
 				<!-- Add Persona Modal -->
 				<div id="modal-add-persona" class="hidden">
 					<span class="material-symbols-outlined sync-modal-icon">person_add</span>
@@ -1741,6 +1776,51 @@
 						</button>
 					</div>
 				</div>
+
+				<form id="form-debug-announcement" class="debug-announcement-form hidden">
+					<h1>Announcement Preview</h1>
+					<p class="overlay-description">Save a one-time announcement to display after the next refresh.</p>
+
+					<label for="debug-announcement-title">Title</label>
+					<input id="debug-announcement-title" type="text" value="Max is now unlimited" required />
+
+					<label for="debug-announcement-body">Body</label>
+					<textarea id="debug-announcement-body" rows="4" required>
+Your Max plan no longer has a monthly usage limit.</textarea
+					>
+
+					<label for="debug-announcement-hero-url">Hero image URL</label>
+					<input
+						id="debug-announcement-hero-url"
+						type="url"
+						placeholder="https://example.com/announcement.webp"
+					/>
+
+					<label for="debug-announcement-hero-alt">Hero image alt text</label>
+					<input id="debug-announcement-hero-alt" type="text" placeholder="Describe the image" />
+
+					<div class="debug-announcement-action-fields">
+						<div>
+							<label for="debug-announcement-action">Action</label>
+							<select id="debug-announcement-action">
+								<option value="">No action</option>
+								<option value="dismiss" selected>Dismiss</option>
+								<option value="next">Next</option>
+							</select>
+						</div>
+						<div>
+							<label for="debug-announcement-action-label">Action label</label>
+							<input id="debug-announcement-action-label" type="text" value="Got it" required />
+						</div>
+					</div>
+
+					<div class="overlay-actions">
+						<button id="btn-debug-announcement-cancel" class="btn btn-secondary" type="button">
+							Cancel
+						</button>
+						<button class="btn btn-primary" type="submit">Save for next refresh</button>
+					</div>
+				</form>
 
 				<div id="login-register-tabs" class="hidden">
 					<div class="navbar" data-target-id="login-register-container">

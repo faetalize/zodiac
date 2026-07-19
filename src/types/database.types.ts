@@ -7,7 +7,7 @@
  * Contributors: Treat this as READ-ONLY.
  * If you need schema changes, open an issue describing the required modifications.
  *
- * Generated: 2026-04-30
+ * Generated: 2026-07-19
  */
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -169,6 +169,172 @@ export type Database = {
 					}
 				];
 			};
+			announcement_receipts: {
+				Row: {
+					actioned_at: string | null;
+					announcement_id: string;
+					dismissed_at: string | null;
+					seen_at: string | null;
+					user_id: string;
+				};
+				Insert: {
+					actioned_at?: string | null;
+					announcement_id: string;
+					dismissed_at?: string | null;
+					seen_at?: string | null;
+					user_id?: string;
+				};
+				Update: {
+					actioned_at?: string | null;
+					announcement_id?: string;
+					dismissed_at?: string | null;
+					seen_at?: string | null;
+					user_id?: string;
+				};
+				Relationships: [
+					{
+						foreignKeyName: "announcement_receipts_announcement_id_fkey";
+						columns: ["announcement_id"];
+						isOneToOne: false;
+						referencedRelation: "announcements";
+						referencedColumns: ["id"];
+					},
+					{
+						foreignKeyName: "announcement_receipts_user_id_fkey";
+						columns: ["user_id"];
+						isOneToOne: false;
+						referencedRelation: "admin_dashboard";
+						referencedColumns: ["user_id"];
+					}
+				];
+			};
+			announcement_tier_targets: {
+				Row: {
+					announcement_id: string;
+					tier: string;
+				};
+				Insert: {
+					announcement_id: string;
+					tier: string;
+				};
+				Update: {
+					announcement_id?: string;
+					tier?: string;
+				};
+				Relationships: [
+					{
+						foreignKeyName: "announcement_tier_targets_announcement_id_fkey";
+						columns: ["announcement_id"];
+						isOneToOne: false;
+						referencedRelation: "announcements";
+						referencedColumns: ["id"];
+					}
+				];
+			};
+			announcement_user_targets: {
+				Row: {
+					announcement_id: string;
+					user_id: string;
+				};
+				Insert: {
+					announcement_id: string;
+					user_id: string;
+				};
+				Update: {
+					announcement_id?: string;
+					user_id?: string;
+				};
+				Relationships: [
+					{
+						foreignKeyName: "announcement_user_targets_announcement_id_fkey";
+						columns: ["announcement_id"];
+						isOneToOne: false;
+						referencedRelation: "announcements";
+						referencedColumns: ["id"];
+					},
+					{
+						foreignKeyName: "announcement_user_targets_user_id_fkey";
+						columns: ["user_id"];
+						isOneToOne: false;
+						referencedRelation: "admin_dashboard";
+						referencedColumns: ["user_id"];
+					}
+				];
+			};
+			announcements: {
+				Row: {
+					action: Database["public"]["Enums"]["announcement_action"] | null;
+					action_label: string | null;
+					audience_type: Database["public"]["Enums"]["announcement_audience_type"];
+					body: string;
+					ends_at: string | null;
+					hero_image_alt: string | null;
+					hero_image_url: string | null;
+					id: string;
+					key: string;
+					priority: number;
+					starts_at: string | null;
+					status: Database["public"]["Enums"]["announcement_status"];
+					title: string;
+				};
+				Insert: {
+					action?: Database["public"]["Enums"]["announcement_action"] | null;
+					action_label?: string | null;
+					audience_type: Database["public"]["Enums"]["announcement_audience_type"];
+					body: string;
+					ends_at?: string | null;
+					hero_image_alt?: string | null;
+					hero_image_url?: string | null;
+					id?: string;
+					key: string;
+					priority?: number;
+					starts_at?: string | null;
+					status?: Database["public"]["Enums"]["announcement_status"];
+					title: string;
+				};
+				Update: {
+					action?: Database["public"]["Enums"]["announcement_action"] | null;
+					action_label?: string | null;
+					audience_type?: Database["public"]["Enums"]["announcement_audience_type"];
+					body?: string;
+					ends_at?: string | null;
+					hero_image_alt?: string | null;
+					hero_image_url?: string | null;
+					id?: string;
+					key?: string;
+					priority?: number;
+					starts_at?: string | null;
+					status?: Database["public"]["Enums"]["announcement_status"];
+					title?: string;
+				};
+				Relationships: [];
+			};
+			dashboard_settings: {
+				Row: {
+					settings: Json;
+					updated_at: string;
+					user_id: string;
+				};
+				Insert: {
+					settings?: Json;
+					updated_at?: string;
+					user_id: string;
+				};
+				Update: {
+					settings?: Json;
+					updated_at?: string;
+					user_id?: string;
+				};
+				Relationships: [
+					{
+						foreignKeyName: "dashboard_settings_user_id_fkey";
+						columns: ["user_id"];
+						isOneToOne: true;
+						referencedRelation: "admin_dashboard";
+						referencedColumns: ["user_id"];
+					}
+				];
+			};
 			deleted_comments: {
 				Row: {
 					comment_content: string;
@@ -322,6 +488,68 @@ export type Database = {
 						foreignKeyName: "image_sub_allowance_user_id_fkey";
 						columns: ["user_id"];
 						isOneToOne: true;
+						referencedRelation: "admin_dashboard";
+						referencedColumns: ["user_id"];
+					}
+				];
+			};
+			llm_usage: {
+				Row: {
+					cached_tokens: number;
+					cost: number;
+					created_at: string;
+					end_model: string;
+					fallback: boolean;
+					generation_id: string | null;
+					id: number;
+					input_tokens: number;
+					message_count: number | null;
+					output_tokens: number;
+					reason: string;
+					request_slug: string | null;
+					requested_model: string;
+					tier_snapshot: string | null;
+					user_id: string;
+				};
+				Insert: {
+					cached_tokens?: number;
+					cost: number;
+					created_at?: string;
+					end_model: string;
+					fallback?: boolean;
+					generation_id?: string | null;
+					id?: never;
+					input_tokens: number;
+					message_count?: number | null;
+					output_tokens: number;
+					reason: string;
+					request_slug?: string | null;
+					requested_model: string;
+					tier_snapshot?: string | null;
+					user_id: string;
+				};
+				Update: {
+					cached_tokens?: number;
+					cost?: number;
+					created_at?: string;
+					end_model?: string;
+					fallback?: boolean;
+					generation_id?: string | null;
+					id?: never;
+					input_tokens?: number;
+					message_count?: number | null;
+					output_tokens?: number;
+					reason?: string;
+					request_slug?: string | null;
+					requested_model?: string;
+					tier_snapshot?: string | null;
+					user_id?: string;
+				};
+				Relationships: [
+					{
+						foreignKeyName: "llm_usage_user_id_fkey";
+						columns: ["user_id"];
+						isOneToOne: false;
 						referencedRelation: "admin_dashboard";
 						referencedColumns: ["user_id"];
 					}
@@ -1031,14 +1259,31 @@ export type Database = {
 			admin_dashboard: {
 				Row: {
 					email: string | null;
+					granted_mega_credits: number | null;
+					granted_subscription_image_gens: number | null;
+					image_allowance_period_end: string | null;
+					image_allowance_period_start: string | null;
 					last_activity_timestamp: string | null;
 					last_chat_timestamp: string | null;
+					mega_allowance_period_end: string | null;
+					mega_allowance_period_start: string | null;
 					name: string | null;
+					nano_banana_daily_limit: number | null;
+					nano_banana_remaining_today: number | null;
+					nano_usage_date: string | null;
 					nano_usage_today: number | null;
 					remaining_image_gens: number | null;
 					remaining_mega_credits: number | null;
+					remaining_purchased_image_gens: number | null;
+					remaining_subscription_image_gens: number | null;
+					stripe_customer_id: string | null;
+					stripe_subscription_id: string | null;
+					subscription_cancel_at_period_end: boolean | null;
+					subscription_created_at: string | null;
+					subscription_current_period_end: string | null;
 					subscription_status: string | null;
 					subscription_tier: Database["public"]["Enums"]["subscription_tier"] | null;
+					subscription_updated_at: string | null;
 					sync_storage_quota_bytes: number | null;
 					sync_storage_used_bytes: number | null;
 					total_bucket_storage_bytes: number | null;
@@ -1156,6 +1401,20 @@ export type Database = {
 			};
 		};
 		Functions: {
+			admin_search_users: {
+				Args: { result_limit?: number; search_query: string };
+				Returns: {
+					email: string;
+					user_id: string;
+				}[];
+			};
+			admin_user_emails: {
+				Args: { ids: string[] };
+				Returns: {
+					email: string;
+					user_id: string;
+				}[];
+			};
 			can_read_cloud_sync: {
 				Args: { target_user_id: string };
 				Returns: boolean;
@@ -1213,6 +1472,9 @@ export type Database = {
 			wipe_my_synced_data: { Args: never; Returns: undefined };
 		};
 		Enums: {
+			announcement_action: "dismiss" | "next";
+			announcement_audience_type: "all" | "tiers" | "users";
+			announcement_status: "draft" | "published" | "archived";
 			persona_category: "character" | "assistant";
 			spotlight_action: "add" | "remove" | "move";
 			subscription_tier:
@@ -1348,6 +1610,9 @@ export type CompositeTypes<
 export const Constants = {
 	public: {
 		Enums: {
+			announcement_action: ["dismiss", "next"],
+			announcement_audience_type: ["all", "tiers", "users"],
+			announcement_status: ["draft", "published", "archived"],
 			persona_category: ["character", "assistant"],
 			spotlight_action: ["add", "remove", "move"],
 			subscription_tier: [
