@@ -1401,6 +1401,13 @@ export type Database = {
 			};
 		};
 		Functions: {
+			admin_search_users: {
+				Args: { result_limit?: number; search_query: string };
+				Returns: {
+					email: string;
+					user_id: string;
+				}[];
+			};
 			admin_user_emails: {
 				Args: { ids: string[] };
 				Returns: {
