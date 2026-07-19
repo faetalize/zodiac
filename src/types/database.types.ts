@@ -1408,13 +1408,6 @@ export type Database = {
 					user_id: string;
 				}[];
 			};
-			announcement_is_eligible_for_current_user: {
-				Args: {
-					target_announcement_id: string;
-					target_audience_type: Database["public"]["Enums"]["announcement_audience_type"];
-				};
-				Returns: boolean;
-			};
 			can_read_cloud_sync: {
 				Args: { target_user_id: string };
 				Returns: boolean;
