@@ -16,6 +16,10 @@ const preferPremiumToggle = document.querySelector<HTMLDivElement>("#prefer-prem
 const preferPremiumCheckbox = document.querySelector<HTMLInputElement>("#preferPremiumEndpoint");
 const preferPremiumImageToggle = document.querySelector<HTMLDivElement>("#prefer-premium-image-endpoint-toggle");
 const preferPremiumImageCheckbox = document.querySelector<HTMLInputElement>("#preferPremiumImageEndpoint");
+const preferPremiumImageTitle = preferPremiumImageToggle?.querySelector<HTMLElement>(".settings-toggle-entry-title");
+const preferPremiumImageSubtitle = preferPremiumImageToggle?.querySelector<HTMLElement>(
+	".settings-toggle-entry-subtitle"
+);
 
 if (
 	!geminiApiKeyInput ||
@@ -25,7 +29,9 @@ if (
 	!preferPremiumToggle ||
 	!preferPremiumCheckbox ||
 	!preferPremiumImageToggle ||
-	!preferPremiumImageCheckbox
+	!preferPremiumImageCheckbox ||
+	!preferPremiumImageTitle ||
+	!preferPremiumImageSubtitle
 ) {
 	console.error("One or more API key input elements are missing.");
 	throw new Error("API key input initialization failed.");
@@ -39,6 +45,8 @@ const ensuredPreferPremiumToggle = preferPremiumToggle;
 const ensuredPreferPremiumCheckbox = preferPremiumCheckbox;
 const ensuredPreferPremiumImageToggle = preferPremiumImageToggle;
 const ensuredPreferPremiumImageCheckbox = preferPremiumImageCheckbox;
+const ensuredPreferPremiumImageTitle = preferPremiumImageTitle;
+const ensuredPreferPremiumImageSubtitle = preferPremiumImageSubtitle;
 let isPaidAccount = false;
 let hasObservedSyncedSettingsPull = false;
 
@@ -75,6 +83,14 @@ function rehydrateImagePremiumPreferenceFromStorage(): void {
 async function updateImagePremiumToggleVisibility(): Promise<void> {
 	const { type } = await isImageGenerationAvailable();
 	ensuredPreferPremiumImageToggle.classList.toggle("hidden", type !== "all");
+}
+
+function updateImagePremiumToggleCopy(tier: SubscriptionTier): void {
+	const isMax = tier === "max";
+	ensuredPreferPremiumImageTitle.textContent = isMax ? "Use Hosted Image Generation" : "Use Image Credits";
+	ensuredPreferPremiumImageSubtitle.textContent = isMax
+		? "Generate and edit images through Zodiac instead of your own API key."
+		: "Generate and edit images with your credits instead of your own API key.";
 }
 
 function persistDefaultPremiumPreferenceAfterSyncedSettingsPull(): void {
@@ -127,6 +143,7 @@ function attachValidation(args: {
 
 applyPremiumPreferenceFromStorage();
 applyImagePremiumPreferenceFromStorage();
+updateImagePremiumToggleCopy("free");
 void updateImagePremiumToggleVisibility();
 
 ensuredPreferPremiumCheckbox.addEventListener("change", () => {
@@ -149,8 +166,14 @@ ensuredPreferPremiumImageCheckbox.addEventListener("change", () => {
 	queuePremiumEndpointSettingsSync();
 });
 
-onAppEvent("auth-state-changed", () => void updateImagePremiumToggleVisibility());
-onAppEvent("subscription-updated", () => void updateImagePremiumToggleVisibility());
+onAppEvent("auth-state-changed", (event) => {
+	updateImagePremiumToggleCopy(getSubscriptionTier(event.detail.subscription ?? null));
+	void updateImagePremiumToggleVisibility();
+});
+onAppEvent("subscription-updated", (event) => {
+	updateImagePremiumToggleCopy(event.detail.tier);
+	void updateImagePremiumToggleVisibility();
+});
 onAppEvent("image-generation-record-refreshed", () => void updateImagePremiumToggleVisibility());
 
 onAppEvent("auth-state-changed", (event) => {

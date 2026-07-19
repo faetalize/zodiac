@@ -24,7 +24,7 @@ export function getPremiumMessageCharacterLimit(
 		return PRO_MESSAGE_CHARACTER_LIMIT;
 	}
 
-	if (tier === "pro_plus") {
+	if (tier === "pro_plus" || tier === "max") {
 		return PRO_PLUS_MESSAGE_CHARACTER_LIMIT;
 	}
 

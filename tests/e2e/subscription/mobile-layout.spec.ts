@@ -96,13 +96,11 @@ test("presents Max text and image generation as unlimited", async ({ page }) => 
 	await openSubscriptionOverlay(page);
 
 	const stats = page.locator("#profile-max-card .subscription-stat");
-	await expect(stats.nth(0).locator(".subscription-stat-label")).toHaveText("Text Generation");
+	await expect(stats.nth(0).locator(".subscription-stat-label")).toHaveText("Mega Credits");
 	await expect(stats.nth(0).locator("strong")).toHaveText("Unlimited");
-	await expect(stats.nth(1).locator(".subscription-stat-label")).toHaveText("Image Generation");
+	await expect(stats.nth(1).locator(".subscription-stat-label")).toHaveText("Image Credits");
 	await expect(stats.nth(1).locator("strong")).toHaveText("Unlimited");
-	await expect(page.locator("#profile-max-card")).toContainText(
-		"Unlimited access to all hosted text and image models"
-	);
+	await expect(page.locator("#profile-max-card")).toContainText("Unlimited access to Claude Opus, GPT-5.5, and more");
 });
 
 test("plans use their own close button instead of the overlay back bar", async ({ page }) => {

@@ -18,10 +18,10 @@ describe("payload limits", () => {
 		expect(getPremiumMessageCharacterLimit("max", false)).toBeNull();
 	});
 
-	it("returns premium endpoint character limits for credit-limited paid tiers", () => {
+	it("returns premium endpoint character limits by paid tier", () => {
 		expect(getPremiumMessageCharacterLimit("pro", true)).toBe(PRO_MESSAGE_CHARACTER_LIMIT);
 		expect(getPremiumMessageCharacterLimit("pro_plus", true)).toBe(PRO_PLUS_MESSAGE_CHARACTER_LIMIT);
-		expect(getPremiumMessageCharacterLimit("max", true)).toBeNull();
+		expect(getPremiumMessageCharacterLimit("max", true)).toBe(PRO_PLUS_MESSAGE_CHARACTER_LIMIT);
 	});
 
 	it("counts unicode code points instead of UTF-16 code units", () => {

@@ -177,6 +177,9 @@ async function openMegaComposer(page: Page, width: number): Promise<void> {
 	const badge = page.locator("#image-credits-label");
 	await expect(badge).toHaveText("7 Mega Credits");
 	await dispatchAuthenticatedState(page);
+	await expect(page.locator("#prefer-premium-image-endpoint-toggle .settings-toggle-entry-title")).toHaveText(
+		"Use Image Credits"
+	);
 	await page.evaluate(async () => {
 		const importModule = new Function("path", "return import(path);") as (path: string) => Promise<any>;
 		const { dispatchAppEvent } = await importModule("/events/index.ts");
@@ -185,7 +188,7 @@ async function openMegaComposer(page: Page, width: number): Promise<void> {
 	await expect(badge).toBeVisible();
 }
 
-test("removes Max generation limits from the composer", async ({ page }) => {
+test("hides image generation allowances for Max", async ({ page }) => {
 	await page.setViewportSize({ width: 600, height: 800 });
 	await stubExternalTraffic(page, []);
 	await stubAllowances(page, { priceId: MAX_MONTHLY_PRICE_ID, imageCredits: 0, megaCredits: 0 });
@@ -206,15 +209,13 @@ test("removes Max generation limits from the composer", async ({ page }) => {
 	await expect(page.locator("#subscription-remaining-mega-credits")).toHaveText("Unlimited");
 	await expect(page.locator("#btn-top-up-credits")).toHaveClass(/hidden/);
 	await expect(page.locator("#prefer-premium-image-endpoint-toggle")).not.toHaveClass(/hidden/);
+	await expect(page.locator("#prefer-premium-image-endpoint-toggle .settings-toggle-entry-title")).toHaveText(
+		"Use Hosted Image Generation"
+	);
 
 	await page.locator("#btn-image").click();
 	await expect(page.locator("#btn-image")).toHaveClass(/btn-toggled/);
 	await expect(page.locator("#image-credits-label")).toBeHidden();
-	await expect(page.locator("#btn-send")).toBeEnabled();
-
-	await page.locator("#btn-image").click();
-	await page.locator("#messageInput").fill("x".repeat(15_001));
-	await expect(page.locator("#message-limit-indicator")).toBeHidden();
 	await expect(page.locator("#btn-send")).toBeEnabled();
 });
 

@@ -81,7 +81,7 @@ test("eligible announcements render optional hero media and advance through app 
 						id: "announcement-1",
 						key: "max-unlimited-2026",
 						title: "Max is now unlimited",
-						body: "Your Max plan now includes unlimited text and image generation.",
+						body: "Your Max plan no longer has a monthly usage limit.",
 						hero_image_url:
 							"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='360'%3E%3Crect width='800' height='360' fill='%23614a3a'/%3E%3C/svg%3E",
 						hero_image_alt: "A warm abstract illustration",
