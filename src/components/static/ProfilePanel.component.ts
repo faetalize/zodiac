@@ -1,3 +1,4 @@
+import type { SubscriptionTier } from "../../types/Supabase";
 import type { User } from "../../types/User";
 import * as supabaseService from "../../services/Supabase.service";
 import * as toastService from "../../services/Toast.service";
@@ -24,6 +25,7 @@ const resetPasswordButton = document.querySelector<HTMLButtonElement>("#btn-rese
 const changeEmailButton = document.querySelector<HTMLButtonElement>("#btn-change-email");
 let image: File | undefined;
 let isSavingProfile = false;
+let subscriptionTier: SubscriptionTier = "free";
 
 if (
 	!pfpChangeButton ||
@@ -70,15 +72,16 @@ async function updateProfile(user: User): Promise<void> {
 
 async function refreshSubscriptionAllowances(): Promise<void> {
 	const subscription = await supabaseService.getUserSubscription();
-	const tier = supabaseService.getSubscriptionTier(subscription);
+	subscriptionTier = supabaseService.getSubscriptionTier(subscription);
 	const imageGenerationRecord = await supabaseService.getImageGenerationRecord();
 
-	ensuredRemainingImageGenerations.textContent = (imageGenerationRecord?.remaining_image_generations ?? 0).toString();
+	ensuredRemainingImageGenerations.textContent =
+		subscriptionTier === "max" ? "Unlimited" : (imageGenerationRecord?.remaining_image_generations ?? 0).toString();
 
-	if (tier === "pro" || tier === "pro_plus") {
+	if (subscriptionTier === "pro" || subscriptionTier === "pro_plus") {
 		const megaCreditsRecord = await supabaseService.getMegaCreditsRecord();
 		ensuredRemainingMegaCredits.textContent = (megaCreditsRecord?.remaining_mega_credits ?? 0).toString();
-	} else if (tier === "max") {
+	} else if (subscriptionTier === "max") {
 		ensuredRemainingMegaCredits.textContent = "Unlimited";
 	} else {
 		ensuredRemainingMegaCredits.textContent = "—";
@@ -96,13 +99,15 @@ onAppEvent("profile-updated", (event) => {
 onAppEvent("image-generation-record-refreshed", (event) => {
 	const { imageGenerationRecord } = event.detail;
 	if (imageGenerationRecord) {
-		ensuredRemainingImageGenerations.textContent = (
-			imageGenerationRecord.remaining_image_generations ?? 0
-		).toString();
+		ensuredRemainingImageGenerations.textContent =
+			subscriptionTier === "max"
+				? "Unlimited"
+				: (imageGenerationRecord.remaining_image_generations ?? 0).toString();
 	}
 });
 
-onAppEvent("subscription-updated", () => {
+onAppEvent("subscription-updated", (event) => {
+	subscriptionTier = event.detail.tier;
 	refreshSubscriptionAllowances().catch((error) =>
 		console.error("Failed to refresh subscription allowances:", error)
 	);

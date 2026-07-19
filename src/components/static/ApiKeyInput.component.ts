@@ -69,11 +69,8 @@ function rehydrateImagePremiumPreferenceFromStorage(): void {
 }
 
 /**
- * The "use image credits" toggle is only meaningful for accounts that have image
- * credits. Every image model supports the EDGE (credit) route, so credit-holders are
- * the only users with a genuine credits-vs-BYOK choice; without credits there is a
- * single usable path and the toggle would be noise. Gated on credit access only
- * (isImageGenerationAvailable -> type "all"), independent of subscription tier.
+ * The hosted image toggle is only meaningful for accounts that can use the EDGE route.
+ * Without hosted access there is a single usable BYOK path, so the toggle would be noise.
  */
 async function updateImagePremiumToggleVisibility(): Promise<void> {
 	const { type } = await isImageGenerationAvailable();
@@ -226,8 +223,8 @@ export function hasOpenRouterApiKey(): boolean {
 }
 
 export function shouldPreferPremiumImageEndpoint(): boolean {
-	// A hidden toggle means the account has no image credits, so the edge route is
-	// unusable — treat the preference as off so image routing falls to BYOK.
+	// A hidden toggle means the account has no hosted image access, so treat the
+	// preference as off and let image routing fall back to BYOK.
 	if (ensuredPreferPremiumImageToggle.classList.contains("hidden")) {
 		return false;
 	}

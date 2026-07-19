@@ -5,6 +5,7 @@ import { seedLocalSettings, stubExternalTraffic } from "../helpers/app";
 const SUPABASE_HOST = "hglcltvwunzynnzduauy.supabase.co";
 const TEST_USER_ID = "00000000-0000-4000-8000-0000000005728";
 const PRO_MONTHLY_PRICE_ID = "price_1SOU2lKcI9PDo3JBhsT8URS9";
+const MAX_MONTHLY_PRICE_ID = "price_1T9DCYKcI9PDo3JBsFc4nlZa";
 
 function jsonResponse(body: unknown) {
 	return {
@@ -19,7 +20,11 @@ function jsonResponse(body: unknown) {
 	};
 }
 
-async function stubMegaAllowance(page: Page): Promise<void> {
+async function stubAllowances(
+	page: Page,
+	options: { priceId?: string; imageCredits?: number; megaCredits?: number } = {}
+): Promise<void> {
+	const { priceId = PRO_MONTHLY_PRICE_ID, imageCredits = 7, megaCredits = 7 } = options;
 	await page.route(`https://${SUPABASE_HOST}/**/*`, async (route: Route) => {
 		const request = route.request();
 		const url = new URL(request.url());
@@ -54,7 +59,7 @@ async function stubMegaAllowance(page: Page): Promise<void> {
 				jsonResponse({
 					user_id: TEST_USER_ID,
 					status: "active",
-					price_id: PRO_MONTHLY_PRICE_ID,
+					price_id: priceId,
 					current_period_end: "2026-12-31T00:00:00.000Z",
 					cancel_at_period_end: false,
 					stripe_customer_id: "cus_mega_layout_playwright"
@@ -64,12 +69,12 @@ async function stubMegaAllowance(page: Page): Promise<void> {
 		}
 
 		if (url.pathname.startsWith("/rest/v1/mega_credits")) {
-			await route.fulfill(jsonResponse({ user_id: TEST_USER_ID, remaining_mega_credits: 7 }));
+			await route.fulfill(jsonResponse({ user_id: TEST_USER_ID, remaining_mega_credits: megaCredits }));
 			return;
 		}
 
 		if (url.pathname.startsWith("/rest/v1/image_generations")) {
-			await route.fulfill(jsonResponse({ user_id: TEST_USER_ID, remaining_image_generations: 7 }));
+			await route.fulfill(jsonResponse({ user_id: TEST_USER_ID, remaining_image_generations: imageCredits }));
 			return;
 		}
 
@@ -120,9 +125,13 @@ async function seedSupabaseSession(page: Page): Promise<void> {
 	);
 }
 
-async function dispatchAuthenticatedState(page: Page): Promise<void> {
+async function dispatchAuthenticatedState(
+	page: Page,
+	options: { priceId?: string; imageCredits?: number } = {}
+): Promise<void> {
+	const { priceId = PRO_MONTHLY_PRICE_ID, imageCredits = 7 } = options;
 	await page.evaluate(
-		async ({ userId, priceId }) => {
+		async ({ userId, priceId, imageCredits }) => {
 			const importModule = new Function("path", "return import(path);") as (path: string) => Promise<any>;
 			const { dispatchAppEvent } = await importModule("/events/index.ts");
 			dispatchAppEvent("auth-state-changed", {
@@ -135,17 +144,17 @@ async function dispatchAuthenticatedState(page: Page): Promise<void> {
 					cancel_at_period_end: false,
 					stripe_customer_id: "cus_mega_layout_playwright"
 				},
-				imageGenerationRecord: { user_id: userId, remaining_image_generations: 7 }
+				imageGenerationRecord: { user_id: userId, remaining_image_generations: imageCredits }
 			});
 		},
-		{ userId: TEST_USER_ID, priceId: PRO_MONTHLY_PRICE_ID }
+		{ userId: TEST_USER_ID, priceId, imageCredits }
 	);
 }
 
 async function openMegaComposer(page: Page, width: number): Promise<void> {
 	await page.setViewportSize({ width, height: 800 });
 	await stubExternalTraffic(page, []);
-	await stubMegaAllowance(page);
+	await stubAllowances(page);
 	await seedLocalSettings(page);
 	await seedSupabaseSession(page);
 	await page.goto("/");
@@ -175,6 +184,39 @@ async function openMegaComposer(page: Page, width: number): Promise<void> {
 	});
 	await expect(badge).toBeVisible();
 }
+
+test("removes Max generation limits from the composer", async ({ page }) => {
+	await page.setViewportSize({ width: 600, height: 800 });
+	await stubExternalTraffic(page, []);
+	await stubAllowances(page, { priceId: MAX_MONTHLY_PRICE_ID, imageCredits: 0, megaCredits: 0 });
+	await seedLocalSettings(page);
+	await seedSupabaseSession(page);
+	await page.goto("/");
+
+	await expect
+		.poll(() =>
+			page.evaluate(
+				() => (window as typeof window & { __zodiacAuthStateChanges?: number }).__zodiacAuthStateChanges ?? 0
+			)
+		)
+		.toBeGreaterThan(0);
+	await dispatchAuthenticatedState(page, { priceId: MAX_MONTHLY_PRICE_ID, imageCredits: 0 });
+
+	await expect(page.locator("#subscription-remaining-generations")).toHaveText("Unlimited");
+	await expect(page.locator("#subscription-remaining-mega-credits")).toHaveText("Unlimited");
+	await expect(page.locator("#btn-top-up-credits")).toHaveClass(/hidden/);
+	await expect(page.locator("#prefer-premium-image-endpoint-toggle")).not.toHaveClass(/hidden/);
+
+	await page.locator("#btn-image").click();
+	await expect(page.locator("#btn-image")).toHaveClass(/btn-toggled/);
+	await expect(page.locator("#image-credits-label")).toBeHidden();
+	await expect(page.locator("#btn-send")).toBeEnabled();
+
+	await page.locator("#btn-image").click();
+	await page.locator("#messageInput").fill("x".repeat(15_001));
+	await expect(page.locator("#message-limit-indicator")).toBeHidden();
+	await expect(page.locator("#btn-send")).toBeEnabled();
+});
 
 function getComposerLayout() {
 	const messageBox = document.querySelector<HTMLElement>("#message-box");
