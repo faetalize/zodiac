@@ -3465,6 +3465,110 @@ form {
 	overflow-y: auto;
 }
 
+#overlay:has(> .overlay-content > #targeted-announcement:not(.hidden)) > .header {
+	display: none;
+}
+
+.targeted-announcement {
+	position: relative;
+	width: min(34rem, calc(100vw - 2rem));
+	max-height: min(42rem, calc(100dvh - 2rem));
+	overflow-y: auto;
+	border: 1px solid var(--card-border);
+	border-radius: 0.75rem;
+	background: var(--modal-bg);
+	color: var(--modal-fg);
+	box-shadow: var(--modal-shadow);
+}
+
+.targeted-announcement-close {
+	position: absolute;
+	top: 0.75rem;
+	right: 0.75rem;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.25rem;
+	height: 2.25rem;
+	padding: 0;
+	border: 1px solid var(--input-text-border);
+	border-radius: 0.5rem;
+	background: color-mix(in srgb, var(--modal-bg) 88%, transparent);
+	color: inherit;
+	cursor: pointer;
+}
+
+.targeted-announcement-close:hover {
+	background: color-mix(in srgb, var(--modal-bg) 82%, var(--primary) 18%);
+}
+
+.targeted-announcement-close:focus-visible {
+	outline: 2px solid var(--primary);
+	outline-offset: 2px;
+}
+
+.targeted-announcement-hero {
+	width: 100%;
+	max-height: 16rem;
+	overflow: hidden;
+	border-bottom: 1px solid var(--card-border);
+}
+
+.targeted-announcement-hero img {
+	display: block;
+	width: 100%;
+	height: min(16rem, 38dvh);
+	object-fit: cover;
+}
+
+.targeted-announcement-content {
+	padding: 1.5rem;
+}
+
+.targeted-announcement-content h1 {
+	margin: 0 2.5rem 0.625rem 0;
+	font-size: clamp(1.35rem, 4vw, 1.75rem);
+	line-height: 1.2;
+}
+
+.targeted-announcement-content p {
+	margin: 0;
+	color: var(--text-secondary);
+	line-height: 1.6;
+	white-space: pre-line;
+}
+
+.targeted-announcement-actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 1.5rem;
+}
+
+.targeted-announcement-actions:has(.hidden) {
+	display: none;
+}
+
+.targeted-announcement-actions .btn {
+	min-width: 7rem;
+	padding: 0.65rem 1rem;
+}
+
+@media (max-width: 600px) {
+	.targeted-announcement {
+		width: calc(100vw - 1.5rem);
+		max-height: calc(100dvh - 1.5rem);
+	}
+
+	.targeted-announcement-content {
+		padding: 1.25rem;
+	}
+
+	.targeted-announcement-actions .btn {
+		width: 100%;
+	}
+}
+
 .backButton {
 	position: absolute;
 	top: 1rem;

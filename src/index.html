@@ -1673,6 +1673,38 @@
 					</ul>
 				</div>
 
+				<section
+					id="targeted-announcement"
+					class="targeted-announcement hidden"
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="targeted-announcement-title"
+					tabindex="-1"
+				>
+					<button
+						id="targeted-announcement-close"
+						class="targeted-announcement-close material-symbols-outlined"
+						type="button"
+						aria-label="Dismiss announcement"
+					>
+						close
+					</button>
+					<div id="targeted-announcement-hero" class="targeted-announcement-hero hidden">
+						<img id="targeted-announcement-image" alt="" decoding="async" />
+					</div>
+					<div class="targeted-announcement-content">
+						<h1 id="targeted-announcement-title"></h1>
+						<p id="targeted-announcement-body"></p>
+						<div class="targeted-announcement-actions">
+							<button
+								id="targeted-announcement-action"
+								class="btn btn-primary hidden"
+								type="button"
+							></button>
+						</div>
+					</div>
+				</section>
+
 				<!-- Add Persona Modal -->
 				<div id="modal-add-persona" class="hidden">
 					<span class="material-symbols-outlined sync-modal-icon">person_add</span>
