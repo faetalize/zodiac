@@ -6,6 +6,7 @@ import { getCurrentUser } from "../../services/Supabase.service";
 
 const overlayElement = document.querySelector<HTMLElement>("#overlay");
 const onboardingOverlayElement = document.querySelector<HTMLElement>("#onboarding-overlay");
+const appDialogs = document.querySelectorAll<HTMLElement>("#main-container > .dialog");
 const modalElement = document.querySelector<HTMLElement>("#targeted-announcement");
 const closeButtonElement = document.querySelector<HTMLButtonElement>("#targeted-announcement-close");
 const heroElement = document.querySelector<HTMLElement>("#targeted-announcement-hero");
@@ -41,6 +42,7 @@ const actionButton = actionButtonElement;
 let activeUserId: string | null = null;
 let loadingUserId: string | null = null;
 let loadedUserId: string | null = null;
+let syncStartupSettledUserId: string | null = null;
 let currentAnnouncement: Announcement | null = null;
 let appReady = false;
 let presentationPaused = false;
@@ -87,7 +89,11 @@ let debugAnnouncement = readDebugAnnouncement();
 let announcements: Announcement[] = debugAnnouncement ? [debugAnnouncement] : [];
 
 function canPresent(): boolean {
-	return overlay.classList.contains("hidden") && onboardingOverlay.classList.contains("hidden");
+	return (
+		overlay.classList.contains("hidden") &&
+		onboardingOverlay.classList.contains("hidden") &&
+		Array.from(appDialogs).every((dialog) => dialog.classList.contains("hidden"))
+	);
 }
 
 function showNextAnnouncement(): void {
@@ -100,6 +106,7 @@ function showNextAnnouncement(): void {
 		currentAnnouncement ||
 		!announcement ||
 		(!activeUserId && !isDebugAnnouncement) ||
+		(activeUserId !== null && syncStartupSettledUserId !== activeUserId) ||
 		(!modalAlreadyOpen && !canPresent())
 	) {
 		return;
@@ -213,16 +220,26 @@ document.addEventListener("keydown", (event) => {
 const overlayObserver = new MutationObserver(() => showNextAnnouncement());
 overlayObserver.observe(overlay, { attributes: true, attributeFilter: ["class"] });
 overlayObserver.observe(onboardingOverlay, { attributes: true, attributeFilter: ["class"] });
+appDialogs.forEach((dialog) => overlayObserver.observe(dialog, { attributes: true, attributeFilter: ["class"] }));
+
+onAppEvent("sync-startup-settled", (event) => {
+	syncStartupSettledUserId = event.detail.userId;
+	showNextAnnouncement();
+});
 
 onAppEvent("auth-state-changed", (event) => {
 	if (event.detail.loggedIn && event.detail.session) {
-		void loadAnnouncements(event.detail.session.user.id);
+		const userId = event.detail.session.user.id;
+		if (syncStartupSettledUserId !== userId) syncStartupSettledUserId = null;
+		activeUserId = userId;
+		void loadAnnouncements(userId);
 		return;
 	}
 
 	activeUserId = null;
 	loadingUserId = null;
 	loadedUserId = null;
+	syncStartupSettledUserId = null;
 	currentAnnouncement = null;
 	announcements = debugAnnouncement ? [debugAnnouncement] : [];
 	presentationPaused = !debugAnnouncement;
@@ -230,10 +247,13 @@ onAppEvent("auth-state-changed", (event) => {
 });
 
 async function initializeAnnouncements(): Promise<void> {
-	appReady = true;
-	showNextAnnouncement();
 	const user = await getCurrentUser();
-	if (user) void loadAnnouncements(user.id);
+	appReady = true;
+	if (user) {
+		activeUserId = user.id;
+		void loadAnnouncements(user.id);
+	}
+	showNextAnnouncement();
 }
 
 if (document.readyState === "complete") {
