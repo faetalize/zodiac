@@ -2926,6 +2926,38 @@ form {
 	flex-direction: column;
 }
 
+.debug-announcement-form {
+	display: flex;
+	flex-direction: column;
+	gap: 0.65rem;
+	width: min(34rem, 100%);
+	max-height: calc(100dvh - 2rem);
+	padding: 1.5rem;
+	overflow-y: auto;
+	box-sizing: border-box;
+	border: 1px solid var(--card-border);
+	border-radius: 0.75rem;
+	background: var(--modal-bg);
+	box-shadow: var(--modal-shadow);
+}
+
+.debug-announcement-form label {
+	font-size: 0.85rem;
+	font-weight: 700;
+}
+
+.debug-announcement-action-fields {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.75rem;
+}
+
+.debug-announcement-action-fields > div {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+
 .message-debug-summary {
 	display: flex;
 	flex-direction: column;
@@ -2973,6 +3005,10 @@ form {
 }
 
 @media (max-width: 640px) {
+	.debug-announcement-action-fields {
+		grid-template-columns: 1fr;
+	}
+
 	.message-debug-row {
 		flex-direction: column;
 		align-items: flex-start;

@@ -1,5 +1,7 @@
 import type { Enums } from "./database.types";
 
+export const DEBUG_ANNOUNCEMENT_STORAGE_KEY = "debug-announcement-preview";
+
 export type AnnouncementAction = Enums<"announcement_action">;
 
 export interface Announcement {

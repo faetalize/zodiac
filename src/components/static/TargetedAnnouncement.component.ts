@@ -1,4 +1,4 @@
-import type { Announcement } from "../../types/Announcement";
+import { DEBUG_ANNOUNCEMENT_STORAGE_KEY, type Announcement } from "../../types/Announcement";
 import { onAppEvent } from "../../events";
 import { getEligibleAnnouncements, recordAnnouncementReceipt } from "../../services/Announcement.service";
 import * as overlayService from "../../services/Overlay.service";
@@ -42,8 +42,49 @@ let activeUserId: string | null = null;
 let loadingUserId: string | null = null;
 let loadedUserId: string | null = null;
 let currentAnnouncement: Announcement | null = null;
-let announcements: Announcement[] = [];
+let appReady = false;
 let presentationPaused = false;
+
+function readDebugAnnouncement(): Announcement | null {
+	const isLocalhost = ["localhost", "127.0.0.1", "::1", "192.168.1.1"].includes(window.location.hostname);
+	if (!isLocalhost) return null;
+
+	const stored = localStorage.getItem(DEBUG_ANNOUNCEMENT_STORAGE_KEY);
+	if (!stored) return null;
+
+	try {
+		const value = JSON.parse(stored) as Partial<Announcement>;
+		const action = value.action === "dismiss" || value.action === "next" ? value.action : null;
+		if (
+			typeof value.id !== "string" ||
+			typeof value.key !== "string" ||
+			typeof value.title !== "string" ||
+			!value.title.trim() ||
+			typeof value.body !== "string" ||
+			!value.body.trim()
+		) {
+			throw new Error("Invalid debug announcement");
+		}
+
+		return {
+			id: value.id,
+			key: value.key,
+			title: value.title,
+			body: value.body,
+			heroImageUrl: typeof value.heroImageUrl === "string" && value.heroImageUrl ? value.heroImageUrl : null,
+			heroImageAlt: typeof value.heroImageAlt === "string" ? value.heroImageAlt : "",
+			actionLabel:
+				action && typeof value.actionLabel === "string" && value.actionLabel ? value.actionLabel : null,
+			action
+		};
+	} catch {
+		localStorage.removeItem(DEBUG_ANNOUNCEMENT_STORAGE_KEY);
+		return null;
+	}
+}
+
+let debugAnnouncement = readDebugAnnouncement();
+let announcements: Announcement[] = debugAnnouncement ? [debugAnnouncement] : [];
 
 function canPresent(): boolean {
 	return overlay.classList.contains("hidden") && onboardingOverlay.classList.contains("hidden");
@@ -51,17 +92,19 @@ function canPresent(): boolean {
 
 function showNextAnnouncement(): void {
 	const modalAlreadyOpen = !modal.classList.contains("hidden");
+	const announcement = announcements[0];
+	const isDebugAnnouncement = announcement?.id === debugAnnouncement?.id;
 	if (
+		!appReady ||
 		presentationPaused ||
 		currentAnnouncement ||
-		!announcements.length ||
-		!activeUserId ||
+		!announcement ||
+		(!activeUserId && !isDebugAnnouncement) ||
 		(!modalAlreadyOpen && !canPresent())
 	) {
 		return;
 	}
 
-	const announcement = announcements[0];
 	currentAnnouncement = announcement;
 	title.textContent = announcement.title;
 	body.textContent = announcement.body;
@@ -86,7 +129,9 @@ function showNextAnnouncement(): void {
 		overlayService.show("targeted-announcement");
 		requestAnimationFrame(() => closeButton.focus());
 	}
-	void recordAnnouncementReceipt(activeUserId, announcement.id, "seen");
+	if (!isDebugAnnouncement && activeUserId) {
+		void recordAnnouncementReceipt(activeUserId, announcement.id, "seen");
+	}
 }
 
 function removeCurrentAnnouncement(): Announcement | null {
@@ -94,16 +139,22 @@ function removeCurrentAnnouncement(): Announcement | null {
 	if (!announcement) return null;
 
 	announcements = announcements.filter((candidate) => candidate.id !== announcement.id);
+	if (announcement.id === debugAnnouncement?.id) debugAnnouncement = null;
 	currentAnnouncement = null;
 	return announcement;
 }
 
 function dismissCurrentAnnouncement(actioned: boolean): void {
+	const isDebugAnnouncement = currentAnnouncement?.id === debugAnnouncement?.id;
 	const announcement = removeCurrentAnnouncement();
-	if (!announcement || !activeUserId) return;
+	if (!announcement) return;
 
 	presentationPaused = true;
-	void recordAnnouncementReceipt(activeUserId, announcement.id, actioned ? "actioned" : "dismissed");
+	if (isDebugAnnouncement) {
+		localStorage.removeItem(DEBUG_ANNOUNCEMENT_STORAGE_KEY);
+	} else if (activeUserId) {
+		void recordAnnouncementReceipt(activeUserId, announcement.id, actioned ? "actioned" : "dismissed");
+	}
 	overlayService.closeOverlay();
 }
 
@@ -116,7 +167,12 @@ async function loadAnnouncements(userId: string): Promise<void> {
 	const eligibleAnnouncements = await getEligibleAnnouncements();
 	if (activeUserId !== userId) return;
 
-	announcements = eligibleAnnouncements;
+	announcements = debugAnnouncement
+		? [
+				debugAnnouncement,
+				...eligibleAnnouncements.filter((announcement) => announcement.id !== debugAnnouncement?.id)
+			]
+		: eligibleAnnouncements;
 	loadedUserId = userId;
 	loadingUserId = null;
 	showNextAnnouncement();
@@ -126,13 +182,18 @@ closeButton.addEventListener("click", () => dismissCurrentAnnouncement(false));
 
 actionButton.addEventListener("click", () => {
 	const announcement = currentAnnouncement;
-	if (!announcement || !activeUserId) return;
+	if (!announcement) return;
 
 	const action = announcement.action;
+	const isDebugAnnouncement = announcement.id === debugAnnouncement?.id;
 	const dismissedAnnouncement = removeCurrentAnnouncement();
 	if (!dismissedAnnouncement) return;
 
-	void recordAnnouncementReceipt(activeUserId, dismissedAnnouncement.id, "actioned");
+	if (isDebugAnnouncement) {
+		localStorage.removeItem(DEBUG_ANNOUNCEMENT_STORAGE_KEY);
+	} else if (activeUserId) {
+		void recordAnnouncementReceipt(activeUserId, dismissedAnnouncement.id, "actioned");
+	}
 	if (action === "next" && announcements.length) {
 		showNextAnnouncement();
 		return;
@@ -163,17 +224,20 @@ onAppEvent("auth-state-changed", (event) => {
 	loadingUserId = null;
 	loadedUserId = null;
 	currentAnnouncement = null;
-	announcements = [];
-	presentationPaused = true;
+	announcements = debugAnnouncement ? [debugAnnouncement] : [];
+	presentationPaused = !debugAnnouncement;
+	showNextAnnouncement();
 });
 
-async function loadAnnouncementsForCurrentUser(): Promise<void> {
+async function initializeAnnouncements(): Promise<void> {
+	appReady = true;
+	showNextAnnouncement();
 	const user = await getCurrentUser();
 	if (user) void loadAnnouncements(user.id);
 }
 
 if (document.readyState === "complete") {
-	void loadAnnouncementsForCurrentUser();
+	void initializeAnnouncements();
 } else {
-	window.addEventListener("load", () => void loadAnnouncementsForCurrentUser(), { once: true });
+	window.addEventListener("load", () => void initializeAnnouncements(), { once: true });
 }
