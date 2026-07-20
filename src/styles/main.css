@@ -2031,6 +2031,10 @@ form {
 		box-shadow 0.28s ease;
 }
 
+#form-subscription .subscription-card-free .subscription-price-stack {
+	width: 100%;
+}
+
 #form-subscription .subscription-price-line {
 	display: flex;
 	align-items: baseline;

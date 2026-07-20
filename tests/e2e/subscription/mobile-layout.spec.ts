@@ -26,6 +26,15 @@ test("keeps subscription plan cards within the pricing panel on mobile", async (
 	await firstCard.locator(".subscription-card-header").click();
 	await expect(firstCard).toHaveClass(/subscription-card-expanded/);
 	expect(await firstCard.evaluate((card) => getComputedStyle(card).padding)).toBe(collapsedPadding);
+	const freePriceFillsCard = await firstCard.locator(".subscription-price-stack").evaluate((price) => {
+		const card = price.closest<HTMLElement>(".subscription-card");
+		if (!card) throw new Error("Missing Free card");
+		const cardStyle = getComputedStyle(card);
+		const availableWidth =
+			card.clientWidth - Number.parseFloat(cardStyle.paddingLeft) - Number.parseFloat(cardStyle.paddingRight);
+		return price.getBoundingClientRect().width >= availableWidth - 1;
+	});
+	expect(freePriceFillsCard, "Free card price panel should fill the available width").toBe(true);
 
 	await firstCard.hover();
 	expect(await firstCard.evaluate((card) => getComputedStyle(card).transform)).toBe("none");
@@ -130,6 +139,17 @@ test("presents Max text and image generation as unlimited", async ({ page }) => 
 	await expect(stats.nth(1).locator(".subscription-stat-label")).toHaveText("Image Credits");
 	await expect(stats.nth(1).locator("strong")).toHaveText("Unlimited");
 	await expect(page.locator("#profile-max-card")).toContainText("Unlimited access to Claude Opus, GPT SOL, and more");
+});
+
+test("rounds yearly-equivalent subscription prices", async ({ page }) => {
+	await stubExternalTraffic(page, []);
+	await seedLocalSettings(page);
+	await page.goto("/");
+	await openSubscriptionOverlay(page);
+
+	await expect(page.locator("#profile-pro-card .price-amount.billing-only-yearly")).toHaveText("$26");
+	await expect(page.locator("#profile-pro-plus-card .price-amount.billing-only-yearly")).toHaveText("$92");
+	await expect(page.locator("#profile-max-card .price-amount.billing-only-yearly")).toHaveText("$183");
 });
 
 test("plans use their own close button instead of the overlay back bar", async ({ page }) => {
