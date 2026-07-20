@@ -544,9 +544,11 @@ export async function updateSubscriptionUI(
 		}
 		if (remainingGenerationsEl) {
 			remainingGenerationsEl.textContent =
-				imageGenerationRecord?.remaining_image_generations != null
-					? String(imageGenerationRecord.remaining_image_generations)
-					: "—";
+				tier === "max"
+					? "Unlimited"
+					: imageGenerationRecord?.remaining_image_generations != null
+						? String(imageGenerationRecord.remaining_image_generations)
+						: "—";
 		}
 		if (manageBtn) {
 			if (tier === "free") {
@@ -608,6 +610,11 @@ export async function updateSubscriptionUI(
  */
 export async function isImageGenerationAvailable(): Promise<ImageGenerationPermitted> {
 	try {
+		const subscription = await getUserSubscription();
+		if (getSubscriptionTier(subscription) === "max") {
+			return { enabled: true, type: "all" };
+		}
+
 		const imageGenerationRecord = await getImageGenerationRecord();
 		if (!imageGenerationRecord) return { enabled: true, type: "google_only" }; //free tier, assume available (with API key)
 		if (

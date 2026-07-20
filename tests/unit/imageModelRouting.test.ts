@@ -15,14 +15,14 @@ function makeModel(providers: ImageModelProvider[]): ImageModelDefinition {
 	};
 }
 
-const NOTHING: ImageRouteAvailability = { edgeCredits: false, geminiKey: false, openRouterKey: false };
+const NOTHING: ImageRouteAvailability = { edgeCreditsAvailable: false, geminiKey: false, openRouterKey: false };
 
 describe("resolveImageModelRoute", () => {
 	describe("prefer edge (image premium endpoint ON) — strict edge-only", () => {
 		it("routes to edge when the model supports edge and credits are available", () => {
 			const result = resolveImageModelRoute(makeModel([ImageModelProvider.EDGE]), true, {
 				...NOTHING,
-				edgeCredits: true
+				edgeCreditsAvailable: true
 			});
 			expect(result).toEqual({ route: "edge" });
 		});
@@ -32,7 +32,7 @@ describe("resolveImageModelRoute", () => {
 				makeModel([ImageModelProvider.GOOGLE, ImageModelProvider.EDGE]),
 				true,
 				{
-					edgeCredits: true,
+					edgeCreditsAvailable: true,
 					geminiKey: true,
 					openRouterKey: false
 				}
@@ -50,7 +50,7 @@ describe("resolveImageModelRoute", () => {
 				makeModel([ImageModelProvider.GOOGLE, ImageModelProvider.EDGE]),
 				true,
 				{
-					edgeCredits: false,
+					edgeCreditsAvailable: false,
 					geminiKey: true,
 					openRouterKey: false
 				}
@@ -62,7 +62,7 @@ describe("resolveImageModelRoute", () => {
 			const result = resolveImageModelRoute(makeModel([ImageModelProvider.GOOGLE]), true, {
 				...NOTHING,
 				geminiKey: true,
-				edgeCredits: true
+				edgeCreditsAvailable: true
 			});
 			expect(result).toEqual({ route: null, reason: "edge-not-supported" });
 		});
@@ -99,7 +99,7 @@ describe("resolveImageModelRoute", () => {
 			const result = resolveImageModelRoute(
 				makeModel([ImageModelProvider.OPENROUTER, ImageModelProvider.GOOGLE]),
 				false,
-				{ edgeCredits: false, geminiKey: true, openRouterKey: true }
+				{ edgeCreditsAvailable: false, geminiKey: true, openRouterKey: true }
 			);
 			expect(result).toEqual({ route: "openrouter" });
 		});
@@ -109,7 +109,7 @@ describe("resolveImageModelRoute", () => {
 				makeModel([ImageModelProvider.GOOGLE, ImageModelProvider.EDGE]),
 				false,
 				{
-					edgeCredits: true,
+					edgeCreditsAvailable: true,
 					geminiKey: false,
 					openRouterKey: false
 				}
@@ -124,7 +124,7 @@ describe("resolveImageModelRoute", () => {
 
 		it("fails with byok-not-supported when the model is edge-only", () => {
 			const result = resolveImageModelRoute(makeModel([ImageModelProvider.EDGE]), false, {
-				edgeCredits: true,
+				edgeCreditsAvailable: true,
 				geminiKey: true,
 				openRouterKey: true
 			});

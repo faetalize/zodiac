@@ -89,6 +89,20 @@ test("renders FAQ questions in one column at desktop widths", async ({ page }) =
 	expect(faqColumns, "FAQ questions should not be displayed side by side").toBe(1);
 });
 
+test("presents Max text and image generation as unlimited", async ({ page }) => {
+	await stubExternalTraffic(page, []);
+	await seedLocalSettings(page);
+	await page.goto("/");
+	await openSubscriptionOverlay(page);
+
+	const stats = page.locator("#profile-max-card .subscription-stat");
+	await expect(stats.nth(0).locator(".subscription-stat-label")).toHaveText("Mega Credits");
+	await expect(stats.nth(0).locator("strong")).toHaveText("Unlimited");
+	await expect(stats.nth(1).locator(".subscription-stat-label")).toHaveText("Image Credits");
+	await expect(stats.nth(1).locator("strong")).toHaveText("Unlimited");
+	await expect(page.locator("#profile-max-card")).toContainText("Unlimited access to Claude Opus, GPT SOL, and more");
+});
+
 test("plans use their own close button instead of the overlay back bar", async ({ page }) => {
 	await stubExternalTraffic(page, []);
 	await seedLocalSettings(page);

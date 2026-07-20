@@ -1633,7 +1633,7 @@ function resolveActiveImageRoute(
 	hasEdgeCredits: boolean
 ): { resolution: ImageRouteResolution; isEditing: boolean } | null {
 	const availability: ImageRouteAvailability = {
-		edgeCredits: hasEdgeCredits,
+		edgeCreditsAvailable: hasEdgeCredits,
 		geminiKey: hasGeminiApiKey(),
 		openRouterKey: hasOpenRouterApiKey()
 	};
