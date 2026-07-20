@@ -51,12 +51,20 @@ test("keeps subscription plan cards within the pricing panel on mobile", async (
 	expect(layout.hasHorizontalOverflow, "Subscription pricing should not overflow horizontally").toBe(false);
 });
 
-test("keeps the best-value badge compact and credit cards side by side on mobile", async ({ page }) => {
+test("marks Max as limited edition and keeps paid-plan summaries compact on mobile", async ({ page }) => {
 	await page.setViewportSize({ width: 496, height: 961 });
 	await stubExternalTraffic(page, []);
 	await seedLocalSettings(page);
 	await page.goto("/");
 	await openSubscriptionOverlay(page);
+
+	const maxCard = page.locator("#profile-max-card");
+	const limitedBadge = maxCard.locator(".popular-badge-limited");
+	await expect(limitedBadge).toHaveText("LIMITED EDITION");
+	await expect(limitedBadge).toHaveClass(/popular-badge/);
+	await expect(maxCard).toContainText("Going away soon");
+	await expect(maxCard).toContainText("Buy now to lock this price forever");
+	expect(await limitedBadge.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/185/);
 
 	const proPlusCard = page.locator("#profile-pro-plus-card");
 	const badge = proPlusCard.locator(".popular-badge");
@@ -70,10 +78,31 @@ test("keeps the best-value badge compact and credit cards side by side on mobile
 	expect(await badge.evaluate((element) => getComputedStyle(element).fontSize)).toBe(collapsedBadgeStyle.fontSize);
 	expect(await badge.evaluate((element) => getComputedStyle(element).padding)).toBe(collapsedBadgeStyle.padding);
 
-	const statColumns = await proPlusCard
-		.locator(".subscription-stat-grid")
-		.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
-	expect(statColumns, "Credit cards should remain side by side on mobile").toBe(2);
+	for (const cardId of ["profile-pro-card", "profile-pro-plus-card", "profile-max-card"]) {
+		const card = page.locator(`#${cardId}`);
+		if (cardId !== "profile-pro-plus-card") {
+			await card.locator(".subscription-card-header").click();
+		}
+		await expect(card).toHaveClass(/subscription-card-expanded/);
+
+		const summaryLayout = await card.locator(".subscription-plan-summary").evaluate((summary) => {
+			const price = summary.querySelector<HTMLElement>(".subscription-price-stack");
+			const stats = summary.querySelector<HTMLElement>(".subscription-stat-grid");
+			if (!price || !stats) throw new Error("Missing paid-plan summary elements");
+
+			const priceBounds = price.getBoundingClientRect();
+			const statsBounds = stats.getBoundingClientRect();
+			return {
+				priceBeforeStats: priceBounds.right <= statsBounds.left,
+				statColumns: getComputedStyle(stats).gridTemplateColumns.split(" ").length,
+				statRows: getComputedStyle(stats).gridTemplateRows.split(" ").length
+			};
+		});
+
+		expect(summaryLayout.priceBeforeStats, `${cardId} should place credits beside the price`).toBe(true);
+		expect(summaryLayout.statColumns, `${cardId} credits should use one column`).toBe(1);
+		expect(summaryLayout.statRows, `${cardId} credits should stack vertically`).toBe(2);
+	}
 });
 
 test("renders FAQ questions in one column at desktop widths", async ({ page }) => {
