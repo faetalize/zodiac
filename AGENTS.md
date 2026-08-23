@@ -53,7 +53,7 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - Every pull request targeting `main` must have exactly one release classification label. The merge gate enforces this rule. Promotion pull requests targeting `production` still run the full merge gate but do not need a release classification.
 - Use `feature`, `enhancement`, or `bug` for user-facing changes. Write those pull request titles as concise release-note candidates because Release Drafter uses them directly.
 - Use `code improvement` for internal refactors, `documentation` for documentation-only work, and `skip-changelog` for release preparation or other administrative changes targeting `main`. These labels are excluded from user-facing release notes.
-- Release Drafter runs after merges into `main` and continuously maintains the next draft GitHub Release from included pull requests. The draft targets `production` so publishing it after deployment tags the deployed branch.
+- Release Drafter runs after merges into `main` and continuously maintains the next draft GitHub Release from included pull requests. While it is a draft, it targets `main` so unreleased PRs can populate the release-note candidates. After deployment verification, retarget the draft to `production` before publishing so the tag is created from the deployed branch.
 
 ### Pro request edge function slots
 
@@ -71,8 +71,8 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - Create `release/vX.Y.Z` from `main`, then polish the draft entries into the final user-facing copy. Combine related pull requests and remove implementation detail rather than reconstructing the release from commit history.
 - Update the user-facing changelog in [src/index.html](src/index.html) under the `#whats-new` section.
 - Update the version string in [src/utils/helpers.ts](src/utils/helpers.ts) so the badge and changelog header display the new version.
-- Update the draft GitHub Release to mirror the final in-app changelog.
-- Merge the release branch into `main`, promote `main` to `production`, and verify the Cloudflare deployment before publishing the draft.
+- Merge the release branch into `main` with `skip-changelog`, then wait for Release Drafter's final `main` update before replacing its generated PR titles with the polished in-app changelog copy.
+- Promote `main` to `production`, verify the Cloudflare deployment, retarget the draft to `production`, and only then publish it.
 
 ### How to build the changelog well
 
@@ -87,13 +87,13 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 
 - Release tags must point at the exact commit deployed from `production`.
 - Do not create or publish the tag while either the release-preparation PR into `main` or the promotion PR into `production` is still open.
-- Verify the Cloudflare production deployment first, then publish the draft GitHub Release. Its `production` target creates the `vX.Y.Z` tag at the deployed branch head.
+- Verify the Cloudflare production deployment first, then retarget and publish the draft GitHub Release. Its `production` target creates the `vX.Y.Z` tag at the deployed branch head.
 
 ### Creating the GitHub Release
 
 - Release Drafter creates and maintains the upcoming GitHub Release as a draft; do not create a second release manually.
 - Publish the existing draft only after `main` has been promoted to `production` and the Cloudflare deployment has been verified.
-- Confirm that the draft targets `production` and that its version tag matches the version in [src/utils/helpers.ts](src/utils/helpers.ts).
+- Retarget the draft from `main` to `production`, then confirm that its version tag matches the version in [src/utils/helpers.ts](src/utils/helpers.ts).
 - Title the release to match that version tag (for example, `v1.8.5`).
 - The GitHub Release notes should mirror the in-app changelog from the `#whats-new` section in [src/index.html](src/index.html). Do not use raw PR titles or commit messages.
 - Reformat the changelog entries as a Markdown list under a `## What's New` heading, keeping the same user-facing, product-focused phrasing (bold the feature name, then the benefit):
@@ -105,7 +105,7 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
     - **More model choices:** New OpenRouter options are available, including expanded Gemini, Grok, Qwen, DeepSeek, and Inception models.
     ```
 
-- Publish the prepared draft with `gh release edit <tag> --draft=false --latest`, after confirming its title, notes, and `production` target.
+- Retarget the prepared draft with `gh release edit <tag> --target production`, verify the deployed target commit, then publish it with `gh release edit <tag> --draft=false --latest`.
 
 ## Conventions
 
