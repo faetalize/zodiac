@@ -68,10 +68,10 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 ### Preparing a new release
 
 - Open the continuously maintained draft GitHub Release before creating the release branch. Its categorized entries are the release-note candidates collected since the previous published release.
-- Create `release/vX.Y.Z` from `main`, then polish the draft entries into the final user-facing copy. Combine related pull requests and remove implementation detail rather than reconstructing the release from commit history.
+- Create `release/vX.Y.Z` from `main`, then use the draft entries as scope candidates for two distinct deliverables: concise user-facing in-app copy and more technical GitHub release notes.
 - Update the user-facing changelog in [src/index.html](src/index.html) under the `#whats-new` section.
 - Update the version string in [src/utils/helpers.ts](src/utils/helpers.ts) so the badge and changelog header display the new version.
-- Merge the release branch into `main` with `skip-changelog`, then wait for Release Drafter's final `main` update before replacing its generated PR titles with the polished in-app changelog copy.
+- Merge the release branch into `main` with `skip-changelog`, then wait for Release Drafter's final `main` update before replacing its generated PR titles with the prepared GitHub release notes.
 - Promote `main` to `production`, verify the Cloudflare deployment, retarget the draft to `production`, and only then publish it.
 
 ### How to build the changelog well
@@ -81,6 +81,7 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - Do not mention developer-only infrastructure or internal workflow changes unless they directly affect Zodiac users.
 - Favor broad, human phrasing such as `RPG group chat stability improvements` over overly granular engineering detail.
 - When a shipped feature is genuinely user-visible, name it clearly (for example, `Message debug tools`) instead of hiding it behind vague wording.
+- Include only features the user has explicitly approved as release-ready. Code being merged or deployed does not by itself authorize announcing the feature.
 - Good entries should feel like release notes written for users: concise, readable, and slightly polished rather than deeply technical.
 
 ### Tagging guidance
@@ -95,14 +96,15 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - Publish the existing draft only after `main` has been promoted to `production` and the Cloudflare deployment has been verified.
 - Retarget the draft from `main` to `production`, then confirm that its version tag matches the version in [src/utils/helpers.ts](src/utils/helpers.ts).
 - Title the release to match that version tag (for example, `v1.8.5`).
-- The GitHub Release notes should mirror the in-app changelog from the `#whats-new` section in [src/index.html](src/index.html). Do not use raw PR titles or commit messages.
-- Reformat the changelog entries as a Markdown list under a `## What's New` heading, keeping the same user-facing, product-focused phrasing (bold the feature name, then the benefit):
+- The GitHub Release notes and in-app changelog cover the same approved release scope but are separate deliverables and should not be assumed to use the same wording.
+- GitHub Release notes may be more technical and specific. They can describe concrete changes such as old-to-new copy, layout changes, and affected systems, while the in-app changelog should summarize the user-facing outcome.
+- Rewrite the generated PR titles as a Markdown list under a `## What's New` heading rather than publishing raw PR titles or commit messages:
 
     ```markdown
     ## What's New
 
-    - **Richer model picker:** Browse models by provider family, search faster, and pin favorites for quicker access.
-    - **More model choices:** New OpenRouter options are available, including expanded Gemini, Grok, Qwen, DeepSeek, and Inception models.
+    - **Model picker navigation:** Reorganized models by provider family and added faster search and favorite pinning.
+    - **Composer layout:** Moved narrow-screen actions into the overflow menu so the primary controls remain accessible.
     ```
 
 - Retarget the prepared draft with `gh release edit <tag> --target production`, verify the deployed target commit, then publish it with `gh release edit <tag> --draft=false --latest`.
