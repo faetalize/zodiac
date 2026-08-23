@@ -152,7 +152,7 @@ function getSelectedChatModel(): string | null {
 }
 
 function selectedChatModelConsumesImageCredits(): boolean {
-	if (subscriptionTier === "free" || !shouldPreferPremiumEndpoint()) {
+	if (subscriptionTier === "free" || subscriptionTier === "max" || !shouldPreferPremiumEndpoint()) {
 		return false;
 	}
 
@@ -177,7 +177,7 @@ function getActiveImageRoute() {
 	const model = getActiveImageModel();
 	if (!model) return null;
 	return resolveImageModelRoute(model, shouldPreferPremiumImageEndpoint(), {
-		edgeCredits: Number(imageCredits ?? 0) > 0,
+		edgeCreditsAvailable: subscriptionTier === "max" || Number(imageCredits ?? 0) > 0,
 		geminiKey: hasGeminiApiKey(),
 		openRouterKey: hasOpenRouterApiKey()
 	});
@@ -193,6 +193,7 @@ function getCompatibleActiveLoraCount(): number {
 
 function getAllowanceMode(): AllowanceMode {
 	if (isImageEditingActive() || isImageModeActive()) {
+		if (subscriptionTier === "max") return null;
 		return getActiveImageRoute()?.route === "edge" ? "image" : null;
 	}
 

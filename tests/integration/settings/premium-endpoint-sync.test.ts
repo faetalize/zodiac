@@ -30,7 +30,10 @@ function bootstrapSettingsDom(): void {
 		<div id="openrouter-api-key-error" class="hidden"></div>
 		<div id="prefer-premium-endpoint-toggle"></div>
 		<input id="preferPremiumEndpoint" type="checkbox">
-		<div id="prefer-premium-image-endpoint-toggle"></div>
+		<div id="prefer-premium-image-endpoint-toggle">
+			<span class="settings-toggle-entry-title"></span>
+			<span class="settings-toggle-entry-subtitle"></span>
+		</div>
 		<input id="preferPremiumImageEndpoint" type="checkbox">
 
 		<input id="maxTokens" value="1000">

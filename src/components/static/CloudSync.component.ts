@@ -17,8 +17,7 @@ import * as personalityService from "../../services/Personality.service";
 import * as settingsService from "../../services/Settings.service";
 import { themeService } from "../../services/Theme.service";
 import * as loraService from "../../services/Lora.service";
-import { dispatchEmptyAppEvent } from "../../events";
-import { onAppEvent } from "../../events";
+import { dispatchAppEvent, dispatchEmptyAppEvent, onAppEvent } from "../../events";
 import type { SyncStatus } from "../../events";
 import { info, danger } from "../../services/Toast.service";
 import { confirmDialog, confirmDialogDanger } from "../../utils/helpers";
@@ -68,6 +67,7 @@ const btnSyncForgotPassword = document.querySelector<HTMLButtonElement>("#btn-sy
 
 /** Track current modal mode to handle confirm button correctly. */
 let modalMode: "setup" | "unlock" | "enable" | "final-download" = "setup";
+let syncStartupUserId: string | null = null;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -79,6 +79,12 @@ function showModal(el: HTMLElement | null) {
 function hideModal(el: HTMLElement | null) {
 	if (!el) return;
 	el.classList.add("hidden");
+}
+
+function settleSyncStartup(expectedUserId = syncStartupUserId): void {
+	if (!expectedUserId || syncStartupUserId !== expectedUserId) return;
+	dispatchAppEvent("sync-startup-settled", { userId: expectedUserId });
+	syncStartupUserId = null;
 }
 
 function showError(msg: string) {
@@ -222,6 +228,7 @@ btnSyncPromptLocal?.addEventListener("click", () => {
 	hideModal(syncPromptModal);
 	syncService.markSyncPromptSeen();
 	info({ title: "Data stays local", text: "You can enable cloud sync anytime from Settings → Data Management." });
+	settleSyncStartup();
 });
 
 // ── Encryption Password Modal ──────────────────────────────────────────────
@@ -316,6 +323,7 @@ btnSyncConfirm?.addEventListener(
 							text: "Migration complete. Local chat/persona data was deleted for maximum security; synced data now loads in-memory per session."
 						});
 						updateSettingsUI(true);
+						settleSyncStartup();
 					} else {
 						showError("Setup failed. Please try again.");
 					}
@@ -344,6 +352,7 @@ btnSyncConfirm?.addEventListener(
 							title: "Sync unlocked",
 							text: "Your synced data is available for this session (in-memory only)."
 						});
+						settleSyncStartup();
 					} else {
 						showError("Incorrect password. Please try again.");
 					}
@@ -403,6 +412,7 @@ btnSyncConfirm?.addEventListener(
 btnSyncSkip?.addEventListener("click", () => {
 	hideModal(syncModal);
 	resetModalFields();
+	settleSyncStartup();
 });
 
 // Forgot password escape hatch (visible in unlock and final-download modes)
@@ -429,6 +439,7 @@ btnSyncForgotPassword?.addEventListener(
 			} else {
 				danger({ title: "Error", text: "Failed to wipe cloud data. Please try again." });
 			}
+			settleSyncStartup();
 		})()
 );
 
@@ -592,51 +603,53 @@ onAppEvent(
 	"auth-state-changed",
 	(event) =>
 		void (async () => {
-			const { loggedIn, subscription } = event.detail;
+			const { loggedIn, subscription, session } = event.detail;
 
 			if (!loggedIn) {
 				// Hide sync section, reset state
+				syncStartupUserId = null;
 				cloudSyncSection?.classList.add("hidden");
 				cryptoService.clearCachedKey();
 				return;
 			}
 
+			const startupUserId = session?.user.id;
+			if (!startupUserId) return;
+			syncStartupUserId = startupUserId;
+
 			const tier = getSubscriptionTier(subscription ?? null);
 			const isPaid = tier === "pro" || tier === "pro_plus" || tier === "max";
 
-			if (isPaid && cloudSyncSection) {
-				cloudSyncSection.classList.remove("hidden");
-				syncUpgradeHint?.classList.add("hidden");
-				syncToggle?.removeAttribute("disabled");
+			try {
+				if (isPaid) {
+					cloudSyncSection?.classList.remove("hidden");
+					syncUpgradeHint?.classList.add("hidden");
+					syncToggle?.removeAttribute("disabled");
 
-				// Load current sync state
-				const prefs = await syncService.fetchSyncPreferences();
-				updateSettingsUI(prefs?.syncEnabled ?? false);
+					const prefs = await syncService.fetchSyncPreferences();
+					updateSettingsUI(prefs?.syncEnabled ?? false);
 
-				if (prefs?.syncEnabled) {
-					await syncService.fetchSyncQuota();
+					if (prefs?.syncEnabled) {
+						await syncService.fetchSyncQuota();
+					}
+				} else {
+					cloudSyncSection?.classList.remove("hidden");
+					syncUpgradeHint?.classList.remove("hidden");
+					syncToggle?.setAttribute("disabled", "true");
 				}
 
-				// During onboarding, cloud sync setup is handled inside onboarding flow.
-				// Avoid showing separate modals that occlude the onboarding UI.
+				// Onboarding owns its cloud-sync flow and remains the presentation blocker.
 				const onboardingCompleted = localStorage.getItem("onboardingCompleted") === "true";
 				if (!onboardingCompleted) {
+					settleSyncStartup(startupUserId);
 					return;
 				}
 
-				// Trigger unlock/setup prompt for paid users on login
-				await syncService.checkSyncOnLogin();
-			} else if (cloudSyncSection) {
-				cloudSyncSection.classList.remove("hidden");
-				syncUpgradeHint?.classList.remove("hidden");
-				syncToggle?.setAttribute("disabled", "true");
-
-				// Downgraded users may still have encrypted remote data.
-				// Offer one final restore-to-local flow and then revoke sync.
-				const onboardingCompleted = localStorage.getItem("onboardingCompleted") === "true";
-				if (onboardingCompleted) {
-					await syncService.checkSyncOnLogin();
-				}
+				const result = await syncService.checkSyncOnLogin();
+				if (result === "ready") settleSyncStartup(startupUserId);
+			} catch (error) {
+				console.error("Cloud sync startup check failed:", error);
+				settleSyncStartup(startupUserId);
 			}
 		})()
 );
@@ -670,6 +683,7 @@ onAppEvent(
 						title: "Cloud sync remains disabled",
 						text: "You can re-enable it anytime from Settings → Data Management."
 					});
+					settleSyncStartup();
 				}
 				return;
 			}
@@ -723,6 +737,8 @@ onAppEvent(
 					await chatsService.loadChat(currentChatId);
 				}
 			}
+
+			settleSyncStartup();
 		})()
 );
 

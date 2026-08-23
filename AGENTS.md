@@ -41,11 +41,19 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 
 ### Branching and deployment flow
 
-- Production deploys are published from a dedicated release branch because Cloudflare Pages is configured to deploy a specific branch for releases.
+- Cloudflare Pages production deployments are pinned to the permanent `production` branch.
 - `main` is the ongoing development branch.
-- A release branch is created from `main` after the intended features/fixes have already been merged there.
-- Release-only preparation happens on that release branch first.
-- After the release is deployed, the release branch must be backmerged into `main` so `main` also contains the final version string and in-app changelog for that release.
+- Feature and fix pull requests merge into `main`; do not commit feature work directly to `production`.
+- A temporary `release/vX.Y.Z` branch is created from `main` for the version bump and other release-only preparation. Build the in-app changelog from the current draft GitHub Release, polishing and combining its entries into user-facing copy.
+- Merge the prepared release branch back into `main` with the `skip-changelog` label on the PR, then promote `main` to `production` through a second pull request.
+- Cloudflare deploys the merge into `production`. No release backmerge is needed because release preparation entered `main` before promotion.
+
+### Pull request release classification
+
+- Every pull request targeting `main` must have exactly one release classification label. The merge gate enforces this rule. Promotion pull requests targeting `production` still run the full merge gate but do not need a release classification.
+- Use `feature`, `enhancement`, or `bug` for user-facing changes. Write those pull request titles as concise release-note candidates because Release Drafter uses them directly.
+- Use `code improvement` for internal refactors, `documentation` for documentation-only work, and `skip-changelog` for release preparation or other administrative changes targeting `main`. These labels are excluded from user-facing release notes.
+- Release Drafter runs after merges into `main` and continuously maintains the next draft GitHub Release from included pull requests. While it is a draft, it targets `main` so unreleased PRs can populate the release-note candidates. After deployment verification, retarget the draft to `production` before publishing so the tag is created from the deployed branch.
 
 ### Pro request edge function slots
 
@@ -54,16 +62,17 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - `handle-pro-request` and `handle-pro-request-x` are equivalent rotating production slots. The currently released frontend points at one slot, while the other slot is available for the next synced frontend/backend release.
 - Only change the committed `PRO_REQUEST_FUNCTION_NAME` target as part of a new release workflow. Do not change the production target for ordinary feature work, fixes, local testing, or short-lived validation.
 - When a frontend/backend sync release is required, deploy the backend update to the production slot that the currently released frontend is not using, update `PRO_REQUEST_FUNCTION_NAME` to point the new frontend bundle at that slot, then deploy the frontend. This keeps old loaded clients on the old function and new clients on the new function.
-- Use `handle-pro-request-test` for quick backend iteration and local/manual validation. Point `PRO_REQUEST_FUNCTION_NAME` at the test slot only for local test builds or short-lived validation branches; do not leave production release branches pointed at the test slot.
+- Use `handle-pro-request-test` for quick backend iteration and local/manual validation. Point `PRO_REQUEST_FUNCTION_NAME` at the test slot only for local test builds or short-lived validation branches; do not promote a release to `production` while it points at the test slot.
 - Before changing the production target, verify every premium caller uses `PRO_REQUEST_ENDPOINT` rather than hardcoding a function URL.
 
 ### Preparing a new release
 
-- Identify the last release backmerge commit on `main`, then inspect all mainline commits after that point up to `HEAD`.
-- Use those commits to determine what actually shipped in the new release.
+- Open the continuously maintained draft GitHub Release before creating the release branch. Its categorized entries are the release-note candidates collected since the previous published release.
+- Create `release/vX.Y.Z` from `main`, then polish the draft entries into the final user-facing copy. Combine related pull requests and remove implementation detail rather than reconstructing the release from commit history.
 - Update the user-facing changelog in [src/index.html](src/index.html) under the `#whats-new` section.
 - Update the version string in [src/utils/helpers.ts](src/utils/helpers.ts) so the badge and changelog header display the new version.
-- Keep the release branch and deployed artifact aligned before any tag is created.
+- Merge the release branch into `main` with `skip-changelog`, then wait for Release Drafter's final `main` update before replacing its generated PR titles with the polished in-app changelog copy.
+- Promote `main` to `production`, verify the Cloudflare deployment, retarget the draft to `production`, and only then publish it.
 
 ### How to build the changelog well
 
@@ -76,17 +85,15 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 
 ### Tagging guidance
 
-- Default release tags should point at the `main` merge commit created when the release branch is backmerged into `main`.
-- Do not create the release tag while the release PR is still open unless the user explicitly chooses to tag the release branch artifact instead.
-- If tags are meant to represent what is on `main`, create the tag after the release branch has been backmerged into `main`.
-- If tags are meant to represent the exact commit deployed by Cloudflare Pages, tag the release branch commit that was actually deployed.
-- Do not tag `main` before the backmerge if `main` does not yet contain the final release changelog/version bump.
+- Release tags must point at the exact commit deployed from `production`.
+- Do not create or publish the tag while either the release-preparation PR into `main` or the promotion PR into `production` is still open.
+- Verify the Cloudflare production deployment first, then retarget and publish the draft GitHub Release. Its `production` target creates the `vX.Y.Z` tag at the deployed branch head.
 
 ### Creating the GitHub Release
 
-- After the release tag has been pushed, create a GitHub Release from that tag so every shipped version has a published release entry on GitHub.
-- Create the release only once the tag exists, and respect the same constraints as the tagging step: do not publish the release while the release PR is still open unless the user explicitly chose to tag/release the deployed release-branch artifact instead.
-- Point the GitHub Release at the same tag chosen in the tagging step. By default that is the `vX.Y.Z` tag on the `main` backmerge commit; use the release-branch commit only if the user opted to tag the exact deployed artifact.
+- Release Drafter creates and maintains the upcoming GitHub Release as a draft; do not create a second release manually.
+- Publish the existing draft only after `main` has been promoted to `production` and the Cloudflare deployment has been verified.
+- Retarget the draft from `main` to `production`, then confirm that its version tag matches the version in [src/utils/helpers.ts](src/utils/helpers.ts).
 - Title the release to match that version tag (for example, `v1.8.5`).
 - The GitHub Release notes should mirror the in-app changelog from the `#whats-new` section in [src/index.html](src/index.html). Do not use raw PR titles or commit messages.
 - Reformat the changelog entries as a Markdown list under a `## What's New` heading, keeping the same user-facing, product-focused phrasing (bold the feature name, then the benefit):
@@ -98,7 +105,7 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
     - **More model choices:** New OpenRouter options are available, including expanded Gemini, Grok, Qwen, DeepSeek, and Inception models.
     ```
 
-- Create the release with `gh release create <tag> --title <tag> --notes "..."`, reusing the changelog copy already written for the in-app `#whats-new` section so the GitHub Release and the in-app changelog stay in sync.
+- Retarget the prepared draft with `gh release edit <tag> --target production`, verify the deployed target commit, then publish it with `gh release edit <tag> --draft=false --latest`.
 
 ## Conventions
 
@@ -177,8 +184,14 @@ db.version(N)
 
 User preferences use `localStorage` with service-level get/set wrappers. See [src/services/Settings.service.ts](src/services/Settings.service.ts).
 
+### Subscription Entitlement Changes
+
+- When a plan's allowance amounts change, preserve allowances already granted for the subscriber's current allowance window and apply the new amounts at the next allowance period unless the user explicitly requests an immediate change.
+- New subscriptions receive the current allowance configuration immediately. Subscription lifecycle changes such as cancellation or switching tiers continue to follow the active subscription state and are not deferred by this rule.
+
 ### Test Scope And Failure Mapping
 
+- Before creating a new test or materially expanding an existing test, discuss the proposed coverage with the user and get approval. Explain which behavior the test will protect, which test layer it belongs to, and why the test is valuable before writing it.
 - Treat tests as three explicit layers:
 - Type 1: pure logic/unit tests. These can mock freely and should not make UI behavior claims.
 - Type 2: service/state integration tests. Use these for app-owned rules and invariants without claiming real browser behavior. Good examples: deleting the correct chat record, editing message `content[231]` without shifting other indices, pruning the correct tail on regenerate, or building the correct final payload at the cloud-sync boundary.

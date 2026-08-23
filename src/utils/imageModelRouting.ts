@@ -20,7 +20,7 @@ export type ImageRouteUnavailableReason =
 
 export interface ImageRouteAvailability {
 	/** The account can spend image credits on the edge endpoint (isImageGenerationAvailable -> type "all"). */
-	edgeCredits: boolean;
+	edgeCreditsAvailable: boolean;
 	/** A Gemini API key is configured. */
 	geminiKey: boolean;
 	/** An OpenRouter API key is configured. */
@@ -52,7 +52,7 @@ export function resolveImageModelRoute(
 		if (!model.providers.includes(ImageModelProvider.EDGE)) {
 			return { route: null, reason: "edge-not-supported" };
 		}
-		if (!availability.edgeCredits) {
+		if (!availability.edgeCreditsAvailable) {
 			return { route: null, reason: "edge-no-credits" };
 		}
 		return { route: "edge" };

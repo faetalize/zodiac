@@ -1,0 +1,32 @@
+name-template: "v$NEXT_PATCH_VERSION"
+tag-template: "v$NEXT_PATCH_VERSION"
+change-template: "- $TITLE (#$NUMBER)"
+change-title-escapes: "<*_&"
+
+categories:
+    - type: "pre-include"
+      when:
+          labels:
+              - feature
+              - enhancement
+              - bug
+    - type: "pre-exclude"
+      when:
+          labels:
+              - code improvement
+              - documentation
+              - skip-changelog
+    - title: "Features"
+      when:
+          label: feature
+    - title: "Improvements"
+      when:
+          label: enhancement
+    - title: "Fixes"
+      when:
+          label: bug
+
+template: |
+    ## What's New
+
+    $CHANGES

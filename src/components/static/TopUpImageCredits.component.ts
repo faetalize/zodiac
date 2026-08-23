@@ -2,24 +2,46 @@ import * as overlayService from "../../services/Overlay.service";
 import { supabase } from "../../services/Supabase.service";
 import * as supabaseService from "../../services/Supabase.service";
 import * as toastService from "../../services/Toast.service";
+import { onAppEvent } from "../../events";
 
 const topUpButton = document.querySelector<HTMLButtonElement>("#btn-top-up-credits");
 const topUp10Button = document.querySelector<HTMLButtonElement>("#btn-top-up-10");
 const topUp30Button = document.querySelector<HTMLButtonElement>("#btn-top-up-30");
 const topUp70Button = document.querySelector<HTMLButtonElement>("#btn-top-up-70");
 
-//if no logged in user, hide the top up button
-const loggedUser = await supabaseService.getCurrentUser();
-
-if (!loggedUser) {
-	if (topUpButton) {
-		topUpButton.style.display = "none";
-	}
-}
 if (!topUpButton || !topUp10Button || !topUp30Button || !topUp70Button) {
 	console.error("One or more Top-Up buttons not found");
 	throw new Error("One or more Top-Up buttons not found");
 }
+
+let isLoggedIn = false;
+
+function setTopUpVisibility(tier: supabaseService.SubscriptionTier): void {
+	topUpButton!.classList.toggle("hidden", !isLoggedIn || tier === "max");
+}
+
+async function refreshTopUpVisibility(): Promise<void> {
+	const user = await supabaseService.getCurrentUser();
+	isLoggedIn = !!user;
+	if (!user) {
+		setTopUpVisibility("free");
+		return;
+	}
+
+	const subscription = await supabaseService.getUserSubscription();
+	setTopUpVisibility(supabaseService.getSubscriptionTier(subscription));
+}
+
+onAppEvent("auth-state-changed", (event) => {
+	isLoggedIn = event.detail.loggedIn;
+	setTopUpVisibility(supabaseService.getSubscriptionTier(event.detail.subscription ?? null));
+});
+
+onAppEvent("subscription-updated", (event) => {
+	setTopUpVisibility(event.detail.tier);
+});
+
+void refreshTopUpVisibility();
 
 topUpButton.addEventListener(
 	"click",

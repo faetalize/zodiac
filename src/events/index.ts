@@ -226,6 +226,10 @@ export interface SyncDataPulledDetail {
 	// No detail payload
 }
 
+export interface SyncStartupSettledDetail {
+	userId: string;
+}
+
 // ================================================================================
 // EVENT NAME CONSTANTS
 // ================================================================================
@@ -294,7 +298,8 @@ export const EventNames = {
 	SYNC_STATE_CHANGED: "sync-state-changed",
 	SYNC_QUOTA_UPDATED: "sync-quota-updated",
 	SYNC_SETUP_COMPLETE: "sync-setup-complete",
-	SYNC_DATA_PULLED: "sync-data-pulled"
+	SYNC_DATA_PULLED: "sync-data-pulled",
+	SYNC_STARTUP_SETTLED: "sync-startup-settled"
 } as const;
 
 export type EventName = (typeof EventNames)[keyof typeof EventNames];
@@ -372,6 +377,7 @@ export interface AppEventMap {
 	[EventNames.SYNC_QUOTA_UPDATED]: SyncQuotaUpdatedDetail;
 	[EventNames.SYNC_SETUP_COMPLETE]: SyncSetupCompleteDetail;
 	[EventNames.SYNC_DATA_PULLED]: SyncDataPulledDetail;
+	[EventNames.SYNC_STARTUP_SETTLED]: SyncStartupSettledDetail;
 }
 
 // ================================================================================

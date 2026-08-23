@@ -2854,9 +2854,11 @@ function attachDexieHooks(): void {
  * Called after auth state change when user is logged in.
  * Checks sync preferences and emits unlock-required event if needed.
  */
-export async function checkSyncOnLogin(): Promise<void> {
+export type SyncLoginCheckResult = "ready" | "interaction-required";
+
+export async function checkSyncOnLogin(): Promise<SyncLoginCheckResult> {
 	const user = await getCurrentUser();
-	if (!user) return;
+	if (!user) return "ready";
 
 	// Check subscription tier
 	const sub = await getUserSubscription();
@@ -2867,8 +2869,9 @@ export async function checkSyncOnLogin(): Promise<void> {
 		const prefs = await fetchSyncPreferences();
 		if (prefs?.syncEnabled) {
 			dispatchAppEvent("sync-unlock-required", { isFirstSetup: false, mode: "final-download" });
+			return "interaction-required";
 		}
-		return;
+		return "ready";
 	}
 
 	const prefs = await fetchSyncPreferences();
@@ -2878,8 +2881,9 @@ export async function checkSyncOnLogin(): Promise<void> {
 		// If they haven't seen the prompt yet, show it.
 		if (!hasSeenSyncPrompt()) {
 			dispatchAppEvent("sync-unlock-required", { isFirstSetup: true, mode: "setup" });
+			return "interaction-required";
 		}
-		return;
+		return "ready";
 	}
 
 	if (!prefs.syncEnabled) {
@@ -2894,14 +2898,18 @@ export async function checkSyncOnLogin(): Promise<void> {
 			} else {
 				dispatchAppEvent("sync-unlock-required", { isFirstSetup: true, mode: "setup" });
 			}
+			return "interaction-required";
 		}
-		return;
+		return "ready";
 	}
 
 	// Sync is enabled — they need to enter their encryption password
 	if (!crypto.isUnlocked()) {
 		dispatchAppEvent("sync-unlock-required", { isFirstSetup: false, mode: "unlock" });
+		return "interaction-required";
 	}
+
+	return "ready";
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

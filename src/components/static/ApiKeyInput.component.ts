@@ -16,6 +16,10 @@ const preferPremiumToggle = document.querySelector<HTMLDivElement>("#prefer-prem
 const preferPremiumCheckbox = document.querySelector<HTMLInputElement>("#preferPremiumEndpoint");
 const preferPremiumImageToggle = document.querySelector<HTMLDivElement>("#prefer-premium-image-endpoint-toggle");
 const preferPremiumImageCheckbox = document.querySelector<HTMLInputElement>("#preferPremiumImageEndpoint");
+const preferPremiumImageTitle = preferPremiumImageToggle?.querySelector<HTMLElement>(".settings-toggle-entry-title");
+const preferPremiumImageSubtitle = preferPremiumImageToggle?.querySelector<HTMLElement>(
+	".settings-toggle-entry-subtitle"
+);
 
 if (
 	!geminiApiKeyInput ||
@@ -25,7 +29,9 @@ if (
 	!preferPremiumToggle ||
 	!preferPremiumCheckbox ||
 	!preferPremiumImageToggle ||
-	!preferPremiumImageCheckbox
+	!preferPremiumImageCheckbox ||
+	!preferPremiumImageTitle ||
+	!preferPremiumImageSubtitle
 ) {
 	console.error("One or more API key input elements are missing.");
 	throw new Error("API key input initialization failed.");
@@ -39,6 +45,8 @@ const ensuredPreferPremiumToggle = preferPremiumToggle;
 const ensuredPreferPremiumCheckbox = preferPremiumCheckbox;
 const ensuredPreferPremiumImageToggle = preferPremiumImageToggle;
 const ensuredPreferPremiumImageCheckbox = preferPremiumImageCheckbox;
+const ensuredPreferPremiumImageTitle = preferPremiumImageTitle;
+const ensuredPreferPremiumImageSubtitle = preferPremiumImageSubtitle;
 let isPaidAccount = false;
 let hasObservedSyncedSettingsPull = false;
 
@@ -69,15 +77,20 @@ function rehydrateImagePremiumPreferenceFromStorage(): void {
 }
 
 /**
- * The "use image credits" toggle is only meaningful for accounts that have image
- * credits. Every image model supports the EDGE (credit) route, so credit-holders are
- * the only users with a genuine credits-vs-BYOK choice; without credits there is a
- * single usable path and the toggle would be noise. Gated on credit access only
- * (isImageGenerationAvailable -> type "all"), independent of subscription tier.
+ * The hosted image toggle is only meaningful for accounts that can use the EDGE route.
+ * Without hosted access there is a single usable BYOK path, so the toggle would be noise.
  */
 async function updateImagePremiumToggleVisibility(): Promise<void> {
 	const { type } = await isImageGenerationAvailable();
 	ensuredPreferPremiumImageToggle.classList.toggle("hidden", type !== "all");
+}
+
+function updateImagePremiumToggleCopy(tier: SubscriptionTier): void {
+	const isMax = tier === "max";
+	ensuredPreferPremiumImageTitle.textContent = isMax ? "Use Hosted Image Generation" : "Use Image Credits";
+	ensuredPreferPremiumImageSubtitle.textContent = isMax
+		? "Generate and edit images through Zodiac instead of your own API key."
+		: "Generate and edit images with your credits instead of your own API key.";
 }
 
 function persistDefaultPremiumPreferenceAfterSyncedSettingsPull(): void {
@@ -130,6 +143,7 @@ function attachValidation(args: {
 
 applyPremiumPreferenceFromStorage();
 applyImagePremiumPreferenceFromStorage();
+updateImagePremiumToggleCopy("free");
 void updateImagePremiumToggleVisibility();
 
 ensuredPreferPremiumCheckbox.addEventListener("change", () => {
@@ -152,8 +166,14 @@ ensuredPreferPremiumImageCheckbox.addEventListener("change", () => {
 	queuePremiumEndpointSettingsSync();
 });
 
-onAppEvent("auth-state-changed", () => void updateImagePremiumToggleVisibility());
-onAppEvent("subscription-updated", () => void updateImagePremiumToggleVisibility());
+onAppEvent("auth-state-changed", (event) => {
+	updateImagePremiumToggleCopy(getSubscriptionTier(event.detail.subscription ?? null));
+	void updateImagePremiumToggleVisibility();
+});
+onAppEvent("subscription-updated", (event) => {
+	updateImagePremiumToggleCopy(event.detail.tier);
+	void updateImagePremiumToggleVisibility();
+});
 onAppEvent("image-generation-record-refreshed", () => void updateImagePremiumToggleVisibility());
 
 onAppEvent("auth-state-changed", (event) => {
@@ -226,8 +246,8 @@ export function hasOpenRouterApiKey(): boolean {
 }
 
 export function shouldPreferPremiumImageEndpoint(): boolean {
-	// A hidden toggle means the account has no image credits, so the edge route is
-	// unusable — treat the preference as off so image routing falls to BYOK.
+	// A hidden toggle means the account has no hosted image access, so treat the
+	// preference as off and let image routing fall back to BYOK.
 	if (ensuredPreferPremiumImageToggle.classList.contains("hidden")) {
 		return false;
 	}
