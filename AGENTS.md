@@ -184,8 +184,14 @@ db.version(N)
 
 User preferences use `localStorage` with service-level get/set wrappers. See [src/services/Settings.service.ts](src/services/Settings.service.ts).
 
+### Subscription Entitlement Changes
+
+- When a plan's allowance amounts change, preserve allowances already granted for the subscriber's current allowance window and apply the new amounts at the next allowance period unless the user explicitly requests an immediate change.
+- New subscriptions receive the current allowance configuration immediately. Subscription lifecycle changes such as cancellation or switching tiers continue to follow the active subscription state and are not deferred by this rule.
+
 ### Test Scope And Failure Mapping
 
+- Before creating a new test or materially expanding an existing test, discuss the proposed coverage with the user and get approval. Explain which behavior the test will protect, which test layer it belongs to, and why the test is valuable before writing it.
 - Treat tests as three explicit layers:
 - Type 1: pure logic/unit tests. These can mock freely and should not make UI behavior claims.
 - Type 2: service/state integration tests. Use these for app-owned rules and invariants without claiming real browser behavior. Good examples: deleting the correct chat record, editing message `content[231]` without shifting other indices, pruning the correct tail on regenerate, or building the correct final payload at the cloud-sync boundary.
