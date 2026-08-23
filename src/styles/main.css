@@ -1952,7 +1952,7 @@ form {
 }
 
 #form-subscription .tier-badge-max {
-	background: linear-gradient(135deg, #0f172a, #475569);
+	background: linear-gradient(135deg, #e2e8f0, #94a3b8);
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
 	background-clip: text;
@@ -2015,9 +2015,7 @@ form {
 }
 
 #form-subscription .subscription-price-stack {
-	display: flex;
-	flex-direction: column;
-	justify-content: space-between;
+	display: grid;
 	gap: 0.5rem;
 	width: auto;
 	min-height: 6.7rem;
@@ -2033,6 +2031,39 @@ form {
 
 #form-subscription .subscription-card-free .subscription-price-stack {
 	width: 100%;
+	align-items: flex-start;
+	justify-items: start;
+	text-align: left;
+}
+
+#form-subscription .subscription-plan:not(.subscription-card-free) .subscription-price-stack {
+	align-items: center;
+	justify-items: center;
+	text-align: center;
+}
+
+#form-subscription .subscription-price-line-primary {
+	grid-row: 2;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.15rem;
+}
+
+#form-subscription .subscription-price-line-secondary {
+	grid-row: 3;
+	align-self: end;
+	justify-content: center;
+	text-align: center;
+}
+
+#form-subscription .subscription-card-free .subscription-price-line-primary {
+	align-items: flex-start;
+}
+
+#form-subscription .subscription-card-free .subscription-price-line-secondary {
+	justify-content: flex-start;
+	text-align: left;
 }
 
 #form-subscription .subscription-price-line {
@@ -2282,12 +2313,12 @@ form {
 }
 
 #form-subscription .subscription-cta-max {
-	background: linear-gradient(135deg, #111827, #334155);
+	background: linear-gradient(135deg, #334155, #475569);
 	box-shadow: 0 14px 32px rgba(15, 23, 42, 0.28);
 }
 
 #form-subscription .subscription-cta-max:hover {
-	background: linear-gradient(135deg, #0f172a, #1e293b);
+	background: linear-gradient(135deg, #1e293b, #334155);
 	box-shadow: 0 18px 36px rgba(15, 23, 42, 0.34);
 }
 

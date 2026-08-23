@@ -71,9 +71,9 @@ test("marks Max as limited edition and keeps paid-plan summaries compact on mobi
 	const limitedBadge = maxCard.locator(".popular-badge-limited");
 	await expect(limitedBadge).toHaveText("LIMITED EDITION");
 	await expect(limitedBadge).toHaveClass(/popular-badge/);
-	await expect(maxCard).toContainText("Going away soon");
-	await expect(maxCard).toContainText("Buy now to lock this price forever");
-	expect(await limitedBadge.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/185/);
+	await expect(maxCard).toContainText("Available to new subscribers for a limited time");
+	await expect(maxCard).toContainText("Keep Max and this price while continuously subscribed");
+	await expect(maxCard).toContainText("Cancel or switch plans, and Max won't be available again");
 
 	const proPlusCard = page.locator("#profile-pro-plus-card");
 	const badge = proPlusCard.locator(".popular-badge");
@@ -150,6 +150,76 @@ test("rounds yearly-equivalent subscription prices", async ({ page }) => {
 	await expect(page.locator("#profile-pro-card .price-amount.billing-only-yearly")).toHaveText("$26");
 	await expect(page.locator("#profile-pro-plus-card .price-amount.billing-only-yearly")).toHaveText("$92");
 	await expect(page.locator("#profile-max-card .price-amount.billing-only-yearly")).toHaveText("$183");
+});
+
+test("stacks and centers subscription price periods", async ({ page }) => {
+	await page.setViewportSize({ width: 1600, height: 1000 });
+	await stubExternalTraffic(page, []);
+	await seedLocalSettings(page);
+	await page.goto("/");
+	await openSubscriptionOverlay(page);
+
+	const priceLayouts = await page.evaluate(() => {
+		const visible = (element: Element): boolean => {
+			const style = getComputedStyle(element);
+			return style.display !== "none" && style.visibility !== "hidden";
+		};
+
+		return ["profile-free-card", "profile-pro-card", "profile-pro-plus-card", "profile-max-card"].map((cardId) => {
+			const card = document.getElementById(cardId);
+			const stack = card?.querySelector<HTMLElement>(".subscription-price-stack");
+			const primary = card?.querySelector<HTMLElement>(".subscription-price-line-primary");
+			const amount = primary
+				? Array.from(primary.querySelectorAll<HTMLElement>(".price-amount")).find(visible)
+				: undefined;
+			const period = primary
+				? Array.from(primary.querySelectorAll<HTMLElement>(".price-period")).find(visible)
+				: undefined;
+
+			if (!card || !stack || !primary || !amount || !period) {
+				throw new Error(`Missing price layout elements for ${cardId}`);
+			}
+
+			const stackBounds = stack.getBoundingClientRect();
+			const amountBounds = amount.getBoundingClientRect();
+			const periodBounds = period.getBoundingClientRect();
+			const groupLeft = Math.min(amountBounds.left, periodBounds.left);
+			const groupRight = Math.max(amountBounds.right, periodBounds.right);
+			const stackStyle = getComputedStyle(stack);
+			const primaryStyle = getComputedStyle(primary);
+
+			return {
+				cardId,
+				periodBelowAmount: periodBounds.top >= amountBounds.bottom - 1,
+				groupCenteredHorizontally:
+					Math.abs(groupLeft + (groupRight - groupLeft) / 2 - (stackBounds.left + stackBounds.width / 2)) <=
+					1,
+				stackAlignItems: stackStyle.alignItems,
+				stackJustifyItems: stackStyle.justifyItems,
+				stackTextAlign: stackStyle.textAlign,
+				primaryFlexDirection: primaryStyle.flexDirection
+			};
+		});
+	});
+
+	for (const layout of priceLayouts) {
+		expect(layout.periodBelowAmount, `${layout.cardId} should put /month below the price`).toBe(true);
+		expect(layout.primaryFlexDirection, `${layout.cardId} price period should be on its own line`).toBe("column");
+
+		if (layout.cardId === "profile-free-card") {
+			expect(layout.stackAlignItems).toBe("flex-start");
+			expect(layout.stackJustifyItems).toBe("start");
+			expect(layout.groupCenteredHorizontally).toBe(false);
+		} else {
+			expect(
+				layout.groupCenteredHorizontally,
+				`${layout.cardId} price group should be horizontally centered`
+			).toBe(true);
+			expect(layout.stackAlignItems).toBe("center");
+			expect(layout.stackJustifyItems).toBe("center");
+			expect(layout.stackTextAlign).toBe("center");
+		}
+	}
 });
 
 test("plans use their own close button instead of the overlay back bar", async ({ page }) => {
