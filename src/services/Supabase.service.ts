@@ -457,10 +457,6 @@ export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionT
 		return "free";
 	}
 	switch (sub.price_id) {
-		case "price_1S0heGGiJrKwXclR69Ku7XEc": //legacy 29.99 oldstripe
-		case "price_1SDf2NGiJrKwXclRwDs7XOd0": //legacy oldstripe
-		case SubscriptionPriceIDsOld.MAX_MONTHLY:
-		case SubscriptionPriceIDsOld.MAX_YEARLY:
 		case SubscriptionPriceIDs.MAX_MONTHLY:
 		case SubscriptionPriceIDs.MAX_YEARLY:
 			return "max";
