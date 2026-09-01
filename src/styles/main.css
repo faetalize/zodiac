@@ -1909,6 +1909,11 @@ form {
 	z-index: 2;
 }
 
+#form-subscription .popular-badge-limited {
+	background: linear-gradient(135deg, #b91c1c, #ef4444);
+	box-shadow: 0 10px 24px rgba(185, 28, 28, 0.26);
+}
+
 #form-subscription .subscription-card-header {
 	display: flex;
 	flex-direction: column;
@@ -1947,7 +1952,7 @@ form {
 }
 
 #form-subscription .tier-badge-max {
-	background: linear-gradient(135deg, #0f172a, #475569);
+	background: linear-gradient(135deg, #e2e8f0, #94a3b8);
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
 	background-clip: text;
@@ -2001,12 +2006,18 @@ form {
 	margin-inline: -1.35rem;
 }
 
-#form-subscription .subscription-price-stack {
-	display: flex;
-	flex-direction: column;
-	justify-content: space-between;
-	gap: 0.5rem;
+#form-subscription .subscription-plan-summary {
+	display: grid;
+	grid-template-columns: minmax(0, 1.25fr) minmax(8rem, 0.75fr);
+	align-items: stretch;
+	gap: 0.65rem;
 	width: 100%;
+}
+
+#form-subscription .subscription-price-stack {
+	display: grid;
+	gap: 0.5rem;
+	width: auto;
 	min-height: 6.7rem;
 	padding: 1rem;
 	border-radius: 1.2rem;
@@ -2016,6 +2027,43 @@ form {
 		background 0.28s ease,
 		border-color 0.28s ease,
 		box-shadow 0.28s ease;
+}
+
+#form-subscription .subscription-card-free .subscription-price-stack {
+	width: 100%;
+	align-items: flex-start;
+	justify-items: start;
+	text-align: left;
+}
+
+#form-subscription .subscription-plan:not(.subscription-card-free) .subscription-price-stack {
+	align-items: center;
+	justify-items: center;
+	text-align: center;
+}
+
+#form-subscription .subscription-price-line-primary {
+	grid-row: 2;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.15rem;
+}
+
+#form-subscription .subscription-price-line-secondary {
+	grid-row: 3;
+	align-self: end;
+	justify-content: center;
+	text-align: center;
+}
+
+#form-subscription .subscription-card-free .subscription-price-line-primary {
+	align-items: flex-start;
+}
+
+#form-subscription .subscription-card-free .subscription-price-line-secondary {
+	justify-content: flex-start;
+	text-align: left;
 }
 
 #form-subscription .subscription-price-line {
@@ -2071,17 +2119,17 @@ form {
 
 #form-subscription .subscription-stat-grid {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	width: 100%;
-	gap: 0.65rem;
+	grid-template-columns: minmax(0, 1fr);
+	min-width: 0;
+	gap: 0.55rem;
 }
 
 #form-subscription .subscription-stat {
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
-	gap: 0.5rem;
-	padding: 0.9rem 0.85rem;
+	gap: 0.35rem;
+	padding: 0.7rem 0.75rem;
 	border-radius: 1rem;
 	background: rgba(255, 255, 255, 0.06);
 	border: 1px solid rgba(148, 163, 184, 0.12);
@@ -2160,6 +2208,18 @@ form {
 
 #form-subscription .feature-item-inherited .feature-icon {
 	display: none;
+}
+
+#form-subscription .feature-item-warning {
+	background: var(--warning-bg, rgba(255, 176, 59, 0.15));
+	border-color: var(--warning-border, rgba(255, 176, 59, 0.3));
+	color: var(--warning-fg, #ffb03b);
+}
+
+#form-subscription .feature-item-warning .feature-icon {
+	background: var(--warning-icon, #ffb03b);
+	box-shadow: none;
+	color: #1f2937;
 }
 
 #form-subscription .feature-item .feature-icon {
@@ -2253,12 +2313,12 @@ form {
 }
 
 #form-subscription .subscription-cta-max {
-	background: linear-gradient(135deg, #111827, #334155);
+	background: linear-gradient(135deg, #334155, #475569);
 	box-shadow: 0 14px 32px rgba(15, 23, 42, 0.28);
 }
 
 #form-subscription .subscription-cta-max:hover {
-	background: linear-gradient(135deg, #0f172a, #1e293b);
+	background: linear-gradient(135deg, #1e293b, #334155);
 	box-shadow: 0 18px 36px rgba(15, 23, 42, 0.34);
 }
 

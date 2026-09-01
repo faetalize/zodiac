@@ -39,21 +39,29 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 
 ## Release Cycle
 
+### Release approval and merge authority
+
+- Never create or publish a new tagged GitHub Release, create its version tag manually, or publish an existing draft until the user has reviewed and explicitly approved the exact final draft title, tag, target, full notes, and every proposed change. Approval of the code, an earlier draft, or the general release plan does not count as approval of the final release.
+- Never merge or close a pull request targeting `production`. The agent may prepare or update the pull request and monitor its checks, but only the user may manually merge or close it.
+- Never merge or close a pull request from a `release/*` branch into `main`. The agent may prepare or update the pull request and monitor its checks, but only the user may manually merge or close it.
+- When either protected pull request is ready, stop and give the user its URL, exact copy or release changes, and check status. Do not enable auto-merge or use any other mechanism that would complete it without the user's manual action.
+
 ### Branching and deployment flow
 
 - Cloudflare Pages production deployments are pinned to the permanent `production` branch.
 - `main` is the ongoing development branch.
 - Feature and fix pull requests merge into `main`; do not commit feature work directly to `production`.
 - A temporary `release/vX.Y.Z` branch is created from `main` for the version bump and other release-only preparation. Build the in-app changelog from the current draft GitHub Release, polishing and combining its entries into user-facing copy.
-- Merge the prepared release branch back into `main` with the `skip-changelog` label on the PR, then promote `main` to `production` through a second pull request.
-- Cloudflare deploys the merge into `production`. No release backmerge is needed because release preparation entered `main` before promotion.
+- Open a pull request from the prepared release branch into `main` with the `skip-changelog` label, then stop for the user to review and manually merge or close it.
+- After the user merges the release pull request, open a second pull request from `main` into `production`, then stop for the user to review and manually merge or close it.
+- Cloudflare deploys after the user merges the pull request into `production`. No release backmerge is needed because release preparation entered `main` before promotion.
 
 ### Pull request release classification
 
 - Every pull request targeting `main` must have exactly one release classification label. The merge gate enforces this rule. Promotion pull requests targeting `production` still run the full merge gate but do not need a release classification.
 - Use `feature`, `enhancement`, or `bug` for user-facing changes. Write those pull request titles as concise release-note candidates because Release Drafter uses them directly.
 - Use `code improvement` for internal refactors, `documentation` for documentation-only work, and `skip-changelog` for release preparation or other administrative changes targeting `main`. These labels are excluded from user-facing release notes.
-- Release Drafter runs after merges into `main` and continuously maintains the next draft GitHub Release from included pull requests. The draft targets `production` so publishing it after deployment tags the deployed branch.
+- Release Drafter runs after merges into `main` and continuously maintains the next draft GitHub Release from included pull requests. While it is a draft, it targets `main` so unreleased PRs can populate the release-note candidates. After the user manually merges the production pull request and the deployment is verified, pin the draft target to the exact deployed production commit SHA; publishing remains blocked until the user explicitly approves the exact final draft.
 
 ### Pro request edge function slots
 
@@ -68,11 +76,13 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 ### Preparing a new release
 
 - Open the continuously maintained draft GitHub Release before creating the release branch. Its categorized entries are the release-note candidates collected since the previous published release.
-- Create `release/vX.Y.Z` from `main`, then polish the draft entries into the final user-facing copy. Combine related pull requests and remove implementation detail rather than reconstructing the release from commit history.
+- Create `release/vX.Y.Z` from `main`, then use the draft entries as scope candidates for two distinct deliverables: concise user-facing in-app copy and more technical GitHub release notes.
 - Update the user-facing changelog in [src/index.html](src/index.html) under the `#whats-new` section.
 - Update the version string in [src/utils/helpers.ts](src/utils/helpers.ts) so the badge and changelog header display the new version.
-- Update the draft GitHub Release to mirror the final in-app changelog.
-- Merge the release branch into `main`, promote `main` to `production`, and verify the Cloudflare deployment before publishing the draft.
+- Open the `release/*` pull request into `main` with `skip-changelog`, present the exact in-app changelog and version changes to the user, and wait for the user to merge it manually.
+- After the user merges it, wait for Release Drafter's final `main` update before replacing its generated PR titles with the prepared GitHub release notes.
+- Open the `main` pull request into `production`, report its checks, and wait for the user to merge it manually. After that merge, verify the Cloudflare deployment, record the exact deployed production commit SHA, and pin the draft target to that SHA.
+- Present the exact final GitHub Release title, tag, target, full notes, and all proposed edits to the user. Publish it only after the user explicitly approves that exact final draft.
 
 ### How to build the changelog well
 
@@ -81,31 +91,34 @@ npm run sync-db-types  # Sync Supabase types to src/types/database.types.ts
 - Do not mention developer-only infrastructure or internal workflow changes unless they directly affect Zodiac users.
 - Favor broad, human phrasing such as `RPG group chat stability improvements` over overly granular engineering detail.
 - When a shipped feature is genuinely user-visible, name it clearly (for example, `Message debug tools`) instead of hiding it behind vague wording.
+- Include only features the user has explicitly approved as release-ready. Code being merged or deployed does not by itself authorize announcing the feature.
 - Good entries should feel like release notes written for users: concise, readable, and slightly polished rather than deeply technical.
 
 ### Tagging guidance
 
 - Release tags must point at the exact commit deployed from `production`.
 - Do not create or publish the tag while either the release-preparation PR into `main` or the promotion PR into `production` is still open.
-- Verify the Cloudflare production deployment first, then publish the draft GitHub Release. Its `production` target creates the `vX.Y.Z` tag at the deployed branch head.
+- Do not create or publish the tag until the user explicitly approves the exact final GitHub Release draft and every proposed change to it.
+- After the user manually merges the production pull request, verify the Cloudflare production deployment, pin the draft to the exact deployed production commit SHA, and present the final draft for approval. Publishing the approved draft creates the `vX.Y.Z` tag at that pinned commit.
 
 ### Creating the GitHub Release
 
 - Release Drafter creates and maintains the upcoming GitHub Release as a draft; do not create a second release manually.
-- Publish the existing draft only after `main` has been promoted to `production` and the Cloudflare deployment has been verified.
-- Confirm that the draft targets `production` and that its version tag matches the version in [src/utils/helpers.ts](src/utils/helpers.ts).
+- Publish the existing draft only after the user manually merges `main` into `production`, the Cloudflare deployment has been verified, and the user explicitly approves the exact final draft and all proposed edits.
+- Pin the draft target from `main` to the exact verified deployed production commit SHA, then confirm that its version tag matches the version in [src/utils/helpers.ts](src/utils/helpers.ts).
 - Title the release to match that version tag (for example, `v1.8.5`).
-- The GitHub Release notes should mirror the in-app changelog from the `#whats-new` section in [src/index.html](src/index.html). Do not use raw PR titles or commit messages.
-- Reformat the changelog entries as a Markdown list under a `## What's New` heading, keeping the same user-facing, product-focused phrasing (bold the feature name, then the benefit):
+- The GitHub Release notes and in-app changelog cover the same approved release scope but are separate deliverables and should not be assumed to use the same wording.
+- GitHub Release notes may be more technical and specific. They can describe concrete changes such as old-to-new copy, layout changes, and affected systems, while the in-app changelog should summarize the user-facing outcome.
+- Rewrite the generated PR titles as a Markdown list under a `## What's New` heading rather than publishing raw PR titles or commit messages:
 
     ```markdown
     ## What's New
 
-    - **Richer model picker:** Browse models by provider family, search faster, and pin favorites for quicker access.
-    - **More model choices:** New OpenRouter options are available, including expanded Gemini, Grok, Qwen, DeepSeek, and Inception models.
+    - **Model picker navigation:** Reorganized models by provider family and added faster search and favorite pinning.
+    - **Composer layout:** Moved narrow-screen actions into the overflow menu so the primary controls remain accessible.
     ```
 
-- Publish the prepared draft with `gh release edit <tag> --draft=false --latest`, after confirming its title, notes, and `production` target.
+- Pin the prepared draft with `gh release edit <tag> --target <verified-production-commit-sha>` and verify that exact target commit. Show the user the exact final title, tag, target SHA, full notes, and proposed changes; only after explicit approval may it be published with `gh release edit <tag> --draft=false --latest`.
 
 ## Conventions
 
@@ -184,8 +197,14 @@ db.version(N)
 
 User preferences use `localStorage` with service-level get/set wrappers. See [src/services/Settings.service.ts](src/services/Settings.service.ts).
 
+### Subscription Entitlement Changes
+
+- When a plan's allowance amounts change, preserve allowances already granted for the subscriber's current allowance window and apply the new amounts at the next allowance period unless the user explicitly requests an immediate change.
+- New subscriptions receive the current allowance configuration immediately. Subscription lifecycle changes such as cancellation or switching tiers continue to follow the active subscription state and are not deferred by this rule.
+
 ### Test Scope And Failure Mapping
 
+- Before creating a new test or materially expanding an existing test, discuss the proposed coverage with the user and get approval. Explain which behavior the test will protect, which test layer it belongs to, and why the test is valuable before writing it.
 - Treat tests as three explicit layers:
 - Type 1: pure logic/unit tests. These can mock freely and should not make UI behavior claims.
 - Type 2: service/state integration tests. Use these for app-owned rules and invariants without claiming real browser behavior. Good examples: deleting the correct chat record, editing message `content[231]` without shifting other indices, pruning the correct tail on regenerate, or building the correct final payload at the cloud-sync boundary.
