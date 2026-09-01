@@ -3,6 +3,7 @@
  */
 
 import type { ColorTheme, ThemeMode, ThemePreference } from "./Theme";
+import type { SubscriptionPurchaseType } from "./Price";
 
 export enum OnboardingPath {
 	EASY = "easy",
@@ -42,5 +43,5 @@ export interface OnboardingState {
 	registrationCompleted: boolean;
 	setupOption: OnboardingSetupOption;
 	pendingCredentials: OnboardingPendingCredentials | null;
-	selectedPriceId: string | null;
+	selectedPurchaseType: SubscriptionPurchaseType | null;
 }

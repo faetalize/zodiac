@@ -174,4 +174,32 @@ describe("Supabase auth refresh handling", () => {
 			})
 		);
 	});
+
+	it("uses the normalized Stripe Product tier before legacy Price aliases", async () => {
+		const { getSubscriptionTier } = await import("../../../src/services/Supabase.service");
+
+		expect(
+			getSubscriptionTier({
+				id: "sub-target",
+				user_id: "user-1",
+				status: "active",
+				price_id: "price_from_future_stripe_account",
+				tier: "pro_plus",
+				stripe_account: "zozoai-prod"
+			})
+		).toBe("pro_plus");
+	});
+
+	it("keeps legacy Price aliases as a rollout fallback", async () => {
+		const { getSubscriptionTier } = await import("../../../src/services/Supabase.service");
+
+		expect(
+			getSubscriptionTier({
+				id: "sub-source",
+				user_id: "user-1",
+				status: "active",
+				price_id: "price_1T9DCYKcI9PDo3JBsFc4nlZa"
+			})
+		).toBe("max");
+	});
 });
