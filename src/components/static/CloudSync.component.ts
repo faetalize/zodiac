@@ -615,6 +615,10 @@ onAppEvent(
 
 			const startupUserId = session?.user.id;
 			if (!startupUserId) return;
+			// Supabase can emit the same authenticated session again while its first
+			// startup check is still loading. Keep one unlock flow active per user so
+			// a slower duplicate cannot reopen the modal after the user dismisses it.
+			if (syncStartupUserId === startupUserId) return;
 			syncStartupUserId = startupUserId;
 
 			const tier = getSubscriptionTier(subscription ?? null);

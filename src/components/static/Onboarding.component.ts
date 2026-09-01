@@ -3,7 +3,7 @@
  */
 
 import { OnboardingPath, OnboardingStep } from "../../types/Onboarding";
-import { SubscriptionPriceIDs } from "../../types/Price";
+import type { SubscriptionPurchaseType } from "../../types/Price";
 import type { ColorTheme, ThemeMode } from "../../types/Theme";
 import * as onboardingService from "../../services/Onboarding.service";
 import * as supabaseService from "../../services/Supabase.service";
@@ -839,32 +839,35 @@ function setOnboardingBillingMode(mode: OnboardingBillingMode): void {
 	}
 }
 
-function getSelectedPriceIdForPlan(plan: OnboardingPlanType, billingMode: OnboardingBillingMode): string {
+function getSelectedPurchaseTypeForPlan(
+	plan: OnboardingPlanType,
+	billingMode: OnboardingBillingMode
+): SubscriptionPurchaseType {
 	switch (plan) {
 		case "pro":
-			return billingMode === "yearly" ? SubscriptionPriceIDs.PRO_YEARLY : SubscriptionPriceIDs.PRO_MONTHLY;
+			return billingMode === "yearly" ? "pro_yearly" : "pro_monthly";
 		case "pro_plus":
-			return billingMode === "yearly"
-				? SubscriptionPriceIDs.PRO_PLUS_YEARLY
-				: SubscriptionPriceIDs.PRO_PLUS_MONTHLY;
+			return billingMode === "yearly" ? "pro_plus_yearly" : "pro_plus_monthly";
 		case "max":
-			return billingMode === "yearly" ? SubscriptionPriceIDs.MAX_YEARLY : SubscriptionPriceIDs.MAX_MONTHLY;
+			return billingMode === "yearly" ? "max_yearly" : "max_monthly";
 	}
 }
 
-function getSubscriptionSummaryFromPriceId(priceId: string | null): OnboardingSubscriptionSummary | null {
-	switch (priceId) {
-		case SubscriptionPriceIDs.PRO_MONTHLY:
+function getSubscriptionSummaryFromPurchaseType(
+	purchaseType: SubscriptionPurchaseType | null
+): OnboardingSubscriptionSummary | null {
+	switch (purchaseType) {
+		case "pro_monthly":
 			return { planLabel: "Pro", billingLabel: "Monthly" };
-		case SubscriptionPriceIDs.PRO_YEARLY:
+		case "pro_yearly":
 			return { planLabel: "Pro", billingLabel: "Yearly" };
-		case SubscriptionPriceIDs.PRO_PLUS_MONTHLY:
+		case "pro_plus_monthly":
 			return { planLabel: "Pro Plus", billingLabel: "Monthly" };
-		case SubscriptionPriceIDs.PRO_PLUS_YEARLY:
+		case "pro_plus_yearly":
 			return { planLabel: "Pro Plus", billingLabel: "Yearly" };
-		case SubscriptionPriceIDs.MAX_MONTHLY:
+		case "max_monthly":
 			return { planLabel: "Max", billingLabel: "Monthly" };
-		case SubscriptionPriceIDs.MAX_YEARLY:
+		case "max_yearly":
 			return { planLabel: "Max", billingLabel: "Yearly" };
 		default:
 			return null;
@@ -924,7 +927,9 @@ function initializeOnboardingPricing(): void {
 				event.preventDefault();
 				event.stopImmediatePropagation();
 				void (async () => {
-					onboardingService.setSelectedPriceId(getSelectedPriceIdForPlan(plan, getOnboardingBillingMode()));
+					onboardingService.setSelectedPurchaseType(
+						getSelectedPurchaseTypeForPlan(plan, getOnboardingBillingMode())
+					);
 					await routeToCloudSyncOrSettings();
 				})();
 			},
@@ -1138,21 +1143,6 @@ function setupRegistration(): void {
 }
 
 /**
- * Map price IDs to Stripe purchase type strings
- */
-function getPurchaseTypeFromPriceId(priceId: string): string | null {
-	const mapping: Record<string, string> = {
-		[SubscriptionPriceIDs.PRO_MONTHLY]: "pro_monthly",
-		[SubscriptionPriceIDs.PRO_YEARLY]: "pro_yearly",
-		[SubscriptionPriceIDs.PRO_PLUS_MONTHLY]: "pro_plus_monthly",
-		[SubscriptionPriceIDs.PRO_PLUS_YEARLY]: "pro_plus_yearly",
-		[SubscriptionPriceIDs.MAX_MONTHLY]: "max_monthly",
-		[SubscriptionPriceIDs.MAX_YEARLY]: "max_yearly"
-	};
-	return mapping[priceId] || null;
-}
-
-/**
  * Summary step handlers
  */
 function setupSummary(): void {
@@ -1160,7 +1150,7 @@ function setupSummary(): void {
 		"click",
 		() =>
 			void (async () => {
-				const selectedPriceId = onboardingService.getSelectedPriceId();
+				const selectedPurchaseType = onboardingService.getSelectedPurchaseType();
 
 				// Apply theme settings from onboarding state before everything else
 				applyThemeSettings();
@@ -1173,20 +1163,14 @@ function setupSummary(): void {
 				}
 
 				// Subscription flow - redirect to Stripe checkout
-				if (selectedPriceId) {
+				if (selectedPurchaseType) {
 					try {
 						summaryFinishButton!.disabled = true;
 						summaryFinishButton!.textContent = "Redirecting...";
 
-						// Determine purchase type based on price ID
-						const purchaseType = getPurchaseTypeFromPriceId(selectedPriceId);
-						if (!purchaseType) {
-							throw new Error("Invalid price ID");
-						}
-
 						const { data, error } = await supabaseService.supabase.functions.invoke("stripe", {
 							method: "POST",
-							body: JSON.stringify({ purchaseType })
+							body: JSON.stringify({ purchaseType: selectedPurchaseType })
 						});
 
 						if (error) {
@@ -1296,10 +1280,10 @@ function navigateToChatTab(): void {
  * Render summary step based on whether subscription was selected
  */
 function renderSummary(): void {
-	const selectedPriceId = onboardingService.getSelectedPriceId();
-	const selectedSubscriptionSummary = getSubscriptionSummaryFromPriceId(selectedPriceId);
+	const selectedPurchaseType = onboardingService.getSelectedPurchaseType();
+	const selectedSubscriptionSummary = getSubscriptionSummaryFromPurchaseType(selectedPurchaseType);
 
-	if (selectedPriceId) {
+	if (selectedPurchaseType) {
 		// Subscription flow
 		summaryApiKeyContent!.classList.add("hidden");
 		summarySubscriptionContent!.classList.remove("hidden");

@@ -3,6 +3,7 @@
  */
 
 import type { ColorTheme, ThemeMode, ThemePreference } from "../types/Theme";
+import type { SubscriptionPurchaseType } from "../types/Price";
 import type {
 	OnboardingPath,
 	OnboardingPendingCredentials,
@@ -21,7 +22,7 @@ let currentState: OnboardingState = {
 	registrationCompleted: false,
 	setupOption: null,
 	pendingCredentials: null,
-	selectedPriceId: null
+	selectedPurchaseType: null
 };
 
 const onboardingOverlay = document.querySelector<HTMLDivElement>("#onboarding-overlay");
@@ -52,7 +53,7 @@ export function show(): void {
 		registrationCompleted: false,
 		setupOption: null,
 		pendingCredentials: null,
-		selectedPriceId: null
+		selectedPurchaseType: null
 	};
 
 	getOverlay().classList.remove("hidden");
@@ -141,12 +142,12 @@ export function getPendingCredentials(): OnboardingPendingCredentials | null {
 	return currentState.pendingCredentials ? { ...currentState.pendingCredentials } : null;
 }
 
-export function setSelectedPriceId(priceId: string | null): void {
-	currentState.selectedPriceId = priceId;
+export function setSelectedPurchaseType(purchaseType: SubscriptionPurchaseType | null): void {
+	currentState.selectedPurchaseType = purchaseType;
 }
 
-export function getSelectedPriceId(): string | null {
-	return currentState.selectedPriceId;
+export function getSelectedPurchaseType(): SubscriptionPurchaseType | null {
+	return currentState.selectedPurchaseType;
 }
 
 export function setSelectedTheme(theme: ColorTheme): void {

@@ -1,7 +1,7 @@
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 import type { User } from "../types/User";
-import { SubscriptionPriceIDs, SubscriptionPriceIDsOld } from "../types/Price";
+import { LEGACY_SUBSCRIPTION_PRICE_IDS } from "../types/Price";
 import type { ImageGenerationPermitted } from "../types/ImageGenerationTypes";
 import { danger, warn } from "./Toast.service";
 import type {
@@ -354,7 +354,9 @@ export async function getUserSubscription(session?: Session): Promise<UserSubscr
 	if (!currentUser) return null;
 	const { data, error } = await supabase
 		.from("user_subscriptions")
-		.select("user_id,status,price_id,current_period_end,cancel_at_period_end,stripe_customer_id")
+		.select(
+			"user_id,status,price_id,tier,billing_interval,stripe_account,current_period_end,cancel_at_period_end,stripe_customer_id"
+		)
 		.eq("user_id", currentUser.id)
 		.order("current_period_end", { ascending: false })
 		.limit(1)
@@ -456,30 +458,15 @@ export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionT
 	if (["canceled", "incomplete_expired", "unpaid"].includes(String(sub.status))) {
 		return "free";
 	}
-	switch (sub.price_id) {
-		case SubscriptionPriceIDs.MAX_MONTHLY:
-		case SubscriptionPriceIDs.MAX_YEARLY:
-			return "max";
-		case SubscriptionPriceIDs.PRO_PLUS_MONTHLY:
-		case SubscriptionPriceIDs.PRO_PLUS_YEARLY:
-			return "pro_plus";
-		case "price_1S0hdiGiJrKwXclRByeNLSPu": //legacy 14.99 oldstripe
-		case "price_1SDdbKGiJrKwXclR7hn7fF4s": //legacy oldstripe
-		case SubscriptionPriceIDsOld.PRO_MONTHLY:
-		case SubscriptionPriceIDsOld.PRO_YEARLY:
-		case SubscriptionPriceIDs.PRO_MONTHLY:
-		case SubscriptionPriceIDs.PRO_YEARLY:
-			return "pro";
-		default:
-			return "free";
+	if (sub.tier === "pro" || sub.tier === "pro_plus" || sub.tier === "max") {
+		return sub.tier;
 	}
-}
-
-export function getBillingPortalUrlWithEmail(email: string | null): string {
-	const base = "https://billing.stripe.com/p/login/5kQ8wQfgzcX6bfP8hNb7y00";
-	if (!email) return base;
-	const param = encodeURIComponent(email);
-	return `${base}?prefilled_email=${param}`;
+	if (sub.price_id && (LEGACY_SUBSCRIPTION_PRICE_IDS.max as readonly string[]).includes(sub.price_id)) return "max";
+	if (sub.price_id && (LEGACY_SUBSCRIPTION_PRICE_IDS.pro_plus as readonly string[]).includes(sub.price_id)) {
+		return "pro_plus";
+	}
+	if (sub.price_id && (LEGACY_SUBSCRIPTION_PRICE_IDS.pro as readonly string[]).includes(sub.price_id)) return "pro";
+	return "free";
 }
 
 export async function openCustomerPortal(): Promise<void> {
@@ -547,7 +534,7 @@ export async function updateSubscriptionUI(
 						: "—";
 		}
 		if (manageBtn) {
-			if (tier === "free") {
+			if (tier === "free" || sub?.stripe_account === "manual") {
 				manageBtn.classList.add("hidden");
 				manageBtn.onclick = null;
 			} else {

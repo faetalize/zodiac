@@ -4,7 +4,7 @@ import { seedLocalSettings, stubExternalTraffic } from "../helpers/app";
 
 const SUPABASE_HOST = "hglcltvwunzynnzduauy.supabase.co";
 const TEST_USER_ID = "00000000-0000-4000-8000-000000000152";
-const PRO_MONTHLY_PRICE_ID = "price_1SOU2lKcI9PDo3JBhsT8URS9";
+const PRO_MONTHLY_PRICE_ID = "price_from_future_stripe_account";
 
 function jsonResponse(body: unknown, status = 200) {
 	return {
@@ -68,6 +68,9 @@ async function stubSupabaseQuotaFull(page: Page): Promise<void> {
 					user_id: TEST_USER_ID,
 					status: "active",
 					price_id: PRO_MONTHLY_PRICE_ID,
+					tier: "pro",
+					billing_interval: "month",
+					stripe_account: "zozoai-prod",
 					current_period_end: "2026-12-31T00:00:00.000Z",
 					cancel_at_period_end: false,
 					stripe_customer_id: "cus_quota_playwright"
