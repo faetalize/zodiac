@@ -983,47 +983,44 @@ export type Database = {
 			};
 			user_subscriptions: {
 				Row: {
-					billing_interval: string | null;
 					cancel_at_period_end: boolean | null;
 					created_at: string;
 					current_period_end: string | null;
 					price_id: string | null;
+					price_lookup_key: string | null;
 					remaining_image_generations: number;
 					status: string;
 					stripe_customer_id: string | null;
 					stripe_account: string;
 					stripe_subscription_id: string | null;
-					tier: string | null;
 					updated_at: string;
 					user_id: string;
 				};
 				Insert: {
-					billing_interval?: string | null;
 					cancel_at_period_end?: boolean | null;
 					created_at?: string;
 					current_period_end?: string | null;
 					price_id?: string | null;
+					price_lookup_key?: string | null;
 					remaining_image_generations?: number;
 					status: string;
 					stripe_customer_id?: string | null;
 					stripe_account?: string;
 					stripe_subscription_id?: string | null;
-					tier?: string | null;
 					updated_at?: string;
 					user_id: string;
 				};
 				Update: {
-					billing_interval?: string | null;
 					cancel_at_period_end?: boolean | null;
 					created_at?: string;
 					current_period_end?: string | null;
 					price_id?: string | null;
+					price_lookup_key?: string | null;
 					remaining_image_generations?: number;
 					status?: string;
 					stripe_customer_id?: string | null;
 					stripe_account?: string;
 					stripe_subscription_id?: string | null;
-					tier?: string | null;
 					updated_at?: string;
 					user_id?: string;
 				};
@@ -1285,6 +1282,7 @@ export type Database = {
 					remaining_mega_credits: number | null;
 					remaining_purchased_image_gens: number | null;
 					remaining_subscription_image_gens: number | null;
+					price_lookup_key: string | null;
 					stripe_account: string | null;
 					stripe_customer_id: string | null;
 					stripe_subscription_id: string | null;

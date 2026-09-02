@@ -1,3 +1,5 @@
+import type { SubscriptionPurchaseType } from "./Price";
+
 export type SubscriptionTier = "free" | "pro" | "pro_plus" | "max" | "canceled";
 
 export interface UserSubscription {
@@ -5,8 +7,7 @@ export interface UserSubscription {
 	user_id: string;
 	status: string;
 	price_id: string | null;
-	tier?: Exclude<SubscriptionTier, "free" | "canceled"> | null;
-	billing_interval?: "month" | "year" | null;
+	price_lookup_key?: SubscriptionPurchaseType | string | null;
 	stripe_account?: "ysa-prod" | "zozoai-prod" | "manual" | null;
 	current_period_end?: string | number | null;
 	cancel_at_period_end?: boolean | null;
