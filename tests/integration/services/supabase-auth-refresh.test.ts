@@ -175,7 +175,7 @@ describe("Supabase auth refresh handling", () => {
 		);
 	});
 
-	it("uses the normalized Stripe Product tier before legacy Price aliases", async () => {
+	it("uses the Stripe Price lookup key before legacy Price aliases", async () => {
 		const { getSubscriptionTier } = await import("../../../src/services/Supabase.service");
 
 		expect(
@@ -184,7 +184,7 @@ describe("Supabase auth refresh handling", () => {
 				user_id: "user-1",
 				status: "active",
 				price_id: "price_from_future_stripe_account",
-				tier: "pro_plus",
+				price_lookup_key: "pro_plus_monthly",
 				stripe_account: "zozoai-prod"
 			})
 		).toBe("pro_plus");

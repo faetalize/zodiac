@@ -6,8 +6,8 @@ export type SubscriptionPurchaseType =
 	| "max_monthly"
 	| "max_yearly";
 
-// Compatibility aliases for rows written before Stripe Product metadata became
-// the primary tier source. New Stripe accounts do not belong in frontend code.
+// Compatibility aliases for rows written before Stripe Price lookup keys became
+// the stored subscription identity. New Stripe accounts do not belong in frontend code.
 export const LEGACY_SUBSCRIPTION_PRICE_IDS = {
 	pro: [
 		"price_1S0hdiGiJrKwXclRByeNLSPu",

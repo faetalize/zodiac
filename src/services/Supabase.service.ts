@@ -355,7 +355,7 @@ export async function getUserSubscription(session?: Session): Promise<UserSubscr
 	const { data, error } = await supabase
 		.from("user_subscriptions")
 		.select(
-			"user_id,status,price_id,tier,billing_interval,stripe_account,current_period_end,cancel_at_period_end,stripe_customer_id"
+			"user_id,status,price_id,price_lookup_key,stripe_account,current_period_end,cancel_at_period_end,stripe_customer_id"
 		)
 		.eq("user_id", currentUser.id)
 		.order("current_period_end", { ascending: false })
@@ -458,9 +458,9 @@ export function getSubscriptionTier(sub: UserSubscription | null): SubscriptionT
 	if (["canceled", "incomplete_expired", "unpaid"].includes(String(sub.status))) {
 		return "free";
 	}
-	if (sub.tier === "pro" || sub.tier === "pro_plus" || sub.tier === "max") {
-		return sub.tier;
-	}
+	if (sub.price_lookup_key === "max_monthly" || sub.price_lookup_key === "max_yearly") return "max";
+	if (sub.price_lookup_key === "pro_plus_monthly" || sub.price_lookup_key === "pro_plus_yearly") return "pro_plus";
+	if (sub.price_lookup_key === "pro_monthly" || sub.price_lookup_key === "pro_yearly") return "pro";
 	if (sub.price_id && (LEGACY_SUBSCRIPTION_PRICE_IDS.max as readonly string[]).includes(sub.price_id)) return "max";
 	if (sub.price_id && (LEGACY_SUBSCRIPTION_PRICE_IDS.pro_plus as readonly string[]).includes(sub.price_id)) {
 		return "pro_plus";
