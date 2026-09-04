@@ -241,3 +241,38 @@ test("restoring conflicts as copies remaps the imported chat to the copied perso
 	expect(importedChat.id).not.toBe("chat-conflict");
 	expect(importedChat.content[0].personalityid).toBe(importedPersona.id);
 });
+
+test("importing a takeout containing an API key keeps the danger confirmation accessible and clickable", async ({
+	page
+}) => {
+	await stubExternalTraffic(page, []);
+	await seedLocalSettings(page);
+	await page.goto("/");
+
+	const takeout = await page.evaluate(async () => {
+		const importModule = new Function("path", "return import(path);") as (path: string) => Promise<any>;
+		const { createTakeoutDocument } = await importModule("/utils/takeout.ts");
+		return await createTakeoutDocument({
+			source: "local",
+			categories: ["apiKeys"],
+			chats: [],
+			personas: [],
+			settings: { API_KEY: "imported-test-api-key" }
+		});
+	});
+
+	await openDataManagement(page);
+	await page.locator("#btn-import-data").click();
+	await page.locator("#takeout-import-files").setInputFiles({
+		name: "takeout-with-api-key.json",
+		mimeType: "application/json",
+		buffer: Buffer.from(JSON.stringify(takeout))
+	});
+	await page.locator("#btn-takeout-import").click();
+
+	await expect(page.locator("#dialog")).toBeVisible();
+	await expect(page.locator("#dialog-message")).toContainText("readable BYOK API keys");
+	await expect(page.locator("#btn-dialog-ok")).toBeVisible();
+	await expect(page.locator("#btn-dialog-ok")).toBeEnabled();
+	await page.locator("#btn-dialog-ok").click({ trial: true });
+});

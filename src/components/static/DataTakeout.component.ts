@@ -118,6 +118,14 @@ function prepareTakeoutSheet(sheet: HTMLElement): void {
 	prepareSheets();
 }
 
+function closeSurfaceAndWait(sheet: HTMLElement): Promise<void> {
+	if (sheet.classList.contains("hidden")) return Promise.resolve();
+	return new Promise((resolve) => {
+		sheet.addEventListener("surface-closed", () => resolve(), { once: true });
+		surfaceService.close(sheet.id);
+	});
+}
+
 function updateProgress(element: HTMLElement, progress: takeoutService.TakeoutProgress): void {
 	element.textContent =
 		progress.total > 1 ? `${progress.message} ${progress.completed}/${progress.total}` : progress.message;
@@ -234,14 +242,17 @@ async function commitImport(resolution: TakeoutConflictResolution): Promise<void
 	setImportBusy(true);
 	try {
 		if (pendingInspection.categories.includes("apiKeys") && !sensitiveImportConfirmed) {
+			await closeSurfaceAndWait(importSheet);
 			const confirmed = await confirmDialogDanger(
 				"This takeout contains readable BYOK API keys. Import them only if you trust the file and will keep the source secure."
 			);
 			if (!confirmed) {
 				importStatus.textContent = "API-key import canceled. No data was changed.";
+				surfaceService.show(importSheet.id);
 				return;
 			}
 			sensitiveImportConfirmed = true;
+			surfaceService.show(importSheet.id);
 		}
 		const result = await takeoutService.commitTakeoutImport(pendingInspection, resolution, {
 			onProgress: (progress) => updateProgress(importStatus, progress)
