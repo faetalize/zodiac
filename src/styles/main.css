@@ -2768,7 +2768,7 @@ form {
 	accent-color: var(--primary);
 }
 
-.takeout-option span,
+.takeout-option__copy,
 .takeout-file-picker span:not(.material-symbols-outlined) {
 	display: flex;
 	flex-direction: column;

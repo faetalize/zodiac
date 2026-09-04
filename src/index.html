@@ -3322,103 +3322,121 @@ Your Max plan no longer has a monthly usage limit.</textarea
 					</div>
 				</div>
 				<div class="takeout-sheet__scroll">
-					<label class="takeout-option takeout-option--select-all">
+					<label class="takeout-option takeout-option--select-all onboarding-checkbox-label">
 						<input id="takeout-select-all" type="checkbox" checked data-surface-initial-focus />
-						<span><strong>Select all</strong><small>All non-sensitive categories</small></span>
+						<span class="onboarding-checkbox-custom"></span>
+						<span class="takeout-option__copy"
+							><strong>Select all</strong><small>All non-sensitive categories</small></span
+						>
 					</label>
 					<fieldset class="takeout-options" aria-label="Export categories">
-						<label class="takeout-option"
+						<label class="takeout-option onboarding-checkbox-label"
 							><input
 								id="takeout-category-chats"
 								name="takeout-category"
 								type="checkbox"
 								value="chats"
 								checked
-							/><span
+							/><span class="onboarding-checkbox-custom"></span
+							><span class="takeout-option__copy"
 								><strong>Chats</strong><small>Conversations and complete message history</small></span
 							></label
 						>
-						<label class="takeout-option"
+						<label class="takeout-option onboarding-checkbox-label"
 							><input
 								id="takeout-category-media"
 								name="takeout-category"
 								type="checkbox"
 								value="media"
 								checked
-							/><span
+							/><span class="onboarding-checkbox-custom"></span
+							><span class="takeout-option__copy"
 								><strong>Attachments & media</strong
 								><small>Attached files and generated images in selected chats</small></span
 							></label
 						>
-						<label class="takeout-option"
+						<label class="takeout-option onboarding-checkbox-label"
 							><input
 								id="takeout-category-personas"
 								name="takeout-category"
 								type="checkbox"
 								value="personas"
 								checked
-							/><span
+							/><span class="onboarding-checkbox-custom"></span
+							><span class="takeout-option__copy"
 								><strong>Personas</strong><small>Custom personas and their identity links</small></span
 							></label
 						>
-						<label class="takeout-option"
+						<label class="takeout-option onboarding-checkbox-label"
 							><input
 								id="takeout-category-settings"
 								name="takeout-category"
 								type="checkbox"
 								value="settings"
 								checked
-							/><span
+							/><span class="onboarding-checkbox-custom"></span
+							><span class="takeout-option__copy"
 								><strong>Settings</strong
 								><small>Model, generation, and interface preferences</small></span
 							></label
 						>
-						<label class="takeout-option"
+						<label class="takeout-option onboarding-checkbox-label"
 							><input
 								id="takeout-category-themes"
 								name="takeout-category"
 								type="checkbox"
 								value="themes"
 								checked
-							/><span><strong>Themes</strong><small>Color and light/dark preferences</small></span></label
+							/><span class="onboarding-checkbox-custom"></span
+							><span class="takeout-option__copy"
+								><strong>Themes</strong><small>Color and light/dark preferences</small></span
+							></label
 						>
-						<label class="takeout-option"
+						<label class="takeout-option onboarding-checkbox-label"
 							><input
 								id="takeout-category-loras"
 								name="takeout-category"
 								type="checkbox"
 								value="loras"
 								checked
-							/><span><strong>LoRAs</strong><small>Saved LoRA references</small></span></label
+							/><span class="onboarding-checkbox-custom"></span
+							><span class="takeout-option__copy"
+								><strong>LoRAs</strong><small>Saved LoRA references</small></span
+							></label
 						>
-						<label class="takeout-option"
+						<label class="takeout-option onboarding-checkbox-label"
 							><input
 								id="takeout-category-pins"
 								name="takeout-category"
 								type="checkbox"
 								value="pins"
 								checked
-							/><span><strong>Pins</strong><small>Pinned chats, personas, and models</small></span></label
+							/><span class="onboarding-checkbox-custom"></span
+							><span class="takeout-option__copy"
+								><strong>Pins</strong><small>Pinned chats, personas, and models</small></span
+							></label
 						>
-						<label class="takeout-option"
+						<label class="takeout-option onboarding-checkbox-label"
 							><input
 								id="takeout-category-roleplay"
 								name="takeout-category"
 								type="checkbox"
 								value="roleplay"
 								checked
-							/><span
+							/><span class="onboarding-checkbox-custom"></span
+							><span class="takeout-option__copy"
 								><strong>Roleplay customizations</strong
 								><small>Instructions, actions, categories, and favorites</small></span
 							></label
 						>
-						<label class="takeout-option takeout-option--sensitive"
+						<label class="takeout-option takeout-option--sensitive onboarding-checkbox-label"
 							><input
 								id="takeout-category-apiKeys"
 								name="takeout-category"
 								type="checkbox"
 								value="apiKeys"
-							/><span
+							/><span class="onboarding-checkbox-custom"></span
+							><span class="takeout-option__copy"
 								><strong>BYOK API keys</strong><small>Not included by Select all</small></span
 							></label
 						>
