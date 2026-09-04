@@ -136,6 +136,10 @@ export function getSyncStatus(): SyncStatus {
 	return syncStatus;
 }
 
+export function getPendingSyncOperationCount(): number {
+	return offlineQueue.length;
+}
+
 // ── Sync prompt tracking ───────────────────────────────────────────────────
 
 export function hasSeenSyncPrompt(): boolean {
@@ -646,6 +650,10 @@ async function materializeMessageBlobBackedMedia(message: Message): Promise<Mess
 	}
 
 	return message;
+}
+
+export async function materializeMessagesForPortableExport(messages: Message[]): Promise<Message[]> {
+	return await Promise.all(messages.map((message) => materializeMessageBlobBackedMedia(message)));
 }
 
 export async function restoreRemoteDataToLocalUnencrypted(): Promise<boolean> {
