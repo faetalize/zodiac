@@ -28,7 +28,8 @@ export interface Personality {
  * ## ID Architecture
  *
  * **`id`** - Local UUID for internal operations only:
- * - Generated fresh on import (never reuses marketplace ID)
+ * - Preserved by identity-restoring takeouts when there is no conflict
+ * - Generated fresh for new personas and imports explicitly restored as copies
  * - Used for chat-to-persona associations
  * - Allows duplicate imports of same marketplace persona
  * - Stable even if marketplace is unavailable

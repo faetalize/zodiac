@@ -1013,39 +1013,23 @@
 
 									<div class="btn-array-vertical">
 										<label class="setting-label">
-											<span class="material-symbols-outlined">upload_file</span>
-											<span>Import</span>
+											<span class="material-symbols-outlined">archive</span>
+											<span>Takeout & Restore</span>
 											<span
 												class="material-symbols-outlined tooltip"
 												style="font-size: 0.885rem; opacity: 0.6; cursor: default"
-												info="Import previously exported chats and personas from JSON files."
+												info="Export selected Zozo Chat data into one takeout file or restore a takeout and supported legacy files."
 												>info</span
 											>
 										</label>
 										<div class="btn-array">
-											<button class="btn btn-primary" id="btn-bulk-import-chats">
-												Import Chats
+											<button class="btn btn-primary" id="btn-export-data" type="button">
+												<span class="material-symbols-outlined">download</span>
+												Export Data
 											</button>
-											<button class="btn btn-primary" id="btn-bulk-import-personas">
-												Import Personas
-											</button>
-										</div>
-										<label class="setting-label">
-											<span class="material-symbols-outlined">download</span>
-											<span>Export</span>
-											<span
-												class="material-symbols-outlined tooltip"
-												style="font-size: 0.885rem; opacity: 0.6; cursor: default"
-												info="Export your current chats and personas to JSON backups."
-												>info</span
-											>
-										</label>
-										<div class="btn-array">
-											<button class="btn btn-primary" id="btn-export-all-chats">
-												Export All Chats
-											</button>
-											<button class="btn btn-primary" id="btn-export-all-personas">
-												Export All Personas
+											<button class="btn btn-primary" id="btn-import-data" type="button">
+												<span class="material-symbols-outlined">upload_file</span>
+												Import Data
 											</button>
 										</div>
 										<label class="setting-label">
@@ -3324,6 +3308,223 @@ Your Max plan no longer has a monthly usage limit.</textarea
 		</div>
 
 		<div id="surface-plane" class="surface-plane" aria-live="polite">
+			<div
+				id="takeout-export-sheet"
+				class="takeout-sheet hidden"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="takeout-export-title"
+			>
+				<div class="takeout-sheet__header">
+					<div>
+						<h1 id="takeout-export-title">Export your data</h1>
+						<p id="takeout-export-source" class="takeout-sheet__subtitle"></p>
+					</div>
+				</div>
+				<div class="takeout-sheet__scroll">
+					<label class="takeout-option takeout-option--select-all">
+						<input id="takeout-select-all" type="checkbox" checked data-surface-initial-focus />
+						<span><strong>Select all</strong><small>All non-sensitive categories</small></span>
+					</label>
+					<fieldset class="takeout-options" aria-label="Export categories">
+						<label class="takeout-option"
+							><input
+								id="takeout-category-chats"
+								name="takeout-category"
+								type="checkbox"
+								value="chats"
+								checked
+							/><span
+								><strong>Chats</strong><small>Conversations and complete message history</small></span
+							></label
+						>
+						<label class="takeout-option"
+							><input
+								id="takeout-category-media"
+								name="takeout-category"
+								type="checkbox"
+								value="media"
+								checked
+							/><span
+								><strong>Attachments & media</strong
+								><small>Attached files and generated images in selected chats</small></span
+							></label
+						>
+						<label class="takeout-option"
+							><input
+								id="takeout-category-personas"
+								name="takeout-category"
+								type="checkbox"
+								value="personas"
+								checked
+							/><span
+								><strong>Personas</strong><small>Custom personas and their identity links</small></span
+							></label
+						>
+						<label class="takeout-option"
+							><input
+								id="takeout-category-settings"
+								name="takeout-category"
+								type="checkbox"
+								value="settings"
+								checked
+							/><span
+								><strong>Settings</strong
+								><small>Model, generation, and interface preferences</small></span
+							></label
+						>
+						<label class="takeout-option"
+							><input
+								id="takeout-category-themes"
+								name="takeout-category"
+								type="checkbox"
+								value="themes"
+								checked
+							/><span><strong>Themes</strong><small>Color and light/dark preferences</small></span></label
+						>
+						<label class="takeout-option"
+							><input
+								id="takeout-category-loras"
+								name="takeout-category"
+								type="checkbox"
+								value="loras"
+								checked
+							/><span><strong>LoRAs</strong><small>Saved LoRA references</small></span></label
+						>
+						<label class="takeout-option"
+							><input
+								id="takeout-category-pins"
+								name="takeout-category"
+								type="checkbox"
+								value="pins"
+								checked
+							/><span><strong>Pins</strong><small>Pinned chats, personas, and models</small></span></label
+						>
+						<label class="takeout-option"
+							><input
+								id="takeout-category-roleplay"
+								name="takeout-category"
+								type="checkbox"
+								value="roleplay"
+								checked
+							/><span
+								><strong>Roleplay customizations</strong
+								><small>Instructions, actions, categories, and favorites</small></span
+							></label
+						>
+						<label class="takeout-option takeout-option--sensitive"
+							><input
+								id="takeout-category-apiKeys"
+								name="takeout-category"
+								type="checkbox"
+								value="apiKeys"
+							/><span
+								><strong>BYOK API keys</strong><small>Not included by Select all</small></span
+							></label
+						>
+					</fieldset>
+					<p id="takeout-api-key-warning" class="takeout-warning hidden" role="alert">
+						The downloaded file will contain readable API keys. Store it securely.
+					</p>
+					<div id="takeout-export-status" class="takeout-status" role="status" aria-live="polite"></div>
+				</div>
+				<div class="overlay-actions">
+					<button id="btn-takeout-export" class="btn btn-primary" type="button">Create Takeout</button>
+					<button id="btn-takeout-export-cancel" class="btn btn-secondary hidden" type="button">
+						Cancel
+					</button>
+					<button id="btn-takeout-export-close" class="btn btn-secondary" type="button">Close</button>
+				</div>
+			</div>
+
+			<div
+				id="takeout-import-sheet"
+				class="takeout-sheet hidden"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="takeout-import-title"
+			>
+				<div class="takeout-sheet__header">
+					<div>
+						<h1 id="takeout-import-title">Import your data</h1>
+						<p class="takeout-sheet__subtitle">
+							Restore a Zozo Chat takeout or supported legacy chat and persona files.
+						</p>
+					</div>
+				</div>
+				<div class="takeout-sheet__scroll">
+					<label class="takeout-file-picker" for="takeout-import-files">
+						<span class="material-symbols-outlined">upload_file</span>
+						<span
+							><strong>Choose files</strong
+							><small>One takeout, or multiple legacy JSON/.personality files</small></span
+						>
+					</label>
+					<input
+						id="takeout-import-files"
+						class="takeout-file-input"
+						type="file"
+						accept=".json,.personality,application/json"
+						multiple
+						data-surface-initial-focus
+					/>
+					<div id="takeout-file-summary" class="takeout-file-summary">No files selected.</div>
+					<fieldset class="takeout-destinations">
+						<legend>Restore to</legend>
+						<label class="takeout-option"
+							><input
+								id="takeout-destination-local"
+								name="takeout-destination"
+								type="radio"
+								value="local"
+							/><span
+								><strong>This browser</strong
+								><small id="takeout-destination-local-note">Local IndexedDB and settings</small></span
+							></label
+						>
+						<label class="takeout-option"
+							><input
+								id="takeout-destination-cloud"
+								name="takeout-destination"
+								type="radio"
+								value="cloud"
+							/><span
+								><strong>Cloud Sync</strong
+								><small id="takeout-destination-cloud-note"
+									>Checks eligibility and unlock state</small
+								></span
+							></label
+						>
+					</fieldset>
+					<button id="btn-takeout-prepare-cloud" class="btn btn-secondary hidden" type="button">
+						Set up or unlock Cloud Sync
+					</button>
+					<div
+						id="takeout-conflicts"
+						class="takeout-conflicts hidden"
+						role="alert"
+						aria-labelledby="takeout-conflict-title"
+					>
+						<strong id="takeout-conflict-title"
+							>Some entries have IDs that already exist in the target. Should we restore them as copies,
+							or overwrite?</strong
+						>
+						<p id="takeout-conflict-summary"></p>
+						<div class="btn-array">
+							<button id="btn-takeout-copy" class="btn btn-primary" type="button">
+								Restore as copies
+							</button>
+							<button id="btn-takeout-overwrite" class="btn btn-danger" type="button">Overwrite</button>
+						</div>
+					</div>
+					<div id="takeout-import-status" class="takeout-status" role="status" aria-live="polite"></div>
+				</div>
+				<div class="overlay-actions">
+					<button id="btn-takeout-import" class="btn btn-primary" type="button">Review & Import</button>
+					<button id="btn-takeout-import-close" class="btn btn-secondary" type="button">Close</button>
+				</div>
+			</div>
+
 			<div
 				id="modal-roleplay-add"
 				class="adaptive-sheet hidden"

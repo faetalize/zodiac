@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { getSettings } from "../services/Settings.service";
+import { APP_VERSION } from "../constants/App";
 
 // Description: This file contains helper functions that are used throughout the application.
 
@@ -57,7 +58,7 @@ export function lightenCard(element: HTMLElement) {
 }
 
 export function getVersion() {
-	return "1.8.9";
+	return APP_VERSION;
 }
 
 export function getSanitized(string: string) {
