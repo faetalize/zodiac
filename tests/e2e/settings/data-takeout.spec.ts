@@ -276,3 +276,26 @@ test("importing a takeout containing an API key keeps the danger confirmation ac
 	await expect(page.locator("#btn-dialog-ok")).toBeEnabled();
 	await page.locator("#btn-dialog-ok").click({ trial: true });
 });
+
+test("cloud sync setup is visible and clickable when opened from the takeout import sheet", async ({ page }) => {
+	await stubExternalTraffic(page, []);
+	await seedLocalSettings(page);
+	await page.goto("/");
+	await openDataManagement(page);
+	await page.locator("#btn-import-data").click();
+
+	await page.locator("#btn-takeout-prepare-cloud").evaluate((button) => button.classList.remove("hidden"));
+	await page.locator("#btn-takeout-prepare-cloud").click();
+
+	await expect(page.locator("#sync-prompt-modal")).toBeVisible();
+	await expect(page.locator("#btn-sync-prompt-enable")).toBeVisible();
+	await expect(page.locator("#btn-sync-prompt-enable")).toBeEnabled();
+	await page.locator("#btn-sync-prompt-enable").click();
+
+	await expect(page.locator("#sync-modal")).toBeVisible();
+	await expect(page.locator("#sync-password")).toBeVisible();
+	await expect(page.locator("#sync-password-confirm")).toBeVisible();
+	await expect(page.locator("#btn-sync-confirm")).toBeVisible();
+	await expect(page.locator("#btn-sync-confirm")).toBeEnabled();
+	await page.locator("#btn-sync-confirm").click({ trial: true });
+});

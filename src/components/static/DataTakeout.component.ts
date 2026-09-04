@@ -342,19 +342,24 @@ exportCancelButton.addEventListener("click", () => exportAbortController?.abort(
 exportCloseButton.addEventListener("click", () => surfaceService.close(exportSheet.id));
 importButton.addEventListener("click", () => void reviewImport());
 importCloseButton.addEventListener("click", () => surfaceService.close(importSheet.id));
-prepareCloudButton.addEventListener("click", () => {
-	const preferences = syncService.getCachedSyncPreferences();
-	if (preferences?.syncEnabled) {
-		dispatchAppEvent("sync-unlock-required", { isFirstSetup: false, mode: "unlock" });
-		return;
-	}
-	const hasEncryptionMaterial =
-		!!preferences?.encryptionSalt && !!preferences.keyVerification && !!preferences.keyVerificationIv;
-	dispatchAppEvent("sync-unlock-required", {
-		isFirstSetup: !hasEncryptionMaterial,
-		mode: hasEncryptionMaterial ? "enable" : "setup"
-	});
-});
+prepareCloudButton.addEventListener(
+	"click",
+	() =>
+		void (async () => {
+			await closeSurfaceAndWait(importSheet);
+			const preferences = syncService.getCachedSyncPreferences();
+			if (preferences?.syncEnabled) {
+				dispatchAppEvent("sync-unlock-required", { isFirstSetup: false, mode: "unlock" });
+				return;
+			}
+			const hasEncryptionMaterial =
+				!!preferences?.encryptionSalt && !!preferences.keyVerification && !!preferences.keyVerificationIv;
+			dispatchAppEvent("sync-unlock-required", {
+				isFirstSetup: !hasEncryptionMaterial,
+				mode: hasEncryptionMaterial ? "enable" : "setup"
+			});
+		})()
+);
 copyButton.addEventListener("click", () => void commitImport("copy"));
 overwriteButton.addEventListener("click", () => void commitImport("overwrite"));
 importFiles.addEventListener("change", () => {
