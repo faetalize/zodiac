@@ -139,12 +139,13 @@ function report(onProgress: ((progress: TakeoutProgress) => void) | undefined, p
 export async function buildTakeoutExport(
 	categories: readonly TakeoutCategory[],
 	onProgress?: (progress: TakeoutProgress) => void,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	sourceOverride?: TakeoutSource
 ): Promise<BuildTakeoutExportResult> {
 	signal?.throwIfAborted();
 	if (categories.length === 0) throw new Error("Select at least one category to export.");
 
-	const source: TakeoutSource = syncService.isOnlineSyncEnabled() ? "cloud" : "local";
+	const source: TakeoutSource = sourceOverride ?? (syncService.isOnlineSyncEnabled() ? "cloud" : "local");
 	if (source === "cloud") assertCloudExportReady();
 
 	report(onProgress, { phase: "reading", completed: 0, total: 1, message: `Reading ${source} data…` });
@@ -200,8 +201,12 @@ export async function buildTakeoutExport(
 }
 
 export async function getTakeoutImportDestinations(): Promise<TakeoutImportDestinations> {
-	const syncEnabled = syncService.isOnlineSyncEnabled();
 	const user = await supabaseService.getCurrentUser();
+	// Migration defers sync startup UI, so its preference cache may not be populated yet.
+	if (user) {
+		await syncService.fetchSyncPreferences({ throwOnError: true });
+	}
+	const syncEnabled = syncService.isOnlineSyncEnabled();
 	const subscription = user ? await supabaseService.getUserSubscription() : null;
 	const tier = supabaseService.getSubscriptionTier(subscription);
 	const cloudEligible = !!user && (tier === "pro" || tier === "pro_plus" || tier === "max");
@@ -492,9 +497,12 @@ export function downloadTakeout(takeout: TakeoutDocument, filename: string): voi
 	anchor.download = filename;
 	anchor.style.display = "none";
 	document.body.append(anchor);
-	anchor.click();
-	anchor.remove();
-	window.setTimeout(() => URL.revokeObjectURL(url), 0);
+	try {
+		anchor.click();
+	} finally {
+		anchor.remove();
+		window.setTimeout(() => URL.revokeObjectURL(url), 0);
+	}
 }
 
 function documentElement<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K] {

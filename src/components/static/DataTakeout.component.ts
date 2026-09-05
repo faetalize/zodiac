@@ -1,6 +1,11 @@
 import { DEFAULT_TAKEOUT_CATEGORIES } from "../../constants/Takeout";
 import { dispatchAppEvent, onAppEvent } from "../../events";
-import type { TakeoutCategory, TakeoutConflictResolution, TakeoutDestination } from "../../types/Takeout";
+import type {
+	TakeoutCategory,
+	TakeoutConflictResolution,
+	TakeoutDestination,
+	TakeoutSource
+} from "../../types/Takeout";
 import * as takeoutService from "../../services/Takeout.service";
 import * as surfaceService from "../../services/Surface.service";
 import * as syncService from "../../services/Sync.service";
@@ -50,12 +55,52 @@ let pendingInspection: takeoutService.TakeoutImportInspection | null = null;
 let sensitiveImportConfirmed = false;
 let exportAbortController: AbortController | null = null;
 
+interface ExportSheetOptions {
+	categories?: readonly TakeoutCategory[];
+	source?: TakeoutSource;
+	onDownloadInitiated?: (result: takeoutService.BuildTakeoutExportResult) => void;
+	onClose?: () => void;
+}
+let exportOptions: ExportSheetOptions = {};
+let importOnClose: (() => void) | undefined;
+
+export function openTakeoutExport(options: ExportSheetOptions = {}): void {
+	if (exportBusy) return;
+	exportOptions = options;
+	resetExportSheet();
+	prepareTakeoutSheet(exportSheet);
+	surfaceService.show(exportSheet.id);
+}
+
+export function openTakeoutImport(options: { instructions?: string; onClose?: () => void } = {}): void {
+	if (importBusy) return;
+	importOnClose = options.onClose;
+	resetImportSheet();
+	must("#takeout-import-instructions").textContent =
+		options.instructions ?? "Restore a Zozo Chat takeout or supported legacy chat and persona files.";
+	prepareTakeoutSheet(importSheet);
+	surfaceService.show(importSheet.id);
+	void refreshImportDestinations();
+}
+
+exportSheet.addEventListener("surface-closed", () => {
+	const onClose = exportOptions.onClose;
+	exportOptions = {};
+	if (onClose) queueMicrotask(onClose);
+});
+importSheet.addEventListener("surface-closed", () => {
+	const onClose = importOnClose;
+	importOnClose = undefined;
+	if (onClose) queueMicrotask(onClose);
+});
+
 function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
 	return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
 function setExportBusy(busy: boolean): void {
 	exportBusy = busy;
+	exportSheet.dataset.surfaceBusy = String(busy);
 	exportButton.disabled = busy;
 	exportCloseButton.disabled = busy;
 	exportCancelButton.classList.toggle("hidden", !busy);
@@ -68,6 +113,7 @@ function setExportBusy(busy: boolean): void {
 
 function setImportBusy(busy: boolean): void {
 	importBusy = busy;
+	importSheet.dataset.surfaceBusy = String(busy);
 	importButton.disabled = busy;
 	importCloseButton.disabled = busy;
 	importFiles.disabled = busy;
@@ -92,14 +138,19 @@ function refreshCategoryState(): void {
 }
 
 function resetExportSheet(): void {
-	const defaults = new Set(DEFAULT_TAKEOUT_CATEGORIES);
+	const defaults = new Set(exportOptions.categories ?? DEFAULT_TAKEOUT_CATEGORIES);
 	categoryInputs.forEach((input) => {
 		input.checked = defaults.has(input.value as TakeoutCategory);
 	});
 	exportStatus.textContent = "";
 	setExportBusy(false);
 	refreshCategoryState();
-	const source = syncService.isOnlineSyncEnabled() ? "Cloud Sync" : "this browser";
+	const source =
+		exportOptions.source === "local"
+			? "this browser"
+			: syncService.isOnlineSyncEnabled()
+				? "Cloud Sync"
+				: "this browser";
 	exportSource.textContent = `Authoritative source: ${source}.`;
 }
 
@@ -172,12 +223,18 @@ function formatImportResult(result: takeoutService.TakeoutImportResult): string 
 
 async function refreshImportDestinations(): Promise<void> {
 	importStatus.textContent = "Checking restore destinations…";
+	for (const destination of [localDestination, cloudDestination]) {
+		destination.dataset.available = "false";
+		destination.disabled = true;
+		destination.checked = false;
+	}
+	prepareCloudButton.classList.add("hidden");
 	try {
 		const destinations = await takeoutService.getTakeoutImportDestinations();
 		localDestination.dataset.available = String(destinations.local.available);
 		cloudDestination.dataset.available = String(destinations.cloud.available);
-		localDestination.disabled = !destinations.local.available;
-		cloudDestination.disabled = !destinations.cloud.available;
+		localDestination.disabled = importBusy || !destinations.local.available;
+		cloudDestination.disabled = importBusy || !destinations.cloud.available;
 		localDestinationNote.textContent = destinations.local.available
 			? "Local IndexedDB and settings"
 			: destinations.local.reason || "Unavailable";
@@ -210,9 +267,11 @@ async function createExport(): Promise<void> {
 		const result = await takeoutService.buildTakeoutExport(
 			categories,
 			(progress) => updateProgress(exportStatus, progress),
-			exportAbortController.signal
+			exportAbortController.signal,
+			exportOptions.source
 		);
 		takeoutService.downloadTakeout(result.document, result.filename);
+		exportOptions.onDownloadInitiated?.(result);
 		const summary = formatExportResult(result);
 		transitionSheetHeight(exportSheet, () => {
 			exportStatus.textContent = summary;
@@ -326,17 +385,8 @@ selectAll.addEventListener("change", () => {
 });
 categoryInputs.forEach((input) => input.addEventListener("change", refreshCategoryState));
 
-openExportButton.addEventListener("click", () => {
-	resetExportSheet();
-	prepareTakeoutSheet(exportSheet);
-	surfaceService.show(exportSheet.id);
-});
-openImportButton.addEventListener("click", () => {
-	resetImportSheet();
-	prepareTakeoutSheet(importSheet);
-	surfaceService.show(importSheet.id);
-	void refreshImportDestinations();
-});
+openExportButton.addEventListener("click", () => openTakeoutExport());
+openImportButton.addEventListener("click", () => openTakeoutImport());
 exportButton.addEventListener("click", () => void createExport());
 exportCancelButton.addEventListener("click", () => exportAbortController?.abort());
 exportCloseButton.addEventListener("click", () => surfaceService.close(exportSheet.id));

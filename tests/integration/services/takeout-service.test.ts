@@ -20,6 +20,7 @@ const dbMock = vi.hoisted(() => ({
 }));
 
 const syncServiceMock = vi.hoisted(() => ({
+	fetchSyncPreferences: vi.fn(),
 	isOnlineSyncEnabled: vi.fn(),
 	isSyncActive: vi.fn(),
 	getSyncStatus: vi.fn(),

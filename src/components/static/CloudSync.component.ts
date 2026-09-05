@@ -22,6 +22,7 @@ import type { SyncStatus } from "../../events";
 import { info, danger } from "../../services/Toast.service";
 import { confirmDialog, confirmDialogDanger } from "../../utils/helpers";
 import { getSubscriptionTier } from "../../services/Supabase.service";
+import { startupPresentation } from "../../services/StartupPresentation.service";
 
 // ── DOM Elements ───────────────────────────────────────────────────────────
 
@@ -604,6 +605,7 @@ onAppEvent(
 	(event) =>
 		void (async () => {
 			const { loggedIn, subscription, session } = event.detail;
+			if (startupPresentation.migrationActive) await startupPresentation.ready;
 
 			if (!loggedIn) {
 				// Hide sync section, reset state

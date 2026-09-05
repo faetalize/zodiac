@@ -53,7 +53,7 @@
 			<span id="maintenance-banner-text"></span>
 		</div>
 
-		<div id="main-container">
+		<div id="main-container" aria-busy="true">
 			<div id="dialog" class="dialog hidden">
 				<div id="dialog-message"></div>
 				<div id="dialog-buttons" class="btn-array">
@@ -1077,7 +1077,7 @@
 								</a>
 							</div>
 						</div>
-						<div class="settings-list-item" id="debug-section">
+						<div class="settings-list-item hidden" id="debug-section">
 							<h3 class="debug">Debug</h3>
 							<div class="btn-array-vertical debug">
 								<button class="btn btn-primary" id="btn-debug-chats">Generate 10 Random Chats</button>
@@ -1105,6 +1105,9 @@
 									Open Subscription Options
 								</button>
 								<button class="btn btn-primary" id="btn-debug-onboarding">Test Onboarding</button>
+								<button class="btn btn-primary hidden" id="btn-debug-migration" type="button">
+									Test migration
+								</button>
 								<button class="btn btn-primary" id="btn-debug-announcement">
 									Compose Announcement Preview
 								</button>
@@ -3308,12 +3311,68 @@ Your Max plan no longer has a monthly usage limit.</textarea
 		</div>
 
 		<div id="surface-plane" class="surface-plane" aria-live="polite">
+			<section
+				id="domain-migration-sheet"
+				class="domain-migration-sheet hidden"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="domain-migration-title"
+				aria-describedby="domain-migration-description"
+				data-trap-focus="true"
+				data-dismiss-on-escape="false"
+			>
+				<h1 id="domain-migration-title" tabindex="-1" data-surface-initial-focus>Zodiac is now Zozo</h1>
+				<p id="domain-migration-description">
+					And it has a new home at
+					<a
+						class="domain-migration-destination"
+						href="https://chat.zozo.sh"
+						target="_blank"
+						rel="noopener noreferrer"
+						>https://chat.zozo.sh</a
+					>
+				</p>
+				<p>Bring your data with you to ensure a smooth transition</p>
+				<p
+					id="domain-migration-status"
+					class="domain-migration-error hidden"
+					role="status"
+					aria-live="polite"
+				></p>
+				<button
+					id="btn-migration-export"
+					type="button"
+					class="btn btn-secondary hidden"
+					data-local-migration
+					disabled
+				>
+					Export data
+				</button>
+				<label class="domain-migration-acknowledgement hidden" data-local-migration>
+					<input id="migration-confirmed" type="checkbox" disabled />
+					<span id="migration-confirmation-label">I’m ready to continue</span>
+				</label>
+				<div class="domain-migration-actions">
+					<button
+						id="btn-migration-continue"
+						type="button"
+						class="btn btn-primary hidden"
+						data-local-migration
+						disabled
+						aria-describedby="migration-confirmation-label"
+					>
+						Continue to Zozo Chat
+					</button>
+					<button id="btn-migration-retry" type="button" class="btn btn-secondary hidden">Try again</button>
+				</div>
+			</section>
 			<div
 				id="takeout-export-sheet"
 				class="takeout-sheet hidden"
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby="takeout-export-title"
+				data-trap-focus="true"
 			>
 				<div class="takeout-sheet__header">
 					<div>
@@ -3461,11 +3520,12 @@ Your Max plan no longer has a monthly usage limit.</textarea
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby="takeout-import-title"
+				data-trap-focus="true"
 			>
 				<div class="takeout-sheet__header">
 					<div>
 						<h1 id="takeout-import-title">Import your data</h1>
-						<p class="takeout-sheet__subtitle">
+						<p id="takeout-import-instructions" class="takeout-sheet__subtitle">
 							Restore a Zozo Chat takeout or supported legacy chat and persona files.
 						</p>
 					</div>

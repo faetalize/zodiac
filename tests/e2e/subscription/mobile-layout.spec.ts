@@ -2,11 +2,13 @@ import { expect, test, type Page } from "@playwright/test";
 import { seedLocalSettings, stubExternalTraffic } from "../helpers/app";
 
 async function openSubscriptionOverlay(page: Page): Promise<void> {
+	await expect(page.locator("#main-container")).toHaveAttribute("aria-busy", "false");
 	await page.evaluate(async () => {
 		const importModule = new Function("path", "return import(path);") as (path: string) => Promise<any>;
 		const overlayService = await importModule("/services/Overlay.service.ts");
 		overlayService.show("form-subscription");
 	});
+	await expect(page.locator("#form-subscription")).toBeVisible();
 }
 
 test("keeps subscription plan cards within the pricing panel on mobile", async ({ page }) => {

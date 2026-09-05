@@ -28,7 +28,7 @@ if (
 
 const actionSelect = actionInput;
 const actionLabel = actionLabelInput;
-const isLocalhost = ["localhost", "127.0.0.1", "::1", "192.168.1.1"].includes(window.location.hostname);
+const isDev = import.meta.env.DEV;
 
 function updateActionLabelState(): void {
 	const hasAction = actionSelect.value === "dismiss" || actionSelect.value === "next";
@@ -36,7 +36,7 @@ function updateActionLabelState(): void {
 	actionLabel.required = hasAction;
 }
 
-if (isLocalhost) {
+if (isDev) {
 	openButton.addEventListener("click", () => {
 		overlayService.show("form-debug-announcement");
 		updateActionLabelState();

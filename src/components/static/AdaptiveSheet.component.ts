@@ -98,7 +98,7 @@ function resetSheetPosition(sheet: HTMLElement): void {
 }
 
 function beginDrag(sheet: HTMLElement, handle: HTMLElement, clientY: number, pointerId?: number): void {
-	if (!adaptiveSheetMediaQuery.matches || dragState) return;
+	if (!adaptiveSheetMediaQuery.matches || dragState || sheet.dataset.surfaceBusy === "true") return;
 
 	dragState = {
 		sheet,

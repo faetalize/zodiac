@@ -13,6 +13,10 @@ on:
             - unlabeled
     workflow_dispatch:
 
+concurrency:
+    group: merge-gate-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
+
 jobs:
     verify:
         runs-on: ubuntu-latest
