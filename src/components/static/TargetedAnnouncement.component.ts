@@ -3,6 +3,7 @@ import { onAppEvent } from "../../events";
 import { getEligibleAnnouncements, recordAnnouncementReceipt } from "../../services/Announcement.service";
 import * as overlayService from "../../services/Overlay.service";
 import { getCurrentUser } from "../../services/Supabase.service";
+import { startupPresentation } from "../../services/StartupPresentation.service";
 
 const overlayElement = document.querySelector<HTMLElement>("#overlay");
 const onboardingOverlayElement = document.querySelector<HTMLElement>("#onboarding-overlay");
@@ -48,8 +49,7 @@ let appReady = false;
 let presentationPaused = false;
 
 function readDebugAnnouncement(): Announcement | null {
-	const isLocalhost = ["localhost", "127.0.0.1", "::1", "192.168.1.1"].includes(window.location.hostname);
-	if (!isLocalhost) return null;
+	if (!import.meta.env.DEV) return null;
 
 	const stored = localStorage.getItem(DEBUG_ANNOUNCEMENT_STORAGE_KEY);
 	if (!stored) return null;
@@ -90,6 +90,8 @@ let announcements: Announcement[] = debugAnnouncement ? [debugAnnouncement] : []
 
 function canPresent(): boolean {
 	return (
+		!startupPresentation.migrationActive &&
+		!document.querySelector("#surface-plane .surface-open") &&
 		overlay.classList.contains("hidden") &&
 		onboardingOverlay.classList.contains("hidden") &&
 		Array.from(appDialogs).every((dialog) => dialog.classList.contains("hidden"))
@@ -247,6 +249,7 @@ onAppEvent("auth-state-changed", (event) => {
 });
 
 async function initializeAnnouncements(): Promise<void> {
+	if (startupPresentation.migrationActive) await startupPresentation.ready;
 	const user = await getCurrentUser();
 	appReady = true;
 	if (user) {

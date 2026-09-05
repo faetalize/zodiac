@@ -6,6 +6,7 @@ const surfacePlane = surfacePlaneElement;
 
 const closeTimers = new WeakMap<HTMLElement, number>();
 const focusRestoreTargets = new WeakMap<HTMLElement, HTMLElement>();
+const inertBackground = new Set<HTMLElement>();
 let activeSurface: HTMLElement | null = null;
 let outsideDismissPointerStart: { surface: HTMLElement; startedOutside: boolean } | null = null;
 const surfaceActiveClass = "surface-plane--active";
@@ -24,7 +25,7 @@ const FOCUSABLE_SELECTOR = [
 function isAvailableFocusTarget(candidate: HTMLElement): boolean {
 	if (candidate.hasAttribute("disabled")) return false;
 	if (candidate.closest(".hidden")) return false;
-	return true;
+	return candidate.getClientRects().length > 0;
 }
 
 function getSurface(elementId: string): HTMLElement | null {
@@ -49,15 +50,32 @@ function refreshSurfacePlaneState(): void {
 
 	surfacePlane.classList.toggle(surfaceActiveClass, openSurfaces.length > 0);
 	surfacePlane.classList.toggle(surfaceBlurredClass, hasOpenAdaptiveSheet);
+	const trapFocus = openSurfaces.some((element) => element.dataset.trapFocus === "true");
+	if (trapFocus) {
+		for (const child of document.body.children) {
+			if (
+				!(child instanceof HTMLElement) ||
+				child === surfacePlane ||
+				child.inert ||
+				child.matches("script, style")
+			)
+				continue;
+			child.inert = true;
+			inertBackground.add(child);
+		}
+	} else {
+		for (const child of inertBackground) child.inert = false;
+		inertBackground.clear();
+	}
 }
 
 function finishClose(element: HTMLElement): void {
 	element.classList.add("hidden");
 	element.classList.remove("surface-open", "surface-closing");
-	element.dispatchEvent(new CustomEvent("surface-closed"));
-	restoreFocus(element);
 	if (activeSurface === element) activeSurface = null;
 	refreshSurfacePlaneState();
+	restoreFocus(element);
+	element.dispatchEvent(new CustomEvent("surface-closed"));
 }
 
 function getInitialFocusTarget(element: HTMLElement): HTMLElement {
@@ -144,7 +162,34 @@ export function closeAll(): void {
 }
 
 document.addEventListener("keydown", (event) => {
-	if (event.key === "Escape" && activeSurface) close();
+	if (!activeSurface) return;
+	if (event.key === "Escape") {
+		event.preventDefault();
+		if (activeSurface.dataset.dismissOnEscape !== "false" && activeSurface.dataset.surfaceBusy !== "true") close();
+	}
+	if (event.key === "Tab" && activeSurface.dataset.trapFocus === "true") {
+		const targets = Array.from(activeSurface.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+			(target) => target.tabIndex >= 0 && isAvailableFocusTarget(target)
+		);
+		const first = targets[0];
+		const last = targets.at(-1);
+		if (!first || !last) {
+			event.preventDefault();
+			activeSurface.focus();
+		} else if (
+			event.shiftKey &&
+			(document.activeElement === first || !targets.includes(document.activeElement as HTMLElement))
+		) {
+			event.preventDefault();
+			last.focus();
+		} else if (
+			!event.shiftKey &&
+			(document.activeElement === last || !targets.includes(document.activeElement as HTMLElement))
+		) {
+			event.preventDefault();
+			first.focus();
+		}
+	}
 });
 
 surfacePlane.addEventListener("pointerdown", (event) => {

@@ -38,16 +38,16 @@ if (
 	throw new Error("DebugButtons component is not properly initialized.");
 }
 
-// Only enable debug UI when running on localhost
-const isLocalhost = ["localhost", "127.0.0.1", "::1", "192.168.1.1"].includes(window.location.hostname);
+// Debug controls follow the build mode, including dev servers on LAN addresses.
+const isDev = import.meta.env.DEV;
 
-if (!isLocalhost) {
-	// Hide debug UI entirely in non-local environments
+if (!isDev) {
+	// Hide debug UI in production builds.
 	if (debugSection) {
 		debugSection.classList.add("hidden");
 	}
 } else {
-	// Ensure required buttons exist in localhost
+	// Show debug controls in development.
 	if (debugSection) {
 		debugSection.classList.remove("hidden");
 	}
@@ -103,7 +103,7 @@ const modelMessages = [
 ];
 
 // Register listeners only in localhost
-if (isLocalhost && generateRandomChatsButton)
+if (isDev && generateRandomChatsButton)
 	generateRandomChatsButton.addEventListener(
 		"click",
 		() =>
@@ -219,7 +219,7 @@ const toneExampleSets = [
 	["What an intriguing possibility!", "Let's explore uncharted territory...", "Adventure awaits in this concept!"]
 ];
 
-if (isLocalhost && generateRandomPersonalitiesButton)
+if (isDev && generateRandomPersonalitiesButton)
 	generateRandomPersonalitiesButton.addEventListener(
 		"click",
 		() =>
@@ -250,7 +250,7 @@ if (isLocalhost && generateRandomPersonalitiesButton)
 			})()
 	);
 
-if (isLocalhost && generateLongChatButton)
+if (isDev && generateLongChatButton)
 	generateLongChatButton.addEventListener(
 		"click",
 		() =>
@@ -271,7 +271,7 @@ if (isLocalhost && generateLongChatButton)
 			})()
 	);
 
-if (isLocalhost && generateMediumChatButton)
+if (isDev && generateMediumChatButton)
 	generateMediumChatButton.addEventListener(
 		"click",
 		() =>
@@ -293,7 +293,7 @@ if (isLocalhost && generateMediumChatButton)
 	);
 
 // Toast testing buttons
-if (isLocalhost && testToastNormalButton)
+if (isDev && testToastNormalButton)
 	testToastNormalButton.addEventListener("click", () => {
 		toastService.info({
 			title: "Info Toast",
@@ -301,7 +301,7 @@ if (isLocalhost && testToastNormalButton)
 		});
 	});
 
-if (isLocalhost && testToastWarningButton)
+if (isDev && testToastWarningButton)
 	testToastWarningButton.addEventListener("click", () => {
 		toastService.warn({
 			title: "Warning Toast",
@@ -309,7 +309,7 @@ if (isLocalhost && testToastWarningButton)
 		});
 	});
 
-if (isLocalhost && testToastDangerButton)
+if (isDev && testToastDangerButton)
 	testToastDangerButton.addEventListener("click", () => {
 		toastService.danger({
 			title: "Error Toast",
@@ -317,7 +317,7 @@ if (isLocalhost && testToastDangerButton)
 		});
 	});
 
-if (isLocalhost && testToastActionsButton)
+if (isDev && testToastActionsButton)
 	testToastActionsButton.addEventListener("click", () => {
 		toastService.show({
 			title: "Toast with Actions",
@@ -341,7 +341,7 @@ if (isLocalhost && testToastActionsButton)
 		});
 	});
 
-if (isLocalhost && testToastSpamButton)
+if (isDev && testToastSpamButton)
 	testToastSpamButton.addEventListener("click", () => {
 		// Test the 5-toast limit by creating 8 toasts rapidly
 		for (let i = 1; i <= 8; i++) {
@@ -356,12 +356,12 @@ if (isLocalhost && testToastSpamButton)
 		}
 	});
 
-if (isLocalhost && showSubscriptionOptionsButton)
+if (isDev && showSubscriptionOptionsButton)
 	showSubscriptionOptionsButton.addEventListener("click", () => {
 		overlayService.show("form-subscription");
 	});
 
-if (isLocalhost && testOnboardingButton)
+if (isDev && testOnboardingButton)
 	testOnboardingButton.addEventListener("click", () => {
 		onboardingService.show();
 	});
