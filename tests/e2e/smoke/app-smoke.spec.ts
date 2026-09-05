@@ -124,6 +124,7 @@ test("dedicated image models are available only in image selectors", async ({ pa
 	await stubExternalTraffic(page, []);
 	await seedLocalSettings(page);
 	await page.goto("/");
+	await expect(page.locator("#main-container")).toHaveAttribute("aria-busy", "false");
 
 	const imageModelIds = await page
 		.locator("#selectedImageModel option")
