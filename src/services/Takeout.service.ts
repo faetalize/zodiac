@@ -201,8 +201,12 @@ export async function buildTakeoutExport(
 }
 
 export async function getTakeoutImportDestinations(): Promise<TakeoutImportDestinations> {
-	const syncEnabled = syncService.isOnlineSyncEnabled();
 	const user = await supabaseService.getCurrentUser();
+	// Migration defers sync startup UI, so its preference cache may not be populated yet.
+	if (user) {
+		await syncService.fetchSyncPreferences({ throwOnError: true });
+	}
+	const syncEnabled = syncService.isOnlineSyncEnabled();
 	const subscription = user ? await supabaseService.getUserSubscription() : null;
 	const tier = supabaseService.getSubscriptionTier(subscription);
 	const cloudEligible = !!user && (tier === "pro" || tier === "pro_plus" || tier === "max");

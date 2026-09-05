@@ -91,7 +91,7 @@ let announcements: Announcement[] = debugAnnouncement ? [debugAnnouncement] : []
 function canPresent(): boolean {
 	return (
 		!startupPresentation.migrationActive &&
-		!document.querySelector("#surface-plane .surface-open") &&
+		!document.querySelector("#surface-plane .surface-plane__item:not(.hidden)") &&
 		overlay.classList.contains("hidden") &&
 		onboardingOverlay.classList.contains("hidden") &&
 		Array.from(appDialogs).every((dialog) => dialog.classList.contains("hidden"))
@@ -223,6 +223,9 @@ const overlayObserver = new MutationObserver(() => showNextAnnouncement());
 overlayObserver.observe(overlay, { attributes: true, attributeFilter: ["class"] });
 overlayObserver.observe(onboardingOverlay, { attributes: true, attributeFilter: ["class"] });
 appDialogs.forEach((dialog) => overlayObserver.observe(dialog, { attributes: true, attributeFilter: ["class"] }));
+
+// Capture the non-bubbling surface event, then allow any handoff to another dialog to finish.
+document.addEventListener("surface-closed", () => requestAnimationFrame(showNextAnnouncement), true);
 
 onAppEvent("sync-startup-settled", (event) => {
 	syncStartupSettledUserId = event.detail.userId;

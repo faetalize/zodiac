@@ -1,6 +1,60 @@
 import { expect, test } from "@playwright/test";
 
 import { seedLocalSettings, stubExternalTraffic } from "../helpers/app";
+import { newOrigin, seed, serveApp } from "../helpers/migration";
+
+test("a deferred announcement appears when an ordinary import sheet closes", async ({ page }) => {
+	await serveApp(page, { syncEnabled: false });
+	let releaseAnnouncement!: () => void;
+	const announcementReady = new Promise<void>((resolve) => {
+		releaseAnnouncement = resolve;
+	});
+	await page.route("**/rest/v1/announcements*", async (route) => {
+		await announcementReady;
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify([
+				{
+					id: "surface-deferred-announcement",
+					key: "surface-deferred-announcement",
+					title: "Ready after import",
+					body: "This announcement waits for the import sheet to close.",
+					hero_image_url: null,
+					hero_image_alt: null,
+					action: "dismiss",
+					action_label: "Got it"
+				}
+			])
+		});
+	});
+	await seed(page, { origin: newOrigin, signedIn: true, settings: { onboardingCompleted: "true" } });
+	await page.goto(newOrigin);
+	await expect(page.locator("#main-container")).toHaveAttribute("aria-busy", "false");
+	await page.locator(".navbar-tab").filter({ hasText: "Settings" }).first().click();
+	await page.locator('[data-settings-target="data"]').click();
+	await page.locator("#btn-import-data").click();
+	await expect(page.locator("#takeout-import-sheet")).toBeVisible();
+	const receiptsLoaded = page.waitForResponse((response) =>
+		new URL(response.url()).pathname.endsWith("/announcement_receipts")
+	);
+	releaseAnnouncement();
+	await (await receiptsLoaded).finished();
+	// Allow the real fetch continuation and presentation attempt to finish while the sheet is open.
+	await page.evaluate(
+		() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+	);
+	const announcement = page.getByRole("dialog", { name: "Ready after import" });
+	await expect(announcement).toBeHidden();
+	await page.locator("#btn-takeout-import-close").click();
+	await expect(
+		announcement,
+		"Closing the sheet must resume the pending announcement without a refresh"
+	).toBeVisible();
+	await expect(page.locator("#takeout-import-sheet")).toBeHidden();
+	await announcement.getByRole("button", { name: "Got it" }).click();
+	await expect(announcement).toBeHidden();
+});
 
 test("eligible announcements render optional hero media and advance through app actions", async ({ page }) => {
 	const receiptWrites: Array<Record<string, string>> = [];

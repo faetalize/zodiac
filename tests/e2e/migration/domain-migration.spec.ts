@@ -76,6 +76,56 @@ test("enabled but locked Cloud Sync redirects without fetching data or showing u
 	expect(await page.evaluate(() => localStorage.getItem("sb-hglcltvwunzynnzduauy-auth-token"))).toBeNull();
 });
 
+test("migration import respects Cloud Sync already enabled on the destination account", async ({ page }) => {
+	await serveApp(page, { syncEnabled: true });
+	await page.route("**/rest/v1/user_subscriptions*", async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({
+				user_id: "11111111-1111-4111-8111-111111111111",
+				status: "active",
+				price_id: "price_1SOU2lKcI9PDo3JBhsT8URS9",
+				current_period_end: "2026-12-31T00:00:00.000Z",
+				cancel_at_period_end: false
+			})
+		});
+	});
+	await seed(page, { origin: newOrigin, signedIn: true, settings: { onboardingCompleted: "true" } });
+	await seed(page, { chat: true });
+	await page.goto(oldOrigin);
+	await page.locator("#btn-migration-export").click();
+	const downloading = page.waitForEvent("download");
+	await page.locator("#btn-takeout-export").click();
+	const download = await downloading;
+	const bytes = await readFile((await download.path())!);
+	await page.locator("#btn-takeout-export-close").click();
+	await page.locator("#migration-confirmed").check();
+	await page.locator("#btn-migration-continue").click();
+	await expect(page.locator("#takeout-import-sheet")).toBeVisible();
+	await expect(
+		page.locator("#takeout-destination-local"),
+		"Migration must not offer local import for a synced account"
+	).toBeDisabled();
+	await expect(page.locator("#takeout-destination-cloud")).toBeChecked();
+	await expect(page.locator("#sync-modal")).toBeHidden();
+	await page
+		.locator("#takeout-import-files")
+		.setInputFiles({ name: "takeout.json", mimeType: "application/json", buffer: bytes });
+	await page.locator("#btn-takeout-import").click();
+	await expect(page.locator("#takeout-import-status")).toContainText("Set up or unlock Cloud Sync");
+	const destination = await page.evaluate(async () => {
+		const importModule = new Function("path", "return import(path)");
+		const { db } = await importModule("/services/Db.service.ts");
+		const sync = await importModule("/services/Sync.service.ts");
+		return { syncEnabled: sync.isOnlineSyncEnabled(), localChats: await db.chats.count() };
+	});
+	expect(destination).toEqual({ syncEnabled: true, localChats: 0 });
+	await page.locator("#btn-takeout-prepare-cloud").click();
+	await expect(page.locator("#sync-modal")).toBeVisible();
+	await expect(page.locator("#sync-password-confirm")).toBeHidden();
+});
+
 test("disabled sync still protects local data even when old encrypted cloud data exists", async ({ page }) => {
 	await serveApp(page, { syncEnabled: false });
 	await seed(page, { signedIn: true, chat: true, settings: { onboardingCompleted: "true" } });

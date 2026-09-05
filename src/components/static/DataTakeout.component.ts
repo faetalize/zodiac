@@ -223,12 +223,18 @@ function formatImportResult(result: takeoutService.TakeoutImportResult): string 
 
 async function refreshImportDestinations(): Promise<void> {
 	importStatus.textContent = "Checking restore destinations…";
+	for (const destination of [localDestination, cloudDestination]) {
+		destination.dataset.available = "false";
+		destination.disabled = true;
+		destination.checked = false;
+	}
+	prepareCloudButton.classList.add("hidden");
 	try {
 		const destinations = await takeoutService.getTakeoutImportDestinations();
 		localDestination.dataset.available = String(destinations.local.available);
 		cloudDestination.dataset.available = String(destinations.cloud.available);
-		localDestination.disabled = !destinations.local.available;
-		cloudDestination.disabled = !destinations.cloud.available;
+		localDestination.disabled = importBusy || !destinations.local.available;
+		cloudDestination.disabled = importBusy || !destinations.cloud.available;
 		localDestinationNote.textContent = destinations.local.available
 			? "Local IndexedDB and settings"
 			: destinations.local.reason || "Unavailable";
